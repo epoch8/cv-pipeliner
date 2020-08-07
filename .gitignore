@@ -4,3 +4,4 @@ result*/
 logs/
 *.egg-info
 lib/models/
+.vscode/
