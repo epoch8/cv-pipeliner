@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List
 import numpy as np
 
 from two_stage_pipeliner.core.data import BboxData, ImageData
@@ -16,7 +16,7 @@ class BatchGenerator:
     def __len__(self) -> int:
         return int(np.floor(len(self.data) / self.batch_size))
 
-    def __getitem__(self, index) -> List[Union[ImageData, BboxData]]:
+    def __getitem__(self, index) -> List:
         indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
         return self.data[indexes]
 

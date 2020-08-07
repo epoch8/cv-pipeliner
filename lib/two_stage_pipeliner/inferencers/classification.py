@@ -3,7 +3,7 @@ from typing import List
 from two_stage_pipeliner.core.data import BboxData
 
 from two_stage_pipeliner.core.batch_generator import BatchGeneratorBboxData
-from two_stage_pipeliner.inference_models.classification import ClassificationModel
+from two_stage_pipeliner.inference_models.classification.core import ClassificationModel
 from two_stage_pipeliner.core.inferencer import Inferencer
 
 
@@ -17,6 +17,7 @@ class ClassificationInferencer(Inferencer):
         n_bboxes_data = []
         for batch in data_generator:
             input = [bbox_data.image_bbox for bbox_data in batch]
+            input = self.model.preprocess_input(input)
             n_results = self.model.predict(input)
             for bbox_data, results in zip(batch, n_results):
                 bboxes_data = []

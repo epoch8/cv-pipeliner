@@ -16,6 +16,7 @@ class PipelineInferencer(Inferencer):
         images_data = []
         for batch in data_generator:
             input = [image_data.image for image_data in batch]
+            input = self.model.preprocess_input(input)
             n_results = self.model.predict(input)
             for image_data, results in zip(batch, n_results):
                 bboxes_data = []

@@ -27,5 +27,15 @@ class DetectionModel(InferenceModel):
         super(DetectionModel, self).__init__()
         self.score_threshold = score_threshold
 
-    def predict(self, input: DetectionInput) -> DetectionOutput:
+    def load(self, checkpoint):
         pass
+
+    def predict(self, input: DetectionInput) -> DetectionOutput:
+        return None
+
+    def preprocess_input(self, input):
+        pass
+
+    @property
+    def input_size(self) -> int:
+        return None
