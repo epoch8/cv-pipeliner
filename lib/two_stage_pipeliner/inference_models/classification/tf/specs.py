@@ -14,7 +14,7 @@ from albumentations import LongestMaxSize, PadIfNeeded, Normalize
 class ClassifierModelSpecTF:
     name: str
     input_size: int
-    preprocess_input: Callable[List[np.ndarray], np.ndarray]
+    preprocess_input: Callable[[List[np.ndarray]], np.ndarray]
     num_classes: int = None
     class_names: List[str] = None
     model_path: Path = None
@@ -43,7 +43,7 @@ def load_model_resnet50(num_classes: int):
     return model
 
 
-def preprocess_input_resnet50(input: np.ndarray):
+def preprocess_input_resnet50(input: List[np.ndarray]):
     resize = LongestMaxSize(max_size=224,
                             interpolation=cv2.INTER_LANCZOS4)
     padding = PadIfNeeded(224, 224,
@@ -51,7 +51,9 @@ def preprocess_input_resnet50(input: np.ndarray):
                           value=0)
     preprocess_input = Normalize()
     input = np.array(
-        [resize(image=np.array(item))['image'] for item in input]
+        [resize(image=np.array(item))['image']
+         if max(np.array(item).shape[0], np.array(item).shape[1]) >= 224 else np.array(item)
+         for item in input]
     )
     input = np.array(
         [padding(image=np.array(item))['image'] for item in input]

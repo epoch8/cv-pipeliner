@@ -23,9 +23,8 @@ DetectionOutput = List[
 
 
 class DetectionModel(InferenceModel):
-    def __init__(self, score_threshold: float):
+    def __init__(self):
         super(DetectionModel, self).__init__()
-        self.score_threshold = score_threshold
 
     def load(self, checkpoint):
         pass

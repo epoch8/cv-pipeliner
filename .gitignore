@@ -5,3 +5,4 @@ logs/
 *.egg-info
 lib/models/
 .vscode/
+__logs__/

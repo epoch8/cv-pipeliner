@@ -16,9 +16,9 @@ class ClassifierTF(ClassificationModel):
     def __init__(self,
                  model_spec: ClassifierModelSpecTF,
                  disable_tqdm: bool = False):
-        super(ClassifierTF, self).__init__(model_spec)
         self.load(model_spec)
         self.disable_tqdm = disable_tqdm
+        self.batch_size = 16
 
     def load(self, checkpoint: ClassifierModelSpecTF):
         model_spec = checkpoint
@@ -48,19 +48,19 @@ class ClassifierTF(ClassificationModel):
         return chunks
 
     def _raw_predict(self,
-                     images: List[List[np.ndarray]],
-                     batch_size: int) -> np.ndarray:
+                     images: List[List[np.ndarray]]) -> np.ndarray:
 
         predictions = []
 
         shapes = [len(sample_batch) for sample_batch in images]
-        images = [item for sublist in images for item in sublist]
+        images = np.array(
+            [item for sublist in images for item in sublist]
+        )
 
         with tqdm(total=len(images), disable=self.disable_tqdm) as pbar:
-            for i in range(0, len(images), batch_size):
-                batch = images[i: i + batch_size]
+            for i in range(0, len(images), self.batch_size):
+                batch = images[i: i + self.batch_size]
 
-                batch = self.classifier_preprocess_input(batch)
                 predictions_batch = self.model.predict(batch)
                 predictions.append(predictions_batch)
 
@@ -87,11 +87,14 @@ class ClassifierTF(ClassificationModel):
         return pred_labels, pred_scores
 
     def predict(self,
-                input: ClassificationInput,
-                batch_size: int = 16) -> ClassificationOutput:
-        raw_prediction = self._raw_predict(input, batch_size)
+                input: ClassificationInput) -> ClassificationOutput:
+        raw_prediction = self._raw_predict(input)
         n_pred_labels, n_pred_scores = self._postprocess_predictions(raw_prediction)
         return n_pred_labels, n_pred_scores
 
     def preprocess_input(self, input):
         return self.model_spec.preprocess_input(input)
+
+    @property
+    def input_size(self) -> int:
+        return self.model_spec.input_size

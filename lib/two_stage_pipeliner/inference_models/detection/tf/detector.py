@@ -7,19 +7,19 @@ from tqdm import tqdm
 from object_detection.utils import config_util
 from object_detection.builders import model_builder
 
-from two_stage_pipeliner.inference_models.detection.core import DetectionModel, DetectorInput, DetectorOutput
-from two_stage_pipeliner.inference_models.tf.specs import DetectorModelSpecTF
+from two_stage_pipeliner.inference_models.detection.core import DetectionModel, DetectionInput, DetectionOutput
+from two_stage_pipeliner.inference_models.detection.tf.specs import DetectorModelSpecTF
 
 
 class DetectorTF(DetectionModel):
     def __init__(self,
-                 score_threshold: float,
                  model_spec: DetectorModelSpecTF,
+                 score_threshold: float,
                  disable_tqdm: bool = False):
-        super(DetectorTF, self).__init__(model_spec)
+        super(DetectorTF, self).__init__()
         self.load(model_spec)
+        self.score_threshold = score_threshold
         self.disable_tqdm = disable_tqdm
-        self.input_size = model_spec.input_size
 
     def load(self, checkpoint: DetectorModelSpecTF):
         model_spec = checkpoint
@@ -32,13 +32,13 @@ class DetectorTF(DetectionModel):
         )
         ckpt = tf.compat.v2.train.Checkpoint(model=self.model)
         ckpt_path = (
-            model_spec.model_dir / 'model_spec' / model_spec.checkpoint_filename
+            model_spec.model_dir / 'checkpoint' / model_spec.checkpoint_filename
         )
         ckpt.restore(str(ckpt_path)).expect_partial()
 
         # Run model through a dummy image so that variables are created
         tf_zeros = tf.zeros(
-            [1, model_spec.input_image_size, model_spec.input_image_size, 3]
+            [1, model_spec.input_size, model_spec.input_size, 3]
         )
         self._raw_predict_single_image_tf(tf_zeros)
         self.model_spec = model_spec
@@ -55,7 +55,6 @@ class DetectorTF(DetectionModel):
                      images: np.ndarray) -> List[Dict]:
         detector_output_dicts = []
         for image in tqdm(images, disable=self.disable_tqdm):
-            image = self.open_image_input(image)
             image_tf = tf.convert_to_tensor(image[None, ...], dtype=tf.float32)
             detector_output_dict = self._raw_predict_single_image_tf(image_tf)
             detector_output_dicts.append(detector_output_dict)
@@ -86,11 +85,10 @@ class DetectorTF(DetectionModel):
 
     def _postprocess_predictions(
             self,
-            images: DetectorInput,
+            images: DetectionInput,
             detector_output_dicts: List[Dict],
-            score_threshold: float,
             open_img_boxes: bool = True
-    ) -> DetectorOutput:
+    ) -> DetectionOutput:
 
         assert len(images) == len(detector_output_dicts)
 
@@ -100,7 +98,7 @@ class DetectorTF(DetectionModel):
             list(zip(images, detector_output_dicts)),
             disable=self.disable_tqdm
         ):
-            width, height = self.get_image_size(image)
+            width, height = image.shape[1], image.shape[0]
             raw_scores = np.array(
                 detector_output_dict['detection_scores']
             )[0]
@@ -110,7 +108,7 @@ class DetectorTF(DetectionModel):
             raw_bboxes = self._denormalize_bboxes(
                 raw_bboxes, width, height
             )
-            mask = raw_scores > score_threshold
+            mask = raw_scores > self.score_threshold
             bboxes = raw_bboxes[mask]
             scores = raw_scores[mask]
 
@@ -118,7 +116,6 @@ class DetectorTF(DetectionModel):
             n_pred_scores.append(scores)
 
             if open_img_boxes:
-                image = self.open_image_input(image)
                 img_boxes = self._cut_bboxes_from_image(image, bboxes)
                 n_img_boxes += [img_boxes]
             else:
@@ -127,8 +124,8 @@ class DetectorTF(DetectionModel):
         return n_img_boxes, n_pred_bboxes, n_pred_scores
 
     def predict(self,
-                input: DetectorInput,
-                open_img_boxes: bool = True) -> DetectorOutput:
+                input: DetectionInput,
+                open_img_boxes: bool = True) -> DetectionOutput:
 
         detector_output_dicts = self._raw_predict(input)
         n_img_boxes, n_pred_bboxes, n_pred_scores = self._postprocess_predictions(
@@ -143,4 +140,4 @@ class DetectorTF(DetectionModel):
 
     @property
     def input_size(self) -> int:
-        return self.input_size
+        return self.model_spec.input_size

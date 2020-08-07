@@ -9,10 +9,10 @@ import numpy as np
 class BboxData:
     image_path: Path = None
     image_bbox: np.ndarray = None
-    xmin: int
-    ymin: int
-    xmax: int
-    ymax: int
+    xmin: int = None
+    ymin: int = None
+    xmax: int = None
+    ymax: int = None
     detection_score: float = None
     label: str = None
     classification_score: float = None
