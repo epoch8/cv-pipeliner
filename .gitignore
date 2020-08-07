@@ -1,0 +1,6 @@
+__pycache__/
+.ipynb_checkpoints/
+result*/
+logs/
+*.egg-info
+lib/models/
