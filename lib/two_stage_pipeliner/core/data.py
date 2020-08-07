@@ -13,9 +13,9 @@ class BboxData:
     ymin: int
     xmax: int
     ymax: int
+    detection_score: float = None
     label: str = None
-    detector_score: float = None
-    classifier_score: float = None
+    classification_score: float = None
 
 
 @dataclass

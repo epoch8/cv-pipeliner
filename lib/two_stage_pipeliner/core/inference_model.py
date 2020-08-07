@@ -18,5 +18,5 @@ class InferenceModel(abc.ABC):
         pass
 
     @abc.abstractproperty
-    def input_size(self):
+    def input_size(self) -> int:
         pass

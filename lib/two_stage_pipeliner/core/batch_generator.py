@@ -26,12 +26,13 @@ class BatchGeneratorImageData(BatchGenerator):
                  data: List[ImageData],
                  batch_size: int):
         assert all(isinstance(d, ImageData) for d in data)
-        super(BatchGenerator, self).__init__(data, batch_size)    
+        super(BatchGenerator, self).__init__(data, batch_size)
 
 
 class BatchGeneratorBboxData(BatchGenerator):
     def __init__(self,
-                 data: List[BboxData],
+                 data: List[List[BboxData]],
                  batch_size: int):
-        assert all(isinstance(d, BboxData) for d in data)
+        assert all(isinstance(d, list) for d in data)
+        assert all(isinstance(item, BboxData) for d in data for item in d)
         super(BatchGenerator, self).__init__(data, batch_size)
