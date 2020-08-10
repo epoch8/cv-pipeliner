@@ -64,4 +64,4 @@ class Pipeline(InferenceModel):
 
     @property
     def input_size(self) -> int:
-        return self.model_spec.input_size
+        return self.detection_model.input_size
