@@ -11,12 +11,16 @@ class DetectionInferencer(Inferencer):
         assert isinstance(model, DetectionModel)
         Inferencer.__init__(self, model)
 
-    def predict(self, data_generator: BatchGeneratorImageData) -> List[ImageData]:
+    def predict(self, data_generator: BatchGeneratorImageData,
+                score_threshold: float) -> List[ImageData]:
         images_data = []
         for batch in data_generator:
             input = [image_data.image for image_data in batch]
             input = self.model.preprocess_input(input)
-            n_img_boxes, n_pred_bboxes, n_pred_scores = self.model.predict(input)
+            n_img_boxes, n_pred_bboxes, n_pred_scores = self.model.predict(
+                input,
+                score_threshold=score_threshold
+            )
             for image_data, img_boxes, pred_bboxes, pred_scores in zip(
                 batch, n_img_boxes, n_pred_bboxes, n_pred_scores
             ):

@@ -14,11 +14,9 @@ from two_stage_pipeliner.inference_models.detection.tf.specs import DetectorMode
 class DetectorTF(DetectionModel):
     def __init__(self,
                  model_spec: DetectorModelSpecTF,
-                 score_threshold: float,
                  disable_tqdm: bool = False):
         super(DetectorTF, self).__init__()
         self.load(model_spec)
-        self.score_threshold = score_threshold
         self.disable_tqdm = disable_tqdm
 
     def load(self, checkpoint: DetectorModelSpecTF):
@@ -87,6 +85,7 @@ class DetectorTF(DetectionModel):
             self,
             images: DetectionInput,
             detector_output_dicts: List[Dict],
+            score_threshold: float,
             open_img_boxes: bool = True
     ) -> DetectionOutput:
 
@@ -108,7 +107,7 @@ class DetectorTF(DetectionModel):
             raw_bboxes = self._denormalize_bboxes(
                 raw_bboxes, width, height
             )
-            mask = raw_scores > self.score_threshold
+            mask = raw_scores > score_threshold
             bboxes = raw_bboxes[mask]
             scores = raw_scores[mask]
 
@@ -125,12 +124,14 @@ class DetectorTF(DetectionModel):
 
     def predict(self,
                 input: DetectionInput,
+                score_threshold: float,
                 open_img_boxes: bool = True) -> DetectionOutput:
 
         detector_output_dicts = self._raw_predict(input)
         n_img_boxes, n_pred_bboxes, n_pred_scores = self._postprocess_predictions(
             images=input,
             detector_output_dicts=detector_output_dicts,
+            score_threshold=score_threshold,
             open_img_boxes=open_img_boxes,
         )
         return n_img_boxes, n_pred_bboxes, n_pred_scores

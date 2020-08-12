@@ -12,7 +12,8 @@ class PipelineInferencer(Inferencer):
         assert isinstance(model, Pipeline)
         Inferencer.__init__(self, model)
 
-    def predict(self, data_generator: BatchGeneratorImageData) -> List[ImageData]:
+    def predict(self, data_generator: BatchGeneratorImageData,
+                detector_score_threshold: float) -> List[ImageData]:
         images_data = []
         for batch in data_generator:
             input = [image_data.image for image_data in batch]
@@ -23,7 +24,10 @@ class PipelineInferencer(Inferencer):
                 n_pred_detection_scores,
                 n_pred_labels,
                 n_pred_classification_scores
-            ) = self.model.predict(input)
+            ) = self.model.predict(
+                input,
+                detector_score_threshold=detector_score_threshold
+            )
             for (image_data, pred_img_bboxes, pred_bboxes,
                  pred_detection_scores, pred_labels,
                  pred_classification_scores) in zip(

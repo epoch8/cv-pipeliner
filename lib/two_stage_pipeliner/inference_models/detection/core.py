@@ -29,7 +29,8 @@ class DetectionModel(InferenceModel):
     def load(self, checkpoint):
         pass
 
-    def predict(self, input: DetectionInput) -> DetectionOutput:
+    def predict(self, input: DetectionInput,
+                score_threshold: float) -> DetectionOutput:
         return None
 
     def preprocess_input(self, input):
