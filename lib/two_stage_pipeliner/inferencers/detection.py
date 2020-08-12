@@ -40,9 +40,9 @@ class DetectionInferencer(Inferencer):
                         ymax=ymax,
                         detection_score=pred_detection_score
                     ))
-            images_data.append(ImageData(
-                image_path=image_data.image_path,
-                bboxes_data=bboxes_data
-            ))
+                images_data.append(ImageData(
+                    image_path=image_data.image_path,
+                    bboxes_data=bboxes_data
+                ))
 
         return images_data
