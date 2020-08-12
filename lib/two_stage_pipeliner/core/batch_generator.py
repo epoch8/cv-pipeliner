@@ -41,7 +41,7 @@ class BatchGeneratorImageData(BatchGenerator):
         batch = copy.deepcopy(self.data[indexes])
         for image_data in batch:
             if image_data.image is None:
-                image_data.image = imageio.imread(image_data.image_path, pilmode="RGB")
+                image_data.open_image(inplace=True)
         return batch
 
 
@@ -59,10 +59,5 @@ class BatchGeneratorBboxData(BatchGenerator):
         for bboxes_data in batch:
             for bbox_data in bboxes_data:
                 if bbox_data.image_bbox is None:
-                    image = imageio.imread(bbox_data.image_path, pilmode="RGB")
-
-                    assert bbox_data.xmin < bbox_data.xmax and bbox_data.ymin < bbox_data.ymax
-
-                    bbox_data.image_bbox = image[bbox_data.ymin:bbox_data.ymax,
-                                                 bbox_data.xmin:bbox_data.xmax]
+                    bbox_data.open_image_bbox(inplace=True)
         return batch
