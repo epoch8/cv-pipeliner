@@ -41,12 +41,12 @@ class Pipeline(InferenceModel):
         self.classification_model = classification_model
 
     def predict(self, input: PipelineInput,
-                detector_score_threshold: float) -> PipelineOutput:
+                detection_score_threshold: float) -> PipelineOutput:
         detection_input = self.detection_model.preprocess_input(input)
         (n_pred_img_bboxes, n_pred_bboxes,
          n_pred_detection_scores) = self.detection_model.predict(
             detection_input,
-            score_threshold=detector_score_threshold
+            score_threshold=detection_score_threshold
         )
         classification_input = [
             self.classification_model.preprocess_input([image_bbox for image_bbox in images_bbox])
