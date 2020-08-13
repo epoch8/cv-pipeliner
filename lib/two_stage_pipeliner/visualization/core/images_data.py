@@ -104,31 +104,3 @@ def visualize_images_data_side_by_side(
         image.save(filepath)
     else:
         return image
-
-
-def get_indexes_by_top_error_type(images_data: List[ImageData],
-                                  pred_images_data: List[ImageData],
-                                  type_error: str,
-                                  minimum_iou: float,
-                                  visualize_size: int = 20) -> List[int]:
-    n_true_bboxes = [
-        [bbox_data.bbox for bbox_data in image_data.bboxes_data]
-        for image_data in images_data
-    ]
-    n_pred_bboxes = [
-        [bbox_data.bbox for bbox_data in image_data.bboxes_data]
-        for image_data in images_data
-    ]
-    df_detector_matchings = get_df_detector_matchings(
-        n_true_bboxes=n_true_bboxes,
-        n_pred_bboxes=n_pred_bboxes,
-        minimum_iou=minimum_iou
-    )
-    if type_error == "FP":
-        df_detector_matchings.sort_values(by=type_error, ascending=False, inplace=True)
-    elif type_error == "FN":
-        df_detector_matchings.sort_values(by=type_error, ascending=False, inplace=True)
-    else:
-        raise ValueError("type_error can be only 'FP' or 'FN")
-    indexes = df_detector_matchings.iloc[0:visualize_size].index
-    return indexes
