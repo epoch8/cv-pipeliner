@@ -20,13 +20,14 @@ class ClassificationVisualizer(Visualizer):
     def visualize(self,
                   n_bboxes_data: List[List[BboxData]],
                   visualize_size: int = 50,
-                  use_all_data: bool = False):
+                  use_all_data: bool = False,
+                  show_TP_FP: bool = False):
         if use_all_data:
             images_names = ['all']
             n_bboxes_data = [bbox_data for bboxes_data in n_bboxes_data for bbox_data in bboxes_data]
             bboxes_data_gen = BatchGeneratorBboxData([n_bboxes_data], batch_size=1)
         else:
-            if self.inferencer is not None:
+            if self.inferencer is not None and show_TP_FP:
                 bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=1)
                 n_pred_bboxes_data = self.inferencer.predict(bboxes_data_gen)
 
@@ -61,13 +62,13 @@ class ClassificationVisualizer(Visualizer):
             if self.i is None or i != self.i:
                 self.batch = bboxes_data_gen[i]
                 self.true_bboxes_data = self.batch[0]
-                if self.inferencer is None:
-                    self.pred_bboxes_data = None
-                else:
+                if self.inferencer is not None:
                     self.pred_bboxes_data = self.inferencer.predict([self.batch])[0]
+                else:
+                    self.pred_bboxes_data = None
 
                 true_labels = np.array([bbox_data.label for bbox_data in self.true_bboxes_data])
-                if self.inferencer is not None:
+                if self.inferencer is not None and show_TP_FP:
                     pred_labels = np.array([bbox_data.label for bbox_data in self.pred_bboxes_data])
                     label_to_TP = {
                         label: np.sum((true_labels == pred_labels) & (true_labels == label))
@@ -86,7 +87,7 @@ class ClassificationVisualizer(Visualizer):
                     key=lambda x: label_to_count[x],
                     reverse=True
                 )
-                if self.inferencer is not None:
+                if self.inferencer is not None and show_TP_FP:
                     class_names_visible = [
                         f"{class_name} [TP: {label_to_TP[class_name]}, FP:{label_to_FP[class_name]}]"
                         for class_name in class_names
@@ -102,12 +103,17 @@ class ClassificationVisualizer(Visualizer):
                 self.jupyter_visualizer.choices.change_options = False
                 self.i = i
 
+            if self.jupyter_visualizer.choices2 is not None:
+                type_only = self.jupyter_visualizer.choices2.value
+            else:
+                type_only = 'TP+FP'
+
             display(visualize_bboxes_data(
                 bboxes_data=self.true_bboxes_data,
                 class_name=self.jupyter_visualizer.choices.value,
                 visualize_size=visualize_size,
                 pred_bboxes_data=self.pred_bboxes_data,
-                type_only=self.jupyter_visualizer.choices2.value
+                type_only=type_only
             ))
 
         if self.jupyter_visualizer is not None:
@@ -117,8 +123,8 @@ class ClassificationVisualizer(Visualizer):
             images_names=images_names,
             choices=['all'],
             choices_description='class_name',
-            choices2=['TP+FP', 'TP', 'FP'] if self.inferencer is not None else "",
-            choices2_description='type' if self.inferencer is not None else "",
+            choices2=['TP+FP', 'TP', 'FP'] if self.inferencer is not None and show_TP_FP else "",
+            choices2_description='type',
             display_fn=display_fn
         )
         self.jupyter_visualizer.visualize()

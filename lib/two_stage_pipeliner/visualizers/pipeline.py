@@ -73,12 +73,12 @@ class PipelineVisualizer(Visualizer):
     def visualize(self,
                   images_data: List[ImageData],
                   detection_score_threshold: float = None,
-                  show_TP_FN_counts: bool = False,
+                  show_TP_FP_FN: bool = False,
                   minimum_iou: float = None):
 
         images_data = copy.deepcopy(images_data)
 
-        if self.inferencer is not None and show_TP_FN_counts and minimum_iou is not None:
+        if self.inferencer is not None and show_TP_FP_FN and minimum_iou is not None:
             images_data_gen = BatchGeneratorImageData(images_data, batch_size=len(images_data))
             pred_images_data = self.inferencer.predict(images_data_gen, detection_score_threshold)
             images_data_info, _ = self._get_images_data_info_with_TP_FP_FN(
@@ -114,7 +114,7 @@ class PipelineVisualizer(Visualizer):
                     score_type=None
                 ))
             else:
-                if show_TP_FN_counts and minimum_iou is not None:
+                if show_TP_FP_FN and minimum_iou is not None:
                     (true_images_data_info,
                      pred_images_data_info) = self._get_images_data_info_with_TP_FP_FN(
                         [self.true_image_data],
@@ -154,13 +154,13 @@ class PipelineVisualizer(Visualizer):
             images_names=images_names,
             display_fn=display_fn,
             choices=(
-                ['TP+FP+FN', 'FP+FN', 'TP', 'FP', 'FN'] 
-                if self.inferencer is not None and show_TP_FN_counts else []
+                ['TP+FP+FN', 'FP+FN', 'TP', 'FP', 'FN']
+                if self.inferencer is not None and show_TP_FP_FN else []
             ),
             choices_description='GT',
             choices2=(
                 ['TP+FP', 'TP', 'FP']
-                if self.inferencer is not None and show_TP_FN_counts else []
+                if self.inferencer is not None and show_TP_FP_FN else []
             ),
             choices2_description='Prediction',
         )
