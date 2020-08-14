@@ -14,7 +14,8 @@ def visualize_bboxes_data(
     class_name: str,
     visualize_size: int = None,
     pred_bboxes_data: List[BboxData] = None,
-    errors_only: bool = False,
+    type_only: Union['TP+FP', 'TP', 'FP'] = 'TP+FP',
+    use_random: bool = False,
     filepath: Union[str, Path] = None,
 ) -> Image.Image:
     true_labels = np.array(
@@ -26,15 +27,20 @@ def visualize_bboxes_data(
             [bbox_data.label for bbox_data in pred_bboxes_data]
         )
 
-    if class_name != 'random':
+    if class_name != 'all':
         data_by_class_name = (true_labels == class_name)
     else:
         data_by_class_name = np.array([True] * len(bboxes_data))
 
-    if pred_bboxes_data is not None and errors_only:
-        data_by_class_name = (
-            data_by_class_name & (true_labels != pred_labels)
-        )
+    if pred_bboxes_data is not None and type_only is not None:
+        if type_only == 'TP':
+            data_by_class_name = (
+                data_by_class_name & (true_labels == pred_labels)
+            )
+        elif type_only == 'FP':
+            data_by_class_name = (
+                data_by_class_name & (true_labels != pred_labels)
+            )
 
     data_by_class_name_idxs = np.where(data_by_class_name)[0]
     if visualize_size is None:
@@ -42,16 +48,20 @@ def visualize_bboxes_data(
 
     size = min(visualize_size, len(data_by_class_name_idxs))
 
-    random_idxs = np.random.choice(data_by_class_name_idxs,
-                                   size=size,
-                                   replace=False)
+    if use_random:
+        idxs = np.random.choice(data_by_class_name_idxs,
+                                size=size,
+                                replace=False)
+    else:
+        idxs = data_by_class_name_idxs[:size]
+
     figsize = 5
     if size >= 10:
         figsize += 20
     fig, axes = plt.subplots(int(np.ceil(size/5)), 5,
                              figsize=(20, figsize + size // 5))
 
-    for idx, ax in zip(random_idxs, axes.flatten()):
+    for idx, ax in zip(idxs, axes.flatten()):
         bbox_data = bboxes_data[idx]
         bbox = bbox_data.open_image_bbox()
         label = bbox_data.label

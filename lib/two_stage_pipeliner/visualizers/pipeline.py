@@ -1,6 +1,5 @@
 import copy
 from typing import List
-from itertools import product
 from IPython.display import display
 
 from two_stage_pipeliner.core.data import ImageData
@@ -87,7 +86,7 @@ class PipelineVisualizer(Visualizer):
                 pred_images_data,
                 minimum_iou
             )
-            image_names = [
+            images_names = [
                 f"{image_data.image_path.name} "
                 f"[TP: {image_data.pipeline_TP}, "
                 f"FP: {image_data.pipeline_FP}, "
@@ -95,8 +94,7 @@ class PipelineVisualizer(Visualizer):
                 for image_data in images_data_info
             ]
         else:
-            image_names = [image_data.image_path.name for image_data in images_data]
-
+            images_names = [image_data.image_path.name for image_data in images_data]
         images_data_gen = BatchGeneratorImageData(images_data, batch_size=1)
         self.i = None
 
@@ -153,11 +151,17 @@ class PipelineVisualizer(Visualizer):
             del self.jupyter_visualizer
         self.jupyter_visualizer = JupyterVisualizer(
             images=range(len(images_data_gen)),
-            images_names=image_names,
+            images_names=images_names,
             display_fn=display_fn,
-            choices=['TP+FP+FN', 'FP+FN', 'TP', 'FP', 'FN'] if self.inferencer is not None and show_TP_FN_counts else [],
+            choices=(
+                ['TP+FP+FN', 'FP+FN', 'TP', 'FP', 'FN'] 
+                if self.inferencer is not None and show_TP_FN_counts else []
+            ),
             choices_description='GT',
-            choices2=['TP+FP', 'TP', 'FP'] if self.inferencer is not None and show_TP_FN_counts else [],
+            choices2=(
+                ['TP+FP', 'TP', 'FP']
+                if self.inferencer is not None and show_TP_FN_counts else []
+            ),
             choices2_description='Prediction',
         )
         self.jupyter_visualizer.visualize()
