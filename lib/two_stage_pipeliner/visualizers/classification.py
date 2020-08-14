@@ -70,6 +70,8 @@ class ClassificationVisualizer(Visualizer):
         self.jupyter_visualizer = JupyterVisualizer(
             images=range(len(bboxes_data_gen)),
             images_names=images_names,
+            choices=['random'],
+            choices_description='class_name',
             display_fn=display_fn
         )
         self.jupyter_visualizer.visualize()
