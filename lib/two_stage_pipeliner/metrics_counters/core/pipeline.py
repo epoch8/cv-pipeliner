@@ -58,6 +58,161 @@ def get_df_all_bboxes(
     return df_bboxes_all
 
 
+def get_df_TP(df_bboxes_all: pd.DataFrame,
+              extra_bbox_label: str,
+              soft: bool = False,
+              known_class_names: List[str] = None,
+              by_class_name: str = None) -> pd.DataFrame:
+    if soft:
+        query = (
+            '(found and is_true_bbox and true_label in @known_class_names and true_label == pred_label)'
+
+            ' or '
+
+            '(found and is_true_bbox and not (true_label in @known_class_names))'
+        )
+        if extra_bbox_label in known_class_names:  # this line doesn't work in query code
+            query = (
+                f'{query}'
+                ' or '
+                '(found and not is_true_bbox and pred_label == @extra_bbox_label)'
+            )
+        else:
+            query = (
+                f'{query}'
+                ' or '
+                '(found and not is_true_bbox)'
+            )
+        df_TP = df_bboxes_all.query(query)
+    else:
+        df_TP = df_bboxes_all.query(
+            '(found and is_true_bbox and true_label == pred_label)'
+
+            ' or '
+
+            f'(found and not is_true_bbox and pred_label == @extra_bbox_label)'
+        )
+    if by_class_name:
+        df_TP = df_TP.query(
+            f'true_label == "{by_class_name}"'
+        )
+    return df_TP
+
+
+def get_df_FP(df_bboxes_all: pd.DataFrame,
+              extra_bbox_label: str,
+              soft: bool = False,
+              known_class_names: List[str] = None,
+              by_class_name: str = None) -> pd.DataFrame:
+    if soft:
+        query = (
+            '(found and is_true_bbox and true_label in @known_class_names and true_label != pred_label)'
+        )
+        if extra_bbox_label in known_class_names:  # this line doesn't work in query code
+            query = (
+                f'{query}'
+                ' or '
+                '(found and not is_true_bbox and pred_label != @extra_bbox_label)'
+            )
+        df_FP = df_bboxes_all.query(query)
+    else:
+        df_FP = df_bboxes_all.query(
+            'found and is_true_bbox and true_label != pred_label'
+
+            ' or '
+
+            f'found and not is_true_bbox and pred_label != @extra_bbox_label'
+        )
+
+    if by_class_name:
+        df_FP = df_FP.query(
+            f'true_label == "{by_class_name}" or pred_label == "{by_class_name}"'
+        )
+    return df_FP
+
+
+def get_df_FN(df_bboxes_all: pd.DataFrame,
+              by_class_name: str = None) -> pd.DataFrame:
+    df_FN = df_bboxes_all.query('is_true_bbox and not found')
+    if by_class_name:
+        df_FN = df_FN.query(
+            f'true_label == "{by_class_name}"'
+        )
+    return df_FN
+
+
+def get_df_pipeline_matching_for_one_item(df_image: pd.DataFrame) -> pd.DataFrame:
+    TP = np.sum(df_image['error_type'] == 'TP')
+    FP = np.sum(df_image['error_type'] == 'FP')
+    FN = np.sum(df_image['error_type'] == 'FN')
+    items = []
+    for idx in df_image.index:
+        if df_image.loc[idx, 'true_bbox'] is not None:
+            items.append({
+                'true_bbox': df_image.loc[idx, 'true_bbox'],
+                'found': df_image.loc[idx, 'found'],
+                'pred_bbox': df_image.loc[idx, 'pred_bbox'],
+                'iou': df_image.loc[idx, 'iou'],
+                'error_type': df_image.loc[idx, 'error_type']
+            })
+    true_bboxes_num = np.sum([1 for x in df_image['true_bbox'] if x is not None])
+    pred_bboxes_num = np.sum([1 for x in df_image['pred_bbox'] if x is not None])
+    df_matchings = pd.DataFrame({
+        'items': [items],
+        'TP': [TP],
+        'FP': [FP],
+        'FN': [FN],
+        'true_bboxes_num': [true_bboxes_num],
+        'pred_bboxes_num': [pred_bboxes_num]
+    })
+    return df_matchings
+
+
+def get_df_pipeline_matchings(
+    n_true_bboxes: List[List[Tuple[int, int, int, int]]],
+    n_true_labels: List[List[str]],
+    n_pred_bboxes: List[List[Tuple[int, int, int, int]]],
+    n_pred_labels: List[List[str]],
+    minimum_iou: float,
+    soft: bool = False,
+    known_class_names: List[str] = None,
+    extra_bbox_label: str = "",
+):
+    df_bboxes_all = get_df_all_bboxes(
+        n_true_bboxes,
+        n_true_labels,
+        n_pred_bboxes,
+        n_pred_labels,
+        minimum_iou,
+        extra_bbox_label
+    )
+    df_TP = get_df_TP(df_bboxes_all, extra_bbox_label, soft, known_class_names)
+    df_FP = get_df_FP(df_bboxes_all, extra_bbox_label, soft, known_class_names)
+    df_FN = get_df_FN(df_bboxes_all)
+    for tag, df in [('TP', df_TP),
+                    ('FP', df_FP),
+                    ('FN', df_FN)]:
+        for idx in df.index:
+            df_bboxes_all.loc[idx, 'error_type'] = tag
+
+    image_idx_to_df_idxs = {
+        image_idx: []
+        for image_idx in df_bboxes_all['indexes']
+    }
+    for idx in df_bboxes_all.index:
+        image_idx_to_df_idxs[df_bboxes_all.loc[idx, 'indexes']].append(idx)
+
+    pipeline_matchings = []
+    for image_idx in image_idx_to_df_idxs:
+        df_image = df_bboxes_all.loc[image_idx_to_df_idxs[image_idx]]
+        pipeline_matchings.append(get_df_pipeline_matching_for_one_item(df_image))
+
+    df_pipeline_matchings = pd.concat(pipeline_matchings,
+                                      ignore_index=True)
+
+    return df_pipeline_matchings
+
+
 def get_df_pipeline_metrics(
     n_true_bboxes: List[List[Tuple[int, int, int, int]]],
     n_true_labels: List[List[str]],
@@ -76,61 +231,6 @@ def get_df_pipeline_metrics(
         minimum_iou,
         extra_bbox_label
     )
-
-    def get_TP(df, by_class=None):
-        if known_class_names and soft:
-            df_TP = df.query(
-                '(found and is_true_bbox and true_label in @known_class_names '
-                'and true_label == pred_label)'
-
-                ' or '
-
-                '(found and is_true_bbox and '
-                'not (true_label in @known_class_names))'
-            )
-        else:
-            df_TP = df.query(
-                'found and is_true_bbox and true_label == pred_label'
-
-                ' or '
-
-                f'found and not is_true_bbox and pred_label == "{extra_bbox_label}"'
-            )
-        if by_class:
-            df_TP = df_TP.query(
-                f'true_label == "{by_class}"'
-            )
-        return df_TP
-
-    def get_FP(df, by_class=None):
-        if known_class_names and soft:
-            df_FP = df.query(
-                'found and is_true_bbox and true_label in @known_class_names '
-                'and true_label != pred_label'
-            )
-        else:
-            df_FP = df.query(
-                'found and is_true_bbox and true_label != pred_label'
-
-                ' or '
-
-                f'found and not is_true_bbox and pred_label != "{extra_bbox_label}"'
-            )
-
-        if by_class:
-            df_FP = df_FP.query(
-                f'true_label == "{by_class}" or pred_label == "{by_class}"'
-            )
-        return df_FP
-
-    def get_FN(df, by_class=None):
-        df_FN = df.query('is_true_bbox and not found')
-        if by_class:
-            df_FN = df_FN.query(
-                f'true_label == "{by_class}"'
-            )
-        return df_FN
-
     class_names = np.unique(
         [x for sublist in n_true_labels for x in sublist]
         +
@@ -142,9 +242,9 @@ def get_df_pipeline_metrics(
         f"{extra_bbox_label} (extra bbox)"
     ]:
         support = len(df_bboxes_all.query(f'true_label == "{class_name}"'))
-        df_TP = get_TP(df_bboxes_all, class_name)
-        df_FP = get_FP(df_bboxes_all, class_name)
-        df_FN = get_FN(df_bboxes_all, class_name)
+        df_TP = get_df_TP(df_bboxes_all, extra_bbox_label, soft, known_class_names, class_name)
+        df_FP = get_df_FP(df_bboxes_all, extra_bbox_label, soft, known_class_names, class_name)
+        df_FN = get_df_FN(df_bboxes_all, class_name)
         TP, FP, FN = len(df_TP), len(df_FP), len(df_FN)
         if support > 0:
             precision = TP / (TP + FP + 1e-6)

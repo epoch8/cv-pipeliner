@@ -16,7 +16,7 @@ class PipelineMetricsCounter(MetricsCounter):
               data_generator: BatchGeneratorImageData,
               detection_score_threshold: float,
               minimum_iou: float,
-              soft: bool = True,
+              soft: bool = False,
               known_class_names: List[str] = None,
               extra_bbox_label: str = "") -> pd.DataFrame:
 
