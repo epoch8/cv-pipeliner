@@ -8,7 +8,7 @@ from two_stage_pipeliner.core.visualizer import Visualizer
 from two_stage_pipeliner.core.batch_generator import BatchGeneratorBboxData
 from two_stage_pipeliner.inferencers.detection import DetectionInferencer
 from two_stage_pipeliner.utils.jupyter_visualizer import JupyterVisualizer
-from two_stage_pipeliner.visualization.core.bboxes_data import visualize_bboxes_data
+from two_stage_pipeliner.visualizers.core.bboxes_data import visualize_bboxes_data
 
 
 class ClassificationVisualizer(Visualizer):
