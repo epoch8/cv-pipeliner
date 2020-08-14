@@ -29,13 +29,8 @@ PipelineOutput = List[
 
 
 class Pipeline(InferenceModel):
-    def __init__(self,
-                 detection_model: DetectionModel,
-                 classification_model: ClassificationModel):
-        super(Pipeline, self).__init__()
-        self.load((detection_model, classification_model))
-
-    def load(self, checkpoint):
+    def load(self, checkpoint: Tuple[DetectionModel, ClassificationModel]):
+        InferenceModel.load(self, checkpoint)
         detection_model, classification_model = checkpoint
         self.detection_model = detection_model
         self.classification_model = classification_model

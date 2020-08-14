@@ -1,3 +1,4 @@
+import abc
 from typing import List, Tuple
 import numpy as np
 
@@ -15,8 +16,18 @@ ClassificationOutput = Tuple[List[Labels], List[Scores]]
 
 
 class ClassificationModel(InferenceModel):
-    def __init__(self):
-        super(ClassificationModel, self).__init__()
+    @abc.abstractmethod
+    def load(self, checkpoint):
+        InferenceModel.load(self, checkpoint)
 
+    @abc.abstractmethod
     def predict(self, input: ClassificationInput) -> ClassificationOutput:
+        pass
+
+    @abc.abstractmethod
+    def preprocess_input(self, input):
+        pass
+
+    @abc.abstractproperty
+    def input_size(self) -> int:
         pass

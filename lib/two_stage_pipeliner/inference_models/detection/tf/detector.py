@@ -12,14 +12,8 @@ from two_stage_pipeliner.inference_models.detection.tf.specs import DetectorMode
 
 
 class DetectorTF(DetectionModel):
-    def __init__(self,
-                 model_spec: DetectorModelSpecTF,
-                 disable_tqdm: bool = False):
-        super(DetectorTF, self).__init__()
-        self.load(model_spec)
-        self.disable_tqdm = disable_tqdm
-
     def load(self, checkpoint: DetectorModelSpecTF):
+        DetectionModel.load(self, checkpoint)
         model_spec = checkpoint
         configs = config_util.get_configs_from_pipeline_file(
             pipeline_config_path=str(model_spec.config_path)
@@ -40,6 +34,7 @@ class DetectorTF(DetectionModel):
         )
         self._raw_predict_single_image_tf(tf_zeros)
         self.model_spec = model_spec
+        self.disable_tqdm = False
 
     def _raw_predict_single_image_tf(self, input_tensor: tf.Tensor) -> Dict:
         preprocessed_image, shapes = self.model.preprocess(input_tensor)
