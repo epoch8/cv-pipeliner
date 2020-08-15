@@ -1,6 +1,7 @@
 import copy
 from typing import List
 from IPython.display import display
+from PIL import Image
 
 from two_stage_pipeliner.metrics_counters.core.detection import get_df_detector_matchings
 from two_stage_pipeliner.core.data import ImageData
@@ -100,11 +101,11 @@ class DetectionVisualizer(Visualizer):
                 self.i = i
 
             if self.inferencer is None:
-                display(visualize_image_data(
+                display(Image.fromarray(visualize_image_data(
                     self.true_image_data,
                     use_labels=False,
                     score_type=None
-                ))
+                )))
             else:
                 if show_TP_FP_FN and minimum_iou is not None:
                     true_images_data_info, pred_images_data_info = self._get_images_data_info_with_TP_FP_FN(
@@ -123,12 +124,12 @@ class DetectionVisualizer(Visualizer):
                     use_labels = False
                     filter_by1, filter_by2 = None, None
 
-                display(visualize_images_data_side_by_side(
+                display(Image.fromarray(visualize_images_data_side_by_side(
                     true_image_data_info, pred_image_data_info,
                     use_labels1=use_labels, use_labels2=use_labels,
                     score_type1=None, score_type2='detection',
                     filter_by1=filter_by1, filter_by2=filter_by2
-                ))
+                )))
 
         if self.jupyter_visualizer is not None:
             del self.jupyter_visualizer

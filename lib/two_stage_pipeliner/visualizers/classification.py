@@ -3,6 +3,7 @@ from collections import Counter
 
 import numpy as np
 from IPython.display import display
+from PIL import Image
 
 from two_stage_pipeliner.core.data import BboxData
 from two_stage_pipeliner.core.visualizer import Visualizer
@@ -108,13 +109,13 @@ class ClassificationVisualizer(Visualizer):
             else:
                 type_only = 'TP+FP'
 
-            display(visualize_bboxes_data(
+            display(Image.fromarray(visualize_bboxes_data(
                 bboxes_data=self.true_bboxes_data,
                 class_name=self.jupyter_visualizer.choices.value,
                 visualize_size=visualize_size,
                 pred_bboxes_data=self.pred_bboxes_data,
                 type_only=type_only
-            ))
+            )))
 
         if self.jupyter_visualizer is not None:
             del self.jupyter_visualizer

@@ -1,9 +1,7 @@
-from pathlib import Path
 from typing import List, Union
 
 import numpy as np
 import matplotlib.pyplot as plt
-from PIL import Image
 
 from two_stage_pipeliner.core.data import BboxData
 from two_stage_pipeliner.utils.images import get_img_from_fig
@@ -15,9 +13,8 @@ def visualize_bboxes_data(
     visualize_size: int = None,
     pred_bboxes_data: List[BboxData] = None,
     type_only: Union['TP+FP', 'TP', 'FP'] = 'TP+FP',
-    use_random: bool = False,
-    filepath: Union[str, Path] = None,
-) -> Image.Image:
+    use_random: bool = False
+) -> np.ndarray:
     true_labels = np.array(
         [bbox_data.label for bbox_data in bboxes_data]
     )
@@ -80,11 +77,5 @@ def visualize_bboxes_data(
 
     fig.suptitle(class_name, fontsize=20)
 
-    if filepath:
-        plt.savefig(filepath)
-        plt.close()
-    else:
-        image = get_img_from_fig(fig)
-        plt.close()
-        image = Image.fromarray(image)
-        return image
+    image = get_img_from_fig(fig)
+    return image

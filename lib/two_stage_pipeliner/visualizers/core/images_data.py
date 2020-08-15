@@ -1,11 +1,8 @@
-from pathlib import Path
 from typing import Union, List
 
 import numpy as np
 import imageio
 import cv2
-
-from PIL import Image
 
 from object_detection.utils import label_map_util
 from object_detection.utils.visualization_utils import \
@@ -20,8 +17,11 @@ def visualize_image_data(
     known_labels: List[str] = None,
     score_type: Union[None, 'detection', 'classification'] = None,
     filter_by: List[str] = None
-) -> Image.Image:
-    image = imageio.imread(image_data.image_path, pilmode="RGB")
+) -> np.ndarray:
+    if image_data.image is None:
+        image = imageio.imread(image_data.image_path, pilmode="RGB")
+    else:
+        image = image_data.image
 
     bboxes_data = image_data.bboxes_data
     if filter_by is not None:
@@ -70,8 +70,7 @@ def visualize_image_data(
         ]
         classes = np.array([1] * len(bboxes))
     category_index = label_map_util.create_category_index(categories)
-    image = Image.fromarray(
-        visualize_boxes_and_labels_on_image_array(
+    image = visualize_boxes_and_labels_on_image_array(
             image,
             bboxes,
             classes,
@@ -82,7 +81,6 @@ def visualize_image_data(
             skip_scores=skip_scores,
             min_score_thresh=0.,
             groundtruth_box_visualization_color='lime',
-        )
     )
     return image
 
@@ -95,9 +93,8 @@ def visualize_images_data_side_by_side(
     score_type1: Union[None, 'detection', 'classification'] = None,
     score_type2: Union[None, 'detection', 'classification'] = 'detection',
     filter_by1: List[str] = None,
-    filter_by2: List[str] = None,
-    filepath: Union[str, Path] = None
-) -> Image.Image:
+    filter_by2: List[str] = None
+) -> np.ndarray:
 
     if use_labels1 and use_labels2:
         labels1 = [bbox_data.label for bbox_data in image_data1.bboxes_data]
@@ -117,12 +114,6 @@ def visualize_images_data_side_by_side(
                                           score_type=score_type2,
                                           filter_by=filter_by2)
 
-    image = Image.fromarray(
-        cv2.hconcat([np.array(true_ann_image),
-                     np.array(pred_ann_image)])
-    )
+    image = cv2.hconcat([true_ann_image, pred_ann_image])
 
-    if filepath:
-        image.save(filepath)
-    else:
-        return image
+    return image
