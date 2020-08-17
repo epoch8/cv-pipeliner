@@ -8,7 +8,7 @@ from object_detection.utils import label_map_util
 from object_detection.utils.visualization_utils import \
     visualize_boxes_and_labels_on_image_array
 
-from brickit_ml.utils.data import ImageData
+from two_stage_pipeliner.core.data import ImageData
 
 
 def visualize_image_data(
