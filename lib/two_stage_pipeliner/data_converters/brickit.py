@@ -38,9 +38,15 @@ class BrickitDataConverter(DataConverter):
             bboxes_data=[]
         )
         for obj in annot['objects']:
-            xmin, ymin, xmax, ymax = obj['bbox']
+            if 'bbox' in obj:
+                xmin, ymin, xmax, ymax = obj['bbox']
+            else:
+                xmin, ymin, xmax, ymax = obj
             xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(xmax), int(ymax)
-            label = obj['label']
+            if 'label' in obj:
+                label = obj['label']
+            else:
+                label = 'brick'
             image_data.bboxes_data.append(BboxData(
                 image_path=image_path,
                 image_bbox=None,

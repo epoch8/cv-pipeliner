@@ -52,11 +52,12 @@ class DataConverter(abc.ABC):
                     looked_bboxes.add((xmin, ymin, xmax, ymax))
 
                 if xmin >= xmax or ymin >= ymax:
-                    raise ValueError(
+                    logger.warning(
                         f"Wrong annotation: "
-                        f"incorrect bbox: {(ymin, xmin, ymax, xmax)} "
-                        "(xmin >= xmax or ymin >= ymax)."
+                        f"incorrect bbox (xmin, ymin, xmax, ymax): {(xmin, ymin, xmax, ymax)} "
+                        "(xmin >= xmax or ymin >= ymax). Skipping."
                     )
+                    continue
 
                 if self.class_names and self.class_mapper:
                     bbox_data.label = self._filter_label_by_class_mapper(
