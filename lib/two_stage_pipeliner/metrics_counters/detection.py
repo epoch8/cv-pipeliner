@@ -92,7 +92,7 @@ class DetectionMetricsCounter(MetricsCounter):
             ]
             for bboxes_data in n_true_bboxes_data
         ]
-        if return_recall:
+        if return_recall_metrics:
             df_detector_metrics_recall = get_df_detector_metrics_recall(
                 n_true_bboxes,
                 n_pred_bboxes,
