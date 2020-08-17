@@ -10,7 +10,7 @@ from two_stage_pipeliner.core.batch_generator import BatchGeneratorBboxData
 from two_stage_pipeliner.inferencers.classification import ClassificationInferencer
 from two_stage_pipeliner.metrics_counters.classification import ClassificationMetricsCounter
 from two_stage_pipeliner.visualizers.classification import ClassificationVisualizer
-from two_stage_pipeliner.inference_models.classification.tf.classifier import ClassifierTF
+from two_stage_pipeliner.inference_models.classification import checkpoint_to_classification_model
 
 from two_stage_pipeliner.logging import logger
 
@@ -24,7 +24,7 @@ def classification_interactive_work(directory: Union[str, Path],
     checkpoint_filepath = directory / CHECKPOINT_FILENAME
     with open(checkpoint_filepath, "rb") as src:
         checkpoint = pickle.load(src)
-    classification_model = ClassifierTF()
+    classification_model = checkpoint_to_classification_model(checkpoint)()
     classification_model.load(checkpoint)
 
     classification_inferencer = ClassificationInferencer(classification_model)

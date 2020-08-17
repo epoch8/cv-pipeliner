@@ -10,8 +10,9 @@ from two_stage_pipeliner.core.batch_generator import BatchGeneratorImageData
 from two_stage_pipeliner.inferencers.pipeline import PipelineInferencer
 from two_stage_pipeliner.metrics_counters.pipeline import PipelineMetricsCounter
 from two_stage_pipeliner.visualizers.pipeline import PipelineVisualizer
-from two_stage_pipeliner.inference_models.detection.tf.detector import DetectorTF
-from two_stage_pipeliner.inference_models.classification.tf.classifier import ClassifierTF
+from two_stage_pipeliner.inference_models.detection import checkpoint_to_detection_model
+from two_stage_pipeliner.inference_models.classification import checkpoint_to_classification_model
+
 from two_stage_pipeliner.inference_models.pipeline import Pipeline
 
 from two_stage_pipeliner.logging import logger
@@ -27,9 +28,9 @@ def pipeline_interactive_work(directory: Union[str, Path],
     checkpoint_filepath = directory / CHECKPOINT_FILENAME
     with open(checkpoint_filepath, "rb") as src:
         detection_checkpoint, classification_checkpoint = pickle.load(src)
-    detection_model = DetectorTF()
+    detection_model = checkpoint_to_detection_model(detection_checkpoint)()
     detection_model.load(detection_checkpoint)
-    classification_model = ClassifierTF()
+    classification_model = checkpoint_to_classification_model(classification_checkpoint)()
     classification_model.load(classification_checkpoint)
     pipeline_model = Pipeline()
     pipeline_model.load((detection_model, classification_model))
