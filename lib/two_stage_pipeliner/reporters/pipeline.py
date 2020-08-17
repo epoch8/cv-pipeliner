@@ -10,8 +10,10 @@ from two_stage_pipeliner.core.batch_generator import BatchGeneratorImageData
 from two_stage_pipeliner.inferencers.pipeline import PipelineInferencer
 from two_stage_pipeliner.metrics_counters.pipeline import PipelineMetricsCounter
 from two_stage_pipeliner.visualizers.pipeline import PipelineVisualizer
-from two_stage_pipeliner.inference_models.detection import checkpoint_to_detection_model
-from two_stage_pipeliner.inference_models.classification import checkpoint_to_classification_model
+from two_stage_pipeliner.inference_models.detection.checkpoint_to_detection_model import checkpoint_to_detection_model
+from two_stage_pipeliner.inference_models.classification.checkpoint_to_classification_model import (
+    checkpoint_to_classification_model
+)
 
 from two_stage_pipeliner.inference_models.pipeline import Pipeline
 

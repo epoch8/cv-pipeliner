@@ -10,7 +10,9 @@ from two_stage_pipeliner.core.batch_generator import BatchGeneratorBboxData
 from two_stage_pipeliner.inferencers.classification import ClassificationInferencer
 from two_stage_pipeliner.metrics_counters.classification import ClassificationMetricsCounter
 from two_stage_pipeliner.visualizers.classification import ClassificationVisualizer
-from two_stage_pipeliner.inference_models.classification import checkpoint_to_classification_model
+from two_stage_pipeliner.inference_models.classification.checkpoint_to_classification_model import (
+    checkpoint_to_classification_model
+)
 
 from two_stage_pipeliner.logging import logger
 
@@ -68,7 +70,7 @@ class ClassificationReporter(Reporter):
 
     def _get_codes(self) -> List[str]:
         codes = []
-        codes.append(f'''
+        codes.append('''
 from two_stage_pipeliner.reporters.classification import classification_interactive_work
 classification_interactive_work(directory='.', use_all_data=True)''')
         codes = [code.strip() for code in codes]
