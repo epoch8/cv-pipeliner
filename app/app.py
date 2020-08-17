@@ -41,9 +41,16 @@ if detection_model_name is not None and classification_model_name is not None:
         pred_image = visualize_image_data(pred_image_data)
         st.image(image=[uploaded_file, pred_image], use_column_width=True)
 
-        st.image(image=[bbox_data.image_bbox for bbox_data in pred_image_data.bboxes_data],
-                 caption=[bbox_data.label for bbox_data in pred_image_data.bboxes_data])
-        for bbox_data in pred_image_data.bboxes_data:
-            st.image(image=bbox_data.image_bbox)
-            st.text(bbox_data.label)
+        mode = st.selectbox(
+            label='Mode',
+            options=["one-by-one", "many"]
+        )
+        if mode == "one-by-one":
+            for bbox_data in pred_image_data.bboxes_data:
+                st.image(image=bbox_data.image_bbox)
+                st.text(bbox_data.label)
+                '----'
+        elif mode == "many":
+            st.image(image=[bbox_data.image_bbox for bbox_data in pred_image_data.bboxes_data],
+                     caption=[bbox_data.label for bbox_data in pred_image_data.bboxes_data])
             '----'
