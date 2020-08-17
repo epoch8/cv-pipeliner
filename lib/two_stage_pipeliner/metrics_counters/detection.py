@@ -17,7 +17,8 @@ class DetectionMetricsCounter(MetricsCounter):
     def score(self,
               data_generator: BatchGeneratorImageData,
               score_threshold: float,
-              minimum_iou: float) -> Tuple[pd.DataFrame, pd.DataFrame]:
+              minimum_iou: float,
+              return_recall_metrics: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame]:
         n_true_images_data = data_generator.data
 
         for image_data in n_true_images_data:
@@ -91,10 +92,13 @@ class DetectionMetricsCounter(MetricsCounter):
             ]
             for bboxes_data in n_true_bboxes_data
         ]
-        df_detector_metrics_recall = get_df_detector_metrics_recall(
-            n_true_bboxes,
-            n_pred_bboxes,
-            n_true_labels,
-            minimum_iou
-        )
-        return df_detector_metrics, df_detector_metrics_recall
+        if return_recall:
+            df_detector_metrics_recall = get_df_detector_metrics_recall(
+                n_true_bboxes,
+                n_pred_bboxes,
+                n_true_labels,
+                minimum_iou
+            )
+            return df_detector_metrics, df_detector_metrics_recall
+        
+        return df_detector_metrics
