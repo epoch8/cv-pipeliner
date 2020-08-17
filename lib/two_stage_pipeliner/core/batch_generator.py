@@ -12,14 +12,14 @@ class BatchGenerator(abc.ABC):
     def __init__(self,
                  data: List,
                  batch_size: int):
-        assert int(np.floor(len(data) / batch_size)) != 0
+        assert int(np.ceil(len(data) / batch_size)) != 0
         self.data = np.array(data)
         self.batch_size = batch_size
         self.indexes = np.arange(len(self.data))
         super(BatchGenerator, self).__init__()
 
     def __len__(self) -> int:
-        return int(np.floor(len(self.data) / self.batch_size))
+        return int(np.ceil(len(self.data) / self.batch_size))
 
     def __getitem__(self, index) -> List:
         pass
