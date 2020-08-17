@@ -17,8 +17,8 @@ class DetectorModelSpecTF:
     input_size: int
     model_url: str
     fine_tune_checkpoint_type: str = None
-    config_path: Path = None
-    checkpoint_filename: Path = None
+    config_path: Union[str, Path] = None
+    checkpoint_filename: Union[str, Path] = None
 
 
 ZOO_MODELS_DIR = Path(__file__).parent / 'tf_zoo_models'
