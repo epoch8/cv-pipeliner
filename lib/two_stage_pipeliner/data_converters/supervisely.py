@@ -3,7 +3,7 @@ import json
 from typing import Union, Dict
 from pathlib import Path
 
-from two_stage_pipeliner.core.data_converter import DataConverter
+from two_stage_pipeliner.core.data_converter import DataConverter, assert_image_data
 from two_stage_pipeliner.core.data import BboxData, ImageData
 
 
@@ -11,7 +11,7 @@ class SuperviselyDataConverter(DataConverter):
     def __init__(self):
         DataConverter.__init__(self)
 
-    @DataConverter.assert_image_data
+    @assert_image_data
     def get_image_data(self,
                        image_path: Union[Path, str],
                        annot: Union[Path, str, Dict]) -> ImageData:
