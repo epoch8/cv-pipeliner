@@ -13,14 +13,8 @@ from two_stage_pipeliner.inference_models.classification.tf.specs import Classif
 
 
 class ClassifierTF(ClassificationModel):
-    def __init__(self,
-                 model_spec: ClassifierModelSpecTF,
-                 disable_tqdm: bool = False):
-        self.load(model_spec)
-        self.disable_tqdm = disable_tqdm
-        self.batch_size = 16
-
     def load(self, checkpoint: ClassifierModelSpecTF):
+        ClassificationModel.load(self, checkpoint)
         model_spec = checkpoint
         if isinstance(model_spec.model_path, str) or isinstance(
             model_spec.model_path, Path
@@ -31,11 +25,13 @@ class ClassifierTF(ClassificationModel):
         self.model_spec = model_spec
         assert model_spec.num_classes == int(self.model.output.shape[-1])
         self.num_classes = model_spec.num_classes
-        self.class_names = model_spec.class_names
+        self._class_names = model_spec.class_names
         assert self.num_classes == len(self.class_names)
         self.id_to_class_name = {
             id: class_name for id, class_name in enumerate(self.class_names)
         }
+        self.disable_tqdm = False
+        self.batch_size = 16
 
     def _split_chunks(self,
                       l: np.ndarray,
@@ -98,3 +94,7 @@ class ClassifierTF(ClassificationModel):
     @property
     def input_size(self) -> int:
         return self.model_spec.input_size
+
+    @property
+    def class_names(self) -> List[str]:
+        return self._class_names

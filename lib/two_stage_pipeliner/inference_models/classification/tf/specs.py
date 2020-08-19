@@ -8,10 +8,13 @@ import tensorflow as tf
 from tensorflow import keras
 
 from albumentations import LongestMaxSize, PadIfNeeded, Normalize
+from efficientnet.tfkeras import EfficientNetB0, preprocess_input as efn_preprocess_input
+
+from two_stage_pipeliner.core.inference_model import Checkpoint
 
 
 @dataclass
-class ClassifierModelSpecTF:
+class ClassifierModelSpecTF(Checkpoint):
     name: str
     input_size: int
     preprocess_input: Callable[[List[np.ndarray]], np.ndarray]
@@ -20,8 +23,10 @@ class ClassifierModelSpecTF:
     model_path: Path = None
     load_default_model: Callable[[int], tf.keras.Model] = None
 
+# ResNet50
 
-def load_model_resnet50(num_classes: int):
+
+def load_model_resnet50(num_classes: int) -> tf.keras.Model:
     base_model = keras.applications.resnet50.ResNet50(
         weights="imagenet",
         include_top=False,
@@ -63,6 +68,35 @@ def preprocess_input_resnet50(input: List[np.ndarray]):
     return input
 
 
+# EfficientNetB0
+
+
+def load_EfficientNetB0_model(num_classes: int) -> tf.keras.Model:
+    model = EfficientNetB0(weights='imagenet')
+
+    x = model.layers[-3].output
+    x = tf.keras.layers.Dense(num_classes,
+                              activation='softmax',
+                              kernel_regularizer='l2',
+                              bias_regularizer='l2',
+                              name='softmax')(x)
+
+    model = tf.keras.models.Model(model.input, x)
+    return model
+
+
+def preprocess_input_efn(input: List[np.ndarray]):
+    input = [
+        cv2.resize(np.array(item), dsize=(224, 224)) for item in input
+    ]
+    input = np.array(input)
+    input = efn_preprocess_input(input)
+    return input
+
+
+# ModelSpec
+
+
 name_to_model_spec: Dict[str, ClassifierModelSpecTF] = {
     spec.name: spec for spec in [
         ClassifierModelSpecTF(
@@ -70,6 +104,12 @@ name_to_model_spec: Dict[str, ClassifierModelSpecTF] = {
             load_default_model=load_model_resnet50,
             input_size=224,
             preprocess_input=preprocess_input_resnet50,
+        ),
+        ClassifierModelSpecTF(
+            name='EfficientNetB0_no_padding',
+            load_default_model=load_EfficientNetB0_model,
+            input_size=224,
+            preprocess_input=preprocess_input_efn,
         ),
     ]
 }
@@ -83,5 +123,5 @@ def load_classifier_model_spec_tf(
     model_spec = name_to_model_spec[model_name]
     model_spec.class_names = class_names
     model_spec.num_classes = len(class_names)
-    model_spec.model_path = Path(model_path) if model_path else None
+    model_spec.model_path = Path(model_path).absolute() if model_path else None
     return model_spec
