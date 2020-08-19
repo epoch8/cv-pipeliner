@@ -57,7 +57,6 @@ class BboxData:
         assert self.label is not None
 
 
-
 @dataclass(frozen=True)
 class ImageData:
     image_path: Union[str, Path] = None
