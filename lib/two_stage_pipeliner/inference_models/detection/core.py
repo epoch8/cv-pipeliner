@@ -25,7 +25,7 @@ DetectionOutput = List[
 class DetectionModel(InferenceModel):
     @abc.abstractmethod
     def load(self, checkpoint):
-        InferenceModel.load(self, checkpoint)
+        super().load(self, checkpoint)
 
     @abc.abstractmethod
     def predict(self, input: DetectionInput,

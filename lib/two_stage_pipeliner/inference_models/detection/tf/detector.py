@@ -14,7 +14,7 @@ from two_stage_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from
 
 class DetectorTF(DetectionModel):
     def load(self, checkpoint: DetectorModelSpecTF):
-        DetectionModel.load(self, checkpoint)
+        super().load(self, checkpoint)
         model_spec = checkpoint
         configs = config_util.get_configs_from_pipeline_file(
             pipeline_config_path=str(model_spec.config_path)

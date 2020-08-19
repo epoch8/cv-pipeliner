@@ -14,7 +14,7 @@ class DetectorTF_pb(DetectionModel):
     Only supports models exported in .pb format.
     """
     def load(self, checkpoint: DetectorModelSpecTF_pb):
-        DetectionModel.load(self, checkpoint)
+        super().load(self, checkpoint)
         model_spec = checkpoint
         self.model = tf.keras.models.load_model(str(model_spec.checkpoint_path))
         self.model = self.model.signatures["serving_default"]
