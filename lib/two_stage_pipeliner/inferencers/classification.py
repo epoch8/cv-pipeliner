@@ -12,11 +12,11 @@ class ClassificationInferencer(Inferencer):
         assert isinstance(model, ClassificationModel)
         Inferencer.__init__(self, model)
 
-    def predict(self, data_generator: BatchGeneratorBboxData) -> List[List[BboxData]]:
-        n_bboxes_data = []
-        for batch in data_generator:
+    def predict(self, bboxes_data_gen: BatchGeneratorBboxData) -> List[List[BboxData]]:
+        n_pred_bboxes_data = []
+        for batch in bboxes_data_gen:
             input = [
-                self.model.preprocess_input([bbox_data.image_bbox for bbox_data in bboxes_data])
+                self.model.preprocess_input([bbox_data.cropped_image for bbox_data in bboxes_data])
                 for bboxes_data in batch
             ]
             n_pred_labels, n_pred_scores = self.model.predict(input)
@@ -31,7 +31,8 @@ class ClassificationInferencer(Inferencer):
                 ) in zip(bboxes_data, pred_labels, pred_scores):
                     bboxes_data_res.append(BboxData(
                         image_path=bbox_data.image_path,
-                        image_bbox=bbox_data.image_bbox,
+                        image_bytes=bbox_data.image_bytes,
+                        cropped_image=bbox_data.cropped_image,
                         xmin=bbox_data.xmin,
                         ymin=bbox_data.ymin,
                         xmax=bbox_data.xmax,
@@ -40,5 +41,5 @@ class ClassificationInferencer(Inferencer):
                         label=pred_label,
                         classification_score=pred_classification_score
                     ))
-                n_bboxes_data.append(bboxes_data_res)
-        return n_bboxes_data
+                n_pred_bboxes_data.append(bboxes_data_res)
+        return n_pred_bboxes_data

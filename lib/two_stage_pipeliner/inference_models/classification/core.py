@@ -4,14 +4,13 @@ import numpy as np
 
 from two_stage_pipeliner.core.inference_model import InferenceModel
 
-ImageInput = np.ndarray
 Label = str
 Score = float
 
 Labels = List[Label]
 Scores = List[Score]
 
-ClassificationInput = List[List[ImageInput]]
+ClassificationInput = List[List[np.ndarray]]
 ClassificationOutput = Tuple[List[Labels], List[Scores]]
 
 
@@ -30,4 +29,8 @@ class ClassificationModel(InferenceModel):
 
     @abc.abstractproperty
     def input_size(self) -> int:
+        pass
+
+    @abc.abstractproperty
+    def class_names(self) -> List[str]:
         pass

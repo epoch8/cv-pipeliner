@@ -10,9 +10,11 @@ from tensorflow import keras
 from albumentations import LongestMaxSize, PadIfNeeded, Normalize
 from efficientnet.tfkeras import EfficientNetB0, preprocess_input as efn_preprocess_input
 
+from two_stage_pipeliner.core.inference_model import Checkpoint
+
 
 @dataclass
-class ClassifierModelSpecTF:
+class ClassifierModelSpecTF(Checkpoint):
     name: str
     input_size: int
     preprocess_input: Callable[[List[np.ndarray]], np.ndarray]
@@ -121,5 +123,5 @@ def load_classifier_model_spec_tf(
     model_spec = name_to_model_spec[model_name]
     model_spec.class_names = class_names
     model_spec.num_classes = len(class_names)
-    model_spec.model_path = Path(model_path) if model_path else None
+    model_spec.model_path = Path(model_path).absolute() if model_path else None
     return model_spec
