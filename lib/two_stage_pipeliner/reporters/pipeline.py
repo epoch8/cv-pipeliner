@@ -6,20 +6,24 @@ import pandas as pd
 import nbformat as nbf
 
 from two_stage_pipeliner.core.reporter import Reporter
+from two_stage_pipeliner.core.data import ImageData
 from two_stage_pipeliner.core.batch_generator import BatchGeneratorImageData
 from two_stage_pipeliner.inferencers.pipeline import PipelineInferencer
-from two_stage_pipeliner.metrics_counters.pipeline import PipelineMetricsCounter
+from two_stage_pipeliner.metrics.pipeline import get_df_pipeline_metrics
 from two_stage_pipeliner.visualizers.pipeline import PipelineVisualizer
-from two_stage_pipeliner.inference_models.detection.checkpoint_to_detection_model import checkpoint_to_detection_model
-from two_stage_pipeliner.inference_models.classification.checkpoint_to_classification_model import (
-    checkpoint_to_classification_model
+from two_stage_pipeliner.inference_models.detection.load_checkpoint import (
+    load_detection_model_from_checkpoint
+)
+from two_stage_pipeliner.inference_models.classification.load_checkpoint import (
+    load_classification_model_from_checkpoint
 )
 
 from two_stage_pipeliner.inference_models.pipeline import Pipeline
 
 from two_stage_pipeliner.logging import logger
 
-CHECKPOINT_FILENAME = "checkpoint.pkl"
+DETECTION_CHECKPOINT_FILENAME = "detection_checkpoint.pkl"
+CLASSIFICATION_CHECKPOINT_FILENAME = "classification_checkpoint.pkl"
 IMAGES_DATA_FILENAME = "images_data.pkl"
 
 
@@ -27,12 +31,14 @@ def pipeline_interactive_work(directory: Union[str, Path],
                               detection_score_threshold: float,
                               minimum_iou: float):
     directory = Path(directory)
-    checkpoint_filepath = directory / CHECKPOINT_FILENAME
-    with open(checkpoint_filepath, "rb") as src:
-        detection_checkpoint, classification_checkpoint = pickle.load(src)
-    detection_model = checkpoint_to_detection_model(detection_checkpoint)()
-    detection_model.load(detection_checkpoint)
-    classification_model = checkpoint_to_classification_model(classification_checkpoint)()
+    detection_checkpoint_filepath = directory / DETECTION_CHECKPOINT_FILENAME
+    with open(detection_checkpoint_filepath, "rb") as src:
+        detection_checkpoint = pickle.load(src)
+    classification_checkpoint_filepath = directory / CLASSIFICATION_CHECKPOINT_FILENAME
+    with open(classification_checkpoint_filepath, "rb") as src:
+        classification_checkpoint = pickle.load(src)
+    detection_model = load_detection_model_from_checkpoint(detection_checkpoint)
+    classification_model = load_classification_model_from_checkpoint(classification_checkpoint)
     classification_model.load(classification_checkpoint)
     pipeline_model = Pipeline()
     pipeline_model.load((detection_model, classification_model))
@@ -44,12 +50,13 @@ def pipeline_interactive_work(directory: Union[str, Path],
         images_data = pickle.load(src)
     pipeline_visualizer = PipelineVisualizer(pipeline_inferencer)
     pipeline_visualizer.visualize(images_data, detection_score_threshold=detection_score_threshold,
-                                  show_TP_FP_FN=True, minimum_iou=minimum_iou)
+                                  show_TP_FP_FN_with_minimum_iou=minimum_iou)
 
 
 class PipelineReporter(Reporter):
     def _get_markdowns(self,
-                       df_pipeline_metrics: pd.DataFrame) -> List[str]:
+                       df_pipeline_metrics: pd.DataFrame,
+                       df_pipeline_metrics_soft: pd.DataFrame) -> List[str]:
         empty_text = '- To be written.'
         markdowns = []
         markdowns.append(
@@ -68,8 +75,12 @@ class PipelineReporter(Reporter):
             f'{empty_text}''\n'
         )
         markdowns.append(
-            '## Common pipeline metrics\n'
+            '## Common pipeline metrics (strict)\n'
             f'{df_pipeline_metrics.to_markdown(stralign="center")}''\n'
+        )
+        markdowns.append(
+            '## Common pipeline metrics (soft)\n'
+            f'{df_pipeline_metrics_soft.to_markdown(stralign="center")}''\n'
         )
         markdowns.append(
             '## Interactive work:\n'
@@ -92,29 +103,43 @@ pipeline_interactive_work(
 
     def report(self,
                inferencer: PipelineInferencer,
-               data_generator: BatchGeneratorImageData,
+               true_images_data: List[ImageData],
                directory: Union[str, Path],
                detection_score_threshold: float,
-               minimum_iou: float):
+               minimum_iou: float,
+               extra_bbox_label: str = None):
 
-        metrics_counter = PipelineMetricsCounter(inferencer)
-        df_pipeline_metrics = metrics_counter.score(
-            data_generator, detection_score_threshold, minimum_iou
+        images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=16)
+        pred_images_data = inferencer.predict(images_data_gen, detection_score_threshold=detection_score_threshold)
+        df_pipeline_metrics = get_df_pipeline_metrics(
+            true_images_data=true_images_data,
+            pred_images_data=pred_images_data,
+            minimum_iou=minimum_iou,
+            extra_bbox_label=extra_bbox_label
+        )
+        df_pipeline_metrics_soft = get_df_pipeline_metrics(
+            true_images_data=true_images_data,
+            pred_images_data=pred_images_data,
+            minimum_iou=minimum_iou,
+            extra_bbox_label=extra_bbox_label,
+            use_soft_with_known_labels=inferencer.model.classification_model.class_names
         )
         directory = Path(directory)
         directory.mkdir(exist_ok=True, parents=True)
-        checkpoint_filepath = directory / CHECKPOINT_FILENAME
+        detection_checkpoint_filepath = directory / DETECTION_CHECKPOINT_FILENAME
+        classification_checkpoint_filepath = directory / CLASSIFICATION_CHECKPOINT_FILENAME
 
         detection_checkpoint = inferencer.model.detection_model.checkpoint
         classification_checkpoint = inferencer.model.classification_model.checkpoint
-        pipeline_checkpoint = (detection_checkpoint, classification_checkpoint)
-        with open(checkpoint_filepath, 'wb') as out:
-            pickle.dump(pipeline_checkpoint, out)
+        with open(detection_checkpoint_filepath, 'wb') as out:
+            pickle.dump(detection_checkpoint, out)
+        with open(classification_checkpoint_filepath, 'wb') as out:
+            pickle.dump(classification_checkpoint, out)
         images_data_filepath = directory / IMAGES_DATA_FILENAME
         with open(images_data_filepath, 'wb') as out:
-            pickle.dump(data_generator.data, out)
+            pickle.dump(images_data_gen.data, out)
 
-        markdowns = self._get_markdowns(df_pipeline_metrics)
+        markdowns = self._get_markdowns(df_pipeline_metrics, df_pipeline_metrics_soft)
         codes = self._get_codes(
             detection_score_threshold=detection_score_threshold,
             minimum_iou=minimum_iou

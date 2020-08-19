@@ -6,29 +6,28 @@ import pandas as pd
 import nbformat as nbf
 
 from two_stage_pipeliner.core.reporter import Reporter
+from two_stage_pipeliner.core.data import BboxData
 from two_stage_pipeliner.core.batch_generator import BatchGeneratorBboxData
 from two_stage_pipeliner.inferencers.classification import ClassificationInferencer
-from two_stage_pipeliner.metrics_counters.classification import ClassificationMetricsCounter
+from two_stage_pipeliner.metrics.classification import get_df_classification_metrics
 from two_stage_pipeliner.visualizers.classification import ClassificationVisualizer
-from two_stage_pipeliner.inference_models.classification.checkpoint_to_classification_model import (
-    checkpoint_to_classification_model
+from two_stage_pipeliner.inference_models.classification.load_checkpoint import (
+    load_classification_model_from_checkpoint
 )
 
 from two_stage_pipeliner.logging import logger
 
-CHECKPOINT_FILENAME = "checkpoint.pkl"
+CLASSIFICATION_CHECKPOINT_FILENAME = "classification_checkpoint.pkl"
 BBOXES_DATA_FILENAME = "bboxes_data.pkl"
 
 
 def classification_interactive_work(directory: Union[str, Path],
                                     use_all_data: bool = False):
     directory = Path(directory)
-    checkpoint_filepath = directory / CHECKPOINT_FILENAME
+    checkpoint_filepath = directory / CLASSIFICATION_CHECKPOINT_FILENAME
     with open(checkpoint_filepath, "rb") as src:
         checkpoint = pickle.load(src)
-    classification_model = checkpoint_to_classification_model(checkpoint)()
-    classification_model.load(checkpoint)
-
+    classification_model = load_classification_model_from_checkpoint(checkpoint)
     classification_inferencer = ClassificationInferencer(classification_model)
 
     images_data_filepath = directory / BBOXES_DATA_FILENAME
@@ -78,19 +77,20 @@ classification_interactive_work(directory='.', use_all_data=True)''')
 
     def report(self,
                inferencer: ClassificationInferencer,
-               data_generator: BatchGeneratorBboxData,
+               true_bboxes_data: List[List[BboxData]],
                directory: Union[str, Path]):
 
-        metrics_counter = ClassificationMetricsCounter(inferencer)
-        df_classification_metrics = metrics_counter.score(data_generator)
+        bboxes_data_gen = BatchGeneratorBboxData(true_bboxes_data, batch_size=16)
+        pred_bboxes_data = inferencer.predict(bboxes_data_gen)
+        df_classification_metrics = get_df_classification_metrics(true_bboxes_data, pred_bboxes_data)
         directory = Path(directory)
         directory.mkdir(exist_ok=True, parents=True)
-        checkpoint_filepath = directory / CHECKPOINT_FILENAME
+        checkpoint_filepath = directory / CLASSIFICATION_CHECKPOINT_FILENAME
         with open(checkpoint_filepath, 'wb') as out:
             pickle.dump(inferencer.model.checkpoint, out)
         bboxes_data_filepath = directory / BBOXES_DATA_FILENAME
         with open(bboxes_data_filepath, 'wb') as out:
-            pickle.dump(data_generator.data, out)
+            pickle.dump(bboxes_data_gen.data, out)
 
         markdowns = self._get_markdowns(df_classification_metrics)
         codes = self._get_codes()
