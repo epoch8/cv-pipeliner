@@ -1,5 +1,4 @@
 import abc
-import imageio
 import copy
 
 from typing import List
@@ -58,6 +57,6 @@ class BatchGeneratorBboxData(BatchGenerator):
         batch = copy.deepcopy(self.data[indexes])
         for bboxes_data in batch:
             for bbox_data in bboxes_data:
-                if bbox_data.image_bbox is None:
-                    bbox_data.open_image_bbox(inplace=True)
+                if bbox_data.cropped_image is None:
+                    bbox_data.open_cropped_image(inplace=True)
         return batch

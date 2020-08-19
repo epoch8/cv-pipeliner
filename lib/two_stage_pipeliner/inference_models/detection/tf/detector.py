@@ -77,7 +77,7 @@ class DetectorTF(DetectionModel):
         score_threshold: float,
         crop_detections_from_image: bool = True,
     ) -> DetectionOutput:
-        n_img_boxes, n_pred_bboxes, n_pred_scores = [], [], []
+        n_pred_cropped_images, n_pred_bboxes, n_pred_scores = [], [], []
 
         for image in tqdm(images, disable=self.disable_tqdm):
             height, width, _ = image.shape
@@ -94,11 +94,11 @@ class DetectorTF(DetectionModel):
 
             if crop_detections_from_image:
                 img_boxes = cut_bboxes_from_image(image, bboxes)
-                n_img_boxes += [img_boxes]
+                n_pred_cropped_images += [img_boxes]
             else:
-                n_img_boxes += [[None] * len(bboxes)]
+                n_pred_cropped_images += [[None] * len(bboxes)]
 
-        return n_img_boxes, n_pred_bboxes, n_pred_scores
+        return n_pred_cropped_images, n_pred_bboxes, n_pred_scores
 
     def preprocess_input(self, input):
         return input
