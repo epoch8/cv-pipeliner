@@ -29,7 +29,7 @@ PipelineOutput = List[
 
 class Pipeline(InferenceModel):
     def load(self, checkpoint: Tuple[DetectionModel, ClassificationModel]):
-        super().load(self, checkpoint)
+        super().load(checkpoint)
         detection_model, classification_model = checkpoint
         self.detection_model = detection_model
         self.classification_model = classification_model

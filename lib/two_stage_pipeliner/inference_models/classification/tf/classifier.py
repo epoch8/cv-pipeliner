@@ -14,7 +14,7 @@ from two_stage_pipeliner.inference_models.classification.tf.specs import Classif
 
 class ClassifierTF(ClassificationModel):
     def load(self, checkpoint: ClassifierModelSpecTF):
-        super().load(self, checkpoint)
+        super().load(checkpoint)
         model_spec = checkpoint
         if isinstance(model_spec.model_path, str) or isinstance(
             model_spec.model_path, Path

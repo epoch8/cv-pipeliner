@@ -17,7 +17,7 @@ ClassificationOutput = Tuple[List[Labels], List[Scores]]
 class ClassificationModel(InferenceModel):
     @abc.abstractmethod
     def load(self, checkpoint):
-        super().load(self, checkpoint)
+        super().load(checkpoint)
 
     @abc.abstractmethod
     def predict(self, input: ClassificationInput) -> ClassificationOutput:
