@@ -49,7 +49,6 @@ class BrickitDataConverter(DataConverter):
                 label = 'brick'
             image_data.bboxes_data.append(BboxData(
                 image_path=image_path,
-                image_bbox=None,
                 xmin=xmin,
                 ymin=ymin,
                 xmax=xmax,

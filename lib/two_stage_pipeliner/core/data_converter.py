@@ -71,7 +71,10 @@ class DataConverter(abc.ABC):
 
                 new_bboxes_data.append(bbox_data)
 
-            image_data.bboxes_data = new_bboxes_data
+            image_data = ImageData(
+                image_path=image_data.image_path,
+                bboxes_data=new_bboxes_data
+            )
 
             return image_data
 

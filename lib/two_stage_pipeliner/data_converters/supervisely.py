@@ -28,7 +28,6 @@ class SuperviselyDataConverter(DataConverter):
             label = obj['tags'][0]['name'] if obj['tags'] else None
             image_data.bboxes_data.append(BboxData(
                 image_path=image_path,
-                image_bbox=None,
                 xmin=xmin,
                 ymin=ymin,
                 xmax=xmax,
