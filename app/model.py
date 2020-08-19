@@ -10,10 +10,13 @@ import tensorflow as tf
 
 from brickit_ml.default_tf_settings import default_tf_settings
 from two_stage_pipeliner.inference_models.detection.tf.specs import load_detector_model_spec_tf
-from two_stage_pipeliner.inference_models.detection.tf.detector import DetectorTF
-
+from two_stage_pipeliner.inference_models.detection.load_checkpoint import (
+    load_detection_model_from_checkpoint
+)
 from two_stage_pipeliner.inference_models.classification.tf.specs import load_classifier_model_spec_tf
-from two_stage_pipeliner.inference_models.classification.tf.classifier import ClassifierTF
+from two_stage_pipeliner.inference_models.classification.load_checkpoint import (
+    load_classification_model_from_checkpoint
+)
 from two_stage_pipeliner.inference_models.pipeline import Pipeline
 from two_stage_pipeliner.inferencers.pipeline import PipelineInferencer
 
@@ -95,10 +98,8 @@ def load_pipeline_inferencer(detection_model_name, classification_model_name) ->
     default_tf_settings()
     detection_model_spec = name_to_detection_model_spec[detection_model_name]
     classification_model_spec = name_to_classification_model_spec[classification_model_name]
-    detection_model = DetectorTF()
-    detection_model.load(detection_model_spec.checkpoint)
-    classification_model = ClassifierTF()
-    classification_model.load(classification_model_spec.checkpoint)
+    detection_model = load_detection_model_from_checkpoint(detection_model_spec.checkpoint)
+    classification_model = load_classification_model_from_checkpoint(classification_model_spec.checkpoint)
     pipeline_model = Pipeline()
     pipeline_model.load((detection_model, classification_model))
     pipeline_inferencer = PipelineInferencer(pipeline_model)
