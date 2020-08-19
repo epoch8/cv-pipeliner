@@ -7,6 +7,18 @@ class Checkpoint(abc.ABC):
 
 
 class InferenceModel(abc.ABC):
+    """Low-level class for models.
+    To define the model, we need to create an object, then load checkpoint.
+
+    Example:
+    inference_model = InferenceModel()
+    inference_model.load(checkpoint)
+    output = inference_model.predict(inference_model.preprocess_input(input))
+
+    "input" and "output" types should be defined in the inheritance of this class.
+
+    """
+
     @abc.abstractmethod
     def load(self, checkpoint: Checkpoint):
         self.checkpoint = checkpoint
