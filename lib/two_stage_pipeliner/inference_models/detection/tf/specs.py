@@ -10,15 +10,17 @@ import requests
 from tqdm import tqdm
 from two_stage_pipeliner.logging import logger
 
+from two_stage_pipeliner.core.inference_model import Checkpoint
+
 
 @dataclass
-class DetectorModelSpecTF:
+class DetectorModelSpecTF(Checkpoint):
     name: str
     input_size: int
     model_url: str
     fine_tune_checkpoint_type: str = None
-    config_path: Path = None
-    checkpoint_filename: Path = None
+    config_path: Union[str, Path] = None
+    checkpoint_filename: Union[str, Path] = None
 
 
 ZOO_MODELS_DIR = Path(__file__).parent / 'tf_zoo_models'
@@ -119,7 +121,7 @@ def load_detector_model_spec_tf(
         if not model_dir.exists():
             download_model(model_name, model_spec.model_url)
 
-    model_dir = Path(model_dir)
+    model_dir = Path(model_dir).absolute()
     model_spec.model_dir = model_dir
     model_spec.config_path = model_dir / 'pipeline.config'
     if checkpoint_filename is None:
