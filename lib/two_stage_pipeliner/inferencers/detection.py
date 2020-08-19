@@ -11,34 +11,49 @@ class DetectionInferencer(Inferencer):
         assert isinstance(model, DetectionModel)
         Inferencer.__init__(self, model)
 
-    def predict(self, data_generator: BatchGeneratorImageData) -> List[ImageData]:
-        images_data = []
-        for batch in data_generator:
+    def predict(
+        self,
+        images_data_gen: BatchGeneratorImageData,
+        score_threshold: float,
+        open_images_in_images_data: bool = False  # Warning: hard memory use
+    ) -> List[ImageData]:
+        pred_images_data = []
+        for batch in images_data_gen:
             input = [image_data.image for image_data in batch]
             input = self.model.preprocess_input(input)
-            n_img_boxes, n_pred_bboxes, n_pred_scores = self.model.predict(input)
+            n_pred_cropped_images, n_pred_bboxes, n_pred_scores = self.model.predict(
+                input,
+                score_threshold=score_threshold
+            )
             for image_data, img_boxes, pred_bboxes, pred_scores in zip(
-                batch, n_img_boxes, n_pred_bboxes, n_pred_scores
+                batch, n_pred_cropped_images, n_pred_bboxes, n_pred_scores
             ):
                 bboxes_data = []
                 for (
-                    pred_image_bbox,
+                    pred_cropped_image,
                     pred_bbox,
                     pred_detection_score,
                 ) in zip(img_boxes, pred_bboxes, pred_scores):
                     ymin, xmin, ymax, xmax = pred_bbox
                     bboxes_data.append(BboxData(
                         image_path=image_data.image_path,
-                        image_bbox=pred_image_bbox,
+                        image_bytes=image_data.image_bytes,
+                        cropped_image=pred_cropped_image,
                         xmin=xmin,
                         ymin=ymin,
                         xmax=xmax,
                         ymax=ymax,
                         detection_score=pred_detection_score
                     ))
-            images_data.append(ImageData(
-                image_path=image_data.image_path,
-                bboxes_data=bboxes_data
-            ))
+                if open_images_in_images_data:
+                    image = image_data.image
+                else:
+                    image = None
+                pred_images_data.append(ImageData(
+                    image_path=image_data.image_path,
+                    image_bytes=image_data.image_bytes,
+                    image=image,
+                    bboxes_data=bboxes_data
+                ))
 
-        return images_data
+        return pred_images_data

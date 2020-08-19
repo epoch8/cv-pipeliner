@@ -1,3 +1,4 @@
+import abc
 from typing import List, Tuple
 
 import numpy as np
@@ -23,18 +24,19 @@ DetectionOutput = List[
 
 
 class DetectionModel(InferenceModel):
-    def __init__(self):
-        super(DetectionModel, self).__init__()
-
+    @abc.abstractmethod
     def load(self, checkpoint):
+        InferenceModel.load(self, checkpoint)
+
+    @abc.abstractmethod
+    def predict(self, input: DetectionInput,
+                score_threshold: float) -> DetectionOutput:
         pass
 
-    def predict(self, input: DetectionInput) -> DetectionOutput:
-        return None
-
+    @abc.abstractmethod
     def preprocess_input(self, input):
         pass
 
-    @property
+    @abc.abstractproperty
     def input_size(self) -> int:
-        return None
+        pass

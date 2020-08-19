@@ -1,5 +1,4 @@
 import abc
-import imageio
 import copy
 
 from typing import List
@@ -12,14 +11,14 @@ class BatchGenerator(abc.ABC):
     def __init__(self,
                  data: List,
                  batch_size: int):
-        assert int(np.floor(len(data) / batch_size)) != 0
+        assert int(np.ceil(len(data) / batch_size)) != 0
         self.data = np.array(data)
         self.batch_size = batch_size
         self.indexes = np.arange(len(self.data))
         super(BatchGenerator, self).__init__()
 
     def __len__(self) -> int:
-        return int(np.floor(len(self.data) / self.batch_size))
+        return int(np.ceil(len(self.data) / self.batch_size))
 
     def __getitem__(self, index) -> List:
         pass
@@ -41,7 +40,7 @@ class BatchGeneratorImageData(BatchGenerator):
         batch = copy.deepcopy(self.data[indexes])
         for image_data in batch:
             if image_data.image is None:
-                image_data.image = imageio.imread(image_data.image_path, pilmode="RGB")
+                image_data.open_image(inplace=True)
         return batch
 
 
@@ -58,11 +57,6 @@ class BatchGeneratorBboxData(BatchGenerator):
         batch = copy.deepcopy(self.data[indexes])
         for bboxes_data in batch:
             for bbox_data in bboxes_data:
-                if bbox_data.image_bbox is None:
-                    image = imageio.imread(bbox_data.image_path, pilmode="RGB")
-
-                    assert bbox_data.xmin < bbox_data.xmax and bbox_data.ymin < bbox_data.ymax
-
-                    bbox_data.image_bbox = image[bbox_data.ymin:bbox_data.ymax,
-                                                 bbox_data.xmin:bbox_data.xmax]
+                if bbox_data.cropped_image is None:
+                    bbox_data.open_cropped_image(inplace=True)
         return batch
