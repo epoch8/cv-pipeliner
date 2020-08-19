@@ -11,7 +11,7 @@ class BatchGenerator(abc.ABC):
     def __init__(self,
                  data: List,
                  batch_size: int):
-        assert int(np.ceil(len(data) / batch_size)) != 0
+        assert len(data) // batch_size != 0
         self.data = np.array(data)
         self.batch_size = batch_size
         self.indexes = np.arange(len(self.data))
