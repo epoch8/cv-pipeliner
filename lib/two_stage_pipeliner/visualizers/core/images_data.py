@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Literal, List
 
 import numpy as np
 import imageio
@@ -8,26 +8,22 @@ from object_detection.utils import label_map_util
 from object_detection.utils.visualization_utils import \
     visualize_boxes_and_labels_on_image_array
 
-from brickit_ml.utils.data import ImageData
+from two_stage_pipeliner.core.data import ImageData
 
 
 def visualize_image_data(
     image_data: ImageData,
-    use_labels: bool = True,
+    use_labels: bool = False,
     known_labels: List[str] = None,
-    score_type: Union[None, 'detection', 'classification'] = None,
-    filter_by: List[str] = None
+    score_type: Literal['detection', 'classification'] = None,
+    filter_by_label: List[str] = None
 ) -> np.ndarray:
-    if image_data.image is None:
-        image = imageio.imread(image_data.image_path, pilmode="RGB")
-    else:
-        image = image_data.image
-
+    image = image_data.open_image().copy()
     bboxes_data = image_data.bboxes_data
-    if filter_by is not None:
+    if filter_by_label is not None:
         bboxes_data = [
             bbox_data for bbox_data in bboxes_data
-            if bbox_data.label in filter_by
+            if bbox_data.label in filter_by_label
         ]
     labels = [bbox_data.label for bbox_data in bboxes_data]
     bboxes = np.array([
@@ -88,12 +84,12 @@ def visualize_image_data(
 def visualize_images_data_side_by_side(
     image_data1: ImageData,
     image_data2: ImageData,
-    use_labels1: bool = True,
+    use_labels1: bool = False,
     use_labels2: bool = False,
-    score_type1: Union[None, 'detection', 'classification'] = None,
-    score_type2: Union[None, 'detection', 'classification'] = 'detection',
-    filter_by1: List[str] = None,
-    filter_by2: List[str] = None
+    score_type1: Literal['detection', 'classification'] = None,
+    score_type2: Literal['detection', 'classification'] = None,
+    filter_by_labels1: List[str] = None,
+    filter_by_labels2: List[str] = None
 ) -> np.ndarray:
 
     if use_labels1 and use_labels2:
@@ -107,12 +103,12 @@ def visualize_images_data_side_by_side(
                                           use_labels=use_labels1,
                                           known_labels=known_labels,
                                           score_type=score_type1,
-                                          filter_by=filter_by1)
+                                          filter_by_label=filter_by_labels1)
     pred_ann_image = visualize_image_data(image_data=image_data2,
                                           use_labels=use_labels2,
                                           known_labels=known_labels,
                                           score_type=score_type2,
-                                          filter_by=filter_by2)
+                                          filter_by_label=filter_by_labels2)
 
     image = cv2.hconcat([true_ann_image, pred_ann_image])
 

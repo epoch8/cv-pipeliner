@@ -117,8 +117,6 @@ class ClassificationVisualizer(Visualizer):
                 type_only=type_only
             )))
 
-        if self.jupyter_visualizer is not None:
-            del self.jupyter_visualizer
         self.jupyter_visualizer = JupyterVisualizer(
             images=range(len(bboxes_data_gen)),
             images_names=images_names,

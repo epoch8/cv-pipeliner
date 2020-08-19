@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Literal
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ def visualize_bboxes_data(
     class_name: str,
     visualize_size: int = None,
     pred_bboxes_data: List[BboxData] = None,
-    type_only: Union['TP+FP', 'TP', 'FP'] = 'TP+FP',
+    type_only: Literal['TP+FP', 'TP', 'FP'] = 'TP+FP',
     use_random: bool = False
 ) -> np.ndarray:
     true_labels = np.array(
@@ -60,7 +60,7 @@ def visualize_bboxes_data(
 
     for idx, ax in zip(idxs, axes.flatten()):
         bbox_data = bboxes_data[idx]
-        bbox = bbox_data.open_image_bbox()
+        bbox = bbox_data.open_cropped_image().copy()
         label = bbox_data.label
         bbox = np.array(bbox)
         ax.imshow(bbox)
