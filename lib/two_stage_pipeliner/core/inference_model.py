@@ -1,9 +1,13 @@
 import abc
 
 
+class Checkpoint(abc.ABC):
+    pass
+
+
 class InferenceModel(abc.ABC):
     @abc.abstractmethod
-    def load(self, checkpoint):
+    def load(self, checkpoint: Checkpoint):
         self.checkpoint = checkpoint
         pass
 

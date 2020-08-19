@@ -25,7 +25,7 @@ class ClassifierTF(ClassificationModel):
         self.model_spec = model_spec
         assert model_spec.num_classes == int(self.model.output.shape[-1])
         self.num_classes = model_spec.num_classes
-        self.class_names = model_spec.class_names
+        self._class_names = model_spec.class_names
         assert self.num_classes == len(self.class_names)
         self.id_to_class_name = {
             id: class_name for id, class_name in enumerate(self.class_names)
@@ -94,3 +94,7 @@ class ClassifierTF(ClassificationModel):
     @property
     def input_size(self) -> int:
         return self.model_spec.input_size
+
+    @property
+    def class_names(self) -> List[str]:
+        return self._class_names
