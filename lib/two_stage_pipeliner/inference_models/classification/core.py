@@ -28,7 +28,7 @@ class ClassificationModel(InferenceModel):
         pass
 
     @abc.abstractproperty
-    def input_size(self) -> int:
+    def input_size(self) -> Tuple[int, int]:
         pass
 
     @abc.abstractproperty

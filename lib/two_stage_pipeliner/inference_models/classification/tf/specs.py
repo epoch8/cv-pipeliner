@@ -1,6 +1,6 @@
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Union, List, Dict, Callable
+from typing import Union, List, Dict, Callable, Tuple
 
 import cv2
 import numpy as np
@@ -16,7 +16,7 @@ from two_stage_pipeliner.core.inference_model import Checkpoint
 @dataclass
 class ClassifierModelSpecTF(Checkpoint):
     name: str
-    input_size: int
+    input_size: Tuple[int, int]
     preprocess_input: Callable[[List[np.ndarray]], np.ndarray]
     num_classes: int = None
     class_names: List[str] = None
@@ -102,13 +102,13 @@ name_to_model_spec: Dict[str, ClassifierModelSpecTF] = {
         ClassifierModelSpecTF(
             name='ResNet50',
             load_default_model=load_model_resnet50,
-            input_size=224,
+            input_size=(224, 224),
             preprocess_input=preprocess_input_resnet50,
         ),
         ClassifierModelSpecTF(
             name='EfficientNetB0_no_padding',
             load_default_model=load_EfficientNetB0_model,
-            input_size=224,
+            input_size=(224, 224),
             preprocess_input=preprocess_input_efn,
         ),
     ]

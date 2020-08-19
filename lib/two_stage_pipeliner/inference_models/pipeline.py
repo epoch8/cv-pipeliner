@@ -61,5 +61,9 @@ class Pipeline(InferenceModel):
         return input
 
     @property
-    def input_size(self) -> int:
+    def input_size(self) -> Tuple[int, int]:
         return self.detection_model.input_size
+
+    @property
+    def class_names(self) -> List[str]:
+        return self.classification_model.class_names

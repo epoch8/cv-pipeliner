@@ -1,4 +1,5 @@
 import abc
+from typing import Tuple
 
 
 class Checkpoint(abc.ABC):
@@ -20,5 +21,5 @@ class InferenceModel(abc.ABC):
         pass
 
     @abc.abstractproperty
-    def input_size(self) -> int:
+    def input_size(self) -> Tuple[int, int]:
         pass

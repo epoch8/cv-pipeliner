@@ -91,5 +91,5 @@ class DetectorTF_pb(DetectionModel):
         return input
 
     @property
-    def input_size(self) -> int:
+    def input_size(self) -> Tuple[int, int]:
         return self.model_spec.input_size
