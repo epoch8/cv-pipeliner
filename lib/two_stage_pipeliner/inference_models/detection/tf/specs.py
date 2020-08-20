@@ -3,7 +3,7 @@ import shutil
 
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Dict, Union
+from typing import Dict, Union, Tuple
 
 import requests
 
@@ -16,7 +16,7 @@ from two_stage_pipeliner.core.inference_model import Checkpoint
 @dataclass
 class DetectorModelSpecTF(Checkpoint):
     name: str
-    input_size: int
+    input_size: Tuple[int, int]
     model_url: str
     fine_tune_checkpoint_type: str = None
     config_path: Union[str, Path] = None
@@ -66,43 +66,43 @@ name_to_model_spec: Dict[str, DetectorModelSpecTF] = {
         DetectorModelSpecTF(
             name='ssd_mobilenet_v2_320x320_coco17_tpu-8',
             model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v2_320x320_coco17_tpu-8.tar.gz',
-            input_size=320,
+            input_size=(320, 320),
             fine_tune_checkpoint_type='detection'
         ),
         DetectorModelSpecTF(
             name='centernet_resnet101_v1_fpn_512x512_coco17_tpu-8',
             model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/centernet_resnet101_v1_fpn_512x512_coco17_tpu-8.tar.gz',
-            input_size=512,
+            input_size=(512, 512),
             fine_tune_checkpoint_type='fine_tune'
         ),
         DetectorModelSpecTF(
             name='centernet_hg104_512x512_coco17_tpu-8',
             model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/centernet_hg104_512x512_coco17_tpu-8.tar.gz',
-            input_size=512,
+            input_size=(512, 512),
             fine_tune_checkpoint_type='detection'
         ),
         DetectorModelSpecTF(
             name='ssd_mobilenet_v1_fpn_640x640_coco17_tpu-8',
             model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v1_fpn_640x640_coco17_tpu-8.tar.gz',
-            input_size=640,
+            input_size=(640, 640),
             fine_tune_checkpoint_type='detection'
         ),
         DetectorModelSpecTF(
             name='efficientdet_d0_coco17_tpu-32',
             model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d0_coco17_tpu-32.tar.gz',
-            input_size=512,
+            input_size=(512, 512),
             fine_tune_checkpoint_type='detection'
         ),
         DetectorModelSpecTF(
             name='efficientdet_d1_coco17_tpu-32',
             model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d1_coco17_tpu-32.tar.gz',
-            input_size=640,
+            input_size=(640, 640),
             fine_tune_checkpoint_type='detection'
         ),
         DetectorModelSpecTF(
             name='centernet_resnet50_v1_fpn_512x512_coco17_tpu-8',
             model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/centernet_resnet50_v1_fpn_512x512_coco17_tpu-8.tar.gz',
-            input_size=512,
+            input_size=(512, 512),
             fine_tune_checkpoint_type='detection'
         ),
     ]
