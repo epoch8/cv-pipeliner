@@ -18,7 +18,7 @@ from two_stage_pipeliner.inference_models.classification.load_checkpoint import 
     load_classification_model_from_checkpoint
 )
 
-from two_stage_pipeliner.inference_models.pipeline import Pipeline
+from two_stage_pipeliner.inference_models.pipeline import PipelineModel
 
 from two_stage_pipeliner.logging import logger
 
@@ -40,7 +40,7 @@ def pipeline_interactive_work(directory: Union[str, Path],
     detection_model = load_detection_model_from_checkpoint(detection_checkpoint)
     classification_model = load_classification_model_from_checkpoint(classification_checkpoint)
     classification_model.load(classification_checkpoint)
-    pipeline_model = Pipeline()
+    pipeline_model = PipelineModel()
     pipeline_model.load((detection_model, classification_model))
 
     pipeline_inferencer = PipelineInferencer(pipeline_model)
