@@ -65,7 +65,7 @@ class ImageData:
             super().__setattr__('image_path', Path(self.image_path))
 
     def open_image(self, inplace: bool = False) -> Union[None, np.ndarray]:
-        if self.image:
+        if self.image is not None:
             image = self.image.copy()
         elif self.image_path is not None:
             image = np.array(imageio.imread(self.image_path, pilmode="RGB"))
