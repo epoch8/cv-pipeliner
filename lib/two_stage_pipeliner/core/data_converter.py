@@ -92,27 +92,33 @@ class DataConverter(abc.ABC):
 
     @abc.abstractmethod
     @assert_image_data
-    def get_image_data(self,
-                       image_path: Union[Path, str],
-                       annot: Union[Path, str, Dict]) -> ImageData:
+    def get_image_data_from_annot(
+        self,
+        image_path: Union[Path, str],
+        annot: Union[Path, str, Dict]
+    ) -> ImageData:
         pass
 
-    def get_images_data(self,
-                        image_paths: List[Union[Path, str]],
-                        annots: List[Union[Path, str, Dict]]) -> List[ImageData]:
+    def get_images_data_from_annots(
+        self,
+        image_paths: List[Union[Path, str]],
+        annots: List[Union[Path, str, Dict]]
+    ) -> List[ImageData]:
         assert len(image_paths) == len(annots)
 
         images_data = [
-            self.get_image_data(image_path, annot)
+            self.get_image_data_from_annot(image_path, annot)
             for image_path, annot in zip(image_paths, annots)
         ]
         return images_data
 
-    def get_n_bboxes_data(self,
-                          image_paths: List[Union[Path, str]],
-                          annots: List[Any]) -> List[List[BboxData]]:
+    def get_n_bboxes_data_from_annots(
+        self,
+        image_paths: List[Union[Path, str]],
+        annots: List[Union[Path, str, Dict]]
+    ) -> List[List[BboxData]]:
         assert len(image_paths) == len(annots)
 
-        images_data = self.get_images_data(image_paths, annots)
+        images_data = self.get_images_data_from_annots(image_paths, annots)
         n_bboxes_data = [image_data.bboxes_data for image_data in images_data]
         return n_bboxes_data

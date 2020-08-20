@@ -12,9 +12,11 @@ class SuperviselyDataConverter(DataConverter):
         DataConverter.__init__(self)
 
     @assert_image_data
-    def get_image_data(self,
-                       image_path: Union[Path, str],
-                       annot: Union[Path, str, Dict]) -> ImageData:
+    def get_image_data_from_annot(
+        self,
+        image_path: Union[Path, str],
+        annot: Union[Path, str, Dict]
+    ) -> ImageData:
         if isinstance(annot, str) or isinstance(annot, Path):
             with open(annot, 'r', encoding='utf8') as f:
                 annot = json.load(f)
