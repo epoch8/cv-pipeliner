@@ -5,18 +5,17 @@ from two_stage_pipeliner.core.inference_model import InferenceModel
 from two_stage_pipeliner.inference_models.detection.core import DetectionModel
 from two_stage_pipeliner.inference_models.classification.core import ClassificationModel
 
-ImageInput = np.ndarray
 Bbox = Tuple[int, int, int, int]  # (ymin, xmin, ymax, xmax)
 Score = float
 Label = str
 
-ImgBboxes = List[ImageInput]
+ImgBboxes = List[np.ndarray]
 Bboxes = List[Bbox]
 DetectionScores = List[Score]
 Labels = List[Label]
 ClassificationScores = List[Score]
 
-PipelineInput = List[ImageInput]
+PipelineInput = List[np.ndarray]
 PipelineOutput = List[
     Tuple[
         List[ImgBboxes],
@@ -28,9 +27,9 @@ PipelineOutput = List[
 ]
 
 
-class Pipeline(InferenceModel):
+class PipelineModel(InferenceModel):
     def load(self, checkpoint: Tuple[DetectionModel, ClassificationModel]):
-        InferenceModel.load(self, checkpoint)
+        super().load(checkpoint)
         detection_model, classification_model = checkpoint
         self.detection_model = detection_model
         self.classification_model = classification_model
@@ -62,5 +61,9 @@ class Pipeline(InferenceModel):
         return input
 
     @property
-    def input_size(self) -> int:
+    def input_size(self) -> Tuple[int, int]:
         return self.detection_model.input_size
+
+    @property
+    def class_names(self) -> List[str]:
+        return self.classification_model.class_names

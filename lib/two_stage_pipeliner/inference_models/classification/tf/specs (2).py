@@ -27,12 +27,11 @@ class ClassifierModelSpecTF(Checkpoint):
 # ResNet50
 
 
-def load_model_resnet50(num_classes: int, input_size: Tuple[int, int]) -> tf.keras.Model:
-    width, height = input_size
+def load_model_resnet50(num_classes: int) -> tf.keras.Model:
     base_model = keras.applications.resnet50.ResNet50(
         weights="imagenet",
         include_top=False,
-        input_shape=(width, height, 3)
+        input_shape=(224, 224, 3)
     )
 
     global_average_layer = keras.layers.GlobalAveragePooling2D()
@@ -97,7 +96,7 @@ def preprocess_input_efn(
     input_size: Tuple[int, int]
 ):
     input = [
-        cv2.resize(np.array(item), dsize=input_size) for item in input
+        cv2.resize(np.array(item), dsize=max_size) for item in input
     ]
     input = np.array(input)
     input = efn_preprocess_input(input)
@@ -110,8 +109,8 @@ def preprocess_input_efn(
 name_to_model_spec: Dict[str, ClassifierModelSpecTF] = {
     spec.name: spec for spec in [
         ClassifierModelSpecTF(
-            name='ResNet50_(224x224)',
-            load_default_model=partial(load_model_resnet50, input_size=(224, 224)),
+            name='ResNet50',
+            load_default_model=load_model_resnet50,
             input_size=(224, 224),
             preprocess_input=partial(preprocess_input_resnet50, input_size=(224, 224)),
         ),

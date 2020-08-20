@@ -25,7 +25,7 @@ class BboxData:
             super().__setattr__('image_path', Path(self.image_path))
 
     def open_cropped_image(self, inplace: bool = False) -> Union[None, np.ndarray]:
-        if not inplace and self.cropped_image is not None:
+        if self.cropped_image is not None:
             cropped_image = self.cropped_image.copy()
         else:
             if self.image_path is not None:
@@ -45,17 +45,12 @@ class BboxData:
         else:
             return cropped_image
 
-    @property
-    def visualize_label(self):
-        return self.visualize_label
-
     def assert_coords_are_valid(self):
         assert all(x is not None for x in [self.xmin, self.ymin, self.xmax, self.ymax])
         assert self.xmin <= self.xmax and self.ymin <= self.ymax
 
     def assert_label_is_valid(self):
         assert self.label is not None
-
 
 
 @dataclass(frozen=True)

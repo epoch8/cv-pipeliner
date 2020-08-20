@@ -5,15 +5,14 @@ import numpy as np
 
 from two_stage_pipeliner.core.inference_model import InferenceModel
 
-ImageInput = np.ndarray
 Bbox = Tuple[int, int, int, int]  # (ymin, xmin, ymax, xmax)
 Score = float
 
-ImgBboxes = List[ImageInput]
+ImgBboxes = List[np.ndarray]
 Bboxes = List[Bbox]
 Scores = List[Score]
 
-DetectionInput = List[ImageInput]
+DetectionInput = List[np.ndarray]
 DetectionOutput = List[
     Tuple[
         List[ImgBboxes],
@@ -26,7 +25,7 @@ DetectionOutput = List[
 class DetectionModel(InferenceModel):
     @abc.abstractmethod
     def load(self, checkpoint):
-        InferenceModel.load(self, checkpoint)
+        super().load(checkpoint)
 
     @abc.abstractmethod
     def predict(self, input: DetectionInput,
