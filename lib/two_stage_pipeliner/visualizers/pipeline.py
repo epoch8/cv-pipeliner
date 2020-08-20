@@ -72,7 +72,7 @@ class PipelineVisualizer(Visualizer):
             if self.inferencer is None:
                 display(Image.fromarray(visualize_image_data(
                     self.true_image_data,
-                    use_labels=False,
+                    use_labels=True,
                     score_type=None
                 )))
             else:
