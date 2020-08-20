@@ -45,10 +45,6 @@ class BboxData:
         else:
             return cropped_image
 
-    @property
-    def visualize_label(self):
-        return self.visualize_label
-
     def assert_coords_are_valid(self):
         assert all(x is not None for x in [self.xmin, self.ymin, self.xmax, self.ymax])
         assert self.xmin <= self.xmax and self.ymin <= self.ymax
