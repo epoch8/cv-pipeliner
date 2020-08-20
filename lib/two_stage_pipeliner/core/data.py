@@ -25,7 +25,7 @@ class BboxData:
             super().__setattr__('image_path', Path(self.image_path))
 
     def open_cropped_image(self, inplace: bool = False) -> Union[None, np.ndarray]:
-        if not inplace and self.cropped_image is not None:
+        if self.cropped_image is not None:
             cropped_image = self.cropped_image.copy()
         else:
             if self.image_path is not None:
@@ -65,7 +65,7 @@ class ImageData:
             super().__setattr__('image_path', Path(self.image_path))
 
     def open_image(self, inplace: bool = False) -> Union[None, np.ndarray]:
-        if self.image is not None:
+        if self.image:
             image = self.image.copy()
         elif self.image_path is not None:
             image = np.array(imageio.imread(self.image_path, pilmode="RGB"))
