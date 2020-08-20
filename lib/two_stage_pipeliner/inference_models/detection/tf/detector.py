@@ -14,7 +14,7 @@ from two_stage_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from
 
 class DetectorTF(DetectionModel):
     def load(self, checkpoint: DetectorModelSpecTF):
-        DetectionModel.load(self, checkpoint)
+        super().load(checkpoint)
         model_spec = checkpoint
         configs = config_util.get_configs_from_pipeline_file(
             pipeline_config_path=str(model_spec.config_path)
@@ -30,9 +30,8 @@ class DetectorTF(DetectionModel):
         ckpt.restore(str(ckpt_path)).expect_partial()
 
         # Run model through a dummy image so that variables are created
-        tf_zeros = tf.zeros(
-            [1, model_spec.input_size, model_spec.input_size, 3]
-        )
+        width, height = model_spec.input_size
+        tf_zeros = tf.zeros([1, width, height, 3])
         self._raw_predict_single_image_tf(tf_zeros)
         self.model_spec = model_spec
         self.disable_tqdm = False
@@ -104,5 +103,5 @@ class DetectorTF(DetectionModel):
         return input
 
     @property
-    def input_size(self) -> int:
+    def input_size(self) -> Tuple[int, int]:
         return self.model_spec.input_size

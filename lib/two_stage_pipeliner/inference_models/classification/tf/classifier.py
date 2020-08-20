@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 from tqdm import tqdm
@@ -14,7 +14,7 @@ from two_stage_pipeliner.inference_models.classification.tf.specs import Classif
 
 class ClassifierTF(ClassificationModel):
     def load(self, checkpoint: ClassifierModelSpecTF):
-        ClassificationModel.load(self, checkpoint)
+        super().load(checkpoint)
         model_spec = checkpoint
         if isinstance(model_spec.model_path, str) or isinstance(
             model_spec.model_path, Path
@@ -92,7 +92,7 @@ class ClassifierTF(ClassificationModel):
         return self.model_spec.preprocess_input(input)
 
     @property
-    def input_size(self) -> int:
+    def input_size(self) -> Tuple[int, int]:
         return self.model_spec.input_size
 
     @property
