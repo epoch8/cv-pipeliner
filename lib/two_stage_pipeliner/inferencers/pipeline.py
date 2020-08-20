@@ -5,12 +5,12 @@ from two_stage_pipeliner.core.data import BboxData, ImageData
 from two_stage_pipeliner.core.batch_generator import BatchGeneratorImageData
 
 from two_stage_pipeliner.core.inferencer import Inferencer
-from two_stage_pipeliner.inference_models.pipeline import Pipeline
+from two_stage_pipeliner.inference_models.pipeline import PipelineModel
 
 
 class PipelineInferencer(Inferencer):
-    def __init__(self, model: Pipeline):
-        assert isinstance(model, Pipeline)
+    def __init__(self, model: PipelineModel):
+        assert isinstance(model, PipelineModel)
         Inferencer.__init__(self, model)
 
     def _postprocess_predictions(
