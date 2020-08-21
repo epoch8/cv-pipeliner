@@ -1,7 +1,7 @@
 
 import abc
 
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict
 from pathlib import Path
 
 from two_stage_pipeliner.logging import logger
