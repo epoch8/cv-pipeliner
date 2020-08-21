@@ -4,35 +4,32 @@ import tensorflow as tf
 from tqdm import tqdm
 
 from two_stage_pipeliner.inference_models.detection.core import DetectionModel, DetectionInput, DetectionOutput
-from two_stage_pipeliner.inference_models.detection.tf.specs_pb import DetectorModelSpecTF_pb
+from two_stage_pipeliner.inference_models.detection.tf.specs_pb import DetectionModelSpecTF_pb
 from two_stage_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from_image
 
 
-class DetectorTF_pb(DetectionModel):
+class DetectionModelTF_pb(DetectionModel):
     """
     Detector class for models trained with Object Detection API.
     Only supports models exported in .pb format.
     """
-    def load(self, checkpoint: DetectorModelSpecTF_pb):
-        DetectionModel.load(self, checkpoint)
-        model_spec = checkpoint
-        self.model = tf.keras.models.load_model(str(model_spec.checkpoint_path))
-        self.model = self.model.signatures["serving_default"]
+    def load(self, model_spec: DetectionModelSpecTF_pb):
+        assert isinstance(model_spec, DetectionModelSpecTF_pb)
+        super().load(model_spec)
+        loaded_model = tf.keras.models.load_model(str(model_spec.saved_model_dir))
+        self.model = loaded_model.signatures["serving_default"]
         if model_spec.input_type == "image_tensor":
             self.input_dtype = tf.dtypes.uint8
         elif model_spec.input_type == "float_image_tensor":
             self.input_dtype = tf.dtypes.float32
         else:
-            raise ValueError("input_type of DetectorModelSpecTF_pb can be image_tensor or float_image_tensor.")
+            raise ValueError("input_type of DetectionModelSpecTF_pb can be image_tensor or float_image_tensor.")
+
         # Run model through a dummy image so that variables are created
-        tf_zeros = tf.zeros(
-            [1, model_spec.input_size, model_spec.input_size, 3],
-            dtype=self.input_dtype
-        )
+        width, height = model_spec.input_size
+        tf_zeros = tf.zeros([1, width, height, 3], dtype=self.input_dtype)
 
         self._raw_predict_single_image_tf(tf_zeros)
-        self.model_spec = model_spec
-        self.disable_tqdm = False
 
     def _raw_predict_single_image_tf(self, input_tensor: tf.Tensor) -> Dict:
         output_dict = self.model(input_tensor)
@@ -60,13 +57,14 @@ class DetectorTF_pb(DetectionModel):
 
     def predict(
         self,
-        images: DetectionInput,
+        input: DetectionInput,
         score_threshold: float,
         crop_detections_from_image: bool = True,
+        disable_tqdm: bool = False
     ) -> DetectionOutput:
         n_pred_cropped_images, n_pred_bboxes, n_pred_scores = [], [], []
 
-        for image in tqdm(images, disable=self.disable_tqdm):
+        for image in tqdm(input, disable=disable_tqdm):
             height, width, _ = image.shape
             image_tensor = tf.convert_to_tensor(image[None, ...], dtype=self.input_dtype)
             detector_output_dict = self._raw_predict_single_image_tf(image_tensor)
@@ -87,9 +85,9 @@ class DetectorTF_pb(DetectionModel):
 
         return n_pred_cropped_images, n_pred_bboxes, n_pred_scores
 
-    def preprocess_input(self, input):
+    def preprocess_input(self, input: DetectionInput):
         return input
 
     @property
-    def input_size(self) -> int:
+    def input_size(self) -> Tuple[int, int]:
         return self.model_spec.input_size
