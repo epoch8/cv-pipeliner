@@ -143,7 +143,8 @@ class BboxDataMatching:
 
 @dataclass(init=False)
 class ImageDataMatching:
-    '''A dataclass providing macthing between true_bboxes_data and pred_bboxes_data
+    '''
+    A dataclass providing macthing between true_bboxes_data and pred_bboxes_data
     inside of given image_data.
 
     We say that pred_bbox_data is matched to true_bbox_data if they have iou >= minimum_iou.
