@@ -147,4 +147,4 @@ pipeline_interactive_work(
             for code in codes
         ])
         nbf.write(nb, str(directory / 'report.ipynb'))
-        logger.info(f"Detector report saved to '{directory}'.")
+        logger.info(f"Pipeline report saved to '{directory}'.")
