@@ -2,7 +2,7 @@ from typing import List
 
 from two_stage_pipeliner.core.data import BboxData
 
-from two_stage_pipeliner.core.batch_generator import BatchGeneratorBboxData
+from two_stage_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
 from two_stage_pipeliner.inference_models.classification.core import ClassificationModel
 from two_stage_pipeliner.core.inferencer import Inferencer
 
@@ -10,7 +10,7 @@ from two_stage_pipeliner.core.inferencer import Inferencer
 class ClassificationInferencer(Inferencer):
     def __init__(self, model: ClassificationModel):
         assert isinstance(model, ClassificationModel)
-        Inferencer.__init__(self, model)
+        super().__init__(model)
 
     def _postprocess_predictions(
         self,
@@ -39,16 +39,21 @@ class ClassificationInferencer(Inferencer):
 
         return n_pred_bboxes_data
 
-    def predict(self, bboxes_data_gen: BatchGeneratorBboxData) -> List[List[BboxData]]:
+    def predict(self, n_bboxes_data_gen: BatchGeneratorBboxData) -> List[List[BboxData]]:
         n_pred_bboxes_data = []
-        for n_bboxes_data in bboxes_data_gen:
+        for n_bboxes_data in n_bboxes_data_gen:
             input = [
-                self.model.preprocess_input([bbox_data.cropped_image for bbox_data in bboxes_data])
+                [bbox_data.cropped_image for bbox_data in bboxes_data]
                 for bboxes_data in n_bboxes_data
             ]
+            input = self.model.preprocess_input(input)
             n_pred_labels, n_pred_scores = self.model.predict(input)
             n_pred_bboxes_data_batch = self._postprocess_predictions(
                 n_bboxes_data, n_pred_labels, n_pred_scores
             )
             n_pred_bboxes_data.extend(n_pred_bboxes_data_batch)
         return n_pred_bboxes_data
+
+    @property
+    def class_names(self):
+        return self.model.class_names

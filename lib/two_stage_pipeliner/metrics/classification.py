@@ -10,8 +10,10 @@ def get_df_classification_metrics(
     n_true_bboxes_data: List[List[BboxData]],
     n_pred_bboxes_data: List[List[BboxData]]
 ) -> pd.DataFrame:
+    assert len(n_true_bboxes_data) == len(n_true_bboxes_data)
     true_bboxes_data = [bbox_data for bboxes_data in n_true_bboxes_data for bbox_data in bboxes_data]
     pred_bboxes_data = [bbox_data for bboxes_data in n_pred_bboxes_data for bbox_data in bboxes_data]
+    assert len(true_bboxes_data) == len(pred_bboxes_data)
     true_labels = [bbox_data.label for bbox_data in true_bboxes_data]
     pred_labels = [bbox_data.label for bbox_data in pred_bboxes_data]
     df_classifier_metrics = pd.DataFrame(

@@ -5,18 +5,20 @@ from PIL import Image
 
 from two_stage_pipeliner.core.data import ImageData
 from two_stage_pipeliner.core.visualizer import Visualizer
-from two_stage_pipeliner.core.batch_generator import BatchGeneratorImageData
+from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from two_stage_pipeliner.inferencers.detection import DetectionInferencer
 from two_stage_pipeliner.utils.jupyter_visualizer import JupyterVisualizer
-from two_stage_pipeliner.visualizers.core.images_data import visualize_image_data, \
+from two_stage_pipeliner.visualizers.core.image_data import visualize_image_data, \
     visualize_images_data_side_by_side
 from two_stage_pipeliner.metrics.core import ImageDataMatching
-from two_stage_pipeliner.visualizers.core.images_data_matchings import visualize_image_data_matching_side_by_side
+from two_stage_pipeliner.visualizers.core.image_data_matching import visualize_image_data_matching_side_by_side
 
 
 class DetectionVisualizer(Visualizer):
     def __init__(self, inferencer: DetectionInferencer = None):
-        Visualizer.__init__(self, inferencer)
+        if inferencer is not None:
+            assert isinstance(inferencer, DetectionInferencer)
+        super().__init__(inferencer)
         self.jupyter_visualizer = None
 
     def _get_images_names_by_inference(
