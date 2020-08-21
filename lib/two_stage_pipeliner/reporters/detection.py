@@ -7,17 +7,13 @@ import nbformat as nbf
 
 from two_stage_pipeliner.core.reporter import Reporter
 from two_stage_pipeliner.core.data import ImageData
-from two_stage_pipeliner.core.batch_generator import BatchGeneratorImageData
+from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from two_stage_pipeliner.inferencers.detection import DetectionInferencer
-from two_stage_pipeliner.metrics.detection import get_df_detector_metrics, get_df_detector_recall_per_class
+from two_stage_pipeliner.metrics.detection import get_df_detection_metrics, get_df_detection_recall_per_class
 from two_stage_pipeliner.visualizers.detection import DetectionVisualizer
-from two_stage_pipeliner.inference_models.detection.load_checkpoint import (
-    load_detection_model_from_checkpoint
-)
-
 from two_stage_pipeliner.logging import logger
 
-DETECTION_CHECKPOINT_FILENAME = "detection_checkpoint.pkl"
+DETECTION_MODEL_SPEC_FILENAME = "detection_model_spec.pkl"
 IMAGES_DATA_FILENAME = "images_data.pkl"
 
 
@@ -25,10 +21,10 @@ def detection_interactive_work(directory: Union[str, Path],
                                score_threshold: float,
                                minimum_iou: float):
     directory = Path(directory)
-    checkpoint_filepath = directory / DETECTION_CHECKPOINT_FILENAME
-    with open(checkpoint_filepath, "rb") as src:
-        checkpoint = pickle.load(src)
-    detection_model = load_detection_model_from_checkpoint(checkpoint)
+    model_spec_filepath = directory / DETECTION_MODEL_SPEC_FILENAME
+    with open(model_spec_filepath, "rb") as src:
+        model_spec = pickle.load(src)
+    detection_model = model_spec.load()
     detection_inferencer = DetectionInferencer(detection_model)
 
     images_data_filepath = directory / IMAGES_DATA_FILENAME
@@ -41,8 +37,8 @@ def detection_interactive_work(directory: Union[str, Path],
 
 class DetectionReporter(Reporter):
     def _get_markdowns(self,
-                       df_detector_metrics: pd.DataFrame,
-                       df_detector_recall_per_class: pd.DataFrame) -> List[str]:
+                       df_detection_metrics: pd.DataFrame,
+                       df_detection_recall_per_class: pd.DataFrame) -> List[str]:
         empty_text = '- To be written.'
         markdowns = []
         markdowns.append(
@@ -62,11 +58,11 @@ class DetectionReporter(Reporter):
         )
         markdowns.append(
             '## Common detector metrics\n'
-            f'{df_detector_metrics.to_markdown(stralign="center")}''\n'
+            f'{df_detection_metrics.to_markdown(stralign="center")}''\n'
         )
         markdowns.append(
             '## General recall by class\n'
-            f'{df_detector_recall_per_class.to_markdown(stralign="center")}''\n'
+            f'{df_detection_recall_per_class.to_markdown(stralign="center")}''\n'
         )
         markdowns.append(
             '## Interactive work:\n'
@@ -97,19 +93,19 @@ detection_interactive_work(
         images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=16)
         pred_images_data = inferencer.predict(images_data_gen, score_threshold=score_threshold)
         raw_pred_images_data = inferencer.predict(images_data_gen, score_threshold=0.)
-        df_detector_metrics = get_df_detector_metrics(true_images_data, pred_images_data, minimum_iou,
-                                                      raw_pred_images_data)
-        df_detector_recall_per_class = get_df_detector_recall_per_class(true_images_data, pred_images_data, minimum_iou)
+        df_detection_metrics = get_df_detection_metrics(true_images_data, pred_images_data, minimum_iou,
+                                                        raw_pred_images_data)
+        df_detection_recall_per_class = get_df_detection_recall_per_class(true_images_data, pred_images_data, minimum_iou)
         directory = Path(directory)
         directory.mkdir(exist_ok=True, parents=True)
-        checkpoint_filepath = directory / DETECTION_CHECKPOINT_FILENAME
-        with open(checkpoint_filepath, 'wb') as out:
-            pickle.dump(inferencer.model.checkpoint, out)
+        model_spec_filepath = directory / DETECTION_MODEL_SPEC_FILENAME
+        with open(model_spec_filepath, 'wb') as out:
+            pickle.dump(inferencer.model.model_spec, out)
         images_data_filepath = directory / IMAGES_DATA_FILENAME
         with open(images_data_filepath, 'wb') as out:
             pickle.dump(images_data_gen.data, out)
 
-        markdowns = self._get_markdowns(df_detector_metrics, df_detector_recall_per_class)
+        markdowns = self._get_markdowns(df_detection_metrics, df_detection_recall_per_class)
         codes = self._get_codes(
             score_threshold=score_threshold,
             minimum_iou=minimum_iou

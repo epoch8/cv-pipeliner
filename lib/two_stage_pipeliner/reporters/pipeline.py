@@ -7,23 +7,15 @@ import nbformat as nbf
 
 from two_stage_pipeliner.core.reporter import Reporter
 from two_stage_pipeliner.core.data import ImageData
-from two_stage_pipeliner.core.batch_generator import BatchGeneratorImageData
+from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from two_stage_pipeliner.inferencers.pipeline import PipelineInferencer
 from two_stage_pipeliner.metrics.pipeline import get_df_pipeline_metrics
 from two_stage_pipeliner.visualizers.pipeline import PipelineVisualizer
-from two_stage_pipeliner.inference_models.detection.load_checkpoint import (
-    load_detection_model_from_checkpoint
-)
-from two_stage_pipeliner.inference_models.classification.load_checkpoint import (
-    load_classification_model_from_checkpoint
-)
-
 from two_stage_pipeliner.inference_models.pipeline import PipelineModel
-
 from two_stage_pipeliner.logging import logger
 
-DETECTION_CHECKPOINT_FILENAME = "detection_checkpoint.pkl"
-CLASSIFICATION_CHECKPOINT_FILENAME = "classification_checkpoint.pkl"
+DETECTION_MODEL_SPEC_FILENAME = "detection_model_spec.pkl"
+CLASSIFICATION_MODEL_SPEC_FILENAME = "classification_model_spec.pkl"
 IMAGES_DATA_FILENAME = "images_data.pkl"
 
 
@@ -31,15 +23,15 @@ def pipeline_interactive_work(directory: Union[str, Path],
                               detection_score_threshold: float,
                               minimum_iou: float):
     directory = Path(directory)
-    detection_checkpoint_filepath = directory / DETECTION_CHECKPOINT_FILENAME
-    with open(detection_checkpoint_filepath, "rb") as src:
-        detection_checkpoint = pickle.load(src)
-    classification_checkpoint_filepath = directory / CLASSIFICATION_CHECKPOINT_FILENAME
-    with open(classification_checkpoint_filepath, "rb") as src:
-        classification_checkpoint = pickle.load(src)
-    detection_model = load_detection_model_from_checkpoint(detection_checkpoint)
-    classification_model = load_classification_model_from_checkpoint(classification_checkpoint)
-    classification_model.load(classification_checkpoint)
+    detection_model_spec_filepath = directory / DETECTION_MODEL_SPEC_FILENAME
+    with open(detection_model_spec_filepath, "rb") as src:
+        detection_model_spec = pickle.load(src)
+    classification_model_spec_filepath = directory / CLASSIFICATION_MODEL_SPEC_FILENAME
+    with open(classification_model_spec_filepath, "rb") as src:
+        classification_model_spec = pickle.load(src)
+    detection_model = detection_model_spec.load()
+    classification_model = classification_model_spec.load()
+    classification_model.load(classification_model_spec)
     pipeline_model = PipelineModel()
     pipeline_model.load((detection_model, classification_model))
 
@@ -126,15 +118,15 @@ pipeline_interactive_work(
         )
         directory = Path(directory)
         directory.mkdir(exist_ok=True, parents=True)
-        detection_checkpoint_filepath = directory / DETECTION_CHECKPOINT_FILENAME
-        classification_checkpoint_filepath = directory / CLASSIFICATION_CHECKPOINT_FILENAME
+        detection_model_spec_filepath = directory / DETECTION_MODEL_SPEC_FILENAME
+        classification_model_spec_filepath = directory / CLASSIFICATION_MODEL_SPEC_FILENAME
 
-        detection_checkpoint = inferencer.model.detection_model.checkpoint
-        classification_checkpoint = inferencer.model.classification_model.checkpoint
-        with open(detection_checkpoint_filepath, 'wb') as out:
-            pickle.dump(detection_checkpoint, out)
-        with open(classification_checkpoint_filepath, 'wb') as out:
-            pickle.dump(classification_checkpoint, out)
+        detection_model_spec = inferencer.model.detection_model.model_spec
+        classification_model_spec = inferencer.model.classification_model.model_spec
+        with open(detection_model_spec_filepath, 'wb') as out:
+            pickle.dump(detection_model_spec, out)
+        with open(classification_model_spec_filepath, 'wb') as out:
+            pickle.dump(classification_model_spec, out)
         images_data_filepath = directory / IMAGES_DATA_FILENAME
         with open(images_data_filepath, 'wb') as out:
             pickle.dump(images_data_gen.data, out)
