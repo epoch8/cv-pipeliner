@@ -70,7 +70,7 @@ def preprocess_input_resnet50(
     input = np.array(
         [resize(image=np.array(item))['image']
          if max(np.array(item).shape[0], np.array(item).shape[1]) >= max_size else np.array(item)
-         for item in input]
+         for item in input], dtype=object
     )
     input = np.array(
         [padding(image=np.array(item))['image'] for item in input]
