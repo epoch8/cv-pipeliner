@@ -9,69 +9,69 @@ import streamlit as st
 import tensorflow as tf
 
 from brickit_ml.default_tf_settings import default_tf_settings
-from two_stage_pipeliner.inference_models.detection.tf.specs import load_detector_model_spec_tf
-from two_stage_pipeliner.inference_models.detection.load_checkpoint import (
-    load_detection_model_from_checkpoint
+from two_stage_pipeliner.inference_models.detection.core import DetectionModelSpec
+from two_stage_pipeliner.inference_models.classification.core import ClassificationModelSpec
+from two_stage_pipeliner.inference_models.detection.tf.specs import (
+    load_detection_model_spec_tf_from_standard_list_of_models_specs
 )
-from two_stage_pipeliner.inference_models.classification.tf.specs import load_classifier_model_spec_tf
-from two_stage_pipeliner.inference_models.classification.load_checkpoint import (
-    load_classification_model_from_checkpoint
+from two_stage_pipeliner.inference_models.classification.tf.specs import (
+    load_classification_model_spec_tf_from_standard_list_of_models_specs
 )
-from two_stage_pipeliner.inference_models.pipeline import Pipeline
+from two_stage_pipeliner.inference_models.pipeline import PipelineModelSpec
 from two_stage_pipeliner.inferencers.pipeline import PipelineInferencer
 
 
 @dataclass
-class DetectionModelSpec:
+class DetectionModelDescription:
     name: str
-    checkpoint: Any
+    model_spec: DetectionModelSpec
     score_threshold: float
 
 
 @dataclass
-class ClassificationModelSpec:
+class ClassificationDescription:
     name: str
-    checkpoint: Any
+    model_spec: ClassificationModelSpec
 
 
-MAIN_PATH = Path('.').absolute().parent
+MAIN_PATH = Path(__file__).parent.parent.absolute()
 MODELS_PATH = MAIN_PATH / 'models'
-name_to_detection_model_spec = {
+name_to_detection_description = {
     spec.name: spec for spec in [
-        DetectionModelSpec(
+        DetectionModelDescription(
             name='brickit-ml => 200716_centernet_R101_test',
-            checkpoint=load_detector_model_spec_tf(
-                model_name='centernet_resnet101_v1_fpn_512x512_coco17_tpu-8',
-                model_dir=MODELS_PATH/'brickit-ml/detection/200716_centernet_R101_test/',
-                checkpoint_filename='ckpt-8'
+            model_spec=load_detection_model_spec_tf_from_standard_list_of_models_specs(
+                spec_name='centernet_resnet101_v1_fpn_512x512_coco17_tpu-8',
+                config_path=MODELS_PATH/'brickit-ml/detection/200716_centernet_R101_test/pipeline.config',
+                checkpoint_path=MODELS_PATH/'brickit-ml/detection/200716_centernet_R101_test/checkpoint/ckpt-8',
             ),
             score_threshold=0.4
         ),
-        DetectionModelSpec(
+        DetectionModelDescription(
             name='crpt-ml => 2020-07-subclasses-recycling',
-            checkpoint=load_detector_model_spec_tf(
-                model_name='ssd_mobilenet_v1_fpn_640x640_coco17_tpu-8',
-                model_dir=MODELS_PATH/'crpt-ml/detection/2020-07-subclasses-recycling/',
-                checkpoint_filename='ckpt-50'
+            model_spec=load_detection_model_spec_tf_from_standard_list_of_models_specs(
+                spec_name='ssd_mobilenet_v1_fpn_640x640_coco17_tpu-8',
+                config_path=MODELS_PATH/'crpt-ml/detection/2020-07-subclasses-recycling/pipeline.config',
+                checkpoint_path=MODELS_PATH/'crpt-ml/detection/2020-07-subclasses-recycling/checkpoint/ckpt-50'
             ),
             score_threshold=0.3
         )
     ]
 }
-name_to_classification_model_spec = {
+name_to_classification_description = {
     spec.name: spec for spec in [
-        ClassificationModelSpec(
+        ClassificationDescription(
             name='brickit-ml => 200427_2236__balanced_sampling_max300_dataloader_v2',
-            checkpoint=load_classifier_model_spec_tf(
-                model_name='ResNet50',
+            model_spec=load_classification_model_spec_tf_from_standard_list_of_models_specs(
+                spec_name='ResNet50_(224x224)',
                 class_names=json.load(open(MODELS_PATH/'brickit-ml/classification/200427_2236__balanced_sampling_max300_dataloader_v2/class_names.json')),
                 model_path=MODELS_PATH/'brickit-ml/classification/200427_2236__balanced_sampling_max300_dataloader_v2/best_model.h5'
             ),
         ),
-        ClassificationModelSpec(
+        ClassificationDescription(
             name='crpt-ml => 2020-07-subclasses-recycling',
-            checkpoint=load_classifier_model_spec_tf(
-                model_name='EfficientNetB0_no_padding',
+            model_spec=load_classification_model_spec_tf_from_standard_list_of_models_specs(
+                spec_name='EfficientNetB0_no_padding',
                 class_names=json.load(open(MODELS_PATH/'crpt-ml/classification/2020-07-subclasses-recycling/class_names.json')),
                 model_path=MODELS_PATH/'crpt-ml/classification/2020-07-subclasses-recycling/best_model.hdf5'
             )
@@ -96,11 +96,12 @@ HASH_FUNCS = {
 @st.cache(hash_funcs=HASH_FUNCS, allow_output_mutation=True)
 def load_pipeline_inferencer(detection_model_name, classification_model_name) -> PipelineInferencer:
     default_tf_settings()
-    detection_model_spec = name_to_detection_model_spec[detection_model_name]
-    classification_model_spec = name_to_classification_model_spec[classification_model_name]
-    detection_model = load_detection_model_from_checkpoint(detection_model_spec.checkpoint)
-    classification_model = load_classification_model_from_checkpoint(classification_model_spec.checkpoint)
-    pipeline_model = Pipeline()
-    pipeline_model.load((detection_model, classification_model))
+    detection_model_spec = name_to_detection_description[detection_model_name].model_spec
+    classification_model_spec = name_to_classification_description[classification_model_name].model_spec
+    pipeline_model_spec = PipelineModelSpec(
+        detection_model_spec=detection_model_spec,
+        classification_model_spec=classification_model_spec
+    )
+    pipeline_model = pipeline_model_spec.load()
     pipeline_inferencer = PipelineInferencer(pipeline_model)
     return pipeline_inferencer
