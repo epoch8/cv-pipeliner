@@ -1,15 +1,15 @@
 import abc
 import copy
 
-from typing import List
+from typing import List, Any
 import numpy as np
 
 
 class BatchGenerator(abc.ABC):
     def __init__(self,
-                 data: List,
+                 data: List[Any],
                  batch_size: int):
-        self.data = np.array(data)
+        self.data = np.array(data, dtype=object)
         self.batch_size = batch_size
         self.indexes = np.arange(len(self.data))
         super(BatchGenerator, self).__init__()
