@@ -8,14 +8,14 @@ from object_detection.utils import config_util
 from object_detection.builders import model_builder
 
 from two_stage_pipeliner.inference_models.detection.core import DetectionModel, DetectionInput, DetectionOutput
-from two_stage_pipeliner.inference_models.detection.tf.specs import DetectorModelSpecTF
+from two_stage_pipeliner.inference_models.detection.tf.specs import DetectionModelSpecTF
 from two_stage_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from_image
 
 
-class DetectorTF(DetectionModel):
-    def load(self, checkpoint: DetectorModelSpecTF):
-        super().load(checkpoint)
-        model_spec = checkpoint
+class DetectionModelTF(DetectionModel):
+    def load(self, model_spec: DetectionModelSpecTF):
+        assert isinstance(model_spec, DetectionModelSpecTF)
+        super().load(model_spec)
         configs = config_util.get_configs_from_pipeline_file(
             pipeline_config_path=str(model_spec.config_path)
         )
@@ -24,17 +24,12 @@ class DetectorTF(DetectionModel):
             model_config=model_config, is_training=False
         )
         ckpt = tf.compat.v2.train.Checkpoint(model=self.model)
-        ckpt_path = (
-            model_spec.model_dir / 'checkpoint' / model_spec.checkpoint_filename
-        )
-        ckpt.restore(str(ckpt_path)).expect_partial()
+        ckpt.restore(str(model_spec.checkpoint_path)).expect_partial()
 
         # Run model through a dummy image so that variables are created
         width, height = model_spec.input_size
         tf_zeros = tf.zeros([1, width, height, 3])
         self._raw_predict_single_image_tf(tf_zeros)
-        self.model_spec = model_spec
-        self.disable_tqdm = False
 
     def _raw_predict_single_image_tf(self, input_tensor: tf.Tensor) -> Dict:
         preprocessed_image, shapes = self.model.preprocess(input_tensor)
@@ -43,16 +38,6 @@ class DetectorTF(DetectionModel):
             raw_prediction_dict, shapes
         )
         return detector_output_dict
-
-    def _raw_predict(self,
-                     images: np.ndarray) -> List[Dict]:
-        detector_output_dicts = []
-        for image in tqdm(images, disable=self.disable_tqdm):
-            image_tensor = tf.convert_to_tensor(image[None, ...], dtype=tf.float32)
-            detector_output_dict = self._raw_predict_single_image_tf(image_tensor)
-            detector_output_dicts.append(detector_output_dict)
-
-        return detector_output_dicts
 
     def _postprocess_prediction(
         self,
@@ -72,13 +57,14 @@ class DetectorTF(DetectionModel):
 
     def predict(
         self,
-        images: DetectionInput,
+        input: DetectionInput,
         score_threshold: float,
         crop_detections_from_image: bool = True,
+        disable_tqdm: bool = False
     ) -> DetectionOutput:
         n_pred_cropped_images, n_pred_bboxes, n_pred_scores = [], [], []
 
-        for image in tqdm(images, disable=self.disable_tqdm):
+        for image in tqdm(input, disable=disable_tqdm):
             height, width, _ = image.shape
             image_tensor = tf.convert_to_tensor(image[None, ...], dtype=tf.float32)
             detector_output_dict = self._raw_predict_single_image_tf(image_tensor)
@@ -99,7 +85,7 @@ class DetectorTF(DetectionModel):
 
         return n_pred_cropped_images, n_pred_bboxes, n_pred_scores
 
-    def preprocess_input(self, input):
+    def preprocess_input(self, input: DetectionInput):
         return input
 
     @property
