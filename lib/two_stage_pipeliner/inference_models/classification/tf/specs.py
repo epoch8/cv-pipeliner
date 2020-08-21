@@ -1,46 +1,51 @@
+import copy
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Union, List, Dict, Callable, Tuple
+from typing import Union, List, Dict, Callable, Tuple, ClassVar
 from functools import partial
 
 import cv2
 import numpy as np
 import tensorflow as tf
-from tensorflow import keras
 
 from albumentations import LongestMaxSize, PadIfNeeded, Normalize
 from efficientnet.tfkeras import EfficientNetB0, preprocess_input as efn_preprocess_input
 
-from two_stage_pipeliner.core.inference_model import Checkpoint
+from two_stage_pipeliner.inference_models.classification.core import ClassificationModelSpec
 
 
 @dataclass
-class ClassifierModelSpecTF(Checkpoint):
+class ClassificationModelSpecTF(ClassificationModelSpec):
     name: str
     input_size: Tuple[int, int]
     preprocess_input: Callable[[List[np.ndarray], Tuple[int, int]], np.ndarray]
     num_classes: int = None
     class_names: List[str] = None
-    model_path: Path = None
+    model_path: Union[str, Path, tf.keras.Model] = None
     load_default_model: Callable[[int], tf.keras.Model] = None
+
+    @property
+    def inference_model(self) -> ClassVar['ClassificationModelTF']:
+        from two_stage_pipeliner.inference_models.classification.tf.classifier import ClassificationModelTF
+        return ClassificationModelTF
 
 # ResNet50
 
 
 def load_model_resnet50(num_classes: int, input_size: Tuple[int, int]) -> tf.keras.Model:
     width, height = input_size
-    base_model = keras.applications.resnet50.ResNet50(
+    base_model = tf.keras.applications.resnet50.ResNet50(
         weights="imagenet",
         include_top=False,
         input_shape=(width, height, 3)
     )
 
-    global_average_layer = keras.layers.GlobalAveragePooling2D()
-    dropout_layer = keras.layers.Dropout(rate=0.5)
-    prediction_layer = keras.layers.Dense(len(num_classes),
-                                          activation='softmax')
+    global_average_layer = tf.keras.layers.GlobalAveragePooling2D()
+    dropout_layer = tf.keras.layers.Dropout(rate=0.5)
+    prediction_layer = tf.keras.layers.Dense(num_classes,
+                                             activation='softmax')
 
-    model = keras.Sequential([
+    model = tf.keras.Sequential([
       base_model,
       global_average_layer,
       dropout_layer,
@@ -107,15 +112,15 @@ def preprocess_input_efn(
 # ModelSpec
 
 
-name_to_model_spec: Dict[str, ClassifierModelSpecTF] = {
+spec_name_to_classification_model_spec_tf: Dict[str, ClassificationModelSpecTF] = {
     spec.name: spec for spec in [
-        ClassifierModelSpecTF(
+        ClassificationModelSpecTF(
             name='ResNet50_(224x224)',
             load_default_model=partial(load_model_resnet50, input_size=(224, 224)),
             input_size=(224, 224),
             preprocess_input=partial(preprocess_input_resnet50, input_size=(224, 224)),
         ),
-        ClassifierModelSpecTF(
+        ClassificationModelSpecTF(
             name='EfficientNetB0_no_padding',
             load_default_model=load_EfficientNetB0_model,
             input_size=(224, 224),
@@ -125,13 +130,15 @@ name_to_model_spec: Dict[str, ClassifierModelSpecTF] = {
 }
 
 
-def load_classifier_model_spec_tf(
-    model_name: Union[str, Path],
+def load_classification_model_spec_tf_from_standard_list_of_models_specs(
+    spec_name: Union[str, Path],
     class_names: List[str],
     model_path: Union[str, Path] = None
-) -> ClassifierModelSpecTF:
-    model_spec = name_to_model_spec[model_name]
+) -> ClassificationModelSpecTF:
+
+    model_spec = copy.deepcopy(spec_name_to_classification_model_spec_tf[spec_name])
     model_spec.class_names = class_names
     model_spec.num_classes = len(class_names)
     model_spec.model_path = Path(model_path).absolute() if model_path else None
+
     return model_spec

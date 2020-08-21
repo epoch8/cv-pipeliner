@@ -2,7 +2,7 @@ from typing import List, Tuple
 import numpy as np
 
 from two_stage_pipeliner.core.data import BboxData, ImageData
-from two_stage_pipeliner.core.batch_generator import BatchGeneratorImageData
+from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 
 from two_stage_pipeliner.core.inferencer import Inferencer
 from two_stage_pipeliner.inference_models.pipeline import PipelineModel
@@ -11,7 +11,7 @@ from two_stage_pipeliner.inference_models.pipeline import PipelineModel
 class PipelineInferencer(Inferencer):
     def __init__(self, model: PipelineModel):
         assert isinstance(model, PipelineModel)
-        Inferencer.__init__(self, model)
+        super().__init__(model)
 
     def _postprocess_predictions(
         self,
@@ -87,3 +87,7 @@ class PipelineInferencer(Inferencer):
             pred_images_data.extend(pred_images_data_batch)
 
         return pred_images_data
+
+    @property
+    def class_names(self):
+        return self.model.class_names

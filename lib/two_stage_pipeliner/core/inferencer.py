@@ -4,10 +4,18 @@ from two_stage_pipeliner.core.inference_model import InferenceModel
 
 
 class Inferencer(abc.ABC):
-    """High-level class for inference.
+    """
+    High-level class for inference.
 
     The class accepts loaded InferenceModel and make predictions
-    by using high-level objects (e.g., BboxData, ImageData)
+    by using high-level objects (BatchGenerators).
+
+    Example:
+        model_spec = ModelSpec(...)
+        inference_model = model_spec.load_model()
+        inferencer = Inferencer(inference_model)
+        data_gen = BatchGenerator(data, batch_size=16)
+        pred_data = inferencer.predict(data_gen)
 
     """
 
