@@ -1,28 +1,25 @@
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 from tqdm import tqdm
-
-from tensorflow.keras.models import load_model
-from tensorflow.python.keras.engine.training import Model as TfModelType
+import tensorflow as tf
 
 from two_stage_pipeliner.inference_models.classification.core import ClassificationModel, \
     ClassificationInput, ClassificationOutput
-from two_stage_pipeliner.inference_models.classification.tf.specs import ClassifierModelSpecTF
+from two_stage_pipeliner.inference_models.classification.tf.specs import ClassificationModelSpecTF
 
 
-class ClassifierTF(ClassificationModel):
-    def load(self, checkpoint: ClassifierModelSpecTF):
-        ClassificationModel.load(self, checkpoint)
-        model_spec = checkpoint
-        if isinstance(model_spec.model_path, str) or isinstance(
-            model_spec.model_path, Path
-        ):
-            self.model = load_model(str(model_spec.model_path))
-        elif isinstance(model_spec.model_path, TfModelType):
+class ClassificationModelTF(ClassificationModel):
+    def load(self, model_spec: ClassificationModelSpecTF):
+        assert isinstance(model_spec, ClassificationModelSpecTF)
+        super().load(model_spec)
+        if model_spec.model_path is None:
+            self.model = model_spec.load_default_model(model_spec.num_classes)
+        elif isinstance(model_spec.model_path, str) or isinstance(model_spec.model_path, Path):
+            self.model = tf.keras.models.load_model(str(model_spec.model_path))
+        elif isinstance(model_spec.model_path, tf.keras.Model):
             self.model = model_spec.model_path
-        self.model_spec = model_spec
         assert model_spec.num_classes == int(self.model.output.shape[-1])
         self.num_classes = model_spec.num_classes
         self._class_names = model_spec.class_names
@@ -30,21 +27,21 @@ class ClassifierTF(ClassificationModel):
         self.id_to_class_name = {
             id: class_name for id, class_name in enumerate(self.class_names)
         }
-        self.disable_tqdm = False
         self.batch_size = 16
 
     def _split_chunks(self,
-                      l: np.ndarray,
+                      _list: np.ndarray,
                       chunk_sizes: List[int]) -> List[np.ndarray]:
         cnt = 0
         chunks = []
         for chunk_size in chunk_sizes:
-            chunks.append(l[cnt: cnt + chunk_size])
+            chunks.append(_list[cnt: cnt + chunk_size])
             cnt += chunk_size
         return chunks
 
     def _raw_predict(self,
-                     images: List[List[np.ndarray]]) -> np.ndarray:
+                     images: List[List[np.ndarray]],
+                     disable_tqdm: bool) -> np.ndarray:
 
         predictions = []
 
@@ -53,7 +50,7 @@ class ClassifierTF(ClassificationModel):
             [item for sublist in images for item in sublist]
         )
 
-        with tqdm(total=len(images), disable=self.disable_tqdm) as pbar:
+        with tqdm(total=len(images), disable=disable_tqdm) as pbar:
             for i in range(0, len(images), self.batch_size):
                 batch = images[i: i + self.batch_size]
 
@@ -83,16 +80,20 @@ class ClassifierTF(ClassificationModel):
         return pred_labels, pred_scores
 
     def predict(self,
-                input: ClassificationInput) -> ClassificationOutput:
-        raw_prediction = self._raw_predict(input)
+                input: ClassificationInput,
+                disable_tqdm: bool = False) -> ClassificationOutput:
+        raw_prediction = self._raw_predict(input, disable_tqdm=disable_tqdm)
         n_pred_labels, n_pred_scores = self._postprocess_predictions(raw_prediction)
         return n_pred_labels, n_pred_scores
 
-    def preprocess_input(self, input):
-        return self.model_spec.preprocess_input(input)
+    def preprocess_input(self, input: ClassificationInput):
+        return [
+            self.model_spec.preprocess_input(cropped_images)
+            for cropped_images in input
+        ]
 
     @property
-    def input_size(self) -> int:
+    def input_size(self) -> Tuple[int, int]:
         return self.model_spec.input_size
 
     @property

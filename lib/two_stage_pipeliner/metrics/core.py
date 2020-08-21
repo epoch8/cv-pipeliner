@@ -95,6 +95,10 @@ class BboxDataMatching:
         use_soft_with_known_labels: List[str] = None
     ) -> Literal[None, "TP", "FP", "FN", "TP (extra bbox)", "FP (extra bbox)"]:
 
+        for bbox_data in [self.true_bbox_data, self.pred_bbox_data]:
+            if bbox_data is not None:
+                bbox_data.assert_label_is_valid()
+
         true_label = self.true_bbox_data.label if self.true_bbox_data is not None else None
         pred_label = self.pred_bbox_data.label if self.pred_bbox_data is not None else None
 
@@ -139,7 +143,8 @@ class BboxDataMatching:
 
 @dataclass(init=False)
 class ImageDataMatching:
-    '''A dataclass providing macthing between true_bboxes_data and pred_bboxes_data
+    '''
+    A dataclass providing macthing between true_bboxes_data and pred_bboxes_data
     inside of given image_data.
 
     We say that pred_bbox_data is matched to true_bbox_data if they have iou >= minimum_iou.
@@ -171,6 +176,10 @@ class ImageDataMatching:
         pred_bboxes_data = pred_image_data.bboxes_data
         remained_pred_bboxes_data = pred_bboxes_data.copy()
         bboxes_data_matchings = []
+
+        for bboxes_data in [true_bboxes_data, pred_bboxes_data]:
+            for bbox_data in bboxes_data:
+                bbox_data.assert_coords_are_valid()
 
         def find_best_bbox_idx_by_iou(true_bbox_data: BboxData,
                                       pred_bboxes_data: List[BboxData],

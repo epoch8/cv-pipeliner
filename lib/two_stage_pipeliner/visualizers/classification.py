@@ -7,15 +7,17 @@ from PIL import Image
 
 from two_stage_pipeliner.core.data import BboxData
 from two_stage_pipeliner.core.visualizer import Visualizer
-from two_stage_pipeliner.core.batch_generator import BatchGeneratorBboxData
-from two_stage_pipeliner.inferencers.detection import DetectionInferencer
+from two_stage_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
+from two_stage_pipeliner.inferencers.classification import ClassificationInferencer
 from two_stage_pipeliner.utils.jupyter_visualizer import JupyterVisualizer
-from two_stage_pipeliner.visualizers.core.bboxes_data import visualize_bboxes_data
+from two_stage_pipeliner.visualizers.core.bbox_data import visualize_bboxes_data
 
 
 class ClassificationVisualizer(Visualizer):
-    def __init__(self, inferencer: DetectionInferencer = None):
-        Visualizer.__init__(self, inferencer)
+    def __init__(self, inferencer: ClassificationInferencer = None):
+        if inferencer is not None:
+            assert isinstance(inferencer, ClassificationInferencer)
+        super().__init__(inferencer)
         self.jupyter_visualizer = None
 
     def visualize(self,
@@ -25,12 +27,12 @@ class ClassificationVisualizer(Visualizer):
                   show_TP_FP: bool = False):
         if use_all_data:
             images_names = ['all']
-            n_bboxes_data = [bbox_data for bboxes_data in n_bboxes_data for bbox_data in bboxes_data]
-            bboxes_data_gen = BatchGeneratorBboxData([n_bboxes_data], batch_size=1)
+            n_bboxes_data = [[bbox_data for bboxes_data in n_bboxes_data for bbox_data in bboxes_data]]
+            n_bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=1)
         else:
             if self.inferencer is not None and show_TP_FP:
-                bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=1)
-                n_pred_bboxes_data = self.inferencer.predict(bboxes_data_gen)
+                n_bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=1)
+                n_pred_bboxes_data = self.inferencer.predict(n_bboxes_data_gen)
 
                 n_true_labels = [
                     np.array([bbox_data.label for bbox_data in bboxes_data])
@@ -55,13 +57,13 @@ class ClassificationVisualizer(Visualizer):
                 ]
             else:
                 images_names = [bboxes_data[0].image_path.name for bboxes_data in n_bboxes_data]
-            bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=1)
+            n_bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=1)
 
         self.i = None
 
         def display_fn(i):
             if self.i is None or i != self.i:
-                self.batch = bboxes_data_gen[i]
+                self.batch = n_bboxes_data_gen[i]
                 self.true_bboxes_data = self.batch[0]
                 if self.inferencer is not None:
                     self.pred_bboxes_data = self.inferencer.predict([self.batch])[0]
@@ -118,7 +120,7 @@ class ClassificationVisualizer(Visualizer):
             )))
 
         self.jupyter_visualizer = JupyterVisualizer(
-            images=range(len(bboxes_data_gen)),
+            images=range(len(n_bboxes_data_gen)),
             images_names=images_names,
             choices=['all'],
             choices_description='class_name',

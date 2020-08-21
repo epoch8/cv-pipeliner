@@ -1,29 +1,34 @@
+import copy
 import tarfile
 import shutil
 
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Dict, Union
+from typing import Dict, Union, Tuple, ClassVar
 
 import requests
 
 from tqdm import tqdm
 from two_stage_pipeliner.logging import logger
 
-from two_stage_pipeliner.core.inference_model import Checkpoint
+from two_stage_pipeliner.inference_models.detection.core import DetectionModelSpec
 
 
 @dataclass
-class DetectorModelSpecTF(Checkpoint):
+class DetectionModelSpecTF(DetectionModelSpec):
     name: str
-    input_size: int
-    model_url: str
-    fine_tune_checkpoint_type: str = None
+    input_size: Tuple[int, int]
+    standard_model_url: str
     config_path: Union[str, Path] = None
-    checkpoint_filename: Union[str, Path] = None
+    checkpoint_path: Union[str, Path] = None
+
+    @property
+    def inference_model(self) -> ClassVar['DetectionModelTF']:
+        from two_stage_pipeliner.inference_models.detection.tf.detector import DetectionModelTF
+        return DetectionModelTF
 
 
-ZOO_MODELS_DIR = Path(__file__).parent / 'tf_zoo_models'
+ZOO_MODELS_DIR = Path(__file__).parent.parent.parent.parent.parent / 'object_detection_api_zoo_models'
 ZOO_MODELS_DIR.mkdir(exist_ok=True)
 
 
@@ -42,13 +47,13 @@ def download(url: str, filepath: Union[str, Path]):
             tbar.update(size)
 
 
-def download_model(model_name: str, model_url: str):
+def download_model(model_name: str, standard_model_url: str):
     logger.info(
-        f"Download model '{model_name}' from url '{model_url}'"
+        f"Download model '{model_name}' from url '{standard_model_url}'"
     )
-    filepath = ZOO_MODELS_DIR / Path(model_url).name
+    filepath = ZOO_MODELS_DIR / Path(standard_model_url).name
     folder = Path(str(filepath).split('.tar.gz')[0])
-    download(model_url, filepath)
+    download(standard_model_url, filepath)
 
     tar = tarfile.open(filepath)
     tar.extractall(path=ZOO_MODELS_DIR)
@@ -61,77 +66,63 @@ def download_model(model_name: str, model_url: str):
     )
 
 
-name_to_model_spec: Dict[str, DetectorModelSpecTF] = {
+spec_name_to_detection_model_spec_tf: Dict[str, DetectionModelSpecTF] = {
     spec.name: spec for spec in [
-        DetectorModelSpecTF(
+        DetectionModelSpecTF(
             name='ssd_mobilenet_v2_320x320_coco17_tpu-8',
-            model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v2_320x320_coco17_tpu-8.tar.gz',
-            input_size=320,
-            fine_tune_checkpoint_type='detection'
+            standard_model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v2_320x320_coco17_tpu-8.tar.gz',
+            input_size=(320, 320),
         ),
-        DetectorModelSpecTF(
+        DetectionModelSpecTF(
             name='centernet_resnet101_v1_fpn_512x512_coco17_tpu-8',
-            model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/centernet_resnet101_v1_fpn_512x512_coco17_tpu-8.tar.gz',
-            input_size=512,
-            fine_tune_checkpoint_type='fine_tune'
+            standard_model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/centernet_resnet101_v1_fpn_512x512_coco17_tpu-8.tar.gz',
+            input_size=(512, 512),
         ),
-        DetectorModelSpecTF(
+        DetectionModelSpecTF(
             name='centernet_hg104_512x512_coco17_tpu-8',
-            model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/centernet_hg104_512x512_coco17_tpu-8.tar.gz',
-            input_size=512,
-            fine_tune_checkpoint_type='detection'
+            standard_model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/centernet_hg104_512x512_coco17_tpu-8.tar.gz',
+            input_size=(512, 512),
         ),
-        DetectorModelSpecTF(
+        DetectionModelSpecTF(
             name='ssd_mobilenet_v1_fpn_640x640_coco17_tpu-8',
-            model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v1_fpn_640x640_coco17_tpu-8.tar.gz',
-            input_size=640,
-            fine_tune_checkpoint_type='detection'
+            standard_model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v1_fpn_640x640_coco17_tpu-8.tar.gz',
+            input_size=(640, 640),
         ),
-        DetectorModelSpecTF(
+        DetectionModelSpecTF(
             name='efficientdet_d0_coco17_tpu-32',
-            model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d0_coco17_tpu-32.tar.gz',
-            input_size=512,
-            fine_tune_checkpoint_type='detection'
+            standard_model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d0_coco17_tpu-32.tar.gz',
+            input_size=(512, 512),
         ),
-        DetectorModelSpecTF(
+        DetectionModelSpecTF(
             name='efficientdet_d1_coco17_tpu-32',
-            model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d1_coco17_tpu-32.tar.gz',
-            input_size=640,
-            fine_tune_checkpoint_type='detection'
+            standard_model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d1_coco17_tpu-32.tar.gz',
+            input_size=(640, 640),
         ),
-        DetectorModelSpecTF(
+        DetectionModelSpecTF(
             name='centernet_resnet50_v1_fpn_512x512_coco17_tpu-8',
-            model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/centernet_resnet50_v1_fpn_512x512_coco17_tpu-8.tar.gz',
-            input_size=512,
-            fine_tune_checkpoint_type='detection'
+            standard_model_url='http://download.tensorflow.org/models/object_detection/tf2/20200711/centernet_resnet50_v1_fpn_512x512_coco17_tpu-8.tar.gz',
+            input_size=(512, 512),
         ),
     ]
 }
 
 
-def load_detector_model_spec_tf(
-    model_name: str,
-    model_dir: Union[str, Path] = None,
-    checkpoint_filename: str = None
-) -> DetectorModelSpecTF:
-    model_spec = name_to_model_spec[model_name]
+def load_detection_model_spec_tf_from_standard_list_of_models_specs(
+    spec_name: str,
+    config_path: Union[str, Path] = None,
+    checkpoint_path: Union[str, Path] = None,
+) -> DetectionModelSpecTF:
 
-    if model_dir is None:
-        model_dir = ZOO_MODELS_DIR / model_name
+    model_spec = copy.deepcopy(spec_name_to_detection_model_spec_tf[spec_name])
+
+    if config_path is None and checkpoint_path is None:
+        model_dir = ZOO_MODELS_DIR / spec_name
         if not model_dir.exists():
-            download_model(model_name, model_spec.model_url)
-
-    model_dir = Path(model_dir).absolute()
-    model_spec.model_dir = model_dir
-    model_spec.config_path = model_dir / 'pipeline.config'
-    if checkpoint_filename is None:
-        if (model_spec.model_dir / 'checkpoint/ckpt-0.index').exists():
-            # default checkpoint
-            model_spec.checkpoint_filename = 'ckpt-0'
-        else:
-            # first saved checkpoint in training
-            model_spec.checkpoint_filename = 'ckpt-1'
+            download_model(spec_name, model_spec.standard_model_url)
+        model_spec.config_path = model_dir / 'pipeline.config'
+        model_spec.checkpoint_path = model_dir / 'checkpoint/ckpt-0.index'
     else:
-        model_spec.checkpoint_filename = checkpoint_filename
+        model_spec.config_path = config_path
+        model_spec.checkpoint_path = checkpoint_path
 
     return model_spec
