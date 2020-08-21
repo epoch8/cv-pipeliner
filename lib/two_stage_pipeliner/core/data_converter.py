@@ -1,11 +1,68 @@
 
 import abc
 
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict
 from pathlib import Path
 
 from two_stage_pipeliner.logging import logger
 from two_stage_pipeliner.core.data import BboxData, ImageData
+
+
+def assert_image_data(fn):
+    def wrapped(
+        data_converter: "DataConverter",
+        image_path: Union[str, Path],
+        annot: Union[Path, str, Dict]
+    ) -> ImageData:
+        image_data = fn(data_converter, image_path, annot)
+        looked_bboxes = set()
+        new_bboxes_data = []
+        for bbox_data in image_data.bboxes_data:
+            xmin, ymin, xmax, ymax = bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax
+            xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(xmax), int(ymax)
+
+            if (xmin, ymin, xmax, ymax) in looked_bboxes:
+                logger.warning(
+                    f'Repeated bbox detected at image {bbox_data.image_path}: '
+                    f'(xmin, ymin, xmax, ymax) = {(xmin, xmin, ymax, xmax)}. Skipping.'
+                )
+                continue
+            else:
+                looked_bboxes.add((xmin, ymin, xmax, ymax))
+
+            if xmin >= xmax or ymin >= ymax:
+                logger.warning(
+                    f"Wrong annotation: "
+                    f"incorrect bbox (xmin, ymin, xmax, ymax): {(xmin, ymin, xmax, ymax)} "
+                    "(xmin >= xmax or ymin >= ymax). Skipping."
+                )
+                continue
+
+            if data_converter.class_names and data_converter.class_mapper:
+                bbox_data.label = data_converter._filter_label_by_class_mapper(
+                    bbox_data.label,
+                    data_converter.class_names,
+                    data_converter.class_mapper,
+                    data_converter.default_value
+                )
+
+            if (
+                data_converter.class_names and
+                bbox_data.label not in data_converter.class_names and
+                data_converter.skip_nonexists
+            ):
+                continue
+
+            new_bboxes_data.append(bbox_data)
+
+        image_data = ImageData(
+            image_path=image_data.image_path,
+            bboxes_data=new_bboxes_data
+        )
+
+        return image_data
+
+    return wrapped
 
 
 class DataConverter(abc.ABC):
@@ -33,76 +90,35 @@ class DataConverter(abc.ABC):
         else:
             return class_mapper.get(label, default_value)
 
-    def assert_image_data(fn):
-        def wrapped(self, image_path, annot):
-            image_data = fn(self, image_path, annot)
-            looked_bboxes = set()
-            new_bboxes_data = []
-            for bbox_data in image_data.bboxes_data:
-                xmin, ymin, xmax, ymax = bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax
-                xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(xmax), int(ymax)
-
-                if (xmin, ymin, xmax, ymax) in looked_bboxes:
-                    logger.warning(
-                        f'Repeated bbox detected at image {bbox_data.image_path}: '
-                        f'(xmin, ymin, xmax, ymax) = {(xmin, xmin, ymax, xmax)}. Skipping.'
-                    )
-                    continue
-                else:
-                    looked_bboxes.add((xmin, ymin, xmax, ymax))
-
-                if xmin >= xmax or ymin >= ymax:
-                    logger.warning(
-                        f"Wrong annotation: "
-                        f"incorrect bbox (xmin, ymin, xmax, ymax): {(xmin, ymin, xmax, ymax)} "
-                        "(xmin >= xmax or ymin >= ymax). Skipping."
-                    )
-                    continue
-
-                if self.class_names and self.class_mapper:
-                    bbox_data.label = self._filter_label_by_class_mapper(
-                        bbox_data.label,
-                        self.class_names,
-                        self.class_mapper,
-                        self.default_value
-                    )
-                if self.class_names and bbox_data.label not in self.class_names and self.skip_nonexists:
-                    continue
-
-                new_bboxes_data.append(bbox_data)
-
-            image_data = ImageData(
-                image_path=image_data.image_path,
-                bboxes_data=new_bboxes_data
-            )
-
-            return image_data
-
-        return wrapped
-
     @abc.abstractmethod
     @assert_image_data
-    def get_image_data(self,
-                       image_path: Union[Path, str],
-                       annot: Union[Path, str, Dict]) -> ImageData:
+    def get_image_data_from_annot(
+        self,
+        image_path: Union[Path, str],
+        annot: Union[Path, str, Dict]
+    ) -> ImageData:
         pass
 
-    def get_images_data(self,
-                        image_paths: List[Union[Path, str]],
-                        annots: List[Union[Path, str, Dict]]) -> List[ImageData]:
+    def get_images_data_from_annots(
+        self,
+        image_paths: List[Union[Path, str]],
+        annots: List[Union[Path, str, Dict]]
+    ) -> List[ImageData]:
         assert len(image_paths) == len(annots)
 
         images_data = [
-            self.get_image_data(image_path, annot)
+            self.get_image_data_from_annot(image_path, annot)
             for image_path, annot in zip(image_paths, annots)
         ]
         return images_data
 
-    def get_bboxes_data(self,
-                        image_paths: List[Union[Path, str]],
-                        annots: List[Any]) -> List[List[BboxData]]:
+    def get_n_bboxes_data_from_annots(
+        self,
+        image_paths: List[Union[Path, str]],
+        annots: List[Union[Path, str, Dict]]
+    ) -> List[List[BboxData]]:
         assert len(image_paths) == len(annots)
 
-        images_data = self.get_images_data(image_paths, annots)
-        bboxes_data = [image_data.bboxes_data for image_data in images_data]
-        return bboxes_data
+        images_data = self.get_images_data_from_annots(image_paths, annots)
+        n_bboxes_data = [image_data.bboxes_data for image_data in images_data]
+        return n_bboxes_data
