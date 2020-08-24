@@ -75,7 +75,6 @@ def preprocess_input_resnet50(
     input = np.array(
         [padding(image=np.array(item))['image'] for item in input]
     )
-    preprocess_input = Normalize()
     input = preprocess_input(image=input)['image']
     return input
 
