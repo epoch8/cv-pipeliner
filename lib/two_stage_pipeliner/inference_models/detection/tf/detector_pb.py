@@ -1,11 +1,26 @@
-from typing import Dict, Tuple, List
+from dataclasses import dataclass
+from typing import Dict, Tuple, List, Union, Literal, ClassVar
+from pathlib import Path
 
 import tensorflow as tf
 from tqdm import tqdm
 
-from two_stage_pipeliner.inference_models.detection.core import DetectionModel, DetectionInput, DetectionOutput
-from two_stage_pipeliner.inference_models.detection.tf.specs_pb import DetectionModelSpecTF_pb
+from two_stage_pipeliner.inference_models.detection.core import (
+    DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
+)
 from two_stage_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from_image
+
+
+@dataclass(frozen=True)
+class DetectionModelSpecTF_pb(DetectionModelSpec):
+    saved_model_dir: Union[str, Path]
+    input_type: Literal["image_tensor", "float_image_tensor"]
+    input_size: Tuple[int, int] = (None, None)
+
+    @property
+    def inference_model(self) -> ClassVar['DetectionModelTF_pb']:
+        from two_stage_pipeliner.inference_models.detection.tf.detector_pb import DetectionModelTF_pb
+        return DetectionModelTF_pb
 
 
 class DetectionModelTF_pb(DetectionModel):
@@ -27,6 +42,10 @@ class DetectionModelTF_pb(DetectionModel):
 
         # Run model through a dummy image so that variables are created
         width, height = model_spec.input_size
+        if width is None:
+            width = 640
+        if height is None:
+            height = 640
         tf_zeros = tf.zeros([1, width, height, 3], dtype=self.input_dtype)
 
         self._raw_predict_single_image_tf(tf_zeros)

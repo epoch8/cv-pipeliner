@@ -1,4 +1,6 @@
-from typing import List, Dict, Tuple
+from dataclasses import dataclass
+from typing import List, Dict, Tuple, Union, ClassVar
+from pathlib import Path
 
 import tensorflow as tf
 import numpy as np
@@ -7,9 +9,22 @@ from tqdm import tqdm
 from object_detection.utils import config_util
 from object_detection.builders import model_builder
 
-from two_stage_pipeliner.inference_models.detection.core import DetectionModel, DetectionInput, DetectionOutput
-from two_stage_pipeliner.inference_models.detection.tf.specs import DetectionModelSpecTF
+from two_stage_pipeliner.inference_models.detection.core import (
+    DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
+)
 from two_stage_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from_image
+
+
+@dataclass(frozen=True)
+class DetectionModelSpecTF(DetectionModelSpec):
+    config_path: Union[str, Path]
+    checkpoint_path: Union[str, Path]
+    input_size: Tuple[int, int] = (None, None)
+
+    @property
+    def inference_model(self) -> ClassVar['DetectionModelTF']:
+        from two_stage_pipeliner.inference_models.detection.tf.detector import DetectionModelTF
+        return DetectionModelTF
 
 
 class DetectionModelTF(DetectionModel):
@@ -27,7 +42,11 @@ class DetectionModelTF(DetectionModel):
         ckpt.restore(str(model_spec.checkpoint_path)).expect_partial()
 
         # Run model through a dummy image so that variables are created
-        width, height = model_spec.input_size
+        width, height = self.input_size
+        if width is None:
+            width = 640
+        if height is None:
+            height = 640
         tf_zeros = tf.zeros([1, width, height, 3])
         self._raw_predict_single_image_tf(tf_zeros)
 
