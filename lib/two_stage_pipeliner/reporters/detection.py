@@ -90,12 +90,14 @@ detection_interactive_work(
                score_threshold: float,
                minimum_iou: float):
 
-        images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=16)
+        images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=16,
+                                                  use_not_caught_elements_as_last_batch=True)
         pred_images_data = inferencer.predict(images_data_gen, score_threshold=score_threshold)
         raw_pred_images_data = inferencer.predict(images_data_gen, score_threshold=0.)
         df_detection_metrics = get_df_detection_metrics(true_images_data, pred_images_data, minimum_iou,
                                                         raw_pred_images_data)
-        df_detection_recall_per_class = get_df_detection_recall_per_class(true_images_data, pred_images_data, minimum_iou)
+        df_detection_recall_per_class = get_df_detection_recall_per_class(true_images_data, pred_images_data,
+                                                                          minimum_iou)
         directory = Path(directory)
         directory.mkdir(exist_ok=True, parents=True)
         model_spec_filepath = directory / DETECTION_MODEL_SPEC_FILENAME

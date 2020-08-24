@@ -101,7 +101,8 @@ pipeline_interactive_work(
                minimum_iou: float,
                extra_bbox_label: str = None):
 
-        images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=16)
+        images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=16,
+                                                  use_not_caught_elements_as_last_batch=True)
         pred_images_data = inferencer.predict(images_data_gen, detection_score_threshold=detection_score_threshold)
         df_pipeline_metrics = get_df_pipeline_metrics(
             true_images_data=true_images_data,
@@ -114,7 +115,7 @@ pipeline_interactive_work(
             pred_images_data=pred_images_data,
             minimum_iou=minimum_iou,
             extra_bbox_label=extra_bbox_label,
-            use_soft_with_known_labels=inferencer.model.classification_model.class_names
+            use_soft_metrics_with_known_labels=inferencer.model.classification_model.class_names
         )
         directory = Path(directory)
         directory.mkdir(exist_ok=True, parents=True)

@@ -28,7 +28,9 @@ class PipelineVisualizer(Visualizer):
         minimum_iou: float,
         extra_bbox_label: str
     ) -> List[str]:
-        images_data_gen = BatchGeneratorImageData(images_data, batch_size=min(len(images_data), 16))
+        images_data_gen = BatchGeneratorImageData(images_data,
+                                                  batch_size=min(len(images_data), 16),
+                                                  use_not_caught_elements_as_last_batch=True)
         pred_images_data = self.inferencer.predict(images_data_gen, detection_score_threshold)
         images_data_matchings = [
             ImageDataMatching(image_data, pred_image_data, minimum_iou)
@@ -59,7 +61,8 @@ class PipelineVisualizer(Visualizer):
             )
         else:
             images_names = [image_data.image_path.name for image_data in images_data]
-        images_data_gen = BatchGeneratorImageData(images_data, batch_size=1)
+        images_data_gen = BatchGeneratorImageData(images_data, batch_size=1,
+                                                  use_not_caught_elements_as_last_batch=True)
         self.i = None
 
         def display_fn(i):

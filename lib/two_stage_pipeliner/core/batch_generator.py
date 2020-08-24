@@ -10,14 +10,14 @@ class BatchGenerator(abc.ABC):
                  data: List[Any],
                  batch_size: int,
                  use_not_caught_elements_as_last_batch: bool):
-    """
-    Base generator class for data.
-    
-    Argument use_not_caught_elements_as_last_batch is used
-    when len(data) is not divisible by batch_size, but we need to get
-    all data by using the generator (e.g. for inference).
-    For training use_not_caught_elements_as_last_batch should be set as False.
-    """
+        """
+        Base generator class for data.
+
+        Argument use_not_caught_elements_as_last_batch is used
+        when len(data) is not divisible by batch_size, but we need to get
+        all data by using the generator (e.g. for inference).
+        For training use_not_caught_elements_as_last_batch should be set as False.
+        """
         self.data = np.array(data, dtype=object)
         self.batch_size = batch_size
         self.indexes = np.arange(len(self.data))
