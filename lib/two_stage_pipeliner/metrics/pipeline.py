@@ -12,7 +12,7 @@ def get_df_pipeline_metrics(
     pred_images_data: List[ImageData],
     minimum_iou: float,
     extra_bbox_label: str = "",
-    use_soft_with_known_labels: List[str] = None,
+    use_soft_metrics_with_known_labels: List[str] = None,
 ) -> pd.DataFrame:
     '''
     Returns pipdline metrics (accuracy, precision, recall, f1_score), including metrics per class..
@@ -120,17 +120,17 @@ def get_df_pipeline_metrics(
         'recall': weighted_average_recall,
         'f1_score': weighted_average_f1_score
     }
-    if use_soft_with_known_labels:
+    if use_soft_metrics_with_known_labels:
         known_TP = np.sum([
-            image_data_matching.get_pipeline_TP(use_soft_with_known_labels=use_soft_with_known_labels)
+            image_data_matching.get_pipeline_TP(use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels)
             for image_data_matching in images_data_matchings
         ])
         known_FP = np.sum([
-            image_data_matching.get_pipeline_FP(use_soft_with_known_labels=use_soft_with_known_labels)
+            image_data_matching.get_pipeline_FP(use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels)
             for image_data_matching in images_data_matchings
         ])
         known_FN = np.sum([
-            image_data_matching.get_pipeline_FN(use_soft_with_known_labels=use_soft_with_known_labels)
+            image_data_matching.get_pipeline_FN(use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels)
             for image_data_matching in images_data_matchings
         ])
         known_accuracy = known_TP / max(known_TP + known_FN + known_FN, 1e-6)
@@ -140,19 +140,19 @@ def get_df_pipeline_metrics(
             max(known_micro_average_precision + known_micro_average_recall, 1e-6)
         )
         known_supports = [
-            pipeline_metrics[class_name]['support'] for class_name in use_soft_with_known_labels
+            pipeline_metrics[class_name]['support'] for class_name in use_soft_metrics_with_known_labels
             if class_name in pipeline_metrics
         ]
         known_precisions = [
-            pipeline_metrics[class_name]['precision'] for class_name in use_soft_with_known_labels
+            pipeline_metrics[class_name]['precision'] for class_name in use_soft_metrics_with_known_labels
             if class_name in pipeline_metrics
         ]
         known_recalls = [
-            pipeline_metrics[class_name]['recall'] for class_name in use_soft_with_known_labels
+            pipeline_metrics[class_name]['recall'] for class_name in use_soft_metrics_with_known_labels
             if class_name in pipeline_metrics
         ]
         known_f1_scores = [
-            pipeline_metrics[class_name]['f1_score'] for class_name in use_soft_with_known_labels
+            pipeline_metrics[class_name]['f1_score'] for class_name in use_soft_metrics_with_known_labels
             if class_name in pipeline_metrics
         ]
         known_macro_average_precision = np.average(known_precisions)

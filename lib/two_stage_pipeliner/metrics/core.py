@@ -40,10 +40,13 @@ class BboxDataMatching:
         There are 2 ways to get error type: strict and soft.
 
         Classification model can know only part of all possible labels.
-        We use List[str] of these labels and call it known_labels (argument 'use_soft_with_known_labels').
+        We use List[str] of these labels and call it known_labels (argument 'use_soft_metrics_with_known_labels').
         Soft error type shows how pipeline works with using only it's known_labels.
         The only difference between Strict and Soft is an additional condition
             in "true_bbox_data is matched to the pred_bbox_data".
+
+        If classifier should make right predictions on extra bboxes by some class
+        (for example, "trash"), then the argument extra_bbox_label should be annotated by this class. 
 
 
         (detection) If true_bbox_data is matched to the pred_bbox_data:
@@ -92,7 +95,7 @@ class BboxDataMatching:
         self,
         filter_by_label: str = None,
         extra_bbox_label: str = None,
-        use_soft_with_known_labels: List[str] = None
+        use_soft_metrics_with_known_labels: List[str] = None
     ) -> Literal[None, "TP", "FP", "FN", "TP (extra bbox)", "FP (extra bbox)"]:
 
         for bbox_data in [self.true_bbox_data, self.pred_bbox_data]:
@@ -110,13 +113,13 @@ class BboxDataMatching:
 
         # true_bbox is found and labels are equal:
         if self.true_bbox_data is not None and self.pred_bbox_data is not None:
-            if use_soft_with_known_labels is None:  # Strict
+            if use_soft_metrics_with_known_labels is None:  # Strict
                 if true_label == pred_label:
                     return "TP"
                 else:
                     return "FP"
             else:  # Soft
-                if true_label in use_soft_with_known_labels:
+                if true_label in use_soft_metrics_with_known_labels:
                     if true_label == pred_label:
                         return "TP"
                     else:
@@ -237,13 +240,13 @@ class ImageDataMatching:
         self,
         filter_by_label: str = None,
         extra_bbox_label: str = None,
-        use_soft_with_known_labels: List[str] = None
+        use_soft_metrics_with_known_labels: List[str] = None
     ) -> List[Literal["TP", "FP", "FN",  "TP (extra bbox)", "FP (extra bbox)"]]:
         pipeline_errors_types = [
             bbox_data_matching.get_pipeline_error_type(
                 filter_by_label=filter_by_label,
                 extra_bbox_label=extra_bbox_label,
-                use_soft_with_known_labels=use_soft_with_known_labels
+                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
             )
             for bbox_data_matching in self.bboxes_data_matchings
         ]
@@ -267,36 +270,36 @@ class ImageDataMatching:
         self,
         filter_by_label: str = None,
         extra_bbox_label: str = None,
-        use_soft_with_known_labels: List[str] = None
+        use_soft_metrics_with_known_labels: List[str] = None
     ) -> int:
         return self.get_pipeline_errors_types(
             filter_by_label=filter_by_label,
             extra_bbox_label=extra_bbox_label,
-            use_soft_with_known_labels=use_soft_with_known_labels
+            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
         ).count("TP")
 
     def get_pipeline_FP(
         self,
         filter_by_label: str = None,
         extra_bbox_label: str = None,
-        use_soft_with_known_labels: List[str] = None
+        use_soft_metrics_with_known_labels: List[str] = None
     ):
         return self.get_pipeline_errors_types(
             filter_by_label=filter_by_label,
             extra_bbox_label=extra_bbox_label,
-            use_soft_with_known_labels=use_soft_with_known_labels
+            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
         ).count("FP")
 
     def get_pipeline_FN(
         self,
         filter_by_label: str = None,
         extra_bbox_label: str = None,
-        use_soft_with_known_labels: List[str] = None
+        use_soft_metrics_with_known_labels: List[str] = None
     ):
         return self.get_pipeline_errors_types(
             filter_by_label=filter_by_label,
             extra_bbox_label=extra_bbox_label,
-            use_soft_with_known_labels=use_soft_with_known_labels
+            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
         ).count("FN")
 
     def get_pipeline_TP_extra_bbox(
@@ -306,7 +309,7 @@ class ImageDataMatching:
         return self.get_pipeline_errors_types(
             filter_by_label=None,
             extra_bbox_label=extra_bbox_label,
-            use_soft_with_known_labels=None
+            use_soft_metrics_with_known_labels=None
         ).count("TP (extra bbox)")
 
     def get_pipeline_FP_extra_bbox(
@@ -316,5 +319,5 @@ class ImageDataMatching:
         return self.get_pipeline_errors_types(
             filter_by_label=None,
             extra_bbox_label=extra_bbox_label,
-            use_soft_with_known_labels=None
+            use_soft_metrics_with_known_labels=None
         ).count("FP (extra bbox)")
