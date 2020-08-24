@@ -7,10 +7,11 @@ from two_stage_pipeliner.core.batch_generator import BatchGenerator
 class BatchGeneratorBboxData(BatchGenerator):
     def __init__(self,
                  data: List[List[BboxData]],
-                 batch_size: int):
+                 batch_size: int,
+                 use_not_caught_elements_as_last_batch: bool):
         assert all(isinstance(d, list) for d in data)
         assert all(isinstance(item, BboxData) for d in data for item in d)
-        BatchGenerator.__init__(self, data, batch_size)
+        super().__init__(data, batch_size, use_not_caught_elements_as_last_batch)
 
     def __getitem__(self, index) -> List[List[BboxData]]:
         batch = super().__getitem__(index)
