@@ -4,3 +4,7 @@ result*/
 logs/
 *.egg-info
 lib/models/
+lib/object_detection_api_zoo_models/
+lib/reports/
+.vscode/
+__logs__/
