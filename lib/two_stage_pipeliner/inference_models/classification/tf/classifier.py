@@ -1,31 +1,40 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Callable, Union, ClassVar
 
 import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
 
-from two_stage_pipeliner.inference_models.classification.core import ClassificationModel, \
-    ClassificationInput, ClassificationOutput
-from two_stage_pipeliner.inference_models.classification.tf.specs import ClassificationModelSpecTF
+from two_stage_pipeliner.inference_models.classification.core import (
+    ClassificationModelSpec, ClassificationModel, ClassificationInput, ClassificationOutput
+)
+
+
+@dataclass(frozen=True)
+class ClassificationModelSpecTF(ClassificationModelSpec):
+    input_size: Tuple[int, int]
+    preprocess_input: Callable[[List[np.ndarray]], np.ndarray]
+    class_names: int
+    model_path: Union[str, Path, tf.keras.Model]
+
+    @property
+    def inference_model(self) -> ClassVar['ClassificationModelTF']:
+        from two_stage_pipeliner.inference_models.classification.tf.classifier import ClassificationModelTF
+        return ClassificationModelTF
 
 
 class ClassificationModelTF(ClassificationModel):
     def load(self, model_spec: ClassificationModelSpecTF):
         assert isinstance(model_spec, ClassificationModelSpecTF)
         super().load(model_spec)
-        if model_spec.model_path is None:
-            self.model = model_spec.load_default_model(model_spec.num_classes)
-        elif isinstance(model_spec.model_path, str) or isinstance(model_spec.model_path, Path):
+        if isinstance(model_spec.model_path, str) or isinstance(model_spec.model_path, Path):
             self.model = tf.keras.models.load_model(str(model_spec.model_path))
         elif isinstance(model_spec.model_path, tf.keras.Model):
             self.model = model_spec.model_path
-        assert model_spec.num_classes == int(self.model.output.shape[-1])
-        self.num_classes = model_spec.num_classes
-        self._class_names = model_spec.class_names
-        assert self.num_classes == len(self.class_names)
+        assert len(model_spec.class_names) == int(self.model.output.shape[-1])
         self.id_to_class_name = {
-            id: class_name for id, class_name in enumerate(self.class_names)
+            id: class_name for id, class_name in enumerate(model_spec.class_names)
         }
         self.batch_size = 16
 
@@ -98,4 +107,4 @@ class ClassificationModelTF(ClassificationModel):
 
     @property
     def class_names(self) -> List[str]:
-        return self._class_names
+        return self.model_spec.class_names

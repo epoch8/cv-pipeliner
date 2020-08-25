@@ -76,7 +76,8 @@ classification_interactive_work(directory='.', use_all_data=True)''')
                n_true_bboxes_data: List[List[BboxData]],
                directory: Union[str, Path]):
 
-        n_bboxes_data_gen = BatchGeneratorBboxData(n_true_bboxes_data, batch_size=16)
+        n_bboxes_data_gen = BatchGeneratorBboxData(n_true_bboxes_data, batch_size=16,
+                                                   use_not_caught_elements_as_last_batch=True)
         pred_bboxes_data = inferencer.predict(n_bboxes_data_gen)
         df_classification_metrics = get_df_classification_metrics(n_true_bboxes_data, pred_bboxes_data)
         directory = Path(directory)
