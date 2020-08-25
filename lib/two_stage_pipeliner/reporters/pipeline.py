@@ -11,11 +11,9 @@ from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageD
 from two_stage_pipeliner.inferencers.pipeline import PipelineInferencer
 from two_stage_pipeliner.metrics.pipeline import get_df_pipeline_metrics
 from two_stage_pipeliner.visualizers.pipeline import PipelineVisualizer
-from two_stage_pipeliner.inference_models.pipeline import PipelineModel
 from two_stage_pipeliner.logging import logger
 
-DETECTION_MODEL_SPEC_FILENAME = "detection_model_spec.pkl"
-CLASSIFICATION_MODEL_SPEC_FILENAME = "classification_model_spec.pkl"
+PIPELINE_MODEL_SPEC_FILENAME = "pipeline_model_spec.pkl"
 IMAGES_DATA_FILENAME = "images_data.pkl"
 
 
@@ -23,17 +21,10 @@ def pipeline_interactive_work(directory: Union[str, Path],
                               detection_score_threshold: float,
                               minimum_iou: float):
     directory = Path(directory)
-    detection_model_spec_filepath = directory / DETECTION_MODEL_SPEC_FILENAME
-    with open(detection_model_spec_filepath, "rb") as src:
-        detection_model_spec = pickle.load(src)
-    classification_model_spec_filepath = directory / CLASSIFICATION_MODEL_SPEC_FILENAME
-    with open(classification_model_spec_filepath, "rb") as src:
-        classification_model_spec = pickle.load(src)
-    detection_model = detection_model_spec.load()
-    classification_model = classification_model_spec.load()
-    classification_model.load(classification_model_spec)
-    pipeline_model = PipelineModel()
-    pipeline_model.load((detection_model, classification_model))
+    pipeline_model_spec_filepath = directory / PIPELINE_MODEL_SPEC_FILENAME
+    with open(pipeline_model_spec_filepath, "rb") as src:
+        pipeline_model_spec = pickle.load(src)
+    pipeline_model = pipeline_model_spec.load()
 
     pipeline_inferencer = PipelineInferencer(pipeline_model)
 
@@ -119,15 +110,9 @@ pipeline_interactive_work(
         )
         directory = Path(directory)
         directory.mkdir(exist_ok=True, parents=True)
-        detection_model_spec_filepath = directory / DETECTION_MODEL_SPEC_FILENAME
-        classification_model_spec_filepath = directory / CLASSIFICATION_MODEL_SPEC_FILENAME
-
-        detection_model_spec = inferencer.model.detection_model.model_spec
-        classification_model_spec = inferencer.model.classification_model.model_spec
-        with open(detection_model_spec_filepath, 'wb') as out:
-            pickle.dump(detection_model_spec, out)
-        with open(classification_model_spec_filepath, 'wb') as out:
-            pickle.dump(classification_model_spec, out)
+        pipeline_model_spec_filepath = directory / PIPELINE_MODEL_SPEC_FILENAME
+        with open(pipeline_model_spec_filepath, 'wb') as out:
+            pickle.dump(inferencer.model.model_spec, out)
         images_data_filepath = directory / IMAGES_DATA_FILENAME
         with open(images_data_filepath, 'wb') as out:
             pickle.dump(images_data_gen.data, out)
