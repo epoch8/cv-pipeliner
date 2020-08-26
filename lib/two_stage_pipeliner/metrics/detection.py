@@ -10,7 +10,7 @@ from object_detection.core.standard_fields import InputDataFields, \
                                                   DetectionResultFields
 
 from two_stage_pipeliner.core.data import ImageData
-from two_stage_pipeliner.metrics.core import ImageDataMatching
+from two_stage_pipeliner.metrics.image_data_matching import ImageDataMatching
 
 
 def count_coco_metrics(

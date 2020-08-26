@@ -46,7 +46,7 @@ class BboxDataMatching:
             in "true_bbox_data is matched to the pred_bbox_data".
 
         If classifier should make right predictions on extra bboxes by some class
-        (for example, "trash"), then the argument extra_bbox_label should be annotated by this class. 
+        (for example, "trash"), then the argument extra_bbox_label should be annotated by this class.
 
 
         (detection) If true_bbox_data is matched to the pred_bbox_data:
@@ -108,7 +108,7 @@ class BboxDataMatching:
         assert true_label is not None or pred_label is not None
 
         if filter_by_label is not None and \
-                (true_label != filter_by_label or pred_label != filter_by_label):
+                (true_label != filter_by_label and pred_label != filter_by_label):
             return None
 
         # true_bbox is found and labels are equal:
@@ -151,7 +151,9 @@ class ImageDataMatching:
     inside of given image_data.
 
     We say that pred_bbox_data is matched to true_bbox_data if they have iou >= minimum_iou.
-    One true_bbox_data may have only one matching to the pred_bbox_data).
+    One true_bbox_data may have only one matching to the pred_bbox_data.
+
+    For illustrations, look tests/test_image_data_matching.py
     '''
     true_image_data: ImageData
     pred_image_data: ImageData
@@ -180,9 +182,19 @@ class ImageDataMatching:
         remained_pred_bboxes_data = pred_bboxes_data.copy()
         bboxes_data_matchings = []
 
-        for bboxes_data in [true_bboxes_data, pred_bboxes_data]:
+        for tag, bboxes_data in [('true', true_bboxes_data),
+                                 ('pred', pred_bboxes_data)]:
+            bboxes_coords = set()
             for bbox_data in bboxes_data:
                 bbox_data.assert_coords_are_valid()
+                xmin, ymin, xmax, ymax = bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax
+                if (xmin, ymin, xmax, ymax) in bboxes_coords:
+                    raise ValueError(
+                        f'Repeated {tag} BboxData with these coords '
+                        '(xmin, ymin, xmax, ymax): {xmin, ymin, xmax, ymax}. '
+                        'All BboxData must contain unique elements.'
+                    )
+                bboxes_coords.add((xmin, ymin, xmax, ymax))
 
         def find_best_bbox_idx_by_iou(true_bbox_data: BboxData,
                                       pred_bboxes_data: List[BboxData],
@@ -321,3 +333,37 @@ class ImageDataMatching:
             extra_bbox_label=extra_bbox_label,
             use_soft_metrics_with_known_labels=None
         ).count("FP (extra bbox)")
+
+    def find_bbox_data_matching(
+        self,
+        bbox_data: BboxData,
+        tag: Literal['true', 'pred']
+    ):
+        xmin, ymin, xmax, ymax = bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax
+        if tag == 'true':
+            bboxes_data_coords_from_matchings = [
+                (
+                    bbox_data_matching.true_bbox_data.xmin,
+                    bbox_data_matching.true_bbox_data.ymin,
+                    bbox_data_matching.true_bbox_data.xmax,
+                    bbox_data_matching.true_bbox_data.ymax
+                )
+                if bbox_data_matching.true_bbox_data is not None
+                else (-1, -1, -1, 1)
+                for bbox_data_matching in self.bboxes_data_matchings
+            ]
+        elif tag == 'pred':
+            bboxes_data_coords_from_matchings = [
+                (
+                    bbox_data_matching.pred_bbox_data.xmin,
+                    bbox_data_matching.pred_bbox_data.ymin,
+                    bbox_data_matching.pred_bbox_data.xmax,
+                    bbox_data_matching.pred_bbox_data.ymax
+                )
+                if bbox_data_matching.pred_bbox_data is not None
+                else (-1, -1, -1, 1)
+                for bbox_data_matching in self.bboxes_data_matchings
+            ]
+        bbox_data_matching_index = bboxes_data_coords_from_matchings.index((xmin, ymin, xmax, ymax))
+
+        return self.bboxes_data_matchings[bbox_data_matching_index]

@@ -3,13 +3,15 @@ from typing import List, Literal
 import numpy as np
 
 from two_stage_pipeliner.core.data import BboxData, ImageData
-from two_stage_pipeliner.metrics.core import ImageDataMatching
+from two_stage_pipeliner.metrics.image_data_matching import ImageDataMatching
 from two_stage_pipeliner.visualizers.core.image_data import visualize_images_data_side_by_side
 
 
 def get_true_and_pred_images_data_with_visualized_labels(
     image_data_matching: ImageDataMatching,
-    error_type: Literal['detection', 'pipeline']
+    error_type: Literal['detection', 'pipeline'],
+    extra_bbox_label: str = None,
+    use_soft_metrics_with_known_labels: List[str] = None
 ) -> ImageData:
     """
     Create true and pred ImageData with changed label for visualization
@@ -34,7 +36,11 @@ def get_true_and_pred_images_data_with_visualized_labels(
             if error_type == 'detection':
                 label = f"[{tag_bbox_data_matching.get_detection_error_type()}]"
             elif error_type == 'pipeline':
-                label = f"{tag_bbox_data.label} [{tag_bbox_data_matching.get_pipeline_error_type()}]"
+                pipeline_error_type = tag_bbox_data_matching.get_pipeline_error_type(
+                    extra_bbox_label=extra_bbox_label,
+                    use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+                )
+                label = f"{tag_bbox_data.label} [{pipeline_error_type}]"
 
             tag_bbox_data_with_visualized_label = BboxData(
                 image_path=tag_bbox_data.image_path,
@@ -71,18 +77,26 @@ def visualize_image_data_matching_side_by_side(
     pred_use_labels: bool = False,
     true_score_type: Literal['detection', 'classification'] = None,
     pred_score_type: Literal['detection', 'classification'] = None,
-    true_filter_by_error_types: List[Literal['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)']] = None,
-    pred_filter_by_error_types: List[Literal['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)']] = None,
+    true_filter_by_error_types: List[
+        Literal['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)']
+    ] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
+    pred_filter_by_error_types: List[
+        Literal['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)']
+    ] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
+    extra_bbox_label: str = None,
+    use_soft_metrics_with_known_labels: List[str] = None
 ) -> np.ndarray:
 
     (true_image_data_with_visualized_labels,
      pred_image_data_with_visualized_labels) = get_true_and_pred_images_data_with_visualized_labels(
         image_data_matching=image_data_matching,
-        error_type=error_type
+        error_type=error_type,
+        extra_bbox_label=extra_bbox_label,
+        use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
     )
 
     true_visualized_labels = [bbox_data.label for bbox_data in true_image_data_with_visualized_labels.bboxes_data]
-    pred_visualized_labels = [bbox_data.label for bbox_data in pred_image_data_with_visualized_labels.bboxes_data]
+    pred_visualized_labels = [bbox_data.label for bbox_data in pred_image_data_with_visualized_labels.bboxes_data]        
     true_filter_by_labels = [
         label for label in true_visualized_labels
         if any(f"[{matching_error_type}]" in label for matching_error_type in true_filter_by_error_types)
