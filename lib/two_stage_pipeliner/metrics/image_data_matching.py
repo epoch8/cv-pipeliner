@@ -108,7 +108,7 @@ class BboxDataMatching:
         assert true_label is not None or pred_label is not None
 
         if filter_by_label is not None and \
-                (true_label != filter_by_label or pred_label != filter_by_label):
+                (true_label != filter_by_label and pred_label != filter_by_label):
             return None
 
         # true_bbox is found and labels are equal:

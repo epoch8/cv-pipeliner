@@ -11,7 +11,7 @@ def get_df_pipeline_metrics(
     true_images_data: List[ImageData],
     pred_images_data: List[ImageData],
     minimum_iou: float,
-    extra_bbox_label: str = "",
+    extra_bbox_label: str = None,
     use_soft_metrics_with_known_labels: List[str] = None,
 ) -> pd.DataFrame:
     '''
@@ -36,15 +36,27 @@ def get_df_pipeline_metrics(
     for class_name in class_names:
         support_by_class_name = np.sum(true_labels == class_name)
         TP_by_class_name = np.sum(
-            image_data_matching.get_pipeline_TP(filter_by_label=class_name)
+            image_data_matching.get_pipeline_TP(
+                filter_by_label=class_name,
+                extra_bbox_label=extra_bbox_label,
+                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+            )
             for image_data_matching in images_data_matchings
         )
         FP_by_class_name = np.sum(
-            image_data_matching.get_pipeline_TP(filter_by_label=class_name)
+            image_data_matching.get_pipeline_FP(
+                filter_by_label=class_name,
+                extra_bbox_label=extra_bbox_label,
+                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+            )
             for image_data_matching in images_data_matchings
         )
         FN_by_class_name = np.sum(
-            image_data_matching.get_pipeline_FN(filter_by_label=class_name)
+            image_data_matching.get_pipeline_FN(
+                filter_by_label=class_name,
+                extra_bbox_label=extra_bbox_label,
+                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+            )
             for image_data_matching in images_data_matchings
         )
         precision_by_class_name = TP_by_class_name / max(TP_by_class_name + FP_by_class_name, 1e-6)
@@ -62,18 +74,48 @@ def get_df_pipeline_metrics(
             'recall': recall_by_class_name,
             'f1_score': f1_score_by_class_name
         }
+    TP_extra_bbox = np.sum([image_data_matching.get_pipeline_TP_extra_bbox(
+        extra_bbox_label=extra_bbox_label,
+    ) for image_data_matching in images_data_matchings])
+    FP_extra_bbox = np.sum([image_data_matching.get_pipeline_FP_extra_bbox(
+        extra_bbox_label=extra_bbox_label,
+    ) for image_data_matching in images_data_matchings])
+    precision_extra_bbox = TP_extra_bbox / max(TP_extra_bbox + FP_extra_bbox, 1e-6)
+    if extra_bbox_label is None:
+        extra_bbox_label_caption = 'extra bbox'
+    else:
+        extra_bbox_label_caption = f'{extra_bbox_label} (extra bbox)'
+    pipeline_metrics[extra_bbox_label_caption] = {
+        'support': TP_extra_bbox+FP_extra_bbox,
+        'TP': TP_extra_bbox,
+        'FP': FP_extra_bbox,
+        'FN': 0,
+        'precision': precision_extra_bbox,
+        'recall': None,
+        'f1_score': None
+    }
+
     supports = [pipeline_metrics[class_name]['support'] for class_name in class_names]
-    TP = np.sum([image_data_matching.get_pipeline_TP() for image_data_matching in images_data_matchings])
-    FP = np.sum([image_data_matching.get_pipeline_FP() for image_data_matching in images_data_matchings])
-    FN = np.sum([image_data_matching.get_pipeline_FN() for image_data_matching in images_data_matchings])
+    TP = np.sum([image_data_matching.get_pipeline_TP(
+        extra_bbox_label=extra_bbox_label,
+        use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+    ) for image_data_matching in images_data_matchings])
+    FP = np.sum([image_data_matching.get_pipeline_FP(
+        extra_bbox_label=extra_bbox_label,
+        use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+    ) for image_data_matching in images_data_matchings])
+    FN = np.sum([image_data_matching.get_pipeline_FN(
+        extra_bbox_label=extra_bbox_label,
+        use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+    ) for image_data_matching in images_data_matchings])
     iou_mean = np.mean([
         bbox_data_matching.iou
         for image_data_matching in images_data_matchings
         for bbox_data_matching in image_data_matching.bboxes_data_matchings
         if bbox_data_matching.iou is not None
     ])
-    accuracy = TP / max(TP + FN + FN, 1e-6)
-    micro_average_precision = TP / max(TP + FP, 1e-6)
+    accuracy = TP / max(TP + FN + FN + TP_extra_bbox + FP_extra_bbox, 1e-6)
+    micro_average_precision = TP / max(TP + FP + FP_extra_bbox, 1e-6)
     micro_average_recall = TP / max(TP + FN, 1e-6)
     micro_average_f1_score = 2 * micro_average_precision * micro_average_recall / (
         max(micro_average_precision + micro_average_recall, 1e-6)
@@ -120,25 +162,7 @@ def get_df_pipeline_metrics(
         'recall': weighted_average_recall,
         'f1_score': weighted_average_f1_score
     }
-    if use_soft_metrics_with_known_labels:
-        known_TP = np.sum([
-            image_data_matching.get_pipeline_TP(use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels)
-            for image_data_matching in images_data_matchings
-        ])
-        known_FP = np.sum([
-            image_data_matching.get_pipeline_FP(use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels)
-            for image_data_matching in images_data_matchings
-        ])
-        known_FN = np.sum([
-            image_data_matching.get_pipeline_FN(use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels)
-            for image_data_matching in images_data_matchings
-        ])
-        known_accuracy = known_TP / max(known_TP + known_FN + known_FN, 1e-6)
-        known_micro_average_precision = known_TP / max(known_TP + known_FP, 1e-6)
-        known_micro_average_recall = known_TP / max(known_TP + known_FN, 1e-6)
-        known_micro_average_f1_score = 2 * known_micro_average_precision * known_micro_average_recall / (
-            max(known_micro_average_precision + known_micro_average_recall, 1e-6)
-        )
+    if use_soft_metrics_with_known_labels is not None:
         known_supports = [
             pipeline_metrics[class_name]['support'] for class_name in use_soft_metrics_with_known_labels
             if class_name in pipeline_metrics
@@ -162,22 +186,6 @@ def get_df_pipeline_metrics(
         known_macro_average_f1_score = np.average(known_f1_scores)
         known_weighted_average_f1_score = np.average(known_f1_scores, weights=known_supports)
         sum_known_supports = np.sum(known_supports)
-        pipeline_metrics['known_accuracy'] = {
-            'support': sum_known_supports,
-            'TP': known_TP,
-            'FP': known_FP,
-            'FN': known_FN,
-            'value': known_accuracy
-        }
-        pipeline_metrics['known_micro_average'] = {
-            'support': sum_known_supports,
-            'TP': known_TP,
-            'FP': known_FP,
-            'FN': known_FN,
-            'precision': known_micro_average_precision,
-            'recall': known_micro_average_recall,
-            'f1_score': known_micro_average_f1_score
-        }
         pipeline_metrics['known_macro_average'] = {
             'support': sum_known_supports,
             'precision': known_macro_average_precision,
