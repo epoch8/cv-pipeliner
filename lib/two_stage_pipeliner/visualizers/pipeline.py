@@ -26,7 +26,8 @@ class PipelineVisualizer(Visualizer):
         images_data: List[ImageData],
         detection_score_threshold: float,
         minimum_iou: float,
-        extra_bbox_label: str
+        extra_bbox_label: str,
+        use_soft_metrics_with_known_labels: List[str]
     ) -> List[str]:
         images_data_gen = BatchGeneratorImageData(images_data,
                                                   batch_size=min(len(images_data), 16),
@@ -36,28 +37,53 @@ class PipelineVisualizer(Visualizer):
             ImageDataMatching(image_data, pred_image_data, minimum_iou)
             for image_data, pred_image_data in zip(images_data, pred_images_data)
         ]
-        images_names = [
-            f"{image_data_matching.true_image_data.image_path.name} "
-            f"[TP: {image_data_matching.get_pipeline_TP()}, "
-            f"FP: {image_data_matching.get_pipeline_FP()}, "
-            f"FN: {image_data_matching.get_pipeline_FN()}, "
-            f"TP (extra bbox): {image_data_matching.get_pipeline_TP_extra_bbox(extra_bbox_label)}, "
-            f"FP (extra bbox): {image_data_matching.get_pipeline_FP_extra_bbox(extra_bbox_label)}]"
-            for image_data_matching in images_data_matchings
-        ]
+        images_names = []
+        for image_data_matching in images_data_matchings:
+            TP = image_data_matching.get_pipeline_TP(
+                extra_bbox_label=extra_bbox_label,
+                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+            )
+            FP = image_data_matching.get_pipeline_FP(
+                extra_bbox_label=extra_bbox_label,
+                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+            )
+            FN = image_data_matching.get_pipeline_FN(
+                extra_bbox_label=extra_bbox_label,
+                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+            )
+            TP_extra_bbox = image_data_matching.get_pipeline_TP_extra_bbox(
+                extra_bbox_label=extra_bbox_label,
+            )
+            FN_extra_bbox = image_data_matching.get_pipeline_FP_extra_bbox(
+                extra_bbox_label=extra_bbox_label,
+            )
+            images_names.append(
+                f"{image_data_matching.true_image_data.image_path.name} "
+                f"[TP: {TP}, "
+                f"FP: {FP}, "
+                f"FN: {FN}, "
+                f"TP (extra bbox): {TP_extra_bbox}, "
+                f"FP (extra bbox): {FN_extra_bbox}]"
+                for image_data_matching in images_data_matchings
+            )
         return images_names
 
     def visualize(self,
                   images_data: List[ImageData],
                   detection_score_threshold: float = None,
                   show_TP_FP_FN_with_minimum_iou: float = None,
-                  extra_bbox_label: str = None):
+                  extra_bbox_label: str = None,
+                  use_soft_metrics_with_known_labels: List[str] = None):
 
         images_data = copy.deepcopy(images_data)
 
         if self.inferencer is not None and show_TP_FP_FN_with_minimum_iou is not None:
             images_names = self._get_images_names_by_inference(
-                images_data, detection_score_threshold, show_TP_FP_FN_with_minimum_iou, extra_bbox_label
+                images_data=images_data,
+                detection_score_threshold=detection_score_threshold,
+                minimum_iou=show_TP_FP_FN_with_minimum_iou,
+                extra_bbox_label=extra_bbox_label,
+                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
             )
         else:
             images_names = [image_data.image_path.name for image_data in images_data]
@@ -89,7 +115,9 @@ class PipelineVisualizer(Visualizer):
                         true_use_labels=True, pred_use_labels=True,
                         true_score_type=None, pred_score_type=None,
                         true_filter_by_error_types=self.jupyter_visualizer.choices.value.split('+'),
-                        pred_filter_by_error_types=self.jupyter_visualizer.choices2.value.split('+')
+                        pred_filter_by_error_types=self.jupyter_visualizer.choices2.value.split('+'),
+                        extra_bbox_label=extra_bbox_label,
+                        use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
                     )))
                 else:
                     display(Image.fromarray(visualize_images_data_side_by_side(

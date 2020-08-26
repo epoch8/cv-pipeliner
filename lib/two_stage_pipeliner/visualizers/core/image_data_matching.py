@@ -96,7 +96,7 @@ def visualize_image_data_matching_side_by_side(
     )
 
     true_visualized_labels = [bbox_data.label for bbox_data in true_image_data_with_visualized_labels.bboxes_data]
-    pred_visualized_labels = [bbox_data.label for bbox_data in pred_image_data_with_visualized_labels.bboxes_data]        
+    pred_visualized_labels = [bbox_data.label for bbox_data in pred_image_data_with_visualized_labels.bboxes_data]
     true_filter_by_labels = [
         label for label in true_visualized_labels
         if any(f"[{matching_error_type}]" in label for matching_error_type in true_filter_by_error_types)
