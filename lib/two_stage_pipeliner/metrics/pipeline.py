@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 from two_stage_pipeliner.core.data import ImageData
-from two_stage_pipeliner.metrics.core import ImageDataMatching
+from two_stage_pipeliner.metrics.image_data_matching import ImageDataMatching
 
 
 def get_df_pipeline_metrics(

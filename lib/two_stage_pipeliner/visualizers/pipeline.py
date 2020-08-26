@@ -10,7 +10,7 @@ from two_stage_pipeliner.inferencers.pipeline import PipelineInferencer
 from two_stage_pipeliner.utils.jupyter_visualizer import JupyterVisualizer
 from two_stage_pipeliner.visualizers.core.image_data import visualize_image_data, \
     visualize_images_data_side_by_side
-from two_stage_pipeliner.metrics.core import ImageDataMatching
+from two_stage_pipeliner.metrics.image_data_matching import ImageDataMatching
 from two_stage_pipeliner.visualizers.core.image_data_matching import visualize_image_data_matching_side_by_side
 
 
