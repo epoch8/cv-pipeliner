@@ -34,7 +34,7 @@ class PipelineInferencer(Inferencer):
             for pred_cropped_image, pred_bbox, pred_detection_score, pred_label, pred_classification_score in zip(
                 pred_cropped_images, pred_bboxes, pred_detection_scores, pred_labels, pred_classification_scores
             ):
-                ymin, xmin, ymax, xmax = pred_bbox
+                xmin, ymin, xmax, ymax = pred_bbox
                 bboxes_data.append(BboxData(
                     image_path=image_data.image_path,
                     image_bytes=image_data.image_bytes,

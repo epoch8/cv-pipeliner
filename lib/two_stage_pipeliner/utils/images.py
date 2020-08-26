@@ -6,9 +6,6 @@ import cv2
 import numpy as np
 
 
-# WARNING: bbox has to be in this format: (ymin, xmin, ymax, xmax)
-
-
 def denormalize_bboxes(bboxes: List[Tuple[float, float, float, float]],
                        image_width: int,
                        image_height: int) -> List[Tuple[int, int, int, int]]:
@@ -29,7 +26,7 @@ def cut_bboxes_from_image(
 
     img_boxes = []
     for bbox in bboxes:
-        ymin, xmin, ymax, xmax = bbox
+        xmin, ymin, xmax, ymax = bbox
         img_boxes.append(image[ymin:ymax, xmin:xmax])
     return img_boxes
 
