@@ -221,52 +221,6 @@ def test_image_data_matching_detection():
 def test_image_data_matching_pipeline():
     MINIMUM_IOU = 0.5
 
-    image_data_matching = ImageDataMatching(
-        true_image_data=true_image_data,
-        pred_image_data=pred_image_data,
-        minimum_iou=MINIMUM_IOU
-    )
-
-    Image.fromarray(
-        visualize_image_data_matching_side_by_side(
-            image_data_matching=image_data_matching,
-            error_type='pipeline',
-            true_use_labels=True,
-            pred_use_labels=True
-        )
-    ).save(test_dir / 'test_matchings_pipeline_strict.jpg')
-
-    Image.fromarray(
-        visualize_image_data_matching_side_by_side(
-            image_data_matching=image_data_matching,
-            error_type='pipeline',
-            true_use_labels=True,
-            pred_use_labels=True,
-            extra_bbox_label='trash'
-        )
-    ).save(test_dir / 'test_matchings_pipeline_strict_with_extra_bbox_label_trash.jpg')
-
-    Image.fromarray(
-        visualize_image_data_matching_side_by_side(
-            image_data_matching=image_data_matching,
-            error_type='pipeline',
-            true_use_labels=True,
-            pred_use_labels=True,
-            use_soft_metrics_with_known_labels=['banana', 'apple']
-        )
-    ).save(test_dir / 'test_matchings_pipeline_soft_banana_apple.jpg')
-
-    Image.fromarray(
-        visualize_image_data_matching_side_by_side(
-            image_data_matching=image_data_matching,
-            error_type='pipeline',
-            true_use_labels=True,
-            pred_use_labels=True,
-            extra_bbox_label='trash',
-            use_soft_metrics_with_known_labels=['banana', 'apple']
-        )
-    ).save(test_dir / 'test_matchings_pipeline_soft_banana_apple_with_extra_bbox_label_trash.jpg')
-
     tag_strict = 'strict'
     tag_strict_with_extra_bbox_label_trash = 'strict_with_extra_bbox_label_trash'
     tag_soft_banana_apple = 'soft_banana_apple'
@@ -276,13 +230,29 @@ def test_image_data_matching_pipeline():
                 tag_strict_with_extra_bbox_label_trash,
                 tag_soft_banana_apple,
                 tag_soft_banana_apple_with_extra_bbox_label_trash]:
-        print(f"tag: {tag}")
         extra_bbox_label = None
         use_soft_metrics_with_known_labels = None
         if tag in [tag_strict_with_extra_bbox_label_trash, tag_soft_banana_apple_with_extra_bbox_label_trash]:
             extra_bbox_label = 'trash'
         if tag in [tag_soft_banana_apple, tag_soft_banana_apple_with_extra_bbox_label_trash]:
             use_soft_metrics_with_known_labels = ['banana', 'apple']
+
+        image_data_matching = ImageDataMatching(
+            true_image_data=true_image_data,
+            pred_image_data=pred_image_data,
+            minimum_iou=MINIMUM_IOU,
+            extra_bbox_label=extra_bbox_label,
+            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+        )
+
+        Image.fromarray(
+            visualize_image_data_matching_side_by_side(
+                image_data_matching=image_data_matching,
+                error_type='pipeline',
+                true_use_labels=True,
+                pred_use_labels=True
+            )
+        ).save(test_dir / f'test_matchings_pipeline_{tag}.jpg')
 
         # Banana tests
         bbox_data_matching_banana = image_data_matching.find_bbox_data_matching(true_bbox_data_banana, tag='true')
@@ -292,38 +262,23 @@ def test_image_data_matching_pipeline():
                                                                                       tag='pred')
 
         assert bbox_data_matching_banana.pred_bbox_data is None
-        assert bbox_data_matching_banana.get_pipeline_error_type(
-            extra_bbox_label=extra_bbox_label,
-            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-        ) == "FN"
+        assert bbox_data_matching_banana.get_pipeline_error_type() == "FN"
 
         assert bbox_data_matching_banana_part1.true_bbox_data is None
-        assert bbox_data_matching_banana_part1.get_pipeline_error_type(
-            extra_bbox_label=extra_bbox_label,
-            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-        ) == "FP (extra bbox)"
+        assert bbox_data_matching_banana_part1.get_pipeline_error_type() == "FP (extra bbox)"
 
         assert bbox_data_matching_banana_part2.true_bbox_data is None
         if tag in [tag_strict_with_extra_bbox_label_trash, tag_soft_banana_apple_with_extra_bbox_label_trash]:
-            assert bbox_data_matching_banana_part2.get_pipeline_error_type(
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            ) == "TP (extra bbox)"
+            assert bbox_data_matching_banana_part2.get_pipeline_error_type() == "TP (extra bbox)"
         else:
-            assert bbox_data_matching_banana_part2.get_pipeline_error_type(
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            ) == "FP (extra bbox)"
+            assert bbox_data_matching_banana_part2.get_pipeline_error_type() == "FP (extra bbox)"
 
         # Top apple tests
         bbox_data_matching_top_apple = image_data_matching.find_bbox_data_matching(true_bbox_data_top_apple,
                                                                                    tag='true')
 
         assert bbox_data_matching_top_apple.pred_bbox_data is None
-        assert bbox_data_matching_top_apple.get_pipeline_error_type(
-            extra_bbox_label=extra_bbox_label,
-            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-        ) == "FN"
+        assert bbox_data_matching_top_apple.get_pipeline_error_type() == "FN"
 
         # Bottom apple tests
         bbox_data_matching_bottom_apple_true = image_data_matching.find_bbox_data_matching(true_bbox_data_bottom_apple,
@@ -332,10 +287,7 @@ def test_image_data_matching_pipeline():
                                                                                            tag='pred')
 
         assert bbox_data_matching_bottom_apple_true == bbox_data_matching_bottom_apple_pred
-        assert bbox_data_matching_bottom_apple_true.get_pipeline_error_type(
-            extra_bbox_label=extra_bbox_label,
-            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-        ) == "TP"
+        assert bbox_data_matching_bottom_apple_true.get_pipeline_error_type() == "TP"
 
         # Mango tests
         bbox_data_matching_mango = image_data_matching.find_bbox_data_matching(true_bbox_data_mango, tag='true')
@@ -346,21 +298,12 @@ def test_image_data_matching_pipeline():
 
         assert bbox_data_matching_mango == bbox_data_matching_mango_outside
         if tag in [tag_soft_banana_apple, tag_soft_banana_apple_with_extra_bbox_label_trash]:
-            assert bbox_data_matching_mango.get_pipeline_error_type(
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            ) == "TP"
+            assert bbox_data_matching_mango.get_pipeline_error_type() == "TP"
         else:
-            assert bbox_data_matching_mango.get_pipeline_error_type(
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            ) == "FP"
+            assert bbox_data_matching_mango.get_pipeline_error_type() == "FP"
 
         assert bbox_data_matching_mango_inside.true_bbox_data is None
-        assert bbox_data_matching_mango_inside.get_pipeline_error_type(
-            extra_bbox_label=extra_bbox_label,
-            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-        ) == "FP (extra bbox)"
+        assert bbox_data_matching_mango_inside.get_pipeline_error_type() == "FP (extra bbox)"
 
         # Extra bboxes tests
         bbox_data_matching_extra_bbox1 = image_data_matching.find_bbox_data_matching(pred_bbox_data_extra_bbox1,
@@ -370,18 +313,9 @@ def test_image_data_matching_pipeline():
 
         assert bbox_data_matching_extra_bbox1.true_bbox_data is None
         if tag in [tag_strict_with_extra_bbox_label_trash, tag_soft_banana_apple_with_extra_bbox_label_trash]:
-            assert bbox_data_matching_extra_bbox1.get_pipeline_error_type(
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            ) == "TP (extra bbox)"
+            assert bbox_data_matching_extra_bbox1.get_pipeline_error_type() == "TP (extra bbox)"
         else:
-            assert bbox_data_matching_extra_bbox1.get_pipeline_error_type(
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            ) == "FP (extra bbox)"
+            assert bbox_data_matching_extra_bbox1.get_pipeline_error_type() == "FP (extra bbox)"
 
         assert bbox_data_matching_extra_bbox2.true_bbox_data is None
-        assert bbox_data_matching_extra_bbox2.get_pipeline_error_type(
-            extra_bbox_label=extra_bbox_label,
-            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-        ) == "FP (extra bbox)"
+        assert bbox_data_matching_extra_bbox2.get_pipeline_error_type() == "FP (extra bbox)"

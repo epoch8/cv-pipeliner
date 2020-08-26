@@ -18,7 +18,13 @@ def get_df_pipeline_metrics(
     Returns pipdline metrics (accuracy, precision, recall, f1_score), including metrics per class..
     '''
     images_data_matchings = [
-        ImageDataMatching(true_image_data, pred_image_data, minimum_iou)
+        ImageDataMatching(
+            true_image_data=true_image_data,
+            pred_image_data=pred_image_data,
+            minimum_iou=minimum_iou,
+            extra_bbox_label=extra_bbox_label,
+            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+        )
         for true_image_data, pred_image_data in zip(true_images_data, pred_images_data)
     ]
     true_labels = np.array([
@@ -36,27 +42,15 @@ def get_df_pipeline_metrics(
     for class_name in class_names:
         support_by_class_name = np.sum(true_labels == class_name)
         TP_by_class_name = np.sum(
-            image_data_matching.get_pipeline_TP(
-                filter_by_label=class_name,
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            )
+            image_data_matching.get_pipeline_TP(filter_by_label=class_name)
             for image_data_matching in images_data_matchings
         )
         FP_by_class_name = np.sum(
-            image_data_matching.get_pipeline_FP(
-                filter_by_label=class_name,
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            )
+            image_data_matching.get_pipeline_FP(filter_by_label=class_name)
             for image_data_matching in images_data_matchings
         )
         FN_by_class_name = np.sum(
-            image_data_matching.get_pipeline_FN(
-                filter_by_label=class_name,
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            )
+            image_data_matching.get_pipeline_FN(filter_by_label=class_name)
             for image_data_matching in images_data_matchings
         )
         precision_by_class_name = TP_by_class_name / max(TP_by_class_name + FP_by_class_name, 1e-6)
@@ -74,12 +68,8 @@ def get_df_pipeline_metrics(
             'recall': recall_by_class_name,
             'f1_score': f1_score_by_class_name
         }
-    TP_extra_bbox = np.sum([image_data_matching.get_pipeline_TP_extra_bbox(
-        extra_bbox_label=extra_bbox_label,
-    ) for image_data_matching in images_data_matchings])
-    FP_extra_bbox = np.sum([image_data_matching.get_pipeline_FP_extra_bbox(
-        extra_bbox_label=extra_bbox_label,
-    ) for image_data_matching in images_data_matchings])
+    TP_extra_bbox = np.sum([image_data_matching.get_pipeline_TP_extra_bbox() for image_data_matching in images_data_matchings])
+    FP_extra_bbox = np.sum([image_data_matching.get_pipeline_FP_extra_bbox() for image_data_matching in images_data_matchings])
     precision_extra_bbox = TP_extra_bbox / max(TP_extra_bbox + FP_extra_bbox, 1e-6)
     if extra_bbox_label is None:
         extra_bbox_label_caption = 'extra bbox'
@@ -96,18 +86,9 @@ def get_df_pipeline_metrics(
     }
 
     supports = [pipeline_metrics[class_name]['support'] for class_name in class_names]
-    TP = np.sum([image_data_matching.get_pipeline_TP(
-        extra_bbox_label=extra_bbox_label,
-        use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-    ) for image_data_matching in images_data_matchings])
-    FP = np.sum([image_data_matching.get_pipeline_FP(
-        extra_bbox_label=extra_bbox_label,
-        use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-    ) for image_data_matching in images_data_matchings])
-    FN = np.sum([image_data_matching.get_pipeline_FN(
-        extra_bbox_label=extra_bbox_label,
-        use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-    ) for image_data_matching in images_data_matchings])
+    TP = np.sum([image_data_matching.get_pipeline_TP() for image_data_matching in images_data_matchings])
+    FP = np.sum([image_data_matching.get_pipeline_FP() for image_data_matching in images_data_matchings])
+    FN = np.sum([image_data_matching.get_pipeline_FN() for image_data_matching in images_data_matchings])
     iou_mean = np.mean([
         bbox_data_matching.iou
         for image_data_matching in images_data_matchings

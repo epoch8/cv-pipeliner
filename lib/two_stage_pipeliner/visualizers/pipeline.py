@@ -34,36 +34,24 @@ class PipelineVisualizer(Visualizer):
                                                   use_not_caught_elements_as_last_batch=True)
         pred_images_data = self.inferencer.predict(images_data_gen, detection_score_threshold)
         images_data_matchings = [
-            ImageDataMatching(image_data, pred_image_data, minimum_iou)
+            ImageDataMatching(
+                true_image_data=image_data,
+                pred_image_data=pred_image_data,
+                minimum_iou=minimum_iou,
+                extra_bbox_label=extra_bbox_label,
+                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+            )
             for image_data, pred_image_data in zip(images_data, pred_images_data)
         ]
         images_names = []
         for image_data_matching in images_data_matchings:
-            TP = image_data_matching.get_pipeline_TP(
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            )
-            FP = image_data_matching.get_pipeline_FP(
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            )
-            FN = image_data_matching.get_pipeline_FN(
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
-            )
-            TP_extra_bbox = image_data_matching.get_pipeline_TP_extra_bbox(
-                extra_bbox_label=extra_bbox_label,
-            )
-            FN_extra_bbox = image_data_matching.get_pipeline_FP_extra_bbox(
-                extra_bbox_label=extra_bbox_label,
-            )
             images_names.append(
                 f"{image_data_matching.true_image_data.image_path.name} "
-                f"[TP: {TP}, "
-                f"FP: {FP}, "
-                f"FN: {FN}, "
-                f"TP (extra bbox): {TP_extra_bbox}, "
-                f"FP (extra bbox): {FN_extra_bbox}]"
+                f"[TP: {image_data_matching.get_pipeline_TP()}, "
+                f"FP: {image_data_matching.get_pipeline_FP()}, "
+                f"FN: {image_data_matching.get_pipeline_FN()}, "
+                f"TP (extra bbox): {image_data_matching.get_pipeline_TP_extra_bbox()}, "
+                f"FP (extra bbox): {image_data_matching.get_pipeline_FP_extra_bbox()}]"
                 for image_data_matching in images_data_matchings
             )
         return images_names
@@ -109,15 +97,18 @@ class PipelineVisualizer(Visualizer):
             else:
                 if show_TP_FP_FN_with_minimum_iou is not None:
                     display(Image.fromarray(visualize_image_data_matching_side_by_side(
-                        image_data_matching=ImageDataMatching(self.true_image_data, self.pred_image_data,
-                                                              show_TP_FP_FN_with_minimum_iou),
+                        image_data_matching=ImageDataMatching(
+                            true_image_data=self.true_image_data,
+                            pred_image_data=self.pred_image_data,
+                            minimum_iou=show_TP_FP_FN_with_minimum_iou,
+                            extra_bbox_label=extra_bbox_label,
+                            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+                        ),
                         error_type='pipeline',
                         true_use_labels=True, pred_use_labels=True,
                         true_score_type=None, pred_score_type=None,
                         true_filter_by_error_types=self.jupyter_visualizer.choices.value.split('+'),
-                        pred_filter_by_error_types=self.jupyter_visualizer.choices2.value.split('+'),
-                        extra_bbox_label=extra_bbox_label,
-                        use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+                        pred_filter_by_error_types=self.jupyter_visualizer.choices2.value.split('+')
                     )))
                 else:
                     display(Image.fromarray(visualize_images_data_side_by_side(
