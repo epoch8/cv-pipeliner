@@ -28,7 +28,7 @@ class DetectionInferencer(Inferencer):
         ):
             bboxes_data = []
             for (pred_cropped_image, pred_bbox, pred_detection_score) in zip(img_boxes, pred_bboxes, pred_scores):
-                ymin, xmin, ymax, xmax = pred_bbox
+                xmin, ymin, xmax, ymax = pred_bbox
                 bboxes_data.append(BboxData(
                     image_path=image_data.image_path,
                     image_bytes=image_data.image_bytes,

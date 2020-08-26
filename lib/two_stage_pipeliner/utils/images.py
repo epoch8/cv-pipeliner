@@ -12,9 +12,13 @@ import numpy as np
 def denormalize_bboxes(bboxes: List[Tuple[float, float, float, float]],
                        image_width: int,
                        image_height: int) -> List[Tuple[int, int, int, int]]:
+    """
+    Denormalize normalized bboxes coordinates.
+    bboxes must have this format: (xmin, ymin, xmax, ymax)
+    """
     bboxes = np.array(bboxes.copy())
-    bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * image_height
-    bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * image_width
+    bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * image_width
+    bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * image_height
     bboxes = bboxes.round().astype(int)
     return bboxes
 

@@ -66,7 +66,8 @@ class DetectionModelTF_pb(DetectionModel):
         width: int
     ) -> Tuple[List[Tuple[int, int, int, int]], List[int]]:
         raw_scores = detection_output_dict["detection_scores"]
-        raw_bboxes = detection_output_dict["detection_boxes"]
+        raw_bboxes = detection_output_dict["detection_boxes"]  # (ymin, xmin, ymax, xmax)
+        raw_bboxes = raw_bboxes[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
         raw_bboxes = denormalize_bboxes(raw_bboxes, width, height)
 
         mask = raw_scores > score_threshold

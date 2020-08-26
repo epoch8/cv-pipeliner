@@ -5,7 +5,7 @@ import numpy as np
 
 from two_stage_pipeliner.core.inference_model import ModelSpec, InferenceModel
 
-Bbox = Tuple[int, int, int, int]  # (ymin, xmin, ymax, xmax)
+Bbox = Tuple[int, int, int, int]  # (xmin, ymin, xmax, ymax)
 Score = float
 
 CroppedImages = List[np.ndarray]
