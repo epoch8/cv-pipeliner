@@ -1,6 +1,6 @@
 import json
 
-from typing import Union, Dict
+from typing import Union, Dict, List
 from pathlib import Path
 
 from two_stage_pipeliner.core.data_converter import DataConverter, assert_image_data
@@ -8,8 +8,17 @@ from two_stage_pipeliner.core.data import BboxData, ImageData
 
 
 class SuperviselyDataConverter(DataConverter):
-    def __init__(self):
-        DataConverter.__init__(self)
+    def __init__(self,
+                 class_names: List[str] = None,
+                 class_mapper: Dict[str, str] = None,
+                 default_value: str = "",
+                 skip_nonexists: bool = False):
+        super().__init__(
+            class_names=class_names,
+            class_mapper=class_mapper,
+            default_value=default_value,
+            skip_nonexists=skip_nonexists
+        )
 
     @assert_image_data
     def get_image_data_from_annot(
