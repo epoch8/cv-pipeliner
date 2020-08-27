@@ -11,6 +11,7 @@ import numpy as np
 class BboxData:
     image_path: Union[str, Path] = None
     image_bytes: io.BytesIO = None
+    image: np.ndarray = None
     cropped_image: np.ndarray = None
     xmin: int = None
     ymin: int = None
@@ -28,7 +29,9 @@ class BboxData:
         if self.cropped_image is not None:
             cropped_image = self.cropped_image.copy()
         else:
-            if self.image_path is not None:
+            if self.image is not None:
+                image = self.image
+            elif self.image_path is not None:
                 image = np.array(imageio.imread(self.image_path, pilmode="RGB"))
             elif self.image_bytes is not None:
                 image = np.array(imageio.imread(self.image_bytes))
