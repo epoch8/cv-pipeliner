@@ -42,7 +42,6 @@ class VideoInferencer:
         self.classification_inferencer = ClassificationInferencer(pipeline_inferencer.model.classification_model)
         self.label_to_base_label_image = label_to_base_label_image
         self.write_labels = write_labels
-        assert all(label in label_to_base_label_image for label in pipeline_inferencer.class_names)
 
         self.sort_tracker = None
         self.opencv_tracker = None
