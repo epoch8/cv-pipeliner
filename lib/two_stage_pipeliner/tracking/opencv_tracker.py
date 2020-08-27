@@ -1,6 +1,6 @@
 import cv2
 
-from app.utils.bbox_utils import coco_bboxes_to_voc, voc_bboxes_to_coco
+from two_stage_pipeliner.tracking.bbox_utils import coco_bboxes_to_voc, voc_bboxes_to_coco
 
 
 class OpenCVTracker:
