@@ -22,7 +22,7 @@ def draw_label_image(
         image = image.copy()
 
     bbox_data_size = max(bbox_data.xmax - bbox_data.xmin, bbox_data.ymax - bbox_data.ymin)
-    resize = int(bbox_data_size / 1.5) 
+    resize = int(bbox_data_size / 1.5)
     height, width, _ = base_label_image.shape
     if height <= width:
         label_image = imutils.resize(base_label_image, width=resize)
