@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Callable
 
 import numpy as np
 
@@ -65,6 +65,9 @@ def get_true_and_pred_images_data_with_visualized_labels(
     return true_image_data_with_visualized_labels, pred_image_data_with_visualized_labels
 
 
+error_type = Literal['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)']
+
+
 def visualize_image_data_matching_side_by_side(
     image_data_matching: ImageDataMatching,
     error_type: Literal['detection', 'pipeline'],
@@ -72,12 +75,9 @@ def visualize_image_data_matching_side_by_side(
     pred_use_labels: bool = False,
     true_score_type: Literal['detection', 'classification'] = None,
     pred_score_type: Literal['detection', 'classification'] = None,
-    true_filter_by_error_types: List[
-        Literal['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)']
-    ] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
-    pred_filter_by_error_types: List[
-        Literal['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)']
-    ] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)']
+    true_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
+    pred_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
+    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None
 ) -> np.ndarray:
 
     (true_image_data_with_visualized_labels,
@@ -103,6 +103,7 @@ def visualize_image_data_matching_side_by_side(
         use_labels1=true_use_labels, use_labels2=pred_use_labels,
         score_type1=true_score_type, score_type2=pred_score_type,
         filter_by_labels1=true_filter_by_labels,
-        filter_by_labels2=pred_filter_by_labels
+        filter_by_labels2=pred_filter_by_labels,
+        draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image
     )
     return image
