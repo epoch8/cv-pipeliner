@@ -47,16 +47,17 @@ class DetectionModelTF(DetectionModel):
             width = 640
         if height is None:
             height = 640
-        tf_zeros = tf.zeros([1, width, height, 3])
-        self._raw_predict_single_image_tf(tf_zeros)
+        zeros = np.zeros([width, height, 3])
+        self._raw_predict_single_image(zeros)
 
-    def _raw_predict_single_image_tf(self, input_tensor: tf.Tensor) -> Dict:
+    def _raw_predict_single_image(self, image: np.ndarray) -> Dict:
+        input_tensor = tf.convert_to_tensor(image[None, ...], dtype=tf.float32)
         preprocessed_image, shapes = self.model.preprocess(input_tensor)
         raw_prediction_dict = self.model.predict(preprocessed_image, shapes)
-        detector_output_dict = self.model.postprocess(
+        detection_output_dict = self.model.postprocess(
             raw_prediction_dict, shapes
         )
-        return detector_output_dict
+        return detection_output_dict
 
     def _postprocess_prediction(
         self,
@@ -86,12 +87,12 @@ class DetectionModelTF(DetectionModel):
 
         for image in tqdm(input, disable=disable_tqdm):
             height, width, _ = image.shape
-            image_tensor = tf.convert_to_tensor(image[None, ...], dtype=tf.float32)
-            detector_output_dict = self._raw_predict_single_image_tf(image_tensor)
+            detection_output_dict = self._raw_predict_single_image(image)
             bboxes, scores = self._postprocess_prediction(
-                detector_output_dict,
-                score_threshold,
-                height, width
+                detection_output_dict=detection_output_dict,
+                score_threshold=score_threshold,
+                height=height,
+                width=width
             )
 
             n_pred_bboxes.append(bboxes)

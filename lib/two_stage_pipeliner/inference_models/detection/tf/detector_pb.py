@@ -3,6 +3,7 @@ from typing import Dict, Tuple, List, Union, Literal, ClassVar
 from pathlib import Path
 
 import tensorflow as tf
+import numpy as np
 from tqdm import tqdm
 
 from two_stage_pipeliner.inference_models.detection.core import (
@@ -14,7 +15,7 @@ from two_stage_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from
 @dataclass(frozen=True)
 class DetectionModelSpecTF_pb(DetectionModelSpec):
     saved_model_dir: Union[str, Path]
-    input_type: Literal["image_tensor", "float_image_tensor"]
+    input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
     input_size: Tuple[int, int] = (None, None)
 
     @property
@@ -31,14 +32,17 @@ class DetectionModelTF_pb(DetectionModel):
     def load(self, model_spec: DetectionModelSpecTF_pb):
         assert isinstance(model_spec, DetectionModelSpecTF_pb)
         super().load(model_spec)
-        loaded_model = tf.keras.models.load_model(str(model_spec.saved_model_dir))
-        self.model = loaded_model.signatures["serving_default"]
-        if model_spec.input_type == "image_tensor":
+        self.loaded_model = tf.saved_model.load(str(model_spec.saved_model_dir))
+        self.model = self.loaded_model.signatures["serving_default"]
+        if model_spec.input_type in ["image_tensor", "encoded_image_string_tensor"]:
             self.input_dtype = tf.dtypes.uint8
         elif model_spec.input_type == "float_image_tensor":
             self.input_dtype = tf.dtypes.float32
         else:
-            raise ValueError("input_type of DetectionModelSpecTF_pb can be image_tensor or float_image_tensor.")
+            raise ValueError(
+                "input_type of DetectionModelSpecTF_pb can be image_tensor, float_image_tensor "
+                "or encoded_image_string_tensor."
+            )
 
         # Run model through a dummy image so that variables are created
         width, height = model_spec.input_size
@@ -46,17 +50,20 @@ class DetectionModelTF_pb(DetectionModel):
             width = 640
         if height is None:
             height = 640
-        tf_zeros = tf.zeros([1, width, height, 3], dtype=self.input_dtype)
+        zeros = np.zeros([width, height, 3])
+        self._raw_predict_single_image(zeros)
 
-        self._raw_predict_single_image_tf(tf_zeros)
-
-    def _raw_predict_single_image_tf(self, input_tensor: tf.Tensor) -> Dict:
+    def _raw_predict_single_image(self, image: np.ndarray) -> Dict:
+        input_tensor = tf.convert_to_tensor(image, dtype=self.input_dtype)
+        if self.model_spec.input_type == "encoded_image_string_tensor":
+            input_tensor = tf.io.encode_jpeg(input_tensor)
+        input_tensor = input_tensor[None, ...]
         output_dict = self.model(input_tensor)
         num_detections = int(output_dict.pop("num_detections"))
-        output_dict = {
+        detection_output_dict = {
             key: value[0, :num_detections].numpy() for key, value in output_dict.items()
         }
-        return output_dict
+        return detection_output_dict
 
     def _postprocess_prediction(
         self,
@@ -86,12 +93,12 @@ class DetectionModelTF_pb(DetectionModel):
 
         for image in tqdm(input, disable=disable_tqdm):
             height, width, _ = image.shape
-            image_tensor = tf.convert_to_tensor(image[None, ...], dtype=self.input_dtype)
-            detector_output_dict = self._raw_predict_single_image_tf(image_tensor)
+            detection_output_dict = self._raw_predict_single_image(image)
             bboxes, scores = self._postprocess_prediction(
-                detector_output_dict,
-                score_threshold,
-                height, width
+                detection_output_dict=detection_output_dict,
+                score_threshold=score_threshold,
+                height=height,
+                width=width
             )
 
             n_pred_bboxes.append(bboxes)
