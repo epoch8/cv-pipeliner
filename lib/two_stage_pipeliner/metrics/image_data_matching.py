@@ -307,11 +307,17 @@ class ImageDataMatching:
     ):
         return self.get_pipeline_errors_types(filter_by_label).count("FN")
 
-    def get_pipeline_TP_extra_bbox(self):
-        return self.get_pipeline_errors_types().count("TP (extra bbox)")
+    def get_pipeline_TP_extra_bbox(
+        self,
+        filter_by_label: str = None,
+    ):
+        return self.get_pipeline_errors_types(filter_by_label).count("TP (extra bbox)")
 
-    def get_pipeline_FP_extra_bbox(self):
-        return self.get_pipeline_errors_types().count("FP (extra bbox)")
+    def get_pipeline_FP_extra_bbox(
+        self,
+        filter_by_label: str = None,
+    ):
+        return self.get_pipeline_errors_types(filter_by_label).count("FP (extra bbox)")
 
     def find_bbox_data_matching(
         self,
