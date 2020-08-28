@@ -116,7 +116,7 @@ def get_df_pipeline_metrics(
         if bbox_data_matching.iou is not None
     ])
     accuracy = TP / max(TP + FN + FN + TP_extra_bbox + FP_extra_bbox, 1e-6)
-    micro_average_precision = TP / max(TP + FP + FP_extra_bbox, 1e-6)
+    micro_average_precision = (TP + TP_extra_bbox) / max(TP + FP + FP_extra_bbox, 1e-6)
     micro_average_recall = TP / max(TP + FN, 1e-6)
     micro_average_f1_score = 2 * micro_average_precision * micro_average_recall / (
         max(micro_average_precision + micro_average_recall, 1e-6)
