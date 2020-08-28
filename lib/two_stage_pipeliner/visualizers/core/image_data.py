@@ -15,14 +15,19 @@ def draw_label_image(
     image: np.ndarray,
     base_label_image: np.ndarray,
     bbox_data: BboxData,
+    resize_by_bbox: bool = True,
     inplace: bool = False
 ) -> np.ndarray:
 
     if not inplace:
         image = image.copy()
 
-    bbox_data_size = max(bbox_data.xmax - bbox_data.xmin, bbox_data.ymax - bbox_data.ymin)
-    resize = int(bbox_data_size / 1.5)
+    if resize_by_bbox:
+        bbox_data_size = max(bbox_data.xmax - bbox_data.xmin, bbox_data.ymax - bbox_data.ymin)
+        resize = int(bbox_data_size / 1.5)
+    else:
+        resize = int(max(image.shape) / 20)
+
     height, width, _ = base_label_image.shape
     if height <= width:
         label_image = imutils.resize(base_label_image, width=resize)
@@ -71,7 +76,8 @@ def visualize_image_data(
     known_labels: List[str] = None,
     score_type: Literal['detection', 'classification'] = None,
     filter_by_label: List[str] = None,
-    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None
+    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
+    draw_base_labels_resize_by_bbox: bool = True
 ) -> np.ndarray:
     image = image_data.open_image().copy()
     bboxes_data = image_data.bboxes_data
@@ -141,6 +147,7 @@ def visualize_image_data(
                 image=image,
                 base_label_image=base_label_image,
                 bbox_data=bbox_data,
+                resize_by_bbox=draw_base_labels_resize_by_bbox,
                 inplace=True
             )
 
@@ -156,7 +163,8 @@ def visualize_images_data_side_by_side(
     score_type2: Literal['detection', 'classification'] = None,
     filter_by_labels1: List[str] = None,
     filter_by_labels2: List[str] = None,
-    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None
+    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
+    draw_base_labels_resize_by_bbox: bool = True
 ) -> np.ndarray:
 
     if use_labels1 and use_labels2:
@@ -172,7 +180,8 @@ def visualize_images_data_side_by_side(
         known_labels=known_labels,
         score_type=score_type1,
         filter_by_label=filter_by_labels1,
-        draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image
+        draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+        draw_base_labels_resize_by_bbox=draw_base_labels_resize_by_bbox
     )
     pred_ann_image = visualize_image_data(
         image_data=image_data2,
@@ -180,7 +189,8 @@ def visualize_images_data_side_by_side(
         known_labels=known_labels,
         score_type=score_type2,
         filter_by_label=filter_by_labels2,
-        draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image
+        draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+        draw_base_labels_resize_by_bbox=draw_base_labels_resize_by_bbox
     )
 
     image = cv2.hconcat([true_ann_image, pred_ann_image])

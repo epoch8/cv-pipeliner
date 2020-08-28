@@ -180,7 +180,8 @@ class VideoInferencer:
             image_data=image_data,
             use_labels=self.write_labels,
             filter_by_label=classes_to_find,
-            draw_base_labels_with_given_label_to_base_label_image=self.label_to_base_label_image
+            draw_base_labels_with_given_label_to_base_label_image=self.label_to_base_label_image,
+            draw_base_labels_resize_by_bbox=False
         )
 
         return image
