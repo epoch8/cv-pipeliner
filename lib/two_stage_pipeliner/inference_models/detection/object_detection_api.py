@@ -44,6 +44,8 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
 class ObjectDetectionAPI_tflite_ModelSpec(DetectionModelSpec):
     model_path: Union[str, Path]
     input_size: Tuple[int, int]
+    bboxes_output_index: int
+    scores_output_index: int
 
     @property
     def inference_model(self) -> ClassVar['ObjectDetectionAPI_DetectionModel']:
@@ -86,8 +88,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self.model.allocate_tensors()
         self.input_index = self.model.get_input_details()[0]['index']
         output_details = self.model.get_output_details()
-        self.bboxes_index = output_details[0]['index']
-        self.scores_index = output_details[2]['index']
+        self.bboxes_index = output_details[model_spec.bboxes_output_index]['index']
+        self.scores_index = output_details[model_spec.scores_output_index]['index']
 
     def load(
         self,
@@ -141,8 +143,10 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self,
         image: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray]:
-        image = resize(image, self.model_spec.input_size)
+        height, width, _ = image.shape
         image = np.array(image[None, ...], dtype=np.float32)
+        self.model.resize_tensor_input(0, [1, height, width, 3])
+        self.model.allocate_tensors()
         self.model.set_tensor(self.input_index, image)
         self.model.invoke()
 
