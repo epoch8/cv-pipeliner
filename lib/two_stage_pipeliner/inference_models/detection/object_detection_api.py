@@ -20,7 +20,6 @@ from two_stage_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from
 class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
     config_path: Union[str, Path]
     checkpoint_path: Union[str, Path]
-    input_size: Tuple[int, int] = (None, None)
 
     @property
     def inference_model(self) -> ClassVar['ObjectDetectionAPI_DetectionModel']:
@@ -32,7 +31,6 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
 class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
     saved_model_dir: Union[str, Path]
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
-    input_size: Tuple[int, int] = (None, None)
 
     @property
     def inference_model(self) -> ClassVar['ObjectDetectionAPI_DetectionModel']:
@@ -43,7 +41,6 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
 @dataclass(frozen=True)
 class ObjectDetectionAPI_tflite_ModelSpec(DetectionModelSpec):
     model_path: Union[str, Path]
-    input_size: Tuple[int, int]
     bboxes_output_index: int
     scores_output_index: int
 
@@ -115,12 +112,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             )
 
         # Run model through a dummy image so that variables are created
-        width, height = self.input_size
-        if width is None:
-            width = 640
-        if height is None:
-            height = 640
-        zeros = np.zeros([width, height, 3])
+        zeros = np.zeros([640, 640, 3])
         self._raw_predict_single_image(zeros)
 
     def _raw_predict_single_image_default(
@@ -207,4 +199,4 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
 
     @property
     def input_size(self) -> Tuple[int, int]:
-        return self.model_spec.input_size
+        return (None, None)
