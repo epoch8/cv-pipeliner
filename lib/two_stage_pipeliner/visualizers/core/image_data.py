@@ -15,7 +15,7 @@ def draw_label_image(
     image: np.ndarray,
     base_label_image: np.ndarray,
     bbox_data: BboxData,
-    resize_by_bbox: bool = True,
+    resize_by_bbox: bool = False,
     inplace: bool = False
 ) -> np.ndarray:
 
@@ -77,7 +77,7 @@ def visualize_image_data(
     score_type: Literal['detection', 'classification'] = None,
     filter_by_label: List[str] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    draw_base_labels_resize_by_bbox: bool = True
+    draw_base_labels_resize_by_bbox: bool = False
 ) -> np.ndarray:
     image = image_data.open_image().copy()
     bboxes_data = image_data.bboxes_data
@@ -164,7 +164,7 @@ def visualize_images_data_side_by_side(
     filter_by_labels1: List[str] = None,
     filter_by_labels2: List[str] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    draw_base_labels_resize_by_bbox: bool = True
+    draw_base_labels_resize_by_bbox: bool = False
 ) -> np.ndarray:
 
     if use_labels1 and use_labels2:
