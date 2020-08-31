@@ -21,8 +21,8 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
 
     @property
     def inference_model(self) -> ClassVar['Keras_ClassificationModel']:
-        from two_stage_pipeliner.inference_models.classification.tensorflow import Keras_ClassificationModel
-        return Keras_ClassificationModel
+        from two_stage_pipeliner.inference_models.classification.tensorflow import Tensorflow_ClassificationModel
+        return Tensorflow_ClassificationModel
 
 
 class Tensorflow_ClassificationModel(ClassificationModel):
@@ -34,29 +34,32 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         super().load(model_spec)
         if model_spec.saved_model_type == "tf.keras":
             self.model = tf.keras.models.load_model(str(model_spec.model_path))
-            self._raw_predict_batch = self._raw_predict_batch_default
+            assert len(model_spec.class_names) == int(self.model.output.shape[-1])
         elif model_spec.saved_model_type == "tf.saved_model":
             self.loaded_model = tf.saved_model.load(str(model_spec.model_path))
             self.model = self.loaded_model.signatures["serving_default"]
-            self._raw_predict_batch = self._raw_predict_batch_keras
         else:
             raise ValueError(
                 "Tensorflow_ClassificationModel got unknown saved_model_type "
                 f"in TensorFlow_ClassificationModelSpec: {self.saved_model_type}"
             )
 
-        assert len(model_spec.class_names) == int(self.model.output.shape[-1])
         self.id_to_class_name = {
             id: class_name for id, class_name in enumerate(model_spec.class_names)
         }
         self.batch_size = 16
+        
+        # Run model through a dummy image so that variables are created
+        width, height = self.input_size
+        zeros = np.zeros([1, width, height, 3])
+        self._raw_predict_batch(zeros)
 
     def _raw_predict_batch(
         self,
         images: List[np.ndarray]
     ):
         if self.model_spec.saved_model_type == "tf.saved_model":
-            input_tensor = tf.convert_to_tensor(images, dtype=self.input_dtype)
+            input_tensor = tf.convert_to_tensor(images, dtype=tf.dtypes.float32)
             raw_predictions_batch = self.model(input_tensor)
         elif self.model_spec.saved_model_type == "tf.keras":
             raw_predictions_batch = self.model.predict(images)

@@ -30,7 +30,7 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
 
 @dataclass(frozen=True)
 class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
-    model_path: Union[str, Path]
+    saved_model_dir: Union[str, Path]
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
     input_size: Tuple[int, int] = (None, None)
 
@@ -42,8 +42,8 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
 
 @dataclass(frozen=True)
 class ObjectDetectionAPI_tflite_ModelSpec(DetectionModelSpec):
-    input_size: Tuple[int, int]
     model_path: Union[str, Path]
+    input_size: Tuple[int, int]
 
     @property
     def inference_model(self) -> ClassVar['ObjectDetectionAPI_DetectionModel']:
@@ -65,8 +65,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self.input_dtype = tf.dtypes.float32
 
     def _load_object_detection_api_pb(self, model_spec: ObjectDetectionAPI_pb_ModelSpec):
-        super().load(model_spec)
-        self.loaded_model = tf.saved_model.load(str(model_spec.model_path))
+        self.loaded_model = tf.saved_model.load(str(model_spec.saved_model_dir))
         self.model = self.loaded_model.signatures["serving_default"]
         if model_spec.input_type in ["image_tensor", "encoded_image_string_tensor"]:
             self.input_dtype = tf.dtypes.uint8
@@ -113,16 +112,6 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
                 f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}"
             )
 
-        configs = config_util.get_configs_from_pipeline_file(
-            pipeline_config_path=str(model_spec.config_path)
-        )
-        model_config = configs['model']
-        self.model = model_builder.build(
-            model_config=model_config, is_training=False
-        )
-        ckpt = tf.compat.v2.train.Checkpoint(model=self.model)
-        ckpt.restore(str(model_spec.checkpoint_path)).expect_partial()
-
         # Run model through a dummy image so that variables are created
         width, height = self.input_size
         if width is None:
@@ -137,14 +126,15 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         image: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray]:
         input_tensor = tf.convert_to_tensor(image, dtype=self.input_dtype)
-        if self.model_spec.input_type == "encoded_image_string_tensor":
+        if self.input_dtype == "encoded_image_string_tensor":
             input_tensor = tf.io.encode_jpeg(input_tensor)
         input_tensor = input_tensor[None, ...]
         detection_output_dict = self.model(input_tensor)
 
         raw_bboxes = detection_output_dict["detection_boxes"][0]  # (ymin, xmin, ymax, xmax)
-        raw_bboxes = raw_bboxes[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
+        raw_bboxes = np.array(raw_bboxes)[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
         raw_scores = detection_output_dict["detection_scores"][0]
+        raw_scores = np.array(raw_scores)
         return raw_bboxes, raw_scores
 
     def _raw_predict_single_image_tflite(
@@ -153,12 +143,12 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
     ) -> Tuple[np.ndarray, np.ndarray]:
         image = resize(image, self.model_spec.input_size)
         image = np.array(image[None, ...], dtype=np.float32)
-        self.interpreter.set_tensor(self.input_index, image)
-        self.interpreter.invoke()
+        self.model.set_tensor(self.input_index, image)
+        self.model.invoke()
 
-        raw_bboxes = np.array(self.interpreter.get_tensor(self.bboxes_index))[0]  # (ymin, xmin, ymax, xmax)
+        raw_bboxes = np.array(self.model.get_tensor(self.bboxes_index))[0]  # (ymin, xmin, ymax, xmax)
         raw_bboxes = raw_bboxes[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
-        raw_scores = np.array(self.interpreter.get_tensor(self.scores_index))[0]
+        raw_scores = np.array(self.model.get_tensor(self.scores_index))[0]
 
         return raw_bboxes, raw_scores
 
