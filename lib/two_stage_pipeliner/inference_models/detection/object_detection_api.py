@@ -24,7 +24,7 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
 
     @property
     def inference_model(self) -> ClassVar['ObjectDetectionAPI_DetectionModel']:
-        from two_stage_pipeliner.inference_models.detection.tensorflow.object_detection_api import ObjectDetectionAPI_DetectionModel
+        from two_stage_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
         return ObjectDetectionAPI_DetectionModel
 
 
@@ -36,7 +36,7 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
 
     @property
     def inference_model(self) -> ClassVar['ObjectDetectionAPI_DetectionModel']:
-        from two_stage_pipeliner.inference_models.detection.tensorflow.object_detection_api import ObjectDetectionAPI_DetectionModel
+        from two_stage_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
         return ObjectDetectionAPI_DetectionModel
 
 
@@ -47,7 +47,7 @@ class ObjectDetectionAPI_tflite_ModelSpec(DetectionModelSpec):
 
     @property
     def inference_model(self) -> ClassVar['ObjectDetectionAPI_DetectionModel']:
-        from two_stage_pipeliner.inference_models.detection.tensorflow.object_detection_api import ObjectDetectionAPI_DetectionModel
+        from two_stage_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
         return ObjectDetectionAPI_DetectionModel
 
 

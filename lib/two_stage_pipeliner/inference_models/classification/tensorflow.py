@@ -21,7 +21,7 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
 
     @property
     def inference_model(self) -> ClassVar['Keras_ClassificationModel']:
-        from two_stage_pipeliner.inference_models.classification.tf.classifier import Keras_ClassificationModel
+        from two_stage_pipeliner.inference_models.classification.tensorflow import Keras_ClassificationModel
         return Keras_ClassificationModel
 
 
