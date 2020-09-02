@@ -1,4 +1,6 @@
 import json
+import sys
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple, Callable, Union, ClassVar, Literal
@@ -15,7 +17,7 @@ from two_stage_pipeliner.inference_models.classification.core import (
 @dataclass(frozen=True)
 class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     input_size: Tuple[int, int]
-    preprocess_input: Callable[[List[np.ndarray]], np.ndarray]
+    preprocess_input: Literal[Callable[[List[np.ndarray]], np.ndarray], Union[str, Path]]
     class_names: Literal[List[str], Union[str, Path]]
     model_path: Union[str, Path]
     saved_model_type: Literal["tf.saved_model", "tf.keras"]
@@ -27,6 +29,17 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
 
 
 class Tensorflow_ClassificationModel(ClassificationModel):
+    def _get_preprocess_input_from_script_file(
+        self,
+        script_file: Union[str, Path]
+    ) -> Callable[[List[np.ndarray]], np.ndarray]:
+        parent_dir_of_script = Path(script_file).parent.absolute()
+        sys.path.append(str(parent_dir_of_script))
+        module_name = parent_dir_of_script.name
+        module = importlib.import_module(module_name)
+        sys.path.pop()
+        return module.preprocess_input
+
     def load(
         self,
         model_spec: TensorFlow_ClassificationModelSpec
@@ -49,6 +62,11 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 "Tensorflow_ClassificationModel got unknown saved_model_type "
                 f"in TensorFlow_ClassificationModelSpec: {self.saved_model_type}"
             )
+
+        if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
+            self._preprocess_input = self._get_preprocess_input_from_script_file(model_spec.preprocess_input)
+        else:
+            self._preprocess_input = model_spec.preprocess_input
 
         self.id_to_class_name = {
             id: class_name for id, class_name in enumerate(self._class_names)
@@ -128,7 +146,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
 
     def preprocess_input(self, input: ClassificationInput):
         return [
-            self.model_spec.preprocess_input(cropped_images)
+            self._preprocess_input(cropped_images)
             for cropped_images in input
         ]
 

@@ -1,8 +1,5 @@
 import _thread
 import weakref
-import sys
-import importlib
-from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Dict
 
@@ -117,15 +114,6 @@ def get_description_to_detection_model_definition_from_config(
     return description_to_detection_model_definition
 
 
-def get_preprocess_input_from_script_file(script_file):
-    parent_dir_of_script = Path(script_file).parent.absolute()
-    sys.path.append(str(parent_dir_of_script))
-    module_name = parent_dir_of_script.name
-    module = importlib.import_module(module_name)
-    sys.path.pop()
-    return module.preprocess_input
-
-
 @st.cache(show_spinner=False)
 def get_description_to_classification_model_definition_from_config(
     cfg: CfgNode
@@ -143,7 +131,7 @@ def get_description_to_classification_model_definition_from_config(
         if key == 'tensorflow_cls_model':
             classification_model_definition.model_spec = TensorFlow_ClassificationModelSpec(
                 input_size=classification_cfg.input_size,
-                preprocess_input=get_preprocess_input_from_script_file(classification_cfg.preprocess_input_script_file),
+                preprocess_input=classification_cfg.preprocess_input_script_file,
                 class_names=classification_cfg.class_names,
                 model_path=classification_cfg.model_path,
                 saved_model_type=classification_cfg.saved_model_type
