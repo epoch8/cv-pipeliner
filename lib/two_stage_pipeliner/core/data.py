@@ -69,6 +69,8 @@ class ImageData:
     def __post_init__(self):
         if self.image_path is not None:
             super().__setattr__('image_path', Path(self.image_path))
+        if self.bboxes_data is None:
+            super().__setattr__('bboxes_data', [])
 
     def open_image(self, inplace: bool = False) -> Union[None, np.ndarray]:
         if self.image is not None:

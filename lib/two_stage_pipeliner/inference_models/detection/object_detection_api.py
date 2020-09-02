@@ -39,7 +39,7 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
 
 
 @dataclass(frozen=True)
-class ObjectDetectionAPI_tflite_ModelSpec(DetectionModelSpec):
+class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     model_path: Union[str, Path]
     bboxes_output_index: int
     scores_output_index: int
@@ -76,8 +76,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
                 "or encoded_image_string_tensor."
             )
 
-    def _load_object_detection_api_tflite(self, model_spec: ObjectDetectionAPI_tflite_ModelSpec):
-        assert isinstance(model_spec, ObjectDetectionAPI_tflite_ModelSpec)
+    def _load_object_detection_api_tflite(self, model_spec: ObjectDetectionAPI_TFLite_ModelSpec):
+        assert isinstance(model_spec, ObjectDetectionAPI_TFLite_ModelSpec)
         super().load(model_spec)
         self.model = tf.lite.Interpreter(
             model_path=str(model_spec.model_path)
@@ -93,7 +93,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         model_spec: Literal[
             ObjectDetectionAPI_ModelSpec,
             ObjectDetectionAPI_pb_ModelSpec,
-            ObjectDetectionAPI_tflite_ModelSpec
+            ObjectDetectionAPI_TFLite_ModelSpec
         ]
     ):
         super().load(model_spec)
@@ -103,7 +103,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         elif isinstance(model_spec, ObjectDetectionAPI_pb_ModelSpec):
             self._load_object_detection_api_pb(model_spec)
             self._raw_predict_single_image = self._raw_predict_single_image_default
-        elif isinstance(model_spec, ObjectDetectionAPI_tflite_ModelSpec):
+        elif isinstance(model_spec, ObjectDetectionAPI_TFLite_ModelSpec):
             self._load_object_detection_api_tflite(model_spec)
             self._raw_predict_single_image = self._raw_predict_single_image_tflite
         else:
