@@ -75,7 +75,7 @@ def get_df_pipeline_metrics(
             max(precision_by_class_name + recall_by_class_name, 1e-6)
         )
         classification_errors_count_on_true_bboxes_by_class_name = np.sum(
-            image_data_matching.get_classification_errors_count_on_true_labels(filter_by_label=class_name)
+            image_data_matching.get_classification_errors_count_on_true_bboxes(filter_by_label=class_name)
             for image_data_matching in images_data_matchings
         )
         pipeline_metrics[class_name] = {
@@ -136,7 +136,7 @@ def get_df_pipeline_metrics(
     weighted_average_f1_score = np.average(f1_scores, weights=supports)
     sum_support = np.sum(supports)
     classification_errors_count_on_true_bboxes = np.sum([
-        image_data_matching.get_classification_errors_count_on_true_labels()
+        image_data_matching.get_classification_errors_count_on_true_bboxes()
         for image_data_matching in images_data_matchings
     ])
     pipeline_metrics['accuracy'] = {
