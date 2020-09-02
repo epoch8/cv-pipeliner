@@ -194,7 +194,7 @@ def get_df_pipeline_metrics(
              for class_name in use_soft_metrics_with_known_labels]
         )
         known_errors_on_true_images = np.sum(
-            [[image_data_matching.errors_on_true_images_by_class_name(filter_by_label=class_name)
+            [[image_data_matching.get_pipeline_errors_count_on_true_labels(filter_by_label=class_name)
               for image_data_matching in images_data_matchings]
              for class_name in use_soft_metrics_with_known_labels]
         )
