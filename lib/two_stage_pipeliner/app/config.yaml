@@ -26,7 +26,7 @@ models:
         - tensorflow_cls_model:
             description: 'Classficiation Tensorflow Keras Model'
             input_size: (224, 224)
-            preprocess_input: './preprocess_input.py'  # must have function preprocess_input(input: List[np.ndarray]) -> np.ndarray
+            preprocess_input_script_file: './preprocess_input.py'  # must have function preprocess_input(input: List[np.ndarray]) -> np.ndarray
             class_names: 'class_names.json'
             model_path: 'path5'
             saved_model_type: 'tf.keras'  # 'tf.saved_model', 'tf.keras'
