@@ -18,18 +18,18 @@ PIPELINE_MODEL_SPEC_FILENAME = "pipeline_model_spec.pkl"
 IMAGES_DATA_FILENAME = "images_data.pkl"
 
 
-def pipeline_interactive_work(output_directory: Union[str, Path],
+def pipeline_interactive_work(directory: Union[str, Path],
                               detection_score_threshold: float,
                               minimum_iou: float):
-    output_directory = Path(output_directory)
-    pipeline_model_spec_filepath = output_directory / PIPELINE_MODEL_SPEC_FILENAME
+    directory = Path(directory)
+    pipeline_model_spec_filepath = directory / PIPELINE_MODEL_SPEC_FILENAME
     with open(pipeline_model_spec_filepath, "rb") as src:
         pipeline_model_spec = pickle.load(src)
     pipeline_model = pipeline_model_spec.load()
 
     pipeline_inferencer = PipelineInferencer(pipeline_model)
 
-    images_data_filepath = output_directory / IMAGES_DATA_FILENAME
+    images_data_filepath = directory / IMAGES_DATA_FILENAME
     with open(images_data_filepath, "rb") as src:
         images_data = pickle.load(src)
     pipeline_visualizer = PipelineVisualizer(pipeline_inferencer)

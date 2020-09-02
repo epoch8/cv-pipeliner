@@ -18,16 +18,18 @@ CLASSIFICATION_MODEL_SPEC_FILENAME = "classification_model_spec.pkl"
 BBOXES_DATA_FILENAME = "bboxes_data.pkl"
 
 
-def classification_interactive_work(output_directory: Union[str, Path],
-                                    use_all_data: bool = False):
-    output_directory = Path(output_directory)
-    model_spec_filepath = output_directory / CLASSIFICATION_MODEL_SPEC_FILENAME
+def classification_interactive_work(
+    directory: Union[str, Path],
+    use_all_data: bool = False
+):
+    directory = Path(directory)
+    model_spec_filepath = directory / CLASSIFICATION_MODEL_SPEC_FILENAME
     with open(model_spec_filepath, "rb") as src:
         model_spec = pickle.load(src)
     classification_model = model_spec.load()
     classification_inferencer = ClassificationInferencer(classification_model)
 
-    images_data_filepath = output_directory / BBOXES_DATA_FILENAME
+    images_data_filepath = directory / BBOXES_DATA_FILENAME
     with open(images_data_filepath, "rb") as src:
         n_bboxes_data = pickle.load(src)
 

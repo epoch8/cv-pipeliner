@@ -18,17 +18,17 @@ DETECTION_MODEL_SPEC_FILENAME = "detection_model_spec.pkl"
 IMAGES_DATA_FILENAME = "images_data.pkl"
 
 
-def detection_interactive_work(output_directory: Union[str, Path],
+def detection_interactive_work(directory: Union[str, Path],
                                score_threshold: float,
                                minimum_iou: float):
-    output_directory = Path(output_directory)
-    model_spec_filepath = output_directory / DETECTION_MODEL_SPEC_FILENAME
+    directory = Path(directory)
+    model_spec_filepath = directory / DETECTION_MODEL_SPEC_FILENAME
     with open(model_spec_filepath, "rb") as src:
         model_spec = pickle.load(src)
     detection_model = model_spec.load()
     detection_inferencer = DetectionInferencer(detection_model)
 
-    images_data_filepath = output_directory / IMAGES_DATA_FILENAME
+    images_data_filepath = directory / IMAGES_DATA_FILENAME
     with open(images_data_filepath, "rb") as src:
         images_data = pickle.load(src)
     detection_visualizer = DetectionVisualizer(detection_inferencer)
