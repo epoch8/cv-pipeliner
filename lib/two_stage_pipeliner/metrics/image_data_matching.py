@@ -99,7 +99,7 @@ class BboxDataMatching:
         filter_only_true_label: bool = False
     ) -> Literal[None, "TP", "FP", "FN", "TP (extra bbox)", "FP (extra bbox)"]:
 
-        for bbox_data in [self.pred_bbox_data, self.pred_bbox_data]:
+        for bbox_data in [self.true_bbox_data, self.pred_bbox_data]:
             if bbox_data is not None:
                 bbox_data.assert_label_is_valid()
 
