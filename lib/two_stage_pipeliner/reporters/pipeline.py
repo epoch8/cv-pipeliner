@@ -8,6 +8,7 @@ import nbformat as nbf
 from two_stage_pipeliner.core.reporter import Reporter
 from two_stage_pipeliner.core.data import ImageData
 from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageData
+from two_stage_pipeliner.inference_models.pipeline import PipelineModelSpec
 from two_stage_pipeliner.inferencers.pipeline import PipelineInferencer
 from two_stage_pipeliner.metrics.pipeline import get_df_pipeline_metrics
 from two_stage_pipeliner.visualizers.pipeline import PipelineVisualizer
@@ -17,18 +18,18 @@ PIPELINE_MODEL_SPEC_FILENAME = "pipeline_model_spec.pkl"
 IMAGES_DATA_FILENAME = "images_data.pkl"
 
 
-def pipeline_interactive_work(directory: Union[str, Path],
+def pipeline_interactive_work(output_directory: Union[str, Path],
                               detection_score_threshold: float,
                               minimum_iou: float):
-    directory = Path(directory)
-    pipeline_model_spec_filepath = directory / PIPELINE_MODEL_SPEC_FILENAME
+    output_directory = Path(output_directory)
+    pipeline_model_spec_filepath = output_directory / PIPELINE_MODEL_SPEC_FILENAME
     with open(pipeline_model_spec_filepath, "rb") as src:
         pipeline_model_spec = pickle.load(src)
     pipeline_model = pipeline_model_spec.load()
 
     pipeline_inferencer = PipelineInferencer(pipeline_model)
 
-    images_data_filepath = directory / IMAGES_DATA_FILENAME
+    images_data_filepath = output_directory / IMAGES_DATA_FILENAME
     with open(images_data_filepath, "rb") as src:
         images_data = pickle.load(src)
     pipeline_visualizer = PipelineVisualizer(pipeline_inferencer)
@@ -77,22 +78,26 @@ class PipelineReporter(Reporter):
         codes.append(f'''
 from two_stage_pipeliner.reporters.pipeline import pipeline_interactive_work
 pipeline_interactive_work(
-    directory='.',
+    output_directory='.',
     detection_score_threshold={detection_score_threshold},
     minimum_iou={minimum_iou}
 )''')
         codes = [code.strip() for code in codes]
         return codes
 
-    def report(self,
-               inferencer: PipelineInferencer,
-               true_images_data: List[ImageData],
-               directory: Union[str, Path],
-               detection_score_threshold: float,
-               minimum_iou: float,
-               extra_bbox_label: str = None):
-
-        images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=16,
+    def report(
+        self,
+        model_spec: PipelineModelSpec,
+        output_directory: Union[str, Path],
+        true_images_data: List[ImageData],
+        detection_score_threshold: float,
+        minimum_iou: float,
+        extra_bbox_label: str = None,
+        batch_size: int = 16
+    ):
+        model = model_spec.load()
+        inferencer = PipelineInferencer(model)
+        images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=batch_size,
                                                   use_not_caught_elements_as_last_batch=True)
         pred_images_data = inferencer.predict(images_data_gen, detection_score_threshold=detection_score_threshold)
         df_pipeline_metrics = get_df_pipeline_metrics(
@@ -106,14 +111,14 @@ pipeline_interactive_work(
             pred_images_data=pred_images_data,
             minimum_iou=minimum_iou,
             extra_bbox_label=extra_bbox_label,
-            use_soft_metrics_with_known_labels=inferencer.model.classification_model.class_names
+            use_soft_metrics_with_known_labels=model.class_names
         )
-        directory = Path(directory)
-        directory.mkdir(exist_ok=True, parents=True)
-        pipeline_model_spec_filepath = directory / PIPELINE_MODEL_SPEC_FILENAME
+        output_directory = Path(output_directory)
+        output_directory.mkdir(exist_ok=True, parents=True)
+        pipeline_model_spec_filepath = output_directory / PIPELINE_MODEL_SPEC_FILENAME
         with open(pipeline_model_spec_filepath, 'wb') as out:
-            pickle.dump(inferencer.model.model_spec, out)
-        images_data_filepath = directory / IMAGES_DATA_FILENAME
+            pickle.dump(model_spec, out)
+        images_data_filepath = output_directory / IMAGES_DATA_FILENAME
         with open(images_data_filepath, 'wb') as out:
             pickle.dump(images_data_gen.data, out)
 
@@ -132,5 +137,5 @@ pipeline_interactive_work(
             nbf.v4.new_code_cell(code)
             for code in codes
         ])
-        nbf.write(nb, str(directory / 'report.ipynb'))
-        logger.info(f"Pipeline report saved to '{directory}'.")
+        nbf.write(nb, str(output_directory / 'report.ipynb'))
+        logger.info(f"Pipeline report saved to '{output_directory}'.")
