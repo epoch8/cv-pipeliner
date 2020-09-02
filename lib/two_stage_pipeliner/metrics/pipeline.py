@@ -49,6 +49,10 @@ def get_df_pipeline_metrics(
             image_data_matching.get_pipeline_FP(filter_by_label=class_name)
             for image_data_matching in images_data_matchings
         )
+        errors_on_true_images_by_class_name = np.sum(
+            image_data_matching.get_pipeline_errors_count_on_true_labels(filter_by_label=class_name)
+            for image_data_matching in images_data_matchings
+        )
         if class_name != extra_bbox_label:
             TP_extra_bbox_by_class_name = np.sum(
                 image_data_matching.get_pipeline_TP_extra_bbox(filter_by_label=class_name)
@@ -82,6 +86,7 @@ def get_df_pipeline_metrics(
             'FN': FN_by_class_name,
             'TP (extra bbox)': TP_extra_bbox_by_class_name,
             'FP (extra bbox)': FP_extra_bbox_by_class_name,
+            'errors on true images': errors_on_true_images_by_class_name,
             'precision': precision_by_class_name,
             'recall': recall_by_class_name,
             'f1_score': f1_score_by_class_name
@@ -188,6 +193,11 @@ def get_df_pipeline_metrics(
               for image_data_matching in images_data_matchings]
              for class_name in use_soft_metrics_with_known_labels]
         )
+        known_errors_on_true_images = np.sum(
+            [[image_data_matching.errors_on_true_images_by_class_name(filter_by_label=class_name)
+              for image_data_matching in images_data_matchings]
+             for class_name in use_soft_metrics_with_known_labels]
+        )
         known_TP_extra_bbox = np.sum(
             [[image_data_matching.get_pipeline_TP_extra_bbox(filter_by_label=class_name)
               for image_data_matching in images_data_matchings]
@@ -211,6 +221,7 @@ def get_df_pipeline_metrics(
             'FN': known_FN,
             'TP (extra bbox)': known_TP_extra_bbox,
             'FP (extra bbox)': known_FP_extra_bbox,
+            'errors on true images': known_errors_on_true_images,
             'value': known_accuracy
         }
         pipeline_metrics['known_micro_average'] = {
@@ -220,6 +231,7 @@ def get_df_pipeline_metrics(
             'FN': known_FN,
             'TP (extra bbox)': known_TP_extra_bbox,
             'FP (extra bbox)': known_FP_extra_bbox,
+            'errors on true images': errors_on_true_images_by_class_name,
             'precision': known_micro_average_precision,
             'recall': known_micro_average_recall,
             'f1_score': known_micro_average_f1_score
@@ -257,7 +269,8 @@ def get_df_pipeline_metrics(
 
     df_pipeline_metrics = pd.DataFrame(pipeline_metrics, dtype=object).T
     df_pipeline_metrics = df_pipeline_metrics[
-        ['support', 'value', 'TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)', 'precision', 'recall', 'f1_score']
+        ['support', 'value', 'TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)',
+         'errors on true images', 'precision', 'recall', 'f1_score']
     ]
     df_pipeline_metrics.sort_values(by='support', ascending=False, inplace=True)
 
