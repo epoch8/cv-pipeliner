@@ -135,10 +135,11 @@ def get_df_pipeline_metrics(
     macro_average_f1_score = np.average(f1_scores)
     weighted_average_f1_score = np.average(f1_scores, weights=supports)
     sum_support = np.sum(supports)
-    classification_errors_count_on_true_bboxes = np.sum([
-        image_data_matching.get_classification_errors_count_on_true_bboxes()
-        for image_data_matching in images_data_matchings
-    ])
+    classification_errors_count_on_true_bboxes = np.sum(
+        [[image_data_matching.get_classification_errors_count_on_true_bboxes(filter_by_label=class_name)
+          for image_data_matching in images_data_matchings]
+         for class_name in class_names]
+    )
     pipeline_metrics['accuracy'] = {
         'support': sum_support,
         'TP': TP,
