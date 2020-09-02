@@ -67,6 +67,10 @@ class ClassificationReporter(Reporter):
     def _get_codes(self) -> List[str]:
         codes = []
         codes.append('''
+from IPython.core.display import display, HTML
+display(HTML("<style>.container { width:90% !important; }</style>"))
+''')
+        codes.append('''
 from two_stage_pipeliner.reporters.classification import classification_interactive_work
 classification_interactive_work(output_directory='.', use_all_data=True)''')
         codes = [code.strip() for code in codes]

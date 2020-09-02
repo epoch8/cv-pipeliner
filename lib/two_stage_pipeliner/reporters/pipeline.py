@@ -75,6 +75,10 @@ class PipelineReporter(Reporter):
                    detection_score_threshold: float,
                    minimum_iou: float) -> List[str]:
         codes = []
+        codes.append('''
+from IPython.core.display import display, HTML
+display(HTML("<style>.container { width:90% !important; }</style>"))
+''')
         codes.append(f'''
 from two_stage_pipeliner.reporters.pipeline import pipeline_interactive_work
 pipeline_interactive_work(
