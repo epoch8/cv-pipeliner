@@ -205,7 +205,7 @@ def get_df_pipeline_metrics(
             max(known_micro_average_precision + known_micro_average_recall, 1e-6)
         )
         pipeline_metrics['known_accuracy'] = {
-            'support': sum_support,
+            'support': sum_known_supports,
             'TP': known_TP,
             'FP': known_FP,
             'FN': known_FN,
