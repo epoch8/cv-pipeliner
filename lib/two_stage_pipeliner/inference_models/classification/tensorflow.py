@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple, Callable, Union, ClassVar, Literal
@@ -20,7 +21,7 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     saved_model_type: Literal["tf.saved_model", "tf.keras"]
 
     @property
-    def inference_model(self) -> ClassVar['Keras_ClassificationModel']:
+    def inference_model(self) -> ClassVar['Tensorflow_ClassificationModel']:
         from two_stage_pipeliner.inference_models.classification.tensorflow import Tensorflow_ClassificationModel
         return Tensorflow_ClassificationModel
 
@@ -32,9 +33,14 @@ class Tensorflow_ClassificationModel(ClassificationModel):
     ):
         assert isinstance(model_spec, TensorFlow_ClassificationModelSpec)
         super().load(model_spec)
+        if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
+            with open(model_spec.class_names, 'r', encoding='utf-8') as out:
+                self._class_names = json.load(out)
+        else:
+            self._class_names = model_spec.class_names
         if model_spec.saved_model_type == "tf.keras":
             self.model = tf.keras.models.load_model(str(model_spec.model_path))
-            assert len(model_spec.class_names) == int(self.model.output.shape[-1])
+            assert len(self._class_names) == int(self.model.output.shape[-1])
         elif model_spec.saved_model_type == "tf.saved_model":
             self.loaded_model = tf.saved_model.load(str(model_spec.model_path))
             self.model = self.loaded_model.signatures["serving_default"]
@@ -45,10 +51,10 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             )
 
         self.id_to_class_name = {
-            id: class_name for id, class_name in enumerate(model_spec.class_names)
+            id: class_name for id, class_name in enumerate(self._class_names)
         }
         self.batch_size = 16
-        
+
         # Run model through a dummy image so that variables are created
         width, height = self.input_size
         zeros = np.zeros([1, width, height, 3])
@@ -132,4 +138,4 @@ class Tensorflow_ClassificationModel(ClassificationModel):
 
     @property
     def class_names(self) -> List[str]:
-        return self.model_spec.class_names
+        return self._class_names
