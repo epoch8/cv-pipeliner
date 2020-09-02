@@ -112,7 +112,7 @@ class BboxDataMatching:
                 (true_label != filter_by_label and pred_label != filter_by_label):
             return None
 
-        if filter_only_true_label and true_label != filter_by_label:
+        if filter_by_label is not None and filter_only_true_label and true_label != filter_by_label:
             return None
 
         # true_bbox is found and labels are equal:
