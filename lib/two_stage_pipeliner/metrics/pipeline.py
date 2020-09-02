@@ -86,7 +86,7 @@ def get_df_pipeline_metrics(
             'FN': FN_by_class_name,
             'TP (extra bbox)': TP_extra_bbox_by_class_name,
             'FP (extra bbox)': FP_extra_bbox_by_class_name,
-            'errors on true images': errors_on_true_images_by_class_name,
+            'classifier errors on true images': errors_on_true_images_by_class_name,
             'precision': precision_by_class_name,
             'recall': recall_by_class_name,
             'f1_score': f1_score_by_class_name
@@ -221,7 +221,7 @@ def get_df_pipeline_metrics(
             'FN': known_FN,
             'TP (extra bbox)': known_TP_extra_bbox,
             'FP (extra bbox)': known_FP_extra_bbox,
-            'errors on true images': known_errors_on_true_images,
+            'classifier errors on true images': known_errors_on_true_images,
             'value': known_accuracy
         }
         pipeline_metrics['known_micro_average'] = {
@@ -231,7 +231,7 @@ def get_df_pipeline_metrics(
             'FN': known_FN,
             'TP (extra bbox)': known_TP_extra_bbox,
             'FP (extra bbox)': known_FP_extra_bbox,
-            'errors on true images': errors_on_true_images_by_class_name,
+            'classifier errors on true images': errors_on_true_images_by_class_name,
             'precision': known_micro_average_precision,
             'recall': known_micro_average_recall,
             'f1_score': known_micro_average_f1_score
@@ -270,7 +270,7 @@ def get_df_pipeline_metrics(
     df_pipeline_metrics = pd.DataFrame(pipeline_metrics, dtype=object).T
     df_pipeline_metrics = df_pipeline_metrics[
         ['support', 'value', 'TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)',
-         'errors on true images', 'precision', 'recall', 'f1_score']
+         'classifier errors on true images', 'precision', 'recall', 'f1_score']
     ]
     df_pipeline_metrics.sort_values(by='support', ascending=False, inplace=True)
 
