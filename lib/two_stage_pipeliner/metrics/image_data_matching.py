@@ -98,12 +98,8 @@ class BboxDataMatching:
         filter_by_label: str = None,
         filter_only_true_label: bool = False
     ) -> Literal[None, "TP", "FP", "FN", "TP (extra bbox)", "FP (extra bbox)"]:
-        if filter_only_true_label:
-            candidates = [self.true_bbox_data]
-        else:
-            candidates = [self.pred_bbox_data, self.pred_bbox_data]
 
-        for bbox_data in candidates:
+        for bbox_data in [self.pred_bbox_data, self.pred_bbox_data]:
             if bbox_data is not None:
                 bbox_data.assert_label_is_valid()
 
@@ -114,6 +110,9 @@ class BboxDataMatching:
 
         if filter_by_label is not None and \
                 (true_label != filter_by_label and pred_label != filter_by_label):
+            return None
+
+        if filter_only_true_label and true_label != filter_by_label:
             return None
 
         # true_bbox is found and labels are equal:
