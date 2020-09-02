@@ -74,6 +74,10 @@ class DetectionReporter(Reporter):
                    score_threshold: float,
                    minimum_iou: float) -> List[str]:
         codes = []
+        codes.append('''
+from IPython.core.display import display, HTML
+display(HTML("<style>.container { width:90% !important; }</style>"))
+''')
         codes.append(f'''
 from two_stage_pipeliner.reporters.detection import detection_interactive_work
 detection_interactive_work(
