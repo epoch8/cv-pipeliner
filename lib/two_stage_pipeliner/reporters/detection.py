@@ -77,7 +77,7 @@ class DetectionReporter(Reporter):
         codes.append(f'''
 from two_stage_pipeliner.reporters.detection import detection_interactive_work
 detection_interactive_work(
-    output_directory='.',
+    directory='.',
     score_threshold={score_threshold},
     minimum_iou={minimum_iou}
 )''')

@@ -82,7 +82,7 @@ display(HTML("<style>.container { width:90% !important; }</style>"))
         codes.append(f'''
 from two_stage_pipeliner.reporters.pipeline import pipeline_interactive_work
 pipeline_interactive_work(
-    output_directory='.',
+    directory='.',
     detection_score_threshold={detection_score_threshold},
     minimum_iou={minimum_iou}
 )''')
