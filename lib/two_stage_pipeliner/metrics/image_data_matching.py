@@ -325,7 +325,7 @@ class ImageDataMatching:
     ) -> int:
         return self.get_pipeline_errors_types(filter_by_label).count("FP (extra bbox)")
 
-    def get_pipeline_errors_count_on_true_labels(
+    def get_classification_errors_count_on_true_bboxes(
         self,
         filter_by_label: str
     ) -> int:
