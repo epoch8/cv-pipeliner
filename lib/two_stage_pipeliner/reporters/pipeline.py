@@ -46,9 +46,9 @@ def pipeline_interactive_work(
 
 @dataclass
 class PipelineReportData:
-    df_detection_metrics: pd.DataFrame = None
-    df_pipeline_metrics_strict: pd.DataFrame = None
-    df_pipeline_metrics_soft: pd.DataFrame = None
+    df_detection_metrics: Union[pd.DataFrame, List[pd.DataFrame]] = None
+    df_pipeline_metrics_strict: Union[pd.DataFrame, List[pd.DataFrame]] = None
+    df_pipeline_metrics_soft: Union[pd.DataFrame, List[pd.DataFrame]] = None
     df_detection_metrics_short: pd.DataFrame = None
     df_pipeline_metrics_short: pd.DataFrame = None
     df_correct_preds: pd.DataFrame = None
@@ -178,6 +178,18 @@ def concat_pipelines_reports_datas(
                     f"{round(value, 3)} ({suffix}{int(round(100 * diff))}%)"
                     for value, suffix, diff in zip(tag_values, suffixes, diffs)
                 ]
+
+    # TODO: make concat for these metrics
+    pipeline_report_data.df_detection_metrics = [
+        pipeline_report_data.df_detection_metrics for pipeline_report_data in pipelines_reports_datas
+    ]
+    pipeline_report_data.df_pipeline_metrics_strict = [
+        pipeline_report_data.df_pipeline_metrics_strict for pipeline_report_data in pipelines_reports_datas
+    ]
+    pipeline_report_data.df_pipeline_metrics_soft = [
+        pipeline_report_data.df_pipeline_metrics_soft for pipeline_report_data in pipelines_reports_datas
+    ]
+
     return pipeline_report_data
 
 
@@ -185,7 +197,13 @@ class PipelineReporter(Reporter):
     def _get_markdowns(
         self,
         pipeline_report_data: PipelineReportData,
+        tags: List[str] = None
     ) -> List[str]:
+
+        if tags is not None:
+            assert len(pipeline_report_data.df_pipeline_metrics_strict) == len(tags)
+            assert len(pipeline_report_data.df_pipeline_metrics_soft) == len(tags)
+
         empty_text = '- To be written.'
         markdowns = []
         markdowns.append(
@@ -223,6 +241,47 @@ class PipelineReporter(Reporter):
             '## Percentage of errors\n'
             f'{pipeline_report_data.df_incorrect_preds_percentage.to_markdown(stralign="center")}''\n'
         )
+        markdowns.append(
+            '---'
+        )
+        if tags is not None:
+            for tag, tag_df_detection_metrics, tag_df_pipeline_metrics_strict, tag_df_pipeline_metrics_soft in zip(
+                tags,
+                pipeline_report_data.df_detection_metrics,
+                pipeline_report_data.df_pipeline_metrics_strict,
+                pipeline_report_data.df_pipeline_metrics_soft
+            ):
+                markdowns.append(
+                    f'## Pipeline [{tag}]''\n'
+                )
+                markdowns.append(
+                    f'## Detection metrics of [{tag}]:''\n'
+                    f'{tag_df_detection_metrics.to_markdown(stralign="center")}''\n'
+                )
+                markdowns.append(
+                    f'## Pipeline metrics of [{tag}] (strict):''\n'
+                    f'{tag_df_pipeline_metrics_strict.to_markdown(stralign="center")}''\n'
+                )
+                markdowns.append(
+                    f'## Pipeline metrics of [{tag}] (soft):''\n'
+                    f'{tag_df_pipeline_metrics_soft.to_markdown(stralign="center")}''\n'
+                )
+                markdowns.append(
+                    '---'
+                )
+        else:
+            markdowns.append(
+                f'## Detection metrics:''\n'
+                f'{pipeline_report_data.df_detection_metrics.to_markdown(stralign="center")}''\n'
+            )
+            markdowns.append(
+                f'## Pipeline metrics (strict):''\n'
+                f'{pipeline_report_data.df_pipeline_metrics_strict.to_markdown(stralign="center")}''\n'
+            )
+            markdowns.append(
+                f'## Pipeline metrics (soft):''\n'
+                f'{pipeline_report_data.df_pipeline_metrics_soft.to_markdown(stralign="center")}''\n'
+            )
         markdowns.append(
             '## Interactive work:\n'
         )
@@ -444,7 +503,10 @@ pipeline_interactive_work(
             tags=tags,
             compare_tag=compare_tag
         )
-        markdowns = self._get_markdowns(pipeline_report_data=pipeline_report_data)
+        markdowns = self._get_markdowns(
+            pipeline_report_data=pipeline_report_data,
+            tags=tags
+        )
         codes = self._get_codes(
             tags=tags,
             detection_scores_thresholds=detection_scores_thresholds,
