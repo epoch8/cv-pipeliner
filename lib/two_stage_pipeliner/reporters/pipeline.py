@@ -26,7 +26,8 @@ def pipeline_interactive_work(
     directory: Union[str, Path],
     detection_score_threshold: float,
     minimum_iou: float,
-    tag: str
+    tag: str,
+    extra_bbox_label: str
 ):
     directory = Path(directory)
     pipeline_model_spec_filepath = directory / f"{PIPELINE_MODEL_SPEC_NAME}_{tag}.pkl"
@@ -40,8 +41,12 @@ def pipeline_interactive_work(
     with open(images_data_filepath, "rb") as src:
         images_data = pickle.load(src)
     pipeline_visualizer = PipelineVisualizer(pipeline_inferencer)
-    pipeline_visualizer.visualize(images_data, detection_score_threshold=detection_score_threshold,
-                                  show_TP_FP_FN_with_minimum_iou=minimum_iou)
+    pipeline_visualizer.visualize(
+        images_data=images_data,
+        detection_score_threshold=detection_score_threshold,
+        show_TP_FP_FN_with_minimum_iou=minimum_iou,
+        extra_bbox_label=extra_bbox_label
+    )
 
 
 @dataclass
@@ -292,6 +297,7 @@ class PipelineReporter(Reporter):
         tags: List[str],
         detection_scores_thresholds: List[float],
         minimum_iou: float,
+        extra_bbox_labels: List[str]
     ) -> List[str]:
 
         assert len(detection_scores_thresholds) == len(tags)
@@ -308,13 +314,17 @@ display(HTML("<style>.container { width:90% !important; }</style>"))
         codes.append('''
 from two_stage_pipeliner.reporters.pipeline import pipeline_interactive_work
 ''')
-        for detection_score_threshold, tag in zip(detection_scores_thresholds, tags):
+        for detection_score_threshold, tag, extra_bbox_label in zip(
+            detection_scores_thresholds, tags, extra_bbox_labels
+        ):
+            extra_bbox_label = "None" if extra_bbox_label is None else f"'{extra_bbox_label}'"
             codes.append(f'''
 pipeline_interactive_work(
     directory='.',
     detection_score_threshold={detection_score_threshold},
     minimum_iou={minimum_iou},
-    tag='{tag}'
+    tag='{tag}',
+    extra_bbox_label={extra_bbox_label}
 )''')
         codes = [code.strip() for code in codes]
         return codes
@@ -448,7 +458,8 @@ pipeline_interactive_work(
         codes = self._get_codes(
             tags=tags,
             detection_scores_thresholds=[detection_score_threshold],
-            minimum_iou=minimum_iou
+            minimum_iou=minimum_iou,
+            extra_bbox_labels=[extra_bbox_label]
         )
         self._save_report(
             models_specs=[model_spec],
@@ -516,7 +527,8 @@ pipeline_interactive_work(
         codes = self._get_codes(
             tags=tags,
             detection_scores_thresholds=detection_scores_thresholds,
-            minimum_iou=minimum_iou
+            minimum_iou=minimum_iou,
+            extra_bbox_labels=extra_bbox_labels
         )
         self._save_report(
             models_specs=models_specs,

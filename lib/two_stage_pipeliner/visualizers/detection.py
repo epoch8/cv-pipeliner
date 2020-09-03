@@ -26,9 +26,10 @@ class DetectionVisualizer(Visualizer):
         images_data: List[ImageData],
         score_threshold: float,
         minimum_iou: float,
+        batch_size: int
     ) -> List[str]:
         images_data_gen = BatchGeneratorImageData(images_data,
-                                                  batch_size=min(len(images_data), 16),
+                                                  batch_size=batch_size,
                                                   use_not_caught_elements_as_last_batch=True)
         pred_images_data = self.inferencer.predict(images_data_gen, score_threshold)
         images_data_matchings = [
@@ -47,13 +48,18 @@ class DetectionVisualizer(Visualizer):
     def visualize(self,
                   images_data: List[ImageData],
                   score_threshold: float = None,
-                  show_TP_FP_FN_with_minimum_iou: float = None):
+                  show_TP_FP_FN_with_minimum_iou: float = None,
+                  batch_size: int = 16):
 
         images_data = copy.deepcopy(images_data)
 
         if self.inferencer is not None and show_TP_FP_FN_with_minimum_iou is not None:
-            images_names = self._get_images_names_by_inference(images_data, score_threshold,
-                                                               show_TP_FP_FN_with_minimum_iou)
+            images_names = self._get_images_names_by_inference(
+                images_data=images_data,
+                score_threshold=score_threshold,
+                show_TP_FP_FN_with_minimum_iou=show_TP_FP_FN_with_minimum_iou,
+                batch_size=batch_size
+            )
         else:
             images_names = [image_data.image_path.name for image_data in images_data]
 
