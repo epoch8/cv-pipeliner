@@ -21,7 +21,8 @@ class PipelineInferencer(Inferencer):
         n_pred_detection_scores: List[List[float]],
         n_pred_labels: List[List[str]],
         n_pred_classification_scores: List[List[float]],
-        open_images_in_images_data: bool
+        open_images_in_images_data: bool,
+        open_cropped_images_in_bboxes_data: bool
     ) -> List[ImageData]:
         pred_images_data = []
         for (image_data, pred_cropped_images, pred_bboxes,
@@ -47,10 +48,7 @@ class PipelineInferencer(Inferencer):
                     label=pred_label,
                     classification_score=pred_classification_score
                 ))
-            if open_images_in_images_data:
-                image = image_data.image
-            else:
-                image = None
+            image = image_data.image if open_images_in_images_data else None
             pred_images_data.append(ImageData(
                 image_path=image_data.image_path,
                 image_bytes=image_data.image_bytes,
@@ -63,7 +61,8 @@ class PipelineInferencer(Inferencer):
         self,
         images_data_gen: BatchGeneratorImageData,
         detection_score_threshold: float,
-        open_images_in_images_data: bool = False  # Warning: hard memory use
+        open_images_in_images_data: bool = False,  # Warning: hard memory use
+        open_cropped_images_in_bboxes_data: bool = False
     ) -> List[ImageData]:
 
         pred_images_data = []
@@ -82,7 +81,8 @@ class PipelineInferencer(Inferencer):
             )
             pred_images_data_batch = self._postprocess_predictions(
                 images_data, n_pred_cropped_images, n_pred_bboxes, n_pred_detection_scores,
-                n_pred_labels, n_pred_classification_scores, open_images_in_images_data
+                n_pred_labels, n_pred_classification_scores, open_images_in_images_data,
+                open_cropped_images_in_bboxes_data
             )
             pred_images_data.extend(pred_images_data_batch)
 
