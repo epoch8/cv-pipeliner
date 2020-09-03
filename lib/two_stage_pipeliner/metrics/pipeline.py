@@ -222,6 +222,7 @@ def get_df_pipeline_metrics(
             'FN': known_FN,
             'TP (extra bbox)': known_TP_extra_bbox,
             'FP (extra bbox)': known_FP_extra_bbox,
+            'classification errors on true bboxes': classification_errors_count_on_true_bboxes,
             'value': known_accuracy
         }
         pipeline_metrics['known_micro_average'] = {

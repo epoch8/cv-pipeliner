@@ -94,7 +94,7 @@ classification_interactive_work(directory='.', use_all_data=True)''')
             pickle.dump(model_spec, out)
         bboxes_data_filepath = output_directory / BBOXES_DATA_FILENAME
         with open(bboxes_data_filepath, 'wb') as out:
-            pickle.dump(n_bboxes_data_gen.data, out)
+            pickle.dump(n_true_bboxes_data, out)
 
         markdowns = self._get_markdowns(df_classification_metrics)
         codes = self._get_codes()
