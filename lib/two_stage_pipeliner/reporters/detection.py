@@ -115,7 +115,7 @@ detection_interactive_work(
             pickle.dump(model_spec, out)
         images_data_filepath = output_directory / IMAGES_DATA_FILENAME
         with open(images_data_filepath, 'wb') as out:
-            pickle.dump(images_data_gen.data, out)
+            pickle.dump(true_images_data, out)
 
         markdowns = self._get_markdowns(df_detection_metrics, df_detection_recall_per_class)
         codes = self._get_codes(
