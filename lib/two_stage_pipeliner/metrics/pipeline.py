@@ -185,12 +185,12 @@ def get_df_pipeline_metrics(
         ]
         sum_known_supports = np.sum(known_supports)
         known_TP = np.sum(
-            [[image_data_matching.get_pipeline_TP(filter_by_label=class_name)
+            [[image_data_matching.get_classification_correct_count_on_true_bboxes(filter_by_label=class_name)
               for image_data_matching in images_data_matchings]
              for class_name in use_soft_metrics_with_known_labels]
         )
         known_FP = np.sum(
-            [[image_data_matching.get_pipeline_FP(filter_by_label=class_name)
+            [[image_data_matching.get_classification_errors_count_on_true_bboxes(filter_by_label=class_name)
               for image_data_matching in images_data_matchings]
              for class_name in use_soft_metrics_with_known_labels]
         )
@@ -215,11 +215,6 @@ def get_df_pipeline_metrics(
         known_micro_average_f1_score = 2 * known_micro_average_precision * known_micro_average_recall / (
             max(known_micro_average_precision + known_micro_average_recall, 1e-6)
         )
-        known_classification_errors_count_on_true_bboxes = np.sum(
-            [[image_data_matching.get_classification_errors_count_on_true_bboxes(filter_by_label=class_name)
-              for image_data_matching in images_data_matchings]
-             for class_name in use_soft_metrics_with_known_labels]
-        )
         pipeline_metrics['known_accuracy'] = {
             'support': sum_known_supports,
             'TP': known_TP,
@@ -227,7 +222,6 @@ def get_df_pipeline_metrics(
             'FN': known_FN,
             'TP (extra bbox)': known_TP_extra_bbox,
             'FP (extra bbox)': known_FP_extra_bbox,
-            'classification errors on true bboxes': known_classification_errors_count_on_true_bboxes,
             'value': known_accuracy
         }
         pipeline_metrics['known_micro_average'] = {
@@ -237,7 +231,6 @@ def get_df_pipeline_metrics(
             'FN': known_FN,
             'TP (extra bbox)': known_TP_extra_bbox,
             'FP (extra bbox)': known_FP_extra_bbox,
-            'classification errors on true bboxes': known_classification_errors_count_on_true_bboxes,
             'precision': known_micro_average_precision,
             'recall': known_micro_average_recall,
             'f1_score': known_micro_average_f1_score
@@ -279,5 +272,9 @@ def get_df_pipeline_metrics(
          'classification errors on true bboxes', 'precision', 'recall', 'f1_score']
     ]
     df_pipeline_metrics.sort_values(by='support', ascending=False, inplace=True)
+    if use_soft_metrics_with_known_labels is not None:
+        df_pipeline_metrics.loc[class_names, 'is known by classifier'] = (
+            df_pipeline_metrics.loc[class_names].index.isin(use_soft_metrics_with_known_labels)
+        )
 
     return df_pipeline_metrics
