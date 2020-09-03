@@ -57,7 +57,7 @@ class DetectionVisualizer(Visualizer):
             images_names = self._get_images_names_by_inference(
                 images_data=images_data,
                 score_threshold=score_threshold,
-                show_TP_FP_FN_with_minimum_iou=show_TP_FP_FN_with_minimum_iou,
+                minimum_iou=show_TP_FP_FN_with_minimum_iou,
                 batch_size=batch_size
             )
         else:
