@@ -19,7 +19,8 @@ class DetectionInferencer(Inferencer):
         n_pred_cropped_images: List[List[np.ndarray]],
         n_pred_bboxes: List[List[Tuple[int, int, int, int]]],
         n_pred_scores: List[List[float]],
-        open_images_in_images_data: bool
+        open_images_in_images_data: bool,
+        open_cropped_images_in_bboxes_data: bool
     ) -> List[ImageData]:
 
         pred_images_data = []
@@ -29,6 +30,7 @@ class DetectionInferencer(Inferencer):
             bboxes_data = []
             for (pred_cropped_image, pred_bbox, pred_detection_score) in zip(img_boxes, pred_bboxes, pred_scores):
                 xmin, ymin, xmax, ymax = pred_bbox
+                pred_cropped_image = pred_cropped_image if open_cropped_images_in_bboxes_data else None
                 bboxes_data.append(BboxData(
                     image_path=image_data.image_path,
                     image_bytes=image_data.image_bytes,
@@ -39,10 +41,7 @@ class DetectionInferencer(Inferencer):
                     ymax=ymax,
                     detection_score=pred_detection_score
                 ))
-            if open_images_in_images_data:
-                image = image_data.image
-            else:
-                image = None
+            image = image_data.image if open_images_in_images_data else None
             pred_images_data.append(ImageData(
                 image_path=image_data.image_path,
                 image_bytes=image_data.image_bytes,
@@ -56,7 +55,8 @@ class DetectionInferencer(Inferencer):
         self,
         images_data_gen: BatchGeneratorImageData,
         score_threshold: float,
-        open_images_in_images_data: bool = False  # Warning: hard memory use
+        open_images_in_images_data: bool = False,  # Warning: hard memory use
+        open_cropped_images_in_bboxes_data: bool = False
     ) -> List[ImageData]:
 
         pred_images_data = []
@@ -69,7 +69,7 @@ class DetectionInferencer(Inferencer):
             )
             pred_images_data_batch = self._postprocess_predictions(
                 images_data, n_pred_cropped_images, n_pred_bboxes, n_pred_scores,
-                open_images_in_images_data
+                open_images_in_images_data, open_cropped_images_in_bboxes_data
             )
             pred_images_data.extend(pred_images_data_batch)
 

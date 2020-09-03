@@ -16,17 +16,19 @@ class ClassificationInferencer(Inferencer):
         self,
         n_bboxes_data: List[List[BboxData]],
         n_pred_labels: List[List[str]],
-        n_pred_scores: List[List[float]]
+        n_pred_scores: List[List[float]],
+        open_cropped_images_in_bboxes_data: bool
     ) -> List[List[BboxData]]:
 
         n_pred_bboxes_data = []
         for bboxes_data, pred_labels, pred_scores in zip(n_bboxes_data, n_pred_labels, n_pred_scores):
             bboxes_data_res = []
             for (bbox_data, pred_label, pred_classification_score) in zip(bboxes_data, pred_labels, pred_scores):
+                cropped_image = bbox_data.cropped_image if open_cropped_images_in_bboxes_data else None
                 bboxes_data_res.append(BboxData(
                     image_path=bbox_data.image_path,
                     image_bytes=bbox_data.image_bytes,
-                    cropped_image=bbox_data.cropped_image,
+                    cropped_image=cropped_image,
                     xmin=bbox_data.xmin,
                     ymin=bbox_data.ymin,
                     xmax=bbox_data.xmax,
@@ -39,7 +41,11 @@ class ClassificationInferencer(Inferencer):
 
         return n_pred_bboxes_data
 
-    def predict(self, n_bboxes_data_gen: BatchGeneratorBboxData) -> List[List[BboxData]]:
+    def predict(
+        self,
+        n_bboxes_data_gen: BatchGeneratorBboxData,
+        open_cropped_images_in_bboxes_data: bool = False
+    ) -> List[List[BboxData]]:
         n_pred_bboxes_data = []
         for n_bboxes_data in n_bboxes_data_gen:
             input = [
@@ -49,7 +55,8 @@ class ClassificationInferencer(Inferencer):
             input = self.model.preprocess_input(input)
             n_pred_labels, n_pred_scores = self.model.predict(input)
             n_pred_bboxes_data_batch = self._postprocess_predictions(
-                n_bboxes_data, n_pred_labels, n_pred_scores
+                n_bboxes_data, n_pred_labels, n_pred_scores,
+                open_cropped_images_in_bboxes_data
             )
             n_pred_bboxes_data.extend(n_pred_bboxes_data_batch)
         return n_pred_bboxes_data
