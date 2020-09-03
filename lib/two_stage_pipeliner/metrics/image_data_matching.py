@@ -325,6 +325,12 @@ class ImageDataMatching:
     ) -> int:
         return self.get_pipeline_errors_types(filter_by_label).count("FP (extra bbox)")
 
+    def get_classification_correct_count_on_true_bboxes(
+        self,
+        filter_by_label: str
+    ) -> int:
+        return self.get_pipeline_errors_types(filter_by_label, filter_only_true_label=True).count("TP")
+
     def get_classification_errors_count_on_true_bboxes(
         self,
         filter_by_label: str = None
