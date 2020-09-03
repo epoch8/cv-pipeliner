@@ -27,10 +27,11 @@ class PipelineVisualizer(Visualizer):
         detection_score_threshold: float,
         minimum_iou: float,
         extra_bbox_label: str,
-        use_soft_metrics_with_known_labels: List[str]
+        use_soft_metrics_with_known_labels: List[str],
+        batch_size: int
     ) -> List[str]:
         images_data_gen = BatchGeneratorImageData(images_data,
-                                                  batch_size=min(len(images_data), 16),
+                                                  batch_size=batch_size,
                                                   use_not_caught_elements_as_last_batch=True)
         pred_images_data = self.inferencer.predict(images_data_gen, detection_score_threshold)
         images_data_matchings = [
@@ -59,7 +60,8 @@ class PipelineVisualizer(Visualizer):
                   detection_score_threshold: float = None,
                   show_TP_FP_FN_with_minimum_iou: float = None,
                   extra_bbox_label: str = None,
-                  use_soft_metrics_with_known_labels: List[str] = None):
+                  use_soft_metrics_with_known_labels: List[str] = None,
+                  batch_size: int = 16):
 
         images_data = copy.deepcopy(images_data)
 
@@ -69,7 +71,8 @@ class PipelineVisualizer(Visualizer):
                 detection_score_threshold=detection_score_threshold,
                 minimum_iou=show_TP_FP_FN_with_minimum_iou,
                 extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels,
+                batch_size=batch_size
             )
         else:
             images_names = [image_data.image_path.name for image_data in images_data]

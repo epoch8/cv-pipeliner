@@ -24,7 +24,8 @@ class ClassificationVisualizer(Visualizer):
                   n_bboxes_data: List[List[BboxData]],
                   visualize_size: int = 50,
                   use_all_data: bool = False,
-                  show_TP_FP: bool = False):
+                  show_TP_FP: bool = False,
+                  batch_size: int = 16):
         if use_all_data:
             images_names = ['all']
             n_bboxes_data = [[bbox_data for bboxes_data in n_bboxes_data for bbox_data in bboxes_data]]
@@ -32,7 +33,7 @@ class ClassificationVisualizer(Visualizer):
                                                        use_not_caught_elements_as_last_batch=True)
         else:
             if self.inferencer is not None and show_TP_FP:
-                n_bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=1,
+                n_bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=batch_size,
                                                            use_not_caught_elements_as_last_batch=True)
                 n_pred_bboxes_data = self.inferencer.predict(n_bboxes_data_gen)
 
