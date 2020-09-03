@@ -67,7 +67,7 @@ def run_app(config_file: Union[str, Path]):
             value=detection_model_definition.score_threshold,
             step=0.05
         )
-        run = st.sidebar.checkbox('Run pipeline!')
+        run = st.sidebar.button('RUN')
     else:
         pipeline_inferencer = None
         run = False

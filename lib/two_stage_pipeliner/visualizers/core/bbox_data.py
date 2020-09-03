@@ -78,4 +78,5 @@ def visualize_bboxes_data(
     fig.suptitle(class_name, fontsize=20)
 
     image = get_img_from_fig(fig)
+    plt.close()
     return image

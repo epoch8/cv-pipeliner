@@ -8,6 +8,7 @@ import nbformat as nbf
 from two_stage_pipeliner.core.reporter import Reporter
 from two_stage_pipeliner.core.data import ImageData
 from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageData
+from two_stage_pipeliner.inference_models.detection.core import DetectionModelSpec
 from two_stage_pipeliner.inferencers.detection import DetectionInferencer
 from two_stage_pipeliner.metrics.detection import get_df_detection_metrics, get_df_detection_recall_per_class
 from two_stage_pipeliner.visualizers.detection import DetectionVisualizer
@@ -73,6 +74,10 @@ class DetectionReporter(Reporter):
                    score_threshold: float,
                    minimum_iou: float) -> List[str]:
         codes = []
+        codes.append('''
+from IPython.core.display import display, HTML
+display(HTML("<style>.container { width:90% !important; }</style>"))
+''')
         codes.append(f'''
 from two_stage_pipeliner.reporters.detection import detection_interactive_work
 detection_interactive_work(
@@ -83,14 +88,19 @@ detection_interactive_work(
         codes = [code.strip() for code in codes]
         return codes
 
-    def report(self,
-               inferencer: DetectionInferencer,
-               true_images_data: List[ImageData],
-               directory: Union[str, Path],
-               score_threshold: float,
-               minimum_iou: float):
+    def report(
+        self,
+        model_spec: DetectionModelSpec,
+        output_directory: Union[str, Path],
+        true_images_data: List[ImageData],
+        score_threshold: float,
+        minimum_iou: float,
+        batch_size: int = 16
+    ):
 
-        images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=16,
+        model = model_spec.load()
+        inferencer = DetectionInferencer(model)
+        images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=batch_size,
                                                   use_not_caught_elements_as_last_batch=True)
         pred_images_data = inferencer.predict(images_data_gen, score_threshold=score_threshold)
         raw_pred_images_data = inferencer.predict(images_data_gen, score_threshold=0.)
@@ -98,14 +108,14 @@ detection_interactive_work(
                                                         raw_pred_images_data)
         df_detection_recall_per_class = get_df_detection_recall_per_class(true_images_data, pred_images_data,
                                                                           minimum_iou)
-        directory = Path(directory)
-        directory.mkdir(exist_ok=True, parents=True)
-        model_spec_filepath = directory / DETECTION_MODEL_SPEC_FILENAME
+        output_directory = Path(output_directory)
+        output_directory.mkdir(exist_ok=True, parents=True)
+        model_spec_filepath = output_directory / DETECTION_MODEL_SPEC_FILENAME
         with open(model_spec_filepath, 'wb') as out:
-            pickle.dump(inferencer.model.model_spec, out)
-        images_data_filepath = directory / IMAGES_DATA_FILENAME
+            pickle.dump(model_spec, out)
+        images_data_filepath = output_directory / IMAGES_DATA_FILENAME
         with open(images_data_filepath, 'wb') as out:
-            pickle.dump(images_data_gen.data, out)
+            pickle.dump(true_images_data, out)
 
         markdowns = self._get_markdowns(df_detection_metrics, df_detection_recall_per_class)
         codes = self._get_codes(
@@ -122,5 +132,5 @@ detection_interactive_work(
             nbf.v4.new_code_cell(code)
             for code in codes
         ])
-        nbf.write(nb, str(directory / 'report.ipynb'))
-        logger.info(f"Detection report saved to '{directory}'.")
+        nbf.write(nb, str(output_directory / 'report.ipynb'))
+        logger.info(f"Detection report saved to '{output_directory}'.")

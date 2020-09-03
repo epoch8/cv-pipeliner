@@ -8,6 +8,7 @@ import nbformat as nbf
 from two_stage_pipeliner.core.reporter import Reporter
 from two_stage_pipeliner.core.data import BboxData
 from two_stage_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
+from two_stage_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from two_stage_pipeliner.inferencers.classification import ClassificationInferencer
 from two_stage_pipeliner.metrics.classification import get_df_classification_metrics
 from two_stage_pipeliner.visualizers.classification import ClassificationVisualizer
@@ -17,8 +18,10 @@ CLASSIFICATION_MODEL_SPEC_FILENAME = "classification_model_spec.pkl"
 BBOXES_DATA_FILENAME = "bboxes_data.pkl"
 
 
-def classification_interactive_work(directory: Union[str, Path],
-                                    use_all_data: bool = False):
+def classification_interactive_work(
+    directory: Union[str, Path],
+    use_all_data: bool = False
+):
     directory = Path(directory)
     model_spec_filepath = directory / CLASSIFICATION_MODEL_SPEC_FILENAME
     with open(model_spec_filepath, "rb") as src:
@@ -71,23 +74,27 @@ classification_interactive_work(directory='.', use_all_data=True)''')
         codes = [code.strip() for code in codes]
         return codes
 
-    def report(self,
-               inferencer: ClassificationInferencer,
-               n_true_bboxes_data: List[List[BboxData]],
-               directory: Union[str, Path]):
-
-        n_bboxes_data_gen = BatchGeneratorBboxData(n_true_bboxes_data, batch_size=16,
+    def report(
+        self,
+        model_spec: ClassificationModelSpec,
+        output_directory: Union[str, Path],
+        n_true_bboxes_data: List[List[BboxData]],
+        batch_size: int = 16
+    ):
+        model = model_spec.load()
+        inferencer = ClassificationInferencer(model)
+        n_bboxes_data_gen = BatchGeneratorBboxData(n_true_bboxes_data, batch_size=batch_size,
                                                    use_not_caught_elements_as_last_batch=True)
         pred_bboxes_data = inferencer.predict(n_bboxes_data_gen)
         df_classification_metrics = get_df_classification_metrics(n_true_bboxes_data, pred_bboxes_data)
-        directory = Path(directory)
-        directory.mkdir(exist_ok=True, parents=True)
-        model_spec_filepath = directory / CLASSIFICATION_MODEL_SPEC_FILENAME
+        output_directory = Path(output_directory)
+        output_directory.mkdir(exist_ok=True, parents=True)
+        model_spec_filepath = output_directory / CLASSIFICATION_MODEL_SPEC_FILENAME
         with open(model_spec_filepath, 'wb') as out:
-            pickle.dump(inferencer.model.model_spec, out)
-        bboxes_data_filepath = directory / BBOXES_DATA_FILENAME
+            pickle.dump(model_spec, out)
+        bboxes_data_filepath = output_directory / BBOXES_DATA_FILENAME
         with open(bboxes_data_filepath, 'wb') as out:
-            pickle.dump(n_bboxes_data_gen.data, out)
+            pickle.dump(n_true_bboxes_data, out)
 
         markdowns = self._get_markdowns(df_classification_metrics)
         codes = self._get_codes()
@@ -101,5 +108,5 @@ classification_interactive_work(directory='.', use_all_data=True)''')
             nbf.v4.new_code_cell(code)
             for code in codes
         ])
-        nbf.write(nb, str(directory / 'report.ipynb'))
-        logger.info(f"Classification report saved to '{directory}'.")
+        nbf.write(nb, str(output_directory / 'report.ipynb'))
+        logger.info(f"Classification report saved to '{output_directory}'.")
