@@ -36,6 +36,7 @@ class PipelineInferencer(Inferencer):
                 pred_cropped_images, pred_bboxes, pred_detection_scores, pred_labels, pred_classification_scores
             ):
                 xmin, ymin, xmax, ymax = pred_bbox
+                pred_cropped_image = pred_cropped_image if open_cropped_images_in_bboxes_data else None
                 bboxes_data.append(BboxData(
                     image_path=image_data.image_path,
                     image_bytes=image_data.image_bytes,
