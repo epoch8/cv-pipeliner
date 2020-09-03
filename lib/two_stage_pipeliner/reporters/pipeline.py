@@ -414,6 +414,12 @@ pipeline_interactive_work(
         extra_bbox_label: str = None,
         batch_size: int = 16
     ):
+        if hasattr(model_spec.classification_model_spec, 'preprocess_input'):
+            assert (
+                isinstance(model_spec.classification_model_spec.preprocess_input, str)
+                or
+                isinstance(model_spec.classification_model_spec.preprocess_input, Path)
+            )
         df_detection_metrics = self._inference_detection_and_get_metrics(
             model_spec=model_spec.detection_model_spec,
             true_images_data=true_images_data,

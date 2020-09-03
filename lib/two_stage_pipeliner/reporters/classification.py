@@ -81,6 +81,12 @@ classification_interactive_work(directory='.', use_all_data=True)''')
         n_true_bboxes_data: List[List[BboxData]],
         batch_size: int = 16
     ):
+        if hasattr(model_spec, 'preprocess_input'):
+            assert (
+                isinstance(model_spec.preprocess_input, str)
+                or
+                isinstance(model_spec.preprocess_input, Path)
+            )
         model = model_spec.load()
         inferencer = ClassificationInferencer(model)
         n_bboxes_data_gen = BatchGeneratorBboxData(n_true_bboxes_data, batch_size=batch_size,
