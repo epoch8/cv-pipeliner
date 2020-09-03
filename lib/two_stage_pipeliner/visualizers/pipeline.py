@@ -43,17 +43,15 @@ class PipelineVisualizer(Visualizer):
             )
             for image_data, pred_image_data in zip(images_data, pred_images_data)
         ]
-        images_names = []
-        for image_data_matching in images_data_matchings:
-            images_names.append(
-                f"{image_data_matching.true_image_data.image_path.name} "
-                f"[TP: {image_data_matching.get_pipeline_TP()}, "
-                f"FP: {image_data_matching.get_pipeline_FP()}, "
-                f"FN: {image_data_matching.get_pipeline_FN()}, "
-                f"TP (extra bbox): {image_data_matching.get_pipeline_TP_extra_bbox()}, "
-                f"FP (extra bbox): {image_data_matching.get_pipeline_FP_extra_bbox()}]"
-                for image_data_matching in images_data_matchings
-            )
+        images_names = [
+            f"{image_data_matching.true_image_data.image_path.name} "
+            f"[TP: {image_data_matching.get_pipeline_TP()}, "
+            f"FP: {image_data_matching.get_pipeline_FP()}, "
+            f"FN: {image_data_matching.get_pipeline_FN()}, "
+            f"TP (extra bbox): {image_data_matching.get_pipeline_TP_extra_bbox()}, "
+            f"FP (extra bbox): {image_data_matching.get_pipeline_FP_extra_bbox()}]"
+            for image_data_matching in images_data_matchings
+        ]
         return images_names
 
     def visualize(self,
