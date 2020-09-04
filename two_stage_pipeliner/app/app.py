@@ -99,7 +99,7 @@ def run_app(config_file: Union[str, Path]):
             st.header('Image')
             image_bytes = st.file_uploader("Upload image", type=["png", "jpeg", "jpg"])
             if image_bytes is not None:
-                image_data = ImageData(image_bytes=image_bytes)
+                image_data = ImageData(image_bytes=image_bytes.getvalue())
             else:
                 image_data = None
             show_annotation = False
