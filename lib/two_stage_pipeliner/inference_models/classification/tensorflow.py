@@ -35,7 +35,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
     ) -> Callable[[List[np.ndarray]], np.ndarray]:
         script_file = Path(script_file)
         sys.path.append(str(script_file.parent.absolute()))
-        module = importlib.import_module(script_file.name)
+        module = importlib.import_module(script_file.stem)
         sys.path.pop()
         return module.preprocess_input
 
