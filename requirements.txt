@@ -1,5 +1,5 @@
 nbformat>=5.0.7
-object_detection==0.1
+object_detection>=0.1
 filterpy>=1.4.5
 imutils>=0.5.3
 imageio>=2.8.0
