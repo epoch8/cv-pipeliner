@@ -1,0 +1,14 @@
+nbformat>=5.0.7
+object_detection==0.1
+filterpy>=1.4.5
+imutils>=0.5.3
+imageio>=2.8.0
+ipywidgets>=7.5.1
+opencv_python>=4.3.0.36
+opencv-contrib-python-headless>=4.2.0.34
+scikit_learn>=0.23.2
+scikit-image>=0.17.2
+yacs>=0.1.8
+imageio-ffmpeg>=0.4.2
+albumentations>=0.4.6
+streamlit>=0.66.0
