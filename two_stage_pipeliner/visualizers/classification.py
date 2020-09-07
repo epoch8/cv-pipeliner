@@ -60,7 +60,7 @@ class ClassificationVisualizer(Visualizer):
                 ]
             else:
                 images_names = [bboxes_data[0].image_path.name for bboxes_data in n_bboxes_data]
-            bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=batch_size,
+            bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=1,
                                                      use_not_caught_elements_as_last_batch=True)
 
         self.i = None
@@ -70,7 +70,9 @@ class ClassificationVisualizer(Visualizer):
                 self.batch = bboxes_data_gen[i]
                 self.true_bboxes_data = self.batch
                 if self.inferencer is not None:
-                    self.pred_bboxes_data = self.inferencer.predict([self.batch])[0]
+                    n_bbox_data_gen = BatchGeneratorBboxData([self.batch], batch_size=1,
+                                                             use_not_caught_elements_as_last_batch=True)
+                    self.pred_bboxes_data = self.inferencer.predict(n_bbox_data_gen)[0]
                 else:
                     self.pred_bboxes_data = None
 
