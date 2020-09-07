@@ -47,21 +47,36 @@ class PipelineModel(InferenceModel):
         self.detection_model = model_spec.detection_model_spec.load()
         self.classification_model = model_spec.classification_model_spec.load()
 
-    def predict(self, input: PipelineInput,
-                detection_score_threshold: float) -> PipelineOutput:
+    def _split_chunks(self,
+                      _list: List,
+                      shapes: List[int]) -> List:
+        cnt = 0
+        chunks = []
+        for shape in shapes:
+            chunks.append(_list[cnt: cnt + shape])
+            cnt += shape
+        return chunks
+
+    def predict(
+        self,
+        input: PipelineInput,
+        detection_score_threshold: float
+    ) -> PipelineOutput:
         detection_input = self.detection_model.preprocess_input(input)
         (n_pred_cropped_images, n_pred_bboxes,
          n_pred_detection_scores) = self.detection_model.predict(
             detection_input,
             score_threshold=detection_score_threshold
         )
+        shapes = [len(pred_cropped_images) for pred_cropped_images in n_pred_cropped_images]
         classification_input = self.classification_model.preprocess_input([
-            [cropped_image for cropped_image in pred_cropped_images]
+            cropped_image
             for pred_cropped_images in n_pred_cropped_images
+            for cropped_image in pred_cropped_images
         ])
-        n_pred_labels, n_pred_classification_scores = self.classification_model.predict(
-            classification_input
-        )
+        pred_labels, pred_classification_scores = self.classification_model.predict(classification_input)
+        n_pred_labels = self._split_chunks(pred_labels, shapes)
+        n_pred_classification_scores = self._split_chunks(pred_classification_scores, shapes)
         return (
             n_pred_cropped_images,
             n_pred_bboxes,

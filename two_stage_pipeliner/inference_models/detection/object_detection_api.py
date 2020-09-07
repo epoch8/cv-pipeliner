@@ -4,7 +4,6 @@ from pathlib import Path
 
 import tensorflow as tf
 import numpy as np
-from tqdm import tqdm
 
 from object_detection.utils import config_util
 from object_detection.builders import model_builder
@@ -167,12 +166,11 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self,
         input: DetectionInput,
         score_threshold: float,
-        crop_detections_from_image: bool = True,
-        disable_tqdm: bool = False
+        crop_detections_from_image: bool = True
     ) -> DetectionOutput:
         n_pred_cropped_images, n_pred_bboxes, n_pred_scores = [], [], []
 
-        for image in tqdm(input, disable=disable_tqdm):
+        for image in input:
             height, width, _ = image.shape
             raw_bboxes, raw_scores = self._raw_predict_single_image(image)
             bboxes, scores = self._postprocess_prediction(

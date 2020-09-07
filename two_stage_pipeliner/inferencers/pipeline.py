@@ -1,5 +1,6 @@
 from typing import List, Tuple
 import numpy as np
+from tqdm import tqdm
 
 from two_stage_pipeliner.core.data import BboxData, ImageData
 from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageData
@@ -63,29 +64,32 @@ class PipelineInferencer(Inferencer):
         images_data_gen: BatchGeneratorImageData,
         detection_score_threshold: float,
         open_images_in_images_data: bool = False,  # Warning: hard memory use
-        open_cropped_images_in_bboxes_data: bool = False
+        open_cropped_images_in_bboxes_data: bool = False,
+        disable_tqdm: bool = False
     ) -> List[ImageData]:
-
+        assert isinstance(images_data_gen, BatchGeneratorImageData)
         pred_images_data = []
-        for images_data in images_data_gen:
-            input = [image_data.image for image_data in images_data]
-            input = self.model.preprocess_input(input)
-            (
-                n_pred_cropped_images,
-                n_pred_bboxes,
-                n_pred_detection_scores,
-                n_pred_labels,
-                n_pred_classification_scores
-            ) = self.model.predict(
-                input,
-                detection_score_threshold=detection_score_threshold
-            )
-            pred_images_data_batch = self._postprocess_predictions(
-                images_data, n_pred_cropped_images, n_pred_bboxes, n_pred_detection_scores,
-                n_pred_labels, n_pred_classification_scores, open_images_in_images_data,
-                open_cropped_images_in_bboxes_data
-            )
-            pred_images_data.extend(pred_images_data_batch)
+        with tqdm(total=len(images_data_gen.data), disable=disable_tqdm) as pbar:
+            for images_data in images_data_gen:
+                input = [image_data.image for image_data in images_data]
+                input = self.model.preprocess_input(input)
+                (
+                    n_pred_cropped_images,
+                    n_pred_bboxes,
+                    n_pred_detection_scores,
+                    n_pred_labels,
+                    n_pred_classification_scores
+                ) = self.model.predict(
+                    input,
+                    detection_score_threshold=detection_score_threshold
+                )
+                pred_images_data_batch = self._postprocess_predictions(
+                    images_data, n_pred_cropped_images, n_pred_bboxes, n_pred_detection_scores,
+                    n_pred_labels, n_pred_classification_scores, open_images_in_images_data,
+                    open_cropped_images_in_bboxes_data
+                )
+                pred_images_data.extend(pred_images_data_batch)
+                pbar.update(len(images_data))
 
         return pred_images_data
 
