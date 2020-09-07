@@ -19,10 +19,9 @@ class BatchGeneratorBboxData(BatchGenerator):
 
     def __getitem__(self, index) -> List[BboxData]:
         batch = super().__getitem__(index)
-        for bboxes_data in batch:
-            for bbox_data in bboxes_data:
-                if bbox_data.cropped_image is None:
-                    bbox_data.open_cropped_image(inplace=True)
+        for bbox_data in batch:
+            if bbox_data.cropped_image is None:
+                bbox_data.open_cropped_image(inplace=True)
         return batch
 
     @property

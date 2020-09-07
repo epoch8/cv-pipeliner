@@ -1,4 +1,5 @@
 from typing import List
+from tqdm import tqdm
 
 from two_stage_pipeliner.core.data import BboxData
 
@@ -49,20 +50,24 @@ class ClassificationInferencer(Inferencer):
 
     def predict(
         self,
-        bboxes_data_gen: BatchGeneratorBboxData,
-        open_cropped_images_in_bboxes_data: bool = False
+        n_bboxes_data_gen: BatchGeneratorBboxData,
+        open_cropped_images_in_bboxes_data: bool = False,
+        disable_tqdm: bool = False
     ) -> List[List[BboxData]]:
+        assert isinstance(n_bboxes_data_gen, BatchGeneratorBboxData)
         pred_bboxes_data = []
-        for bboxes_data in bboxes_data_gen:
-            input = [bbox_data.cropped_image for bbox_data in bboxes_data]
-            input = self.model.preprocess_input(input)
-            pred_labels, pred_scores = self.model.predict(input)
-            pred_bboxes_data.extend(self._postprocess_predictions(
-                bboxes_data=bboxes_data,
-                pred_labels=pred_labels,
-                pred_scores=pred_scores,
-                open_cropped_images_in_bboxes_data=open_cropped_images_in_bboxes_data
-            ))
+        with tqdm(total=len(bboxes_data_gen.data), disable=disable_tqdm) as pbar:
+            for bboxes_data in bboxes_data_gen:
+                input = [bbox_data.cropped_image for bbox_data in bboxes_data]
+                input = self.model.preprocess_input(input)
+                pred_labels, pred_scores = self.model.predict(input)
+                pred_bboxes_data.extend(self._postprocess_predictions(
+                    bboxes_data=bboxes_data,
+                    pred_labels=pred_labels,
+                    pred_scores=pred_scores,
+                    open_cropped_images_in_bboxes_data=open_cropped_images_in_bboxes_data
+                ))
+                pbar.update(len(bboxes_data))
         n_pred_bboxes_data = self._split_chunks(pred_bboxes_data, bboxes_data_gen.shapes)
         return n_pred_bboxes_data
 

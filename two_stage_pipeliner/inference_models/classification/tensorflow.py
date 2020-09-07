@@ -73,7 +73,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         # Run model through a dummy image so that variables are created
         width, height = self.input_size
         zeros = np.zeros([1, width, height, 3])
-        self._raw_predict_batch(zeros)
+        self._raw_predict(zeros)
 
     def _raw_predict(
         self,

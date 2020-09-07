@@ -29,7 +29,7 @@ class ClassificationVisualizer(Visualizer):
         if use_all_data:
             images_names = ['all']
             n_bboxes_data = [[bbox_data for bboxes_data in n_bboxes_data for bbox_data in bboxes_data]]
-            bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=1,
+            bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=batch_size,
                                                      use_not_caught_elements_as_last_batch=True)
         else:
             if self.inferencer is not None and show_TP_FP:
@@ -60,7 +60,7 @@ class ClassificationVisualizer(Visualizer):
                 ]
             else:
                 images_names = [bboxes_data[0].image_path.name for bboxes_data in n_bboxes_data]
-            bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=1,
+            bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=batch_size,
                                                      use_not_caught_elements_as_last_batch=True)
 
         self.i = None
@@ -68,7 +68,7 @@ class ClassificationVisualizer(Visualizer):
         def display_fn(i):
             if self.i is None or i != self.i:
                 self.batch = bboxes_data_gen[i]
-                self.true_bboxes_data = self.batch[0]
+                self.true_bboxes_data = self.batch
                 if self.inferencer is not None:
                     self.pred_bboxes_data = self.inferencer.predict([self.batch])[0]
                 else:
