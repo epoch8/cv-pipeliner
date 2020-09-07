@@ -85,7 +85,9 @@ class PipelineVisualizer(Visualizer):
                 self.batch = images_data_gen[i]
                 self.true_image_data = self.batch[0]
                 if self.inferencer is not None:
-                    self.pred_image_data = self.inferencer.predict([self.batch],
+                    image_data_gen = BatchGeneratorImageData([self.batch], batch_size=1,
+                                                             use_not_caught_elements_as_last_batch=True)
+                    self.pred_image_data = self.inferencer.predict(image_data_gen,
                                                                    detection_score_threshold)[0]
                 self.i = i
 
