@@ -67,10 +67,9 @@ class ClassificationVisualizer(Visualizer):
 
         def display_fn(i):
             if self.i is None or i != self.i:
-                self.batch = bboxes_data_gen[i]
-                self.true_bboxes_data = self.batch
+                self.true_bboxes_data = bboxes_data_gen[i]
                 if self.inferencer is not None:
-                    n_bbox_data_gen = BatchGeneratorBboxData([self.batch], batch_size=1,
+                    n_bbox_data_gen = BatchGeneratorBboxData([self.true_bboxes_data], batch_size=1,
                                                              use_not_caught_elements_as_last_batch=True)
                     self.pred_bboxes_data = self.inferencer.predict(n_bbox_data_gen)[0]
                 else:
