@@ -29,12 +29,11 @@ class ClassificationVisualizer(Visualizer):
         if use_all_data:
             images_names = ['all']
             n_bboxes_data = [[bbox_data for bboxes_data in n_bboxes_data for bbox_data in bboxes_data]]
-            bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=batch_size,
-                                                     use_not_caught_elements_as_last_batch=True)
         else:
             if self.inferencer is not None and show_TP_FP:
                 bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=batch_size,
-                                                         use_not_caught_elements_as_last_batch=True)
+                                                         use_not_caught_elements_as_last_batch=True,
+                                                         open_cropped_images=False)
                 n_pred_bboxes_data = self.inferencer.predict(bboxes_data_gen)
 
                 n_true_labels = [
@@ -60,16 +59,14 @@ class ClassificationVisualizer(Visualizer):
                 ]
             else:
                 images_names = [bboxes_data[0].image_path.name for bboxes_data in n_bboxes_data]
-            bboxes_data_gen = BatchGeneratorBboxData(n_bboxes_data, batch_size=1,
-                                                     use_not_caught_elements_as_last_batch=True)
 
         self.i = None
 
         def display_fn(i):
             if self.i is None or i != self.i:
-                self.true_bboxes_data = bboxes_data_gen[i]
+                self.true_bboxes_data = n_bboxes_data[i]
                 if self.inferencer is not None:
-                    n_bbox_data_gen = BatchGeneratorBboxData([self.true_bboxes_data], batch_size=1,
+                    n_bbox_data_gen = BatchGeneratorBboxData([self.true_bboxes_data], batch_size=batch_size,
                                                              use_not_caught_elements_as_last_batch=True)
                     self.pred_bboxes_data = self.inferencer.predict(n_bbox_data_gen)[0]
                 else:
@@ -125,7 +122,7 @@ class ClassificationVisualizer(Visualizer):
             )))
 
         self.jupyter_visualizer = JupyterVisualizer(
-            images=range(len(bboxes_data_gen)),
+            images=range(len(images_names)),
             images_names=images_names,
             choices=['all'],
             choices_description='class_name',
