@@ -123,9 +123,9 @@ class VideoInferencer:
                 BboxData(image=frame, xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)
                 for (xmin, ymin, xmax, ymax) in current_not_tracked_bboxes
             ]
-            n_bboxes_data_gen = BatchGeneratorBboxData([bboxes_data], batch_size=1,
-                                                       use_not_caught_elements_as_last_batch=True)
-            pred_bboxes_data = self.classification_inferencer.predict(n_bboxes_data_gen)[0]
+            bboxes_data_gen = BatchGeneratorBboxData([bboxes_data], batch_size=1,
+                                                     use_not_caught_elements_as_last_batch=True)
+            pred_bboxes_data = self.classification_inferencer.predict(bboxes_data_gen)[0]
 
             for i, bbox_data, tracked_id in zip(original_idxs, pred_bboxes_data, current_not_tracked_ids):
                 ready_at_frame = (

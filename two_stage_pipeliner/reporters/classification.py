@@ -89,10 +89,11 @@ classification_interactive_work(directory='.', use_all_data=True)''')
             )
         model = model_spec.load()
         inferencer = ClassificationInferencer(model)
-        n_bboxes_data_gen = BatchGeneratorBboxData(n_true_bboxes_data, batch_size=batch_size,
-                                                   use_not_caught_elements_as_last_batch=True)
-        pred_bboxes_data = inferencer.predict(n_bboxes_data_gen)
-        df_classification_metrics = get_df_classification_metrics(n_true_bboxes_data, pred_bboxes_data)
+        bboxes_data_gen = BatchGeneratorBboxData(n_true_bboxes_data,
+                                                 batch_size=batch_size,
+                                                 use_not_caught_elements_as_last_batch=True)
+        n_pred_bboxes_data = inferencer.predict(bboxes_data_gen)
+        df_classification_metrics = get_df_classification_metrics(n_true_bboxes_data, n_pred_bboxes_data)
         output_directory = Path(output_directory)
         output_directory.mkdir(exist_ok=True, parents=True)
         model_spec_filepath = output_directory / CLASSIFICATION_MODEL_SPEC_FILENAME

@@ -14,51 +14,56 @@ class ClassificationInferencer(Inferencer):
 
     def _postprocess_predictions(
         self,
-        n_bboxes_data: List[List[BboxData]],
-        n_pred_labels: List[List[str]],
-        n_pred_scores: List[List[float]],
+        bboxes_data: List[BboxData],
+        pred_labels: List[str],
+        pred_scores: List[float],
         open_cropped_images_in_bboxes_data: bool
     ) -> List[List[BboxData]]:
+        bboxes_data_res = []
+        for (bbox_data, pred_label, pred_classification_score) in zip(bboxes_data, pred_labels, pred_scores):
+            cropped_image = bbox_data.cropped_image if open_cropped_images_in_bboxes_data else None
+            bboxes_data_res.append(BboxData(
+                image_path=bbox_data.image_path,
+                image_bytes=bbox_data.image_bytes,
+                cropped_image=cropped_image,
+                xmin=bbox_data.xmin,
+                ymin=bbox_data.ymin,
+                xmax=bbox_data.xmax,
+                ymax=bbox_data.ymax,
+                detection_score=bbox_data.detection_score,
+                label=pred_label,
+                classification_score=pred_classification_score
+            ))
 
-        n_pred_bboxes_data = []
-        for bboxes_data, pred_labels, pred_scores in zip(n_bboxes_data, n_pred_labels, n_pred_scores):
-            bboxes_data_res = []
-            for (bbox_data, pred_label, pred_classification_score) in zip(bboxes_data, pred_labels, pred_scores):
-                cropped_image = bbox_data.cropped_image if open_cropped_images_in_bboxes_data else None
-                bboxes_data_res.append(BboxData(
-                    image_path=bbox_data.image_path,
-                    image_bytes=bbox_data.image_bytes,
-                    cropped_image=cropped_image,
-                    xmin=bbox_data.xmin,
-                    ymin=bbox_data.ymin,
-                    xmax=bbox_data.xmax,
-                    ymax=bbox_data.ymax,
-                    detection_score=bbox_data.detection_score,
-                    label=pred_label,
-                    classification_score=pred_classification_score
-                ))
-            n_pred_bboxes_data.append(bboxes_data_res)
+        return bboxes_data_res
 
-        return n_pred_bboxes_data
+    def _split_chunks(self,
+                      _list: List,
+                      shapes: List[int]) -> List:
+        cnt = 0
+        chunks = []
+        for shape in shapes:
+            chunks.append(_list[cnt: cnt + shape])
+            cnt += shape
+        return chunks
 
     def predict(
         self,
-        n_bboxes_data_gen: BatchGeneratorBboxData,
+        bboxes_data_gen: BatchGeneratorBboxData,
         open_cropped_images_in_bboxes_data: bool = False
     ) -> List[List[BboxData]]:
-        n_pred_bboxes_data = []
-        for n_bboxes_data in n_bboxes_data_gen:
-            input = [
-                [bbox_data.cropped_image for bbox_data in bboxes_data]
-                for bboxes_data in n_bboxes_data
-            ]
+        pred_bboxes_data = []
+        for bboxes_data in bboxes_data_gen:
+            input = [bbox_data.cropped_image for bbox_data in bboxes_data]
             input = self.model.preprocess_input(input)
-            n_pred_labels, n_pred_scores = self.model.predict(input)
-            n_pred_bboxes_data_batch = self._postprocess_predictions(
-                n_bboxes_data, n_pred_labels, n_pred_scores,
-                open_cropped_images_in_bboxes_data
-            )
-            n_pred_bboxes_data.extend(n_pred_bboxes_data_batch)
+            pred_labels, pred_scores = self.model.predict(input)
+            pred_bboxes_data.extend(self._postprocess_predictions(
+                bboxes_data=bboxes_data,
+                pred_labels=pred_labels,
+                pred_scores=pred_scores,
+                open_cropped_images_in_bboxes_data=open_cropped_images_in_bboxes_data
+            ))
+        n_pred_bboxes_data = self._split_chunks(pred_bboxes_data, bboxes_data_gen.shapes)
         return n_pred_bboxes_data
 
     @property

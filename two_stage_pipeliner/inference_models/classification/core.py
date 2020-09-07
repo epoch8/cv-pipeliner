@@ -10,8 +10,8 @@ Score = float
 Labels = List[Label]
 Scores = List[Score]
 
-ClassificationInput = List[List[np.ndarray]]
-ClassificationOutput = Tuple[List[Labels], List[Scores]]
+ClassificationInput = List[np.ndarray]
+ClassificationOutput = Tuple[Labels, Scores]
 
 
 class ClassificationModelSpec(ModelSpec):
