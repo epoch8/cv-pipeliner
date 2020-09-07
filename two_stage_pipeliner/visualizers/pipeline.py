@@ -82,7 +82,7 @@ class PipelineVisualizer(Visualizer):
 
         def display_fn(i):
             if self.i is None or i != self.i:
-                self.true_image_data = images_data_gen[i]
+                self.true_image_data = images_data_gen[i][0]
                 if self.inferencer is not None:
                     image_data_gen = BatchGeneratorImageData([self.true_image_data], batch_size=1,
                                                              use_not_caught_elements_as_last_batch=True)
