@@ -56,8 +56,8 @@ class ClassificationInferencer(Inferencer):
     ) -> List[List[BboxData]]:
         assert isinstance(n_bboxes_data_gen, BatchGeneratorBboxData)
         pred_bboxes_data = []
-        with tqdm(total=len(bboxes_data_gen.data), disable=disable_tqdm) as pbar:
-            for bboxes_data in bboxes_data_gen:
+        with tqdm(total=len(n_bboxes_data_gen.data), disable=disable_tqdm) as pbar:
+            for bboxes_data in n_bboxes_data_gen:
                 input = [bbox_data.cropped_image for bbox_data in bboxes_data]
                 input = self.model.preprocess_input(input)
                 pred_labels, pred_scores = self.model.predict(input)
@@ -68,7 +68,7 @@ class ClassificationInferencer(Inferencer):
                     open_cropped_images_in_bboxes_data=open_cropped_images_in_bboxes_data
                 ))
                 pbar.update(len(bboxes_data))
-        n_pred_bboxes_data = self._split_chunks(pred_bboxes_data, bboxes_data_gen.shapes)
+        n_pred_bboxes_data = self._split_chunks(pred_bboxes_data, n_bboxes_data_gen.shapes)
         return n_pred_bboxes_data
 
     @property
