@@ -18,8 +18,8 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     input_size: Tuple[int, int]
     preprocess_input: Literal[Callable[[List[np.ndarray]], np.ndarray], Union[str, Path]]
     class_names: Literal[List[str], Union[str, Path]]
-    model_path: Union[str, Path]
-    saved_model_type: Literal["tf.saved_model", "tf.keras"]
+    model_path: Literal[Union[str, Path], tf.keras.Model]
+    saved_model_type: Literal["tf.saved_model", "tf.keras", "ClassType[tf.keras.Model]"]
 
     @property
     def inference_model(self) -> ClassVar['Tensorflow_ClassificationModel']:
@@ -55,6 +55,8 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         elif model_spec.saved_model_type == "tf.saved_model":
             self.loaded_model = tf.saved_model.load(str(model_spec.model_path))
             self.model = self.loaded_model.signatures["serving_default"]
+        elif model_spec.saved_model_type == "ClassType[tf.keras.Model]":
+            self.model = model_spec.model_path
         else:
             raise ValueError(
                 "Tensorflow_ClassificationModel got unknown saved_model_type "
@@ -82,7 +84,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         if self.model_spec.saved_model_type == "tf.saved_model":
             input_tensor = tf.convert_to_tensor(images, dtype=tf.dtypes.float32)
             raw_predictions_batch = self.model(input_tensor)
-        elif self.model_spec.saved_model_type == "tf.keras":
+        elif self.model_spec.saved_model_type in ["tf.keras", "ClassType[tf.keras.Model]"]:
             raw_predictions_batch = self.model.predict(images)
         return raw_predictions_batch
 
