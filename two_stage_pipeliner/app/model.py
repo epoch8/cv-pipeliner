@@ -77,13 +77,13 @@ def get_description_to_detection_model_definition_from_config(
     cfg: CfgNode
 ) -> Dict[str, DetectionModelDefinition]:
     detection_models_definitions = []
-    for i, detection_cfg in enumerate(cfg.models.detection):
+    for detection_cfg in cfg.models.detection:
         detection_cfg, key = get_cfg_from_dict(
             d=detection_cfg,
             possible_cfgs=[object_detection_api, object_detection_api_pb, object_detection_api_tflite]
         )
         detection_model_definition = DetectionModelDefinition(
-            description=f"[{i}] {detection_cfg.description}",
+            description=detection_cfg.description,
             score_threshold=detection_cfg.score_threshold,
             model_spec=None
         )
@@ -119,13 +119,13 @@ def get_description_to_classification_model_definition_from_config(
     cfg: CfgNode
 ) -> Dict[str, ClassificationDefinition]:
     classification_models_definitions = []
-    for i, classification_cfg in enumerate(cfg.models.classification):
+    for classification_cfg in cfg.models.classification:
         classification_cfg, key = get_cfg_from_dict(
             d=classification_cfg,
             possible_cfgs=[tensorflow_cls_model]
         )
         classification_model_definition = ClassificationDefinition(
-            description=f"[{i}] {classification_cfg.description}",
+            description=classification_cfg.description,
             model_spec=None
         )
         if key == 'tensorflow_cls_model':
