@@ -160,6 +160,16 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         mask = raw_scores > score_threshold
         bboxes = raw_bboxes[mask]
         scores = raw_scores[mask]
+
+        correct_bboxes_idxs = []
+        for idx, bbox in enumerate(bboxes):
+            xmin, ymin, xmax, ymax = bbox
+            if xmax - xmin > 0 and ymax - ymin > 0:
+                correct_bboxes_idxs.append(idx)
+
+        bboxes = bboxes[correct_bboxes_idxs]
+        scores = scores[correct_bboxes_idxs]
+
         return bboxes, scores
 
     def predict(
