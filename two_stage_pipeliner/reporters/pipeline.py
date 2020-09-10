@@ -436,7 +436,7 @@ pipeline_interactive_work(
         self,
         models_specs: List[PipelineModelSpec],
         tags: List[str],
-        detection_scores_thresholds: float,
+        detection_scores_thresholds: List[float],
         extra_bbox_labels: List[str],
         compare_tag: str,
         output_directory: Union[str, Path],

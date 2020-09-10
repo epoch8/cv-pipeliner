@@ -265,7 +265,7 @@ detection_interactive_work(
         self,
         models_specs: List[DetectionModelSpec],
         tags: List[str],
-        scores_thresholds: float,
+        scores_thresholds: List[float],
         compare_tag: str,
         output_directory: Union[str, Path],
         true_images_data: List[ImageData],
