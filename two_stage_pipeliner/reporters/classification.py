@@ -17,7 +17,7 @@ from two_stage_pipeliner.logging import logger
 from two_stage_pipeliner.utils.dataframes import transpose_columns_and_write_diffs_to_df_with_tags
 
 CLASSIFICATION_MODEL_SPEC_PREFIX = "classification_model_spec"
-BBOXES_DATA_FILENAME = "bboxes_data.pkl"
+BBOXES_DATA_FILENAME = "n_bboxes_data.pkl"
 
 
 def classification_interactive_work(
