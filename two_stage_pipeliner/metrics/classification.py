@@ -5,6 +5,8 @@ from sklearn.metrics import classification_report
 
 from two_stage_pipeliner.core.data import BboxData
 
+df_classification_metrics_columns = ['precision', 'recall', 'f1-score', 'support']
+
 
 def get_df_classification_metrics(
     n_true_bboxes_data: List[List[BboxData]],
@@ -16,10 +18,12 @@ def get_df_classification_metrics(
     assert len(true_bboxes_data) == len(pred_bboxes_data)
     true_labels = [bbox_data.label for bbox_data in true_bboxes_data]
     pred_labels = [bbox_data.label for bbox_data in pred_bboxes_data]
-    df_classifier_metrics = pd.DataFrame(
+    df_classification_metrics = pd.DataFrame(
         classification_report(true_labels, pred_labels, output_dict=True),
         dtype=object
     ).T
-    df_classifier_metrics.loc['accuracy', 'support'] = len(true_labels)
-    df_classifier_metrics.sort_values(by='support', ascending=False, inplace=True)
-    return df_classifier_metrics
+    df_classification_metrics.loc['accuracy', 'support'] = len(true_labels)
+    df_classification_metrics['support'] = df_classification_metrics['support'].astype(int)
+    df_classification_metrics.sort_values(by='support', ascending=False, inplace=True)
+    df_classification_metrics = df_classification_metrics[df_classification_metrics_columns]
+    return df_classification_metrics

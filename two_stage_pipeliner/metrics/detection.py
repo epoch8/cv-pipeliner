@@ -72,6 +72,9 @@ def count_coco_metrics(
     return coco_metrics
 
 
+df_detection_metrics_columns = ['value']
+
+
 def get_df_detection_metrics(
     true_images_data: List[ImageData],
     pred_images_data: List[ImageData],
@@ -117,9 +120,12 @@ def get_df_detection_metrics(
         'f1_score': [f1_score],
         **coco_metrics
     }, dtype=object).T
-    df_detection_metrics.columns = ['value']
+    df_detection_metrics.columns = df_detection_metrics_columns
 
     return df_detection_metrics
+
+
+df_detection_recall_per_class_columns = ['support', 'TP', 'FN', 'recall']
 
 
 def get_df_detection_recall_per_class(
@@ -193,7 +199,7 @@ def get_df_detection_recall_per_class(
     }
 
     df_detection_recall_per_class = pd.DataFrame(detection_metrics_recall_per_class, dtype=object).T
-    df_detection_recall_per_class = df_detection_recall_per_class[['support', 'TP', 'FN', 'recall']]
+    df_detection_recall_per_class = df_detection_recall_per_class[df_detection_recall_per_class_columns]
     df_detection_recall_per_class.sort_values(by='support', ascending=False, inplace=True)
 
     return df_detection_recall_per_class

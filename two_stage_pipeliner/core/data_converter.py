@@ -38,7 +38,7 @@ def assert_image_data(fn):
                 )
                 continue
 
-            if data_converter.class_names and data_converter.class_mapper:
+            if data_converter.class_names is not None and data_converter.class_mapper is not None:
                 bbox_data.label = data_converter._filter_label_by_class_mapper(
                     bbox_data.label,
                     data_converter.class_names,
