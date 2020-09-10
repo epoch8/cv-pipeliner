@@ -13,24 +13,25 @@ from two_stage_pipeliner.inference_models.detection.core import DetectionModelSp
 from two_stage_pipeliner.inference_models.pipeline import PipelineModelSpec
 from two_stage_pipeliner.inferencers.detection import DetectionInferencer
 from two_stage_pipeliner.inferencers.pipeline import PipelineInferencer
-from two_stage_pipeliner.metrics.detection import get_df_detection_metrics
-from two_stage_pipeliner.metrics.pipeline import get_df_pipeline_metrics
+from two_stage_pipeliner.metrics.detection import get_df_detection_metrics, df_detection_metrics_columns
+from two_stage_pipeliner.metrics.pipeline import get_df_pipeline_metrics, df_pipeline_metrics_columns
 from two_stage_pipeliner.visualizers.pipeline import PipelineVisualizer
 from two_stage_pipeliner.logging import logger
+from two_stage_pipeliner.utils.dataframes import transpose_columns_and_write_diffs_to_df_with_tags
 
-PIPELINE_MODEL_SPEC_NAME = "pipeline_model_spec"
+PIPELINE_MODEL_SPEC_PREFIX = "pipeline_model_spec"
 IMAGES_DATA_FILENAME = "images_data.pkl"
 
 
 def pipeline_interactive_work(
     directory: Union[str, Path],
+    tag: str,
     detection_score_threshold: float,
     minimum_iou: float,
-    tag: str,
     extra_bbox_label: str
 ):
     directory = Path(directory)
-    pipeline_model_spec_filepath = directory / f"{PIPELINE_MODEL_SPEC_NAME}_{tag}.pkl"
+    pipeline_model_spec_filepath = directory / f"{PIPELINE_MODEL_SPEC_PREFIX}_{tag}.pkl"
     with open(pipeline_model_spec_filepath, "rb") as src:
         pipeline_model_spec = pickle.load(src)
     pipeline_model = pipeline_model_spec.load()
@@ -51,9 +52,9 @@ def pipeline_interactive_work(
 
 @dataclass
 class PipelineReportData:
-    df_detection_metrics: Union[pd.DataFrame, List[pd.DataFrame]] = None
-    df_pipeline_metrics_strict: Union[pd.DataFrame, List[pd.DataFrame]] = None
-    df_pipeline_metrics_soft: Union[pd.DataFrame, List[pd.DataFrame]] = None
+    df_detection_metrics: pd.DataFrame = None
+    df_pipeline_metrics_strict: pd.DataFrame = None
+    df_pipeline_metrics_soft: pd.DataFrame = None
     df_detection_metrics_short: pd.DataFrame = None
     df_pipeline_metrics_short: pd.DataFrame = None
     df_correct_preds: pd.DataFrame = None
@@ -63,16 +64,19 @@ class PipelineReportData:
 
     def __init__(
         self,
-        df_detection_metrics: pd.DataFrame,
-        df_pipeline_metrics_strict: pd.DataFrame,
-        df_pipeline_metrics_soft: pd.DataFrame,
+        df_detection_metrics: pd.DataFrame = None,
+        df_pipeline_metrics_strict: pd.DataFrame = None,
+        df_pipeline_metrics_soft: pd.DataFrame = None,
         tag: str = None,
+        collect_the_rest: bool = True
     ):
-        if all(df is None for df in [df_detection_metrics, df_pipeline_metrics_strict, df_pipeline_metrics_soft]):
-            return
         self.df_detection_metrics = df_detection_metrics.copy()
         self.df_pipeline_metrics_strict = df_pipeline_metrics_strict.copy()
         self.df_pipeline_metrics_soft = df_pipeline_metrics_soft.copy()
+
+        if not collect_the_rest:
+            return
+
         self.df_detection_metrics_short = df_detection_metrics.loc[['precision', 'recall']].copy()
         self.df_pipeline_metrics_short = self._get_df_pipeline_metrics_short(
             df_pipeline_metrics_strict=df_pipeline_metrics_strict,
@@ -90,20 +94,14 @@ class PipelineReportData:
         self.df_incorrect_preds_percentage = (
             self.df_incorrect_preds[['value']] / self.df_incorrect_preds['value'].sum() * 100
         ).round(1)
-        self.df_incorrect_preds_percentage['value'] = [f"{value}%" for value in self.df_incorrect_preds_percentage['value']]
+        self.df_incorrect_preds_percentage['value'] = [
+            f"{value}%" for value in self.df_incorrect_preds_percentage['value']
+        ]
 
         self.tag = tag
         if tag is not None:
-            for df in [
-                self.df_detection_metrics, self.df_pipeline_metrics_strict, self.df_pipeline_metrics_soft,
-                self.df_detection_metrics_short,
-                self.df_pipeline_metrics_short, self.df_correct_preds, self.df_incorrect_preds,
-                self.df_incorrect_preds_percentage
-            ]:
-                self._give_tag_to_df(tag, df)
-
-    def _give_tag_to_df(self, tag: str, df: pd.DataFrame):
-        df.columns = [f"{column} [{tag}]" for column in df.columns]
+            for df in self.get_all_dfs():
+                df.columns = [f"{column} [{tag}]" for column in df.columns]
 
     def _get_df_pipeline_metrics_short(
         self,
@@ -135,66 +133,119 @@ class PipelineReportData:
         }, index=['value'], dtype=int).T
         return df_incorrect_preds
 
+    def get_all_dfs(self) -> List[pd.DataFrame]:
+        return [
+            self.df_detection_metrics,
+            self.df_pipeline_metrics_strict,
+            self.df_pipeline_metrics_soft,
+            self.df_detection_metrics_short,
+            self.df_pipeline_metrics_short,
+            self.df_correct_preds,
+            self.df_incorrect_preds,
+            self.df_incorrect_preds_percentage
+        ]
+
 
 def concat_pipelines_reports_datas(
     pipelines_reports_datas: List[PipelineReportData],
-    tags: List[str],
     compare_tag: str = None
-):
-    pipeline_report_data = PipelineReportData(  # TODO: make concat for these metrics
-        df_detection_metrics=None,
-        df_pipeline_metrics_strict=None,
-        df_pipeline_metrics_soft=None
+) -> PipelineReportData:
+    tags = [tag_pipeline_report_data.tag for tag_pipeline_report_data in pipelines_reports_datas]
+
+    df_detection_metrics = transpose_columns_and_write_diffs_to_df_with_tags(
+        df_with_tags=pd.concat(
+            [
+                tag_pipeline_report_data.df_detection_metrics
+                for tag_pipeline_report_data in pipelines_reports_datas
+            ],
+            axis=1
+        ),
+        columns=df_detection_metrics_columns,
+        tags=tags,
+        compare_tag=compare_tag
     )
-    pipeline_report_data.df_detection_metrics_short = pd.concat(
-        [pipeline_report_data.df_detection_metrics_short for pipeline_report_data in pipelines_reports_datas],
-        axis=1
+    df_pipeline_metrics_strict = transpose_columns_and_write_diffs_to_df_with_tags(
+        df_with_tags=pd.concat(
+            [
+                tag_pipeline_report_data.df_pipeline_metrics_strict
+                for tag_pipeline_report_data in pipelines_reports_datas
+            ],
+            axis=1,
+            join='outer'
+        ).sort_values(by=f'support [{compare_tag}]', ascending=False),
+        columns=df_pipeline_metrics_columns,
+        tags=tags,
+        compare_tag=compare_tag
     )
-    pipeline_report_data.df_pipeline_metrics_short = pd.concat(
-        [pipeline_report_data.df_pipeline_metrics_short for pipeline_report_data in pipelines_reports_datas],
-        axis=1
+    df_pipeline_metrics_soft = transpose_columns_and_write_diffs_to_df_with_tags(
+        df_with_tags=pd.concat(
+            [
+                tag_pipeline_report_data.df_pipeline_metrics_soft
+                for tag_pipeline_report_data in pipelines_reports_datas
+            ],
+            axis=1,
+            join='outer'
+        ).sort_values(by=f'support [{compare_tag}]', ascending=False),
+        columns=df_pipeline_metrics_columns,
+        tags=tags,
+        compare_tag=compare_tag
     )
-    pipeline_report_data.df_correct_preds = pd.concat(
-        [pipeline_report_data.df_correct_preds for pipeline_report_data in pipelines_reports_datas],
-        axis=1
+    pipeline_report_data = PipelineReportData(
+        df_detection_metrics=df_detection_metrics,
+        df_pipeline_metrics_strict=df_pipeline_metrics_strict,
+        df_pipeline_metrics_soft=df_pipeline_metrics_soft,
+        collect_the_rest=False
     )
-    pipeline_report_data.df_incorrect_preds = pd.concat(
-        [pipeline_report_data.df_incorrect_preds for pipeline_report_data in pipelines_reports_datas],
-        axis=1
+    pipeline_report_data.df_detection_metrics_short = transpose_columns_and_write_diffs_to_df_with_tags(
+        df_with_tags=pd.concat(
+            [
+                tag_pipeline_report_data.df_detection_metrics_short
+                for tag_pipeline_report_data in pipelines_reports_datas
+            ],
+            axis=1
+        ),
+        columns=['value'],
+        tags=tags,
+        compare_tag=compare_tag
     )
+    pipeline_report_data.df_pipeline_metrics_short = transpose_columns_and_write_diffs_to_df_with_tags(
+        df_with_tags=pd.concat(
+            [
+                tag_pipeline_report_data.df_pipeline_metrics_short
+                for tag_pipeline_report_data in pipelines_reports_datas
+            ],
+            axis=1
+        ),
+        columns=['value'],
+        tags=tags,
+        compare_tag=compare_tag
+    )
+    pipeline_report_data.df_correct_preds = transpose_columns_and_write_diffs_to_df_with_tags(
+        df_with_tags=pd.concat(
+            [tag_pipeline_report_data.df_correct_preds for tag_pipeline_report_data in pipelines_reports_datas],
+            axis=1
+        ),
+        columns=['value'],
+        tags=tags,
+        compare_tag=compare_tag
+    )
+    pipeline_report_data.df_incorrect_preds = transpose_columns_and_write_diffs_to_df_with_tags(
+        df_with_tags=pd.concat(
+            [tag_pipeline_report_data.df_incorrect_preds for tag_pipeline_report_data in pipelines_reports_datas],
+            axis=1
+        ),
+        columns=['value'],
+        tags=tags,
+        compare_tag=compare_tag
+    )
+    # df_incorrect_preds_percentage doesn't need transpose_columns_and_write_diffs_to_df_with_tags
     pipeline_report_data.df_incorrect_preds_percentage = pd.concat(
-        [pipeline_report_data.df_incorrect_preds_percentage for pipeline_report_data in pipelines_reports_datas],
+        objs=[
+            tag_pipeline_report_data.df_incorrect_preds_percentage
+            for tag_pipeline_report_data in pipelines_reports_datas
+        ],
         axis=1
     )
-    if compare_tag is not None:
-        for df in [
-            pipeline_report_data.df_detection_metrics_short, pipeline_report_data.df_pipeline_metrics_short,
-            pipeline_report_data.df_correct_preds, pipeline_report_data.df_incorrect_preds
-        ]:
-            df[f'value [{compare_tag}]'] = [round(value, 3) for value in df[f'value [{compare_tag}]']]
-            compare_tag_values = df[f'value [{compare_tag}]']
-            for tag in tags:
-                if tag == compare_tag:
-                    continue
-                tag_values = df[f'value [{tag}]']
-                diffs = ((tag_values - compare_tag_values) / compare_tag_values)
-                suffixes = ['+' if diff > 0 else '' for diff in diffs]
-                df[f'value [{tag}]'] = [
-                    f"{round(value, 3)} ({suffix}{int(round(100 * diff))}%)"
-                    for value, suffix, diff in zip(tag_values, suffixes, diffs)
-                ]
-
-    # TODO: make concat for these metrics
-    pipeline_report_data.df_detection_metrics = [
-        pipeline_report_data.df_detection_metrics for pipeline_report_data in pipelines_reports_datas
-    ]
-    pipeline_report_data.df_pipeline_metrics_strict = [
-        pipeline_report_data.df_pipeline_metrics_strict for pipeline_report_data in pipelines_reports_datas
-    ]
-    pipeline_report_data.df_pipeline_metrics_soft = [
-        pipeline_report_data.df_pipeline_metrics_soft for pipeline_report_data in pipelines_reports_datas
-    ]
-
     return pipeline_report_data
 
 
@@ -204,11 +255,6 @@ class PipelineReporter(Reporter):
         pipeline_report_data: PipelineReportData,
         tags: List[str] = None
     ) -> List[str]:
-
-        if tags is not None:
-            assert len(pipeline_report_data.df_pipeline_metrics_strict) == len(tags)
-            assert len(pipeline_report_data.df_pipeline_metrics_soft) == len(tags)
-
         empty_text = '- To be written.'
         markdowns = []
         markdowns.append(
@@ -249,44 +295,21 @@ class PipelineReporter(Reporter):
         markdowns.append(
             '---'
         )
-        if tags is not None:
-            for tag, tag_df_detection_metrics, tag_df_pipeline_metrics_strict, tag_df_pipeline_metrics_soft in zip(
-                tags,
-                pipeline_report_data.df_detection_metrics,
-                pipeline_report_data.df_pipeline_metrics_strict,
-                pipeline_report_data.df_pipeline_metrics_soft
-            ):
-                markdowns.append(
-                    f'## Pipeline [{tag}]''\n'
-                )
-                markdowns.append(
-                    f'## Detection metrics of [{tag}]:''\n'
-                    f'{tag_df_detection_metrics.to_markdown(stralign="center")}''\n'
-                )
-                markdowns.append(
-                    f'## Pipeline metrics of [{tag}] (strict):''\n'
-                    f'{tag_df_pipeline_metrics_strict.to_markdown(stralign="center")}''\n'
-                )
-                markdowns.append(
-                    f'## Pipeline metrics of [{tag}] (soft):''\n'
-                    f'{tag_df_pipeline_metrics_soft.to_markdown(stralign="center")}''\n'
-                )
-                markdowns.append(
-                    '---'
-                )
-        else:
-            markdowns.append(
-                f'## Detection metrics:''\n'
-                f'{pipeline_report_data.df_detection_metrics.to_markdown(stralign="center")}''\n'
-            )
-            markdowns.append(
-                f'## Pipeline metrics (strict):''\n'
-                f'{pipeline_report_data.df_pipeline_metrics_strict.to_markdown(stralign="center")}''\n'
-            )
-            markdowns.append(
-                f'## Pipeline metrics (soft):''\n'
-                f'{pipeline_report_data.df_pipeline_metrics_soft.to_markdown(stralign="center")}''\n'
-            )
+        markdowns.append(
+            f'## Detection metrics:''\n'
+            f'{pipeline_report_data.df_detection_metrics.to_markdown(stralign="center")}''\n'
+        )
+        markdowns.append(
+            f'## Pipeline metrics (strict)''\n'
+            f'{pipeline_report_data.df_pipeline_metrics_strict.to_markdown(stralign="center")}''\n'
+        )
+        markdowns.append(
+            f'## Pipeline metrics (soft)''\n'
+            f'{pipeline_report_data.df_pipeline_metrics_soft.to_markdown(stralign="center")}''\n'
+        )
+        markdowns.append(
+            '---'
+        )
         markdowns.append(
             '## Interactive work:\n'
         )
@@ -296,12 +319,9 @@ class PipelineReporter(Reporter):
         self,
         tags: List[str],
         detection_scores_thresholds: List[float],
+        extra_bbox_labels: List[str],
         minimum_iou: float,
-        extra_bbox_labels: List[str]
     ) -> List[str]:
-
-        assert len(detection_scores_thresholds) == len(tags)
-
         codes = []
         codes.append('''
 import os
@@ -314,16 +334,16 @@ display(HTML("<style>.container { width:90% !important; }</style>"))
         codes.append('''
 from two_stage_pipeliner.reporters.pipeline import pipeline_interactive_work
 ''')
-        for detection_score_threshold, tag, extra_bbox_label in zip(
-            detection_scores_thresholds, tags, extra_bbox_labels
+        for tag, detection_score_threshold, extra_bbox_label in zip(
+            tags, detection_scores_thresholds, extra_bbox_labels
         ):
             extra_bbox_label = "None" if extra_bbox_label is None else f"'{extra_bbox_label}'"
             codes.append(f'''
 pipeline_interactive_work(
     directory='.',
+    tag='{tag}',
     detection_score_threshold={detection_score_threshold},
     minimum_iou={minimum_iou},
-    tag='{tag}',
     extra_bbox_label={extra_bbox_label}
 )''')
         codes = [code.strip() for code in codes]
@@ -366,7 +386,7 @@ pipeline_interactive_work(
         minimum_iou: float,
         extra_bbox_label: str = None,
         batch_size: int = 16
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> pd.DataFrame:
         detection_model = model_spec.load()
         inferencer = DetectionInferencer(detection_model)
         images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=batch_size,
@@ -390,12 +410,10 @@ pipeline_interactive_work(
         markdowns: List[str],
         codes: List[str],
     ):
-        assert len(models_specs) == len(tags)
-
         output_directory = Path(output_directory)
         output_directory.mkdir(exist_ok=True, parents=True)
         for model_spec, tag in zip(models_specs, tags):
-            pipeline_model_spec_filepath = output_directory / f"{PIPELINE_MODEL_SPEC_NAME}_{tag}.pkl"
+            pipeline_model_spec_filepath = output_directory / f"{PIPELINE_MODEL_SPEC_PREFIX}_{tag}.pkl"
             with open(pipeline_model_spec_filepath, 'wb') as out:
                 pickle.dump(model_spec, out)
         images_data_filepath = output_directory / IMAGES_DATA_FILENAME
@@ -416,65 +434,9 @@ pipeline_interactive_work(
 
     def report(
         self,
-        model_spec: PipelineModelSpec,
-        output_directory: Union[str, Path],
-        true_images_data: List[ImageData],
-        detection_score_threshold: float,
-        minimum_iou: float,
-        extra_bbox_label: str = None,
-        batch_size: int = 16
-    ):
-        if hasattr(model_spec.classification_model_spec, 'preprocess_input'):
-            assert (
-                isinstance(model_spec.classification_model_spec.preprocess_input, str)
-                or
-                isinstance(model_spec.classification_model_spec.preprocess_input, Path)
-            )
-        df_detection_metrics = self._inference_detection_and_get_metrics(
-            model_spec=model_spec.detection_model_spec,
-            true_images_data=true_images_data,
-            score_threshold=detection_score_threshold,
-            minimum_iou=minimum_iou,
-            batch_size=batch_size
-        )
-        df_pipeline_metrics_strict, df_pipeline_metrics_soft = self._inference_pipeline_and_get_metrics(
-            model_spec=model_spec,
-            true_images_data=true_images_data,
-            detection_score_threshold=detection_score_threshold,
-            minimum_iou=minimum_iou,
-            extra_bbox_label=extra_bbox_label,
-            batch_size=batch_size
-        )
-
-        pipeline_report_data = PipelineReportData(
-            df_detection_metrics=df_detection_metrics,
-            df_pipeline_metrics_strict=df_pipeline_metrics_strict,
-            df_pipeline_metrics_soft=df_pipeline_metrics_soft
-        )
-
-        tags = ['main']
-
-        markdowns = self._get_markdowns(pipeline_report_data=pipeline_report_data)
-        codes = self._get_codes(
-            tags=tags,
-            detection_scores_thresholds=[detection_score_threshold],
-            minimum_iou=minimum_iou,
-            extra_bbox_labels=[extra_bbox_label]
-        )
-        self._save_report(
-            models_specs=[model_spec],
-            tags=tags,
-            output_directory=output_directory,
-            true_images_data=true_images_data,
-            markdowns=markdowns,
-            codes=codes
-        )
-
-    def report_many(
-        self,
         models_specs: List[PipelineModelSpec],
         tags: List[str],
-        detection_scores_thresholds: float,
+        detection_scores_thresholds: List[float],
         extra_bbox_labels: List[str],
         compare_tag: str,
         output_directory: Union[str, Path],
@@ -517,7 +479,6 @@ pipeline_interactive_work(
 
         pipeline_report_data = concat_pipelines_reports_datas(
             pipelines_reports_datas=pipelines_reports_datas,
-            tags=tags,
             compare_tag=compare_tag
         )
         markdowns = self._get_markdowns(
@@ -527,8 +488,8 @@ pipeline_interactive_work(
         codes = self._get_codes(
             tags=tags,
             detection_scores_thresholds=detection_scores_thresholds,
+            extra_bbox_labels=extra_bbox_labels,
             minimum_iou=minimum_iou,
-            extra_bbox_labels=extra_bbox_labels
         )
         self._save_report(
             models_specs=models_specs,

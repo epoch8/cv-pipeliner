@@ -7,6 +7,12 @@ from two_stage_pipeliner.core.data import ImageData
 from two_stage_pipeliner.metrics.image_data_matching import ImageDataMatching
 
 
+df_pipeline_metrics_columns = [
+    'support', 'value', 'TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)',
+    'classification errors on true bboxes', 'precision', 'recall', 'f1_score'
+]
+
+
 def get_df_pipeline_metrics(
     true_images_data: List[ImageData],
     pred_images_data: List[ImageData],
@@ -268,10 +274,7 @@ def get_df_pipeline_metrics(
         }
 
     df_pipeline_metrics = pd.DataFrame(pipeline_metrics, dtype=object).T
-    df_pipeline_metrics = df_pipeline_metrics[
-        ['support', 'value', 'TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)',
-         'classification errors on true bboxes', 'precision', 'recall', 'f1_score']
-    ]
+    df_pipeline_metrics = df_pipeline_metrics[df_pipeline_metrics_columns]
     df_pipeline_metrics.sort_values(by='support', ascending=False, inplace=True)
     if use_soft_metrics_with_known_labels is not None:
         df_pipeline_metrics.loc[class_names, 'is known by classifier'] = (
