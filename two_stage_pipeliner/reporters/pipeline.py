@@ -238,17 +238,13 @@ def concat_pipelines_reports_datas(
         tags=tags,
         compare_tag=compare_tag
     )
-    pipeline_report_data.df_incorrect_preds_percentage = transpose_columns_and_write_diffs_to_df_with_tags(
-        df_with_tags=pd.concat(
-            [
-                tag_pipeline_report_data.df_incorrect_preds_percentage
-                for tag_pipeline_report_data in pipelines_reports_datas
-            ],
-            axis=1
-        ),
-        columns=['value'],
-        tags=tags,
-        compare_tag=compare_tag
+    # df_incorrect_preds_percentage doesn't need transpose_columns_and_write_diffs_to_df_with_tags
+    pipeline_report_data.df_incorrect_preds_percentage = pd.concat(
+        objs=[
+            tag_pipeline_report_data.df_incorrect_preds_percentage
+            for tag_pipeline_report_data in pipelines_reports_datas
+        ],
+        axis=1
     )
     return pipeline_report_data
 
@@ -259,11 +255,6 @@ class PipelineReporter(Reporter):
         pipeline_report_data: PipelineReportData,
         tags: List[str] = None
     ) -> List[str]:
-
-        if tags is not None:
-            assert len(pipeline_report_data.df_pipeline_metrics_strict) == len(tags)
-            assert len(pipeline_report_data.df_pipeline_metrics_soft) == len(tags)
-
         empty_text = '- To be written.'
         markdowns = []
         markdowns.append(

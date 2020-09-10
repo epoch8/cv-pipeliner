@@ -84,7 +84,7 @@ def concat_classifications_reports_datas(
     df_classification_metrics = transpose_columns_and_write_diffs_to_df_with_tags(
         pd.concat(
             [
-                tag_classification_report_data.df_detection_metrics
+                tag_classification_report_data.df_classification_metrics
                 for tag_classification_report_data in classifications_reports_datas
             ],
             axis=1
@@ -100,7 +100,7 @@ def concat_classifications_reports_datas(
     classification_report_data.df_classification_metrics_short = transpose_columns_and_write_diffs_to_df_with_tags(
         df_with_tags=pd.concat(
             [
-                tag_classification_report_data.df_detection_metrics_short
+                tag_classification_report_data.df_classification_metrics_short
                 for tag_classification_report_data in classifications_reports_datas
             ],
             axis=1
@@ -144,7 +144,7 @@ class ClassificationReporter(Reporter):
         )
         markdowns.append(
             '## Classification metrics\n'
-            f'{classification_report_data.df_classification_metrics_short.to_markdown(stralign="center")}''\n'
+            f'{classification_report_data.df_classification_metrics.to_markdown(stralign="center")}''\n'
         )
         markdowns.append(
             '---'
@@ -256,12 +256,10 @@ classification_interactive_work(
 
         classification_report_data = concat_classifications_reports_datas(
             classifications_reports_datas=classifications_reports_datas,
-            tags=tags,
             compare_tag=compare_tag
         )
         markdowns = self._get_markdowns(
             classification_report_data=classification_report_data,
-            tags=tags
         )
         codes = self._get_codes(tags=tags)
         self._save_report(

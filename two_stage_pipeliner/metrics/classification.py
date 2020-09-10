@@ -23,7 +23,6 @@ def get_df_classification_metrics(
         dtype=object
     ).T
     df_classification_metrics.loc['accuracy', 'support'] = len(true_labels)
-    df_classification_metrics['support'] = df_classification_metrics['support'].astype(int)
     df_classification_metrics.sort_values(by='support', ascending=False, inplace=True)
     df_classification_metrics = df_classification_metrics[df_classification_metrics_columns]
     return df_classification_metrics

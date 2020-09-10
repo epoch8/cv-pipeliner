@@ -276,7 +276,7 @@ detection_interactive_work(
         for model_spec, tag, score_threshold in zip(models_specs, tags, scores_thresholds):
             logger.info(f"Making inference and counting metrics for '{tag}'...")
             tag_df_detection_metrics, tag_df_detection_recall_per_class = self._inference_detection_and_get_metrics(
-                model_spec=model_spec.detection_model_spec,
+                model_spec=model_spec,
                 true_images_data=true_images_data,
                 score_threshold=score_threshold,
                 minimum_iou=minimum_iou,
@@ -295,7 +295,6 @@ detection_interactive_work(
         )
         markdowns = self._get_markdowns(
             detection_report_data=detection_report_data,
-            tags=tags
         )
         codes = self._get_codes(
             tags=tags,
