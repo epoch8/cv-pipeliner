@@ -41,13 +41,16 @@ def transpose_columns_and_write_diffs_to_df_with_tags(
             if tag == compare_tag:
                 continue
             tag_values = transposed_df_with_tags[f'{column} [{tag}]']
-            tag_diffs = (tag_values - compare_tag_values) * np.reciprocal(compare_tag_values)
+            tag_diffs = (
+                tag_values.astype(np.float) - compare_tag_values.astype(np.float)
+            ) * np.reciprocal(compare_tag_values.astype(np.float))
 
             tag_values = [round_nan(tag_value, 3) for tag_value in tag_values]
             tag_signs = ['+' if tag_diff > 0 else '' for tag_diff in tag_diffs]
             tag_suffixes = [
                 f"({tag_sign}{int(round(100 * tag_diff))}%)"
-                if (tag_diff == tag_diff) and (not np.isinf(tag_diff) and np.abs(tag_diff) > 0.01) else ''
+                if (not np.isnan(tag_diff) and not np.isinf(tag_diff) and np.abs(tag_diff) > 0.01)
+                else ''
                 for tag_sign, tag_diff in zip(tag_signs, tag_diffs)
             ]
             if use_colors:
