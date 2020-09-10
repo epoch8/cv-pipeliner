@@ -32,7 +32,7 @@ def transpose_columns_and_write_diffs_to_df_with_tags(
         return value
 
     for column in columns:
-        transposed_df_with_tags[f'{column} [{compare_tag}]'] = [
+        transposed_df_with_tags.loc[:, f'{column} [{compare_tag}]'] = [
             round_nan(value, 3)
             for value in transposed_df_with_tags[f'{column} [{compare_tag}]']
         ]
@@ -57,7 +57,7 @@ def transpose_columns_and_write_diffs_to_df_with_tags(
                     for tag_color, tag_suffix in zip(tag_colors, tag_suffixes)
                 ]
 
-            transposed_df_with_tags[f'{column} [{tag}]'] = [
+            transposed_df_with_tags.loc[:, f'{column} [{tag}]'] = [
                 f"{float_to_int_if_needed(tag_value)} {tag_suffix}"
                 for tag_value, tag_suffix in zip(tag_values, tag_suffixes)
             ]
