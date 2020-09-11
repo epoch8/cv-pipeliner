@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Epoch8" />
+    <title>Epoch8 WebRTC</title>
+  </head>
+  <body>
+    <div class="container">
+      <video class="video" autoplay playsinline width="640" height="480"></video>
+      <canvas class="canvas"></canvas>
+      <img class="photo" src="#" alt="">
+      <div class="controls">
+        <button class="button button--start" type="button">Start</button>
+        <button class="button button--camera-flip" type="button">Swap camera</button>
+        <button class="button button--fullscreen" type="button">Fullscreen</button>
+        <button class="button button--download" type="button">Make screenshot</button>
+        <label class="input-field input-field--fps" for="fps">
+          <span class="input-field__label">FPS</span>
+          <input class="input-field__input" id="fps" type="number" max="60" min="0" step="0.1" maxlength="2">
+        </label>
+        <label class="input-field input-field--quality" for="quality">
+          <span class="input-field__label">Quality</span>
+          <input class="input-field__input" id="quality" type="number" max="1" min="0" step="0.1" maxlength="1">
+        </label>
+      </div>
+    </div>
+  </body>
+</html>
