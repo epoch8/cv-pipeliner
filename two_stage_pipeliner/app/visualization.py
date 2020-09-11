@@ -96,6 +96,7 @@ def concat_images(
 
 @st.cache(show_spinner=False)
 def get_illustrated_bboxes_data(
+    source_image: np.ndarray,
     bboxes_data: List[BboxData],
     label_to_base_label_image: Callable[[str], np.ndarray],
     background_color_a: Tuple[int, int, int, int] = None,
@@ -103,7 +104,7 @@ def get_illustrated_bboxes_data(
     max_images_size: int = None
 ) -> Tuple[List[np.ndarray], List[str]]:
     cropped_images_and_renders = []
-    cropped_images = [bbox_data.open_cropped_image() for bbox_data in bboxes_data]
+    cropped_images = [bbox_data.open_cropped_image(source_image=source_image) for bbox_data in bboxes_data]
     labels = [bbox_data.label for bbox_data in bboxes_data]
     renders = [label_to_base_label_image(label) for label in labels]
     for cropped_image, render in zip(cropped_images, renders):
@@ -132,6 +133,7 @@ def get_illustrated_bboxes_data(
 
 @st.cache(show_spinner=False)
 def get_illustrated_bboxes_data_matchings(
+    source_image: np.ndarray,
     bboxes_data_matchings: List[BboxDataMatching],
     label_to_base_label_image: Callable[[str], np.ndarray],
     background_color_a: Tuple[int, int, int, int] = None,
@@ -143,7 +145,7 @@ def get_illustrated_bboxes_data_matchings(
 
     true_bboxes_data = [bbox_data_matching.true_bbox_data for bbox_data_matching in bboxes_data_matchings]
     pred_bboxes_data = [bbox_data_matching.pred_bbox_data for bbox_data_matching in bboxes_data_matchings]
-    pred_cropped_images = [bbox_data.open_cropped_image() for bbox_data in pred_bboxes_data]
+    pred_cropped_images = [bbox_data.open_cropped_image(source_image=source_image) for bbox_data in pred_bboxes_data]
     true_labels = [bbox_data.label if bbox_data is not None else "unknown" for bbox_data in true_bboxes_data]
     pred_labels = [bbox_data.label for bbox_data in pred_bboxes_data]
     true_renders = [label_to_base_label_image(true_label) for true_label in true_labels]
@@ -206,6 +208,8 @@ def illustrate_bboxes_data(
     average_maximum_images_per_page: int = 50,
     max_images_size: int = 400
 ):
+    source_image = true_image_data.open_image()
+
     if pred_image_data is None:
         bboxes_data = true_image_data.bboxes_data
     else:
@@ -252,6 +256,7 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
 
     if pred_image_data is None:
         cropped_images_and_renders, labels = get_illustrated_bboxes_data(
+            source_image=source_image,
             bboxes_data=page_bboxes_data,
             label_to_base_label_image=label_to_base_label_image,
             background_color_a=background_color_a,
@@ -260,6 +265,7 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
         )
     else:
         cropped_images_and_renders, labels = get_illustrated_bboxes_data_matchings(
+            source_image=source_image,
             bboxes_data_matchings=page_bboxes_data,
             label_to_base_label_image=label_to_base_label_image,
             background_color_a=background_color_a,
