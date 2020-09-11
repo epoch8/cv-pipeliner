@@ -32,7 +32,7 @@ class VideoInferencer:
     def __init__(
         self,
         pipeline_inferencer: PipelineInferencer,
-        label_to_base_label_image: Callable[[str], np.ndarray],
+        draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray],
         write_labels: bool = True,
         frame_width: int = 640,
         frame_height: int = 1152,
@@ -40,7 +40,9 @@ class VideoInferencer:
     ):
         self.detection_inferencer = DetectionInferencer(pipeline_inferencer.model.detection_model)
         self.classification_inferencer = ClassificationInferencer(pipeline_inferencer.model.classification_model)
-        self.label_to_base_label_image = label_to_base_label_image
+        self.draw_base_labels_with_given_label_to_base_label_image = (
+            draw_base_labels_with_given_label_to_base_label_image
+        )
         self.write_labels = write_labels
 
         self.sort_tracker = None
@@ -85,11 +87,12 @@ class VideoInferencer:
         fps: float,
         detection_delay: int,
         classification_delay: int,
-        detection_score_threshold: float
+        detection_score_threshold: float,
+        batch_size: int
     ) -> Tuple[List[Tuple[int, int, int, int]], List[int]]:
         frame = frame.copy()
         image_data = ImageData(image=frame)
-        image_data_gen = BatchGeneratorImageData([image_data], batch_size=1,
+        image_data_gen = BatchGeneratorImageData([image_data], batch_size=batch_size,
                                                  use_not_caught_elements_as_last_batch=True)
 
         pred_image_data = self.detection_inferencer.predict(
@@ -123,7 +126,7 @@ class VideoInferencer:
                 BboxData(image=frame, xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)
                 for (xmin, ymin, xmax, ymax) in current_not_tracked_bboxes
             ]
-            bboxes_data_gen = BatchGeneratorBboxData([bboxes_data], batch_size=1,
+            bboxes_data_gen = BatchGeneratorBboxData([bboxes_data], batch_size=batch_size,
                                                      use_not_caught_elements_as_last_batch=True)
             pred_bboxes_data = self.classification_inferencer.predict(bboxes_data_gen)[0]
 
@@ -149,9 +152,7 @@ class VideoInferencer:
         tracked_bboxes: List[Tuple[int, int, int, int]],
         tracked_ids: List[int],
         ready_frames_at_the_moment: List['FrameResult'],
-        label_to_base_label_image: Callable[[str], np.ndarray],
-        classes_to_find: List[Literal[str, 'all classes']],
-        thickness: int = 3
+        filter_by_labels: List[str] = None
     ) -> np.ndarray:
         image = frame.copy()
         tracked_bboxes = tracked_bboxes.astype(int)
@@ -175,13 +176,14 @@ class VideoInferencer:
             bboxes_data=current_bboxes_data
         )
 
-        classes_to_find = None if 'all classes' in classes_to_find else classes_to_find
         image = visualize_image_data(
             image_data=image_data,
             use_labels=self.write_labels,
-            filter_by_label=classes_to_find,
-            draw_base_labels_with_given_label_to_base_label_image=self.label_to_base_label_image,
-            draw_base_labels_resize_by_bbox=False
+            filter_by_labels=filter_by_labels,
+            draw_base_labels_with_given_label_to_base_label_image=(
+                self.draw_base_labels_with_given_label_to_base_label_image
+            ),
+            known_labels=self.classification_inferencer.class_names
         )
 
         return image
@@ -192,8 +194,9 @@ class VideoInferencer:
         classification_delay: int,
         detection_delay: int,
         detection_score_threshold: float,
-        classes_to_find: List[Literal[str, 'all classes']],
-        disable_tqdm: bool = False
+        filter_by_labels: List[str],
+        disable_tqdm: bool = False,
+        batch_size: int = 16
     ) -> tempfile.NamedTemporaryFile:
         result = []
 
@@ -212,7 +215,8 @@ class VideoInferencer:
                         fps=fps,
                         detection_delay=detection_delay,
                         classification_delay=classification_delay,
-                        detection_score_threshold=detection_score_threshold
+                        detection_score_threshold=detection_score_threshold,
+                        batch_size=batch_size
                     )
                 else:
                     tracked_bboxes, tracked_ids = self.run_tracking_on_frame(frame)
@@ -228,8 +232,7 @@ class VideoInferencer:
                     tracked_bboxes=tracked_bboxes,
                     tracked_ids=tracked_ids,
                     ready_frames_at_the_moment=ready_frames_at_the_moment,
-                    label_to_base_label_image=self.label_to_base_label_image,
-                    classes_to_find=classes_to_find
+                    filter_by_labels=filter_by_labels
                 )
                 result.append(result_frame)
 

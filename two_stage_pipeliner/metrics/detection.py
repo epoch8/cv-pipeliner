@@ -152,11 +152,11 @@ def get_df_detection_recall_per_class(
     detection_metrics_recall_per_class = {}
     for class_name in class_names:
         TP_by_class_name = np.sum(
-            image_data_matching.get_detection_TP(filter_by_label=class_name)
+            image_data_matching.get_detection_TP(filter_by_labels=class_name)
             for image_data_matching in images_data_matchings
         )
         FN_by_class_name = np.sum(
-            image_data_matching.get_detection_FN(filter_by_label=class_name)
+            image_data_matching.get_detection_FN(filter_by_labels=class_name)
             for image_data_matching in images_data_matchings
         )
         recall = TP_by_class_name / max(TP_by_class_name + FN_by_class_name, 1e-6)

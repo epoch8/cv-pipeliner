@@ -1,32 +1,121 @@
-from typing import Literal, List, Callable
+import collections
+from typing import Literal, List, Callable, Tuple
 
 import numpy as np
 import imutils
 import cv2
+from PIL import Image
 
-from object_detection.utils import label_map_util
-from object_detection.utils.visualization_utils import \
-    visualize_boxes_and_labels_on_image_array
+from object_detection.utils.visualization_utils import (
+    STANDARD_COLORS, draw_bounding_box_on_image
+)
 
 from two_stage_pipeliner.core.data import BboxData, ImageData
+from two_stage_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
+
+
+# Taken from object_detection.utils.visualization_utils
+def visualize_boxes_and_labels_on_image_array(
+    image: np.ndarray,
+    bboxes: List[Tuple[int, int, int, int]],
+    labels: List[str],
+    scores: List[float],
+    use_normalized_coordinates=False,
+    line_thickness=4,
+    groundtruth_box_visualization_color='black',
+    known_labels: List[str] = None,
+    skip_boxes=False,
+    skip_scores=False,
+    skip_labels=False,
+):
+    """Overlay labeled boxes on an image with formatted scores and label names.
+
+    This function groups boxes that correspond to the same location
+    and creates a display string for each detection and overlays these
+    on the image. Note that this function modifies the image in place, and returns
+    that same image.
+
+    Args:
+      image: uint8 numpy array with shape (img_height, img_width, 3)
+      boxes: a numpy array of shape [N, 4]
+      labels: a numpy array of shape [N]. Note that class indices are 1-based.
+      scores: a numpy array of shape [N] or None.  If scores=None, then
+        this function assumes that the boxes to be plotted are groundtruth
+        boxes and plot all boxes as black with no classes or scores.
+      use_normalized_coordinates: whether boxes is to be interpreted as
+        normalized coordinates or not.
+      line_thickness: integer (default: 4) controlling line width of the boxes.
+      groundtruth_box_visualization_color: box color for visualizing groundtruth
+        boxes
+      known_labels: a list of known labels. If given, bboxes colors will be chosen by this list.
+      skip_boxes: whether to skip the drawing of bounding boxes.
+      skip_scores: whether to skip score when drawing a single detection
+      skip_labels: whether to skip label when drawing a single detection
+
+    Returns:
+      uint8 numpy array with shape (img_height, img_width, 3) with overlaid boxes.
+    """
+    bboxes = np.array(bboxes)
+    labels = np.array(labels)
+    scores = np.array(scores)
+
+    if known_labels is not None:
+        assert all(label in known_labels for label in labels)
+    else:
+        known_labels = sorted(list(set(labels)))
+
+    label_to_id = {label: id_ for id_, label in enumerate(known_labels)}
+    bbox_to_display_str = collections.defaultdict(list)
+    bbox_to_color = collections.defaultdict(str)
+
+    for i in range(len(bboxes)):
+        bbox = tuple(bboxes[i].tolist())
+        if scores is None:
+            bbox_to_color[bbox] = groundtruth_box_visualization_color
+        else:
+            display_str = ''
+            if not skip_labels:
+                display_str = str(labels[i])
+            if not skip_scores:
+                if not display_str:
+                    display_str = f'{round(100*scores[i])}%'
+                else:
+                    display_str = f'{display_str}: {round(100*scores[i])}%'
+            bbox_to_display_str[bbox].append(display_str)
+            bbox_to_color[bbox] = STANDARD_COLORS[label_to_id[labels[i]] % len(STANDARD_COLORS)]
+
+    # Draw all boxes onto image.
+    image_pil = Image.fromarray(np.uint8(image)).convert('RGB')
+    for bbox in bboxes:
+        bbox = tuple(bbox.tolist())
+        ymin, xmin, ymax, xmax = bbox
+        draw_bounding_box_on_image(
+            image=image_pil,
+            ymin=ymin,
+            xmin=xmin,
+            ymax=ymax,
+            xmax=xmax,
+            color=bbox_to_color[bbox],
+            thickness=line_thickness,
+            display_str_list=bbox_to_display_str[bbox],
+            use_normalized_coordinates=use_normalized_coordinates
+        )
+    image = np.array(image_pil)
+    return image
 
 
 def draw_label_image(
     image: np.ndarray,
     base_label_image: np.ndarray,
     bbox_data: BboxData,
-    resize_by_bbox: bool = False,
     inplace: bool = False
 ) -> np.ndarray:
 
     if not inplace:
         image = image.copy()
 
-    if resize_by_bbox:
-        bbox_data_size = max(bbox_data.xmax - bbox_data.xmin, bbox_data.ymax - bbox_data.ymin)
-        resize = int(bbox_data_size / 1.5)
-    else:
-        resize = int(max(image.shape) / 20)
+    bbox_data_size = max(bbox_data.xmax - bbox_data.xmin, bbox_data.ymax - bbox_data.ymin)
+    resize = min(int(bbox_data_size / 1.5), int(max(image.shape) / 20))
 
     height, width, _ = base_label_image.shape
     if height <= width:
@@ -73,19 +162,17 @@ def draw_label_image(
 def visualize_image_data(
     image_data: ImageData,
     use_labels: bool = False,
-    known_labels: List[str] = None,
     score_type: Literal['detection', 'classification'] = None,
-    filter_by_label: List[str] = None,
+    filter_by_labels: List[str] = None,
+    known_labels: List[str] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    draw_base_labels_resize_by_bbox: bool = False
 ) -> np.ndarray:
-    image = image_data.open_image().copy()
+    image_data = get_image_data_filtered_by_labels(
+        image_data=image_data,
+        filter_by_labels=filter_by_labels
+    )
+    image = image_data.open_image()
     bboxes_data = image_data.bboxes_data
-    if filter_by_label is not None:
-        bboxes_data = [
-            bbox_data for bbox_data in bboxes_data
-            if bbox_data.label in filter_by_label
-        ]
     labels = [bbox_data.label for bbox_data in bboxes_data]
     bboxes = np.array([
         (bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax)
@@ -106,40 +193,18 @@ def visualize_image_data(
             label
             for label in labels
         ]
-        if known_labels is None:
-            known_labels = labels
-        categories = [{
-            "id": i,
-            "name": class_name
-        } for i, class_name in enumerate(set(known_labels))]
-        class_name_to_id = {
-            category['name']: category['id']
-            for category in categories
-        }
-        classes = np.array([class_name_to_id[class_name]
-                            for class_name in labels])
     else:
-        categories = [
-            {
-                "id": 1,
-                "name": ""
-            }
-        ]
-        classes = np.array([1] * len(bboxes))
-    category_index = label_map_util.create_category_index(categories)
+        labels = np.array([1] * len(bboxes))
     image = visualize_boxes_and_labels_on_image_array(
-            image,
-            bboxes,
-            classes,
-            scores,
-            category_index,
+            image=image,
+            bboxes=bboxes,
+            scores=scores,
+            labels=labels,
             use_normalized_coordinates=False,
-            max_boxes_to_draw=None,
             skip_scores=skip_scores,
-            min_score_thresh=0.,
-            groundtruth_box_visualization_color='lime'
+            groundtruth_box_visualization_color='lime',
+            known_labels=known_labels
     )
-
     if draw_base_labels_with_given_label_to_base_label_image is not None:
         for bbox_data in image_data.bboxes_data:
             base_label_image = draw_base_labels_with_given_label_to_base_label_image(bbox_data.label)
@@ -147,7 +212,6 @@ def visualize_image_data(
                 image=image,
                 base_label_image=base_label_image,
                 bbox_data=bbox_data,
-                resize_by_bbox=draw_base_labels_resize_by_bbox,
                 inplace=True
             )
 
@@ -163,34 +227,25 @@ def visualize_images_data_side_by_side(
     score_type2: Literal['detection', 'classification'] = None,
     filter_by_labels1: List[str] = None,
     filter_by_labels2: List[str] = None,
-    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    draw_base_labels_resize_by_bbox: bool = False
+    known_labels: List[str] = None,
+    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None
 ) -> np.ndarray:
-
-    if use_labels1 and use_labels2:
-        labels1 = [bbox_data.label for bbox_data in image_data1.bboxes_data]
-        labels2 = [bbox_data.label for bbox_data in image_data2.bboxes_data]
-        known_labels = list(set(labels1 + labels2))
-    else:
-        known_labels = None
 
     true_ann_image = visualize_image_data(
         image_data=image_data1,
         use_labels=use_labels1,
-        known_labels=known_labels,
         score_type=score_type1,
-        filter_by_label=filter_by_labels1,
+        filter_by_labels=filter_by_labels1,
+        known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
-        draw_base_labels_resize_by_bbox=draw_base_labels_resize_by_bbox
     )
     pred_ann_image = visualize_image_data(
         image_data=image_data2,
         use_labels=use_labels2,
-        known_labels=known_labels,
         score_type=score_type2,
-        filter_by_label=filter_by_labels2,
+        filter_by_labels=filter_by_labels2,
+        known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
-        draw_base_labels_resize_by_bbox=draw_base_labels_resize_by_bbox
     )
 
     image = cv2.hconcat([true_ann_image, pred_ann_image])

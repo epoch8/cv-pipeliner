@@ -78,7 +78,7 @@ def visualize_image_data_matching_side_by_side(
     true_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
     pred_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    draw_base_labels_resize_by_bbox: bool = True
+    known_labels: List[str] = None
 ) -> np.ndarray:
 
     (true_image_data_with_visualized_labels,
@@ -105,7 +105,7 @@ def visualize_image_data_matching_side_by_side(
         score_type1=true_score_type, score_type2=pred_score_type,
         filter_by_labels1=true_filter_by_labels,
         filter_by_labels2=pred_filter_by_labels,
+        known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
-        draw_base_labels_resize_by_bbox=draw_base_labels_resize_by_bbox
     )
     return image

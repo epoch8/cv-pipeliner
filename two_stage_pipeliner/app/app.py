@@ -5,11 +5,13 @@ from typing import Union, Literal, List
 from io import BytesIO
 
 import tensorflow as tf
+import numpy as np
 
 from two_stage_pipeliner.core.data import ImageData
 from two_stage_pipeliner.visualizers.core.image_data import visualize_image_data
 from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from two_stage_pipeliner.tracking.video_inferencer import VideoInferencer
+from two_stage_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
 
 from .data import get_images_data_from_dir, get_videos_data_from_dir
 from .model import (
@@ -67,9 +69,15 @@ def run_app(config_file: Union[str, Path]):
             value=detection_model_definition.score_threshold,
             step=0.05
         )
-        run = st.sidebar.button('RUN')
+        filter_by_labels = st.sidebar.multiselect(
+            label="Classes to find",
+            options=list(pipeline_inferencer.class_names),
+            default=[]
+        )
+        run = st.sidebar.checkbox('RUN')
     else:
         pipeline_inferencer = None
+        filter_by_labels = None
         run = False
 
     st.sidebar.title("Input")
@@ -175,12 +183,6 @@ def run_app(config_file: Union[str, Path]):
             classification_delay = st.sidebar.slider(
                 "Classification delay in ms", min_value=0, max_value=500, value=50
             )
-            st.sidebar.title("Parts to find")
-            classes_to_find = st.sidebar.multiselect(
-                "Classes to find",
-                options=['all classes'] + list(pipeline_inferencer.class_names),
-                default=['all classes']
-            )
 
     @st.cache(show_spinner=False, allow_output_mutation=True)
     def inference_one_image(image_data: ImageData,
@@ -190,7 +192,8 @@ def run_app(config_file: Union[str, Path]):
         pred_image_data = pipeline_inferencer.predict(
             image_data_gen,
             detection_score_threshold=detection_score_threshold,
-            open_images_in_images_data=True
+            open_images_in_images_data=False,
+            open_cropped_images_in_bboxes_data=False
         )[0]
         return pred_image_data
 
@@ -199,12 +202,13 @@ def run_app(config_file: Union[str, Path]):
         classification_delay: int,
         detection_delay: int,
         detection_score_threshold: float,
-        classes_to_find: List[Literal[str, 'all classes']]
+        filter_by_labels: List[str],
+        draw_base_labels_with_given_label_to_base_label_image: bool
     ) -> tempfile.NamedTemporaryFile:
 
         video_inferencer = VideoInferencer(
             pipeline_inferencer=pipeline_inferencer,
-            label_to_base_label_image=label_to_base_label_image,
+            draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
             write_labels=use_labels
         )
 
@@ -213,10 +217,14 @@ def run_app(config_file: Union[str, Path]):
             classification_delay=classification_delay,
             detection_delay=detection_delay,
             detection_score_threshold=detection_score_threshold,
-            classes_to_find=classes_to_find
+            filter_by_labels=filter_by_labels
         )
 
         return result_video_file
+
+    @st.cache(show_spinner=False, allow_output_mutation=True)
+    def cached_visualize_image_data(**kwargs) -> np.ndarray:
+        return visualize_image_data(**kwargs)
 
     if input_type == 'Image':
         if run and image_data is not None:
@@ -225,19 +233,27 @@ def run_app(config_file: Union[str, Path]):
                     image_data=image_data,
                     detection_score_threshold=detection_score_threshold
                 )
-            pred_image = visualize_image_data(
+            image_data = get_image_data_filtered_by_labels(
+                image_data=image_data,
+                filter_by_labels=filter_by_labels
+            )
+            pred_image_data = get_image_data_filtered_by_labels(
+                image_data=pred_image_data,
+                filter_by_labels=filter_by_labels
+            )
+            pred_image = cached_visualize_image_data(
                 image_data=pred_image_data,
                 use_labels=use_labels,
-                draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image
+                draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
             )
             st.image(image=pred_image, use_column_width=True)
             if show_annotation:
                 illustrate_bboxes_data(
                     true_image_data=image_data,
-                    minimum_iou=cfg.data.minimum_iou,
                     label_to_base_label_image=label_to_base_label_image,
                     mode=mode,
                     pred_image_data=pred_image_data,
+                    minimum_iou=cfg.data.minimum_iou,
                     background_color_a=[0, 0, 0, 255],
                     true_background_color_b=[0, 255, 0, 255],
                     pred_background_color_b=[255, 255, 0, 255]
@@ -245,7 +261,6 @@ def run_app(config_file: Union[str, Path]):
             else:
                 illustrate_bboxes_data(
                     true_image_data=pred_image_data,
-                    minimum_iou=cfg.data.minimum_iou,
                     label_to_base_label_image=label_to_base_label_image,
                     mode=mode,
                     background_color_a=[0, 0, 0, 255],
@@ -253,16 +268,19 @@ def run_app(config_file: Union[str, Path]):
                 )
         else:
             if image_data is not None:
+                image_data = get_image_data_filtered_by_labels(
+                    image_data=image_data,
+                    filter_by_labels=filter_by_labels
+                )
                 if show_annotation:
-                    image = visualize_image_data(
+                    image = cached_visualize_image_data(
                         image_data=image_data,
                         use_labels=use_labels,
-                        draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image
+                        draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
                     )
                     st.image(image=image, use_column_width=True)
                     illustrate_bboxes_data(
                         true_image_data=image_data,
-                        minimum_iou=cfg.data.minimum_iou,
                         label_to_base_label_image=label_to_base_label_image,
                         mode=mode,
                         background_color_a=[0, 0, 0, 255],
@@ -279,7 +297,8 @@ def run_app(config_file: Union[str, Path]):
                     classification_delay=classification_delay,
                     detection_delay=detection_delay,
                     detection_score_threshold=detection_score_threshold,
-                    classes_to_find=classes_to_find
+                    filter_by_labels=filter_by_labels,
+                    draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image
                 )
             st.video(result_video_file, format='video/mp4')
         else:

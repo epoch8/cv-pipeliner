@@ -6,6 +6,8 @@ from two_stage_pipeliner.core.inference_model import InferenceModel, ModelSpec
 from two_stage_pipeliner.inference_models.detection.core import DetectionModelSpec
 from two_stage_pipeliner.inference_models.classification.core import ClassificationModelSpec
 
+from two_stage_pipeliner.logging import logger
+
 
 @dataclass
 class PipelineModelSpec(ModelSpec):
@@ -62,12 +64,18 @@ class PipelineModel(InferenceModel):
         input: PipelineInput,
         detection_score_threshold: float
     ) -> PipelineOutput:
+        logger.info("Running detection...")
         detection_input = self.detection_model.preprocess_input(input)
         (n_pred_cropped_images, n_pred_bboxes,
          n_pred_detection_scores) = self.detection_model.predict(
             detection_input,
             score_threshold=detection_score_threshold
         )
+        logger.info(
+            f"Detection: found {np.sum([len(pred_bboxes) for pred_bboxes in n_pred_bboxes])} bboxes!"
+        )
+
+        logger.info("Running classification...")
         shapes = [len(pred_cropped_images) for pred_cropped_images in n_pred_cropped_images]
         classification_input = self.classification_model.preprocess_input([
             cropped_image
@@ -77,6 +85,7 @@ class PipelineModel(InferenceModel):
         pred_labels, pred_classification_scores = self.classification_model.predict(classification_input)
         n_pred_labels = self._split_chunks(pred_labels, shapes)
         n_pred_classification_scores = self._split_chunks(pred_classification_scores, shapes)
+        logger.info("Classification end!")
         return (
             n_pred_cropped_images,
             n_pred_bboxes,
