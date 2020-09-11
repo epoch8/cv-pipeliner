@@ -48,27 +48,27 @@ def get_df_pipeline_metrics(
     for class_name in class_names:
         support_by_class_name = np.sum(true_labels == class_name)
         TP_by_class_name = np.sum([
-            image_data_matching.get_pipeline_TP(filter_by_label=class_name)
+            image_data_matching.get_pipeline_TP(filter_by_labels=class_name)
             for image_data_matching in images_data_matchings
         ])
         FP_by_class_name = np.sum(
-            image_data_matching.get_pipeline_FP(filter_by_label=class_name)
+            image_data_matching.get_pipeline_FP(filter_by_labels=class_name)
             for image_data_matching in images_data_matchings
         )
         if class_name != extra_bbox_label:
             TP_extra_bbox_by_class_name = np.sum([
-                image_data_matching.get_pipeline_TP_extra_bbox(filter_by_label=class_name)
+                image_data_matching.get_pipeline_TP_extra_bbox(filter_by_labels=class_name)
                 for image_data_matching in images_data_matchings
             ])
             FP_extra_bbox_by_class_name = np.sum([
-                image_data_matching.get_pipeline_FP_extra_bbox(filter_by_label=class_name)
+                image_data_matching.get_pipeline_FP_extra_bbox(filter_by_labels=class_name)
                 for image_data_matching in images_data_matchings
             ])
         else:
             TP_extra_bbox_by_class_name = None
             FP_extra_bbox_by_class_name = None
         FN_by_class_name = np.sum([
-            image_data_matching.get_pipeline_FN(filter_by_label=class_name)
+            image_data_matching.get_pipeline_FN(filter_by_labels=class_name)
             for image_data_matching in images_data_matchings
         ])
         TP_extra_bbox_in_precision_numerator = 0 if TP_extra_bbox_by_class_name is None else TP_extra_bbox_by_class_name
@@ -81,7 +81,7 @@ def get_df_pipeline_metrics(
             max(precision_by_class_name + recall_by_class_name, 1e-6)
         )
         classification_errors_count_on_true_bboxes_by_class_name = np.sum(
-            image_data_matching.get_classification_errors_count_on_true_bboxes(filter_by_label=class_name)
+            image_data_matching.get_classification_errors_count_on_true_bboxes(filter_by_labels=class_name)
             for image_data_matching in images_data_matchings
         )
         pipeline_metrics[class_name] = {
@@ -142,7 +142,7 @@ def get_df_pipeline_metrics(
     weighted_average_f1_score = np.average(f1_scores, weights=supports)
     sum_support = np.sum(supports)
     classification_errors_count_on_true_bboxes = np.sum(
-        [[image_data_matching.get_classification_errors_count_on_true_bboxes(filter_by_label=class_name)
+        [[image_data_matching.get_classification_errors_count_on_true_bboxes(filter_by_labels=class_name)
           for image_data_matching in images_data_matchings]
          for class_name in class_names]
     )
@@ -191,27 +191,27 @@ def get_df_pipeline_metrics(
         ]
         sum_known_supports = np.sum(known_supports)
         known_TP = np.sum(
-            [[image_data_matching.get_classification_correct_count_on_true_bboxes(filter_by_label=class_name)
+            [[image_data_matching.get_classification_correct_count_on_true_bboxes(filter_by_labels=class_name)
               for image_data_matching in images_data_matchings]
              for class_name in use_soft_metrics_with_known_labels]
         )
         known_FP = np.sum(
-            [[image_data_matching.get_classification_errors_count_on_true_bboxes(filter_by_label=class_name)
+            [[image_data_matching.get_classification_errors_count_on_true_bboxes(filter_by_labels=class_name)
               for image_data_matching in images_data_matchings]
              for class_name in use_soft_metrics_with_known_labels]
         )
         known_FN = np.sum(
-            [[image_data_matching.get_pipeline_FN(filter_by_label=class_name)
+            [[image_data_matching.get_pipeline_FN(filter_by_labels=class_name)
               for image_data_matching in images_data_matchings]
              for class_name in use_soft_metrics_with_known_labels]
         )
         known_TP_extra_bbox = np.sum(
-            [[image_data_matching.get_pipeline_TP_extra_bbox(filter_by_label=class_name)
+            [[image_data_matching.get_pipeline_TP_extra_bbox(filter_by_labels=class_name)
               for image_data_matching in images_data_matchings]
              for class_name in use_soft_metrics_with_known_labels]
         )
         known_FP_extra_bbox = np.sum(
-            [[image_data_matching.get_pipeline_FP_extra_bbox(filter_by_label=class_name)
+            [[image_data_matching.get_pipeline_FP_extra_bbox(filter_by_labels=class_name)
               for image_data_matching in images_data_matchings]
              for class_name in use_soft_metrics_with_known_labels]
         )

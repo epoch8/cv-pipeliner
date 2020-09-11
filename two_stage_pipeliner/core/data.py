@@ -25,21 +25,22 @@ class BboxData:
         if self.image_path is not None:
             super().__setattr__('image_path', Path(self.image_path))
 
-    def open_cropped_image(self, inplace: bool = False) -> Union[None, np.ndarray]:
+    def open_cropped_image(
+        self,
+        inplace: bool = False,
+        source_image: np.ndarray = None
+    ) -> Union[None, np.ndarray]:
+
         if self.cropped_image is not None:
             if not inplace:
                 return self.cropped_image
             else:
-                cropped_image = self.cropped_image.copy()
+                cropped_image = self.cropped_image
         else:
-            if self.image is not None:
-                image = self.image
-            elif self.image_path is not None:
-                image = np.array(imageio.imread(self.image_path, pilmode="RGB"))
-            elif self.image_bytes is not None:
-                image = np.array(imageio.imread(self.image_bytes))
+            if source_image is not None:
+                image = source_image
             else:
-                raise ValueError("BboxData doesn't have any image.")
+                image = self.open_image()
 
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
@@ -50,6 +51,27 @@ class BboxData:
             super().__setattr__('cropped_image', cropped_image)
         else:
             return cropped_image
+
+    def open_image(
+        self,
+        inplace: bool = False
+    ) -> Union[None, np.ndarray]:
+        if self.image is not None:
+            if not inplace:
+                return self.image
+            else:
+                image = self.image.copy()
+        elif self.image_path is not None:
+            image = np.array(imageio.imread(self.image_path, pilmode="RGB"))
+        elif self.image_bytes is not None:
+            image = np.array(imageio.imread(self.image_bytes))
+        else:
+            raise ValueError("BboxData doesn't have any image.")
+
+        if inplace:
+            super().__setattr__('image', image)
+        else:
+            return image
 
     def assert_coords_are_valid(self):
         assert all(x is not None for x in [self.xmin, self.ymin, self.xmax, self.ymax])

@@ -99,6 +99,7 @@ class DetectionVisualizer(Visualizer):
                         image_data2=self.pred_image_data,
                         use_labels1=False, use_labels2=False,
                         score_type1=None, score_type2='detection',
+                        known_labels=['TP+FN', 'TP', 'FN']
                     )))
 
         self.jupyter_visualizer = JupyterVisualizer(
