@@ -21,6 +21,10 @@ class BboxData:
     label: str = None
     classification_score: float = None
 
+    top_n: int = None
+    labels_top_n: List[str] = None
+    classification_scores_top_n: List[float] = None
+
     def __post_init__(self):
         if self.image_path is not None:
             super().__setattr__('image_path', Path(self.image_path))

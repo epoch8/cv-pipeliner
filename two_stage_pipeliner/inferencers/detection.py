@@ -67,12 +67,16 @@ class DetectionInferencer(Inferencer):
                 input = [image_data.image for image_data in images_data]
                 input = self.model.preprocess_input(input)
                 n_pred_cropped_images, n_pred_bboxes, n_pred_scores = self.model.predict(
-                    input,
+                    input=input,
                     score_threshold=score_threshold
                 )
                 pred_images_data_batch = self._postprocess_predictions(
-                    images_data, n_pred_cropped_images, n_pred_bboxes, n_pred_scores,
-                    open_images_in_images_data, open_cropped_images_in_bboxes_data
+                    images_data=images_data,
+                    n_pred_cropped_images=n_pred_cropped_images,
+                    n_pred_bboxes=n_pred_bboxes,
+                    n_pred_scores=n_pred_scores,
+                    open_images_in_images_data=open_images_in_images_data,
+                    open_cropped_images_in_bboxes_data=open_cropped_images_in_bboxes_data
                 )
                 pred_images_data.extend(pred_images_data_batch)
                 pbar.update(len(images_data))
