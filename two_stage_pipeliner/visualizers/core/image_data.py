@@ -70,7 +70,7 @@ def visualize_boxes_and_labels_on_image_array(
 
     for i in range(len(bboxes)):
         bbox = tuple(bboxes[i].tolist())
-        if scores is None:
+        if skip_labels:
             bbox_to_color[bbox] = groundtruth_box_visualization_color
         else:
             display_str = ''
@@ -185,16 +185,9 @@ def visualize_image_data(
         scores = np.array([bbox_data.classification_score for bbox_data in bboxes_data])
         skip_scores = False
     else:
-        scores = [1.] * len(bboxes_data)
+        scores = None
         skip_scores = True
 
-    if use_labels:
-        labels = [
-            label
-            for label in labels
-        ]
-    else:
-        labels = np.array([1] * len(bboxes))
     image = visualize_boxes_and_labels_on_image_array(
             image=image,
             bboxes=bboxes,
@@ -202,6 +195,7 @@ def visualize_image_data(
             labels=labels,
             use_normalized_coordinates=False,
             skip_scores=skip_scores,
+            skip_labels=not use_labels,
             groundtruth_box_visualization_color='lime',
             known_labels=known_labels
     )
