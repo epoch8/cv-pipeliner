@@ -93,8 +93,13 @@ class Tensorflow_ClassificationModel(ClassificationModel):
     ) -> ClassificationOutput:
         predictions = self._raw_predict(input)
         max_scores_top_n_idxs = np.array(predictions).argsort(axis=1)[:, -top_n:]
-        pred_labels_top_n = [self.id_to_class_name[idxs] for idxs in max_scores_top_n_idxs]
-        pred_scores_top_n = [predictions[idxs] for idxs in max_scores_top_n_idxs] 
+        id_to_class_names_repeated = np.repeat(
+            a=self.id_to_class_name[None, ...],
+            repeats=len(input),
+            axis=0
+        )
+        pred_labels_top_n = np.take_along_axis(id_to_class_names_repeated, max_scores_top_n_idxs, axis=1)
+        pred_scores_top_n = np.take_along_axis(predictions, max_scores_top_n_idxs, axis=1)
 
         return pred_labels_top_n, pred_scores_top_n
 
