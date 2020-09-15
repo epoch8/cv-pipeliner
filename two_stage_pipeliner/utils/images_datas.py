@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List
 
 from two_stage_pipeliner.core.data import ImageData
 

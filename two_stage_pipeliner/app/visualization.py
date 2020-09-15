@@ -1,14 +1,13 @@
 from pathlib import Path
 from typing import Tuple, Callable, Literal, List
 
-import cv2
 import imageio
 import numpy as np
 import imutils
-from PIL import Image
 
 from two_stage_pipeliner.core.data import BboxData, ImageData
 from two_stage_pipeliner.metrics.image_data_matching import BboxDataMatching, ImageDataMatching
+from two_stage_pipeliner.utils.images import concat_images
 
 import streamlit as st
 
@@ -43,55 +42,6 @@ def get_label_to_base_label_image(base_labels_images_dir) -> Callable[[str], np.
             return label_to_base_label_image_dict['unknown']
 
     return label_to_base_label_image
-
-
-def concat_images(
-    image_a: np.ndarray,
-    image_b: np.ndarray,
-    background_color_a: Tuple[int, int, int, int] = None,
-    background_color_b: Tuple[int, int, int, int] = None,
-    thumbnail_size_a: Tuple[int, int] = None,
-    thumbnail_size_b: Tuple[int, int] = None
-) -> np.ndarray:
-    if image_a.shape[-1] == 3:
-        image_a = cv2.cvtColor(image_a, cv2.COLOR_RGB2RGBA)
-    if image_b.shape[-1] == 3:
-        image_b = cv2.cvtColor(image_b, cv2.COLOR_RGB2RGBA)
-    if thumbnail_size_a is not None:
-        image_a = Image.fromarray(image_a)
-        image_a.thumbnail(thumbnail_size_b)
-        image_a = np.array(image_a)
-    if thumbnail_size_b is not None:
-        image_b = Image.fromarray(image_b)
-        image_b.thumbnail(thumbnail_size_b)
-        image_b = np.array(image_b)
-
-    ha, wa = image_a.shape[:2]
-    hb, wb = image_b.shape[:2]
-    max_height = np.max([ha, hb])
-    total_width = wa + wb
-
-    min_ha = max_height // 2 - ha // 2
-    max_ha = max_height // 2 + ha // 2
-    min_hb = max_height // 2 - hb // 2
-    max_hb = max_height // 2 + hb // 2
-
-    new_image = np.zeros(shape=(max_height, total_width, 4), dtype=np.uint8)
-    new_image[min_ha:max_ha, :wa, :] = image_a[0:(max_ha-min_ha), :]
-    new_image[min_hb:max_hb, wa:wa+wb, :] = image_b[0:(max_hb-min_hb), :]
-
-    if background_color_a is not None:
-        new_image[:3, :wa, :] = background_color_a
-        new_image[-3:, :wa, :] = background_color_a
-        new_image[:, :3, :] = background_color_a
-        new_image[:, wa-2:wa, :] = background_color_a
-    if background_color_b is not None:
-        new_image[:3, wa:, :] = background_color_b
-        new_image[-3:, wa:, :] = background_color_b
-        new_image[:, -3:, :] = background_color_b
-        new_image[:, wa:wa+2, :] = background_color_b
-
-    return new_image
 
 
 @st.cache(show_spinner=False)
