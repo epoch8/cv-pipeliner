@@ -1,7 +1,8 @@
 
 import abc
+import json
 
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Literal
 from pathlib import Path
 
 from two_stage_pipeliner.logging import logger
@@ -15,6 +16,11 @@ def assert_image_data(fn):
         annot: Union[Path, str, Dict]
     ) -> ImageData:
         image_data = fn(data_converter, image_path, annot)
+        if image_data is None:
+            logger.info(
+                f"Image {image_path} does not have annotation in given annot. Skipping..."
+            )
+            return None
         looked_bboxes = set()
         new_bboxes_data = []
         for bbox_data in image_data.bboxes_data:
@@ -102,14 +108,23 @@ class DataConverter(abc.ABC):
     def get_images_data_from_annots(
         self,
         image_paths: List[Union[Path, str]],
-        annots: List[Union[Path, str, Dict]]
+        annots: Literal[List[Union[Path, str, Dict]], Union[Path, str, Dict]]
     ) -> List[ImageData]:
-        assert len(image_paths) == len(annots)
+        if isinstance(annots, str) or isinstance(annots, Path):
+            with open(annots, 'r', encoding='utf8') as f:
+                annots = json.load(f)
+            images_data = [
+                self.get_image_data_from_annot(image_path, annots)
+                for image_path in image_paths
+            ]
+        elif isinstance(annots, List):
+            assert len(image_paths) == len(annots)
+            images_data = [
+                self.get_image_data_from_annot(image_path, annot)
+                for image_path, annot in zip(image_paths, annots)
+            ]
 
-        images_data = [
-            self.get_image_data_from_annot(image_path, annot)
-            for image_path, annot in zip(image_paths, annots)
-        ]
+        images_data = [image_data for image_data in images_data if image_data is not None]
         return images_data
 
     def get_n_bboxes_data_from_annots(
