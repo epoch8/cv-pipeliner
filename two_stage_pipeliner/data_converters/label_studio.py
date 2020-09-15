@@ -30,11 +30,11 @@ class LabelStudioDetectionDataConverter(DataConverter):
     ) -> ImageData:
         if isinstance(annot, str) or isinstance(annot, Path):
             with open(annot, 'r') as src:
-                result_json = json.load(src)
+                annot = json.load(src)
 
         image_path = Path(image_path)
         completions = None
-        for ann_item in result_json:
+        for ann_item in annot:
             filename = Path(ann_item['data']['image']).name
             if filename == image_path.name:
                 completions = ann_item['completions']
