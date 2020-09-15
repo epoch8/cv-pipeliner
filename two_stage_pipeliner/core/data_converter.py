@@ -9,68 +9,6 @@ from two_stage_pipeliner.logging import logger
 from two_stage_pipeliner.core.data import BboxData, ImageData
 
 
-def assert_image_data(fn):
-    def wrapped(
-        data_converter: "DataConverter",
-        image_path: Union[str, Path],
-        annot: Union[Path, str, Dict]
-    ) -> ImageData:
-        image_data = fn(data_converter, image_path, annot)
-        if image_data is None:
-            logger.info(
-                f"Image {image_path} does not have annotation in given annot. Skipping..."
-            )
-            return None
-        looked_bboxes = set()
-        new_bboxes_data = []
-        for bbox_data in image_data.bboxes_data:
-            xmin, ymin, xmax, ymax = bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax
-            xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(xmax), int(ymax)
-
-            if (xmin, ymin, xmax, ymax) in looked_bboxes:
-                logger.warning(
-                    f'Repeated bbox detected at image {bbox_data.image_path}: '
-                    f'(xmin, ymin, xmax, ymax) = {(xmin, xmin, ymax, xmax)}. Skipping.'
-                )
-                continue
-            else:
-                looked_bboxes.add((xmin, ymin, xmax, ymax))
-
-            if xmin >= xmax or ymin >= ymax:
-                logger.warning(
-                    f"Wrong annotation: "
-                    f"incorrect bbox (xmin, ymin, xmax, ymax): {(xmin, ymin, xmax, ymax)} "
-                    "(xmin >= xmax or ymin >= ymax). Skipping."
-                )
-                continue
-
-            if data_converter.class_names is not None and data_converter.class_mapper is not None:
-                bbox_data.label = data_converter._filter_label_by_class_mapper(
-                    bbox_data.label,
-                    data_converter.class_names,
-                    data_converter.class_mapper,
-                    data_converter.default_value
-                )
-
-            if (
-                data_converter.class_names and
-                bbox_data.label not in data_converter.class_names and
-                data_converter.skip_nonexists
-            ):
-                continue
-
-            new_bboxes_data.append(bbox_data)
-
-        image_data = ImageData(
-            image_path=image_data.image_path,
-            bboxes_data=new_bboxes_data
-        )
-
-        return image_data
-
-    return wrapped
-
-
 class DataConverter(abc.ABC):
     def __init__(self,
                  class_names: List[str] = None,
@@ -81,6 +19,67 @@ class DataConverter(abc.ABC):
         self.class_mapper = class_mapper
         self.default_value = default_value
         self.skip_nonexists = skip_nonexists
+
+    def assert_image_data(fn):
+        def wrapped(
+            data_converter: "DataConverter",
+            image_path: Union[str, Path],
+            annot: Union[Path, str, Dict]
+        ) -> ImageData:
+            image_data = fn(data_converter, image_path, annot)
+            if image_data is None:
+                logger.info(
+                    f"Image {image_path} does not have annotation in given annot. Skipping..."
+                )
+                return None
+            looked_bboxes = set()
+            new_bboxes_data = []
+            for bbox_data in image_data.bboxes_data:
+                xmin, ymin, xmax, ymax = bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax
+                xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(xmax), int(ymax)
+
+                if (xmin, ymin, xmax, ymax) in looked_bboxes:
+                    logger.warning(
+                        f'Repeated bbox detected at image {bbox_data.image_path}: '
+                        f'(xmin, ymin, xmax, ymax) = {(xmin, xmin, ymax, xmax)}. Skipping.'
+                    )
+                    continue
+                else:
+                    looked_bboxes.add((xmin, ymin, xmax, ymax))
+
+                if xmin >= xmax or ymin >= ymax:
+                    logger.warning(
+                        f"Wrong annotation: "
+                        f"incorrect bbox (xmin, ymin, xmax, ymax): {(xmin, ymin, xmax, ymax)} "
+                        "(xmin >= xmax or ymin >= ymax). Skipping."
+                    )
+                    continue
+
+                if data_converter.class_names is not None and data_converter.class_mapper is not None:
+                    bbox_data.label = data_converter._filter_label_by_class_mapper(
+                        bbox_data.label,
+                        data_converter.class_names,
+                        data_converter.class_mapper,
+                        data_converter.default_value
+                    )
+
+                if (
+                    data_converter.class_names and
+                    bbox_data.label not in data_converter.class_names and
+                    data_converter.skip_nonexists
+                ):
+                    continue
+
+                new_bboxes_data.append(bbox_data)
+
+            image_data = ImageData(
+                image_path=image_data.image_path,
+                bboxes_data=new_bboxes_data
+            )
+
+            return image_data
+
+        return wrapped
 
     def _filter_label_by_class_mapper(
         self,

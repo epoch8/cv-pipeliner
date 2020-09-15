@@ -3,7 +3,7 @@ import json
 from typing import Union, Dict, List
 from pathlib import Path
 
-from two_stage_pipeliner.core.data_converter import DataConverter, assert_image_data
+from two_stage_pipeliner.core.data_converter import DataConverter
 from two_stage_pipeliner.core.data import BboxData, ImageData
 
 
@@ -20,7 +20,7 @@ class BrickitDataConverter(DataConverter):
             skip_nonexists=skip_nonexists
         )
 
-    @assert_image_data
+    @DataConverter.assert_image_data
     def get_image_data_from_annot(
         self,
         image_path: Union[Path, str],
