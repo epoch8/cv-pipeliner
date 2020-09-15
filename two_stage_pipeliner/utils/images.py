@@ -1,4 +1,5 @@
 import io
+import math
 from typing import List, Tuple
 from matplotlib.figure import Figure
 from PIL import Image
@@ -41,6 +42,15 @@ def get_img_from_fig(fig: Figure) -> np.ndarray:
     img = cv2.imdecode(img_arr, 1)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img
+
+
+def rotate_point(
+    x: float, y: float, cx: float, cy: float, angle: float
+) -> Tuple[float, float]:
+    angle = math.radians(angle)
+    xnew = cx + (x - cx) * math.cos(angle) - (y - cy) * math.sin(angle)
+    ynew = cy + (x - cx) * math.sin(angle) + (y - cy) * math.cos(angle)
+    return xnew, ynew
 
 
 def concat_images(
