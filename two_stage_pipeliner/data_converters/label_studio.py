@@ -72,8 +72,8 @@ class LabelStudioDetectionDataConverter(DataConverter):
             ymax = ymax / 100 * original_height
             points = [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
             new_points = [rotate_point(x=x, y=y, cx=xmin, cy=ymin, angle=angle) for (x, y) in points]
-            xmin = min([x for (x, y) in new_points])
-            ymin = min([y for (x, y) in new_points])
+            xmin = max(0, min([x for (x, y) in new_points]))
+            ymin = max(0, min([y for (x, y) in new_points]))
             xmax = max([x for (x, y) in new_points])
             ymax = max([y for (x, y) in new_points])
             bbox = np.array([xmin, ymin, xmax, ymax])

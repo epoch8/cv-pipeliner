@@ -47,11 +47,11 @@ class DataConverter(abc.ABC):
                 else:
                     looked_bboxes.add((xmin, ymin, xmax, ymax))
 
-                if xmin >= xmax or ymin >= ymax:
+                if xmin >= xmax or ymin >= ymax or xmin < 0 or ymin < 0:
                     logger.warning(
                         f"Wrong annotation: "
                         f"incorrect bbox (xmin, ymin, xmax, ymax): {(xmin, ymin, xmax, ymax)} "
-                        "(xmin >= xmax or ymin >= ymax). Skipping."
+                        "(xmin >= xmax or ymin >= ymax or xmin < 0 or ymin < 0). Skipping."
                     )
                     continue
 
