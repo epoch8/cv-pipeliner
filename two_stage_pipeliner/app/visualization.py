@@ -1,7 +1,5 @@
-from pathlib import Path
 from typing import Tuple, Callable, Literal, List
 
-import imageio
 import numpy as np
 import imutils
 
@@ -10,38 +8,6 @@ from two_stage_pipeliner.metrics.image_data_matching import BboxDataMatching, Im
 from two_stage_pipeliner.utils.images import concat_images
 
 import streamlit as st
-
-
-@st.cache(show_spinner=False)
-def get_label_to_base_label_image(base_labels_images_dir) -> Callable[[str], np.ndarray]:
-    base_labels_images_dir = Path(base_labels_images_dir)
-    base_labels_images_paths = list(base_labels_images_dir.glob('*.png')) + list(base_labels_images_dir.glob('*.jp*g'))
-    ann_class_names = [base_label_image_path.stem for base_label_image_path in base_labels_images_paths]
-    unknown_image_filepath = None
-    for candidate in ['unknown.png', 'unknown.jpg', 'unknown.jp*g']:
-        if (base_labels_images_dir / candidate).exists():
-            unknown_image_filepath = base_labels_images_dir / candidate
-            break
-    if unknown_image_filepath is None:
-        raise ValueError('base_labels_images_dir must have unknown.png, unknown.jpg or unknown.jpeg.')
-
-    unknown_image = np.array(imageio.imread(unknown_image_filepath))
-    label_to_base_label_image_dict = {}
-    for label in ann_class_names + ['unknown']:
-        filepath = base_labels_images_dir / f"{label}.png"
-        if filepath.exists():
-            render = np.array(imageio.imread(filepath))
-        else:
-            render = unknown_image
-        label_to_base_label_image_dict[label] = render
-
-    def label_to_base_label_image(label: str) -> np.ndarray:
-        if label in label_to_base_label_image_dict:
-            return label_to_base_label_image_dict[label]
-        else:
-            return label_to_base_label_image_dict['unknown']
-
-    return label_to_base_label_image
 
 
 @st.cache(show_spinner=False)

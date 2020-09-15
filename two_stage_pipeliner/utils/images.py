@@ -1,6 +1,9 @@
 import io
 import math
-from typing import List, Tuple
+from pathlib import Path
+from typing import List, Tuple, Union, Callable
+
+import imageio
 from matplotlib.figure import Figure
 from PIL import Image
 
@@ -51,6 +54,39 @@ def rotate_point(
     xnew = cx + (x - cx) * math.cos(angle) - (y - cy) * math.sin(angle)
     ynew = cy + (x - cx) * math.sin(angle) + (y - cy) * math.cos(angle)
     return xnew, ynew
+
+
+def get_label_to_base_label_image(
+    base_labels_images_dir: Union[str, Path]
+) -> Callable[[str], np.ndarray]:
+    base_labels_images_dir = Path(base_labels_images_dir)
+    base_labels_images_paths = list(base_labels_images_dir.glob('*.png')) + list(base_labels_images_dir.glob('*.jp*g'))
+    ann_class_names = [base_label_image_path.stem for base_label_image_path in base_labels_images_paths]
+    unknown_image_filepath = None
+    for candidate in ['unknown.png', 'unknown.jpg', 'unknown.jp*g']:
+        if (base_labels_images_dir / candidate).exists():
+            unknown_image_filepath = base_labels_images_dir / candidate
+            break
+    if unknown_image_filepath is None:
+        raise ValueError('base_labels_images_dir must have unknown.png, unknown.jpg or unknown.jpeg.')
+
+    unknown_image = np.array(imageio.imread(unknown_image_filepath))
+    label_to_base_label_image_dict = {}
+    for label in ann_class_names + ['unknown']:
+        filepath = base_labels_images_dir / f"{label}.png"
+        if filepath.exists():
+            render = np.array(imageio.imread(filepath))
+        else:
+            render = unknown_image
+        label_to_base_label_image_dict[label] = render
+
+    def label_to_base_label_image(label: str) -> np.ndarray:
+        if label in label_to_base_label_image_dict:
+            return label_to_base_label_image_dict[label]
+        else:
+            return label_to_base_label_image_dict['unknown']
+
+    return label_to_base_label_image
 
 
 def concat_images(

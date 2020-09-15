@@ -99,14 +99,14 @@ class DataConverter(abc.ABC):
     @assert_image_data
     def get_image_data_from_annot(
         self,
-        image_path: Union[Path, str],
+        image_path: Union[str, Path],
         annot: Union[Path, str, Dict]
     ) -> ImageData:
         pass
 
     def get_images_data_from_annots(
         self,
-        image_paths: List[Union[Path, str]],
+        image_paths: List[Union[str, Path]],
         annots: Literal[List[Union[Path, str, Dict]], Union[Path, str, Dict]]
     ) -> List[ImageData]:
         if isinstance(annots, str) or isinstance(annots, Path):
@@ -128,7 +128,7 @@ class DataConverter(abc.ABC):
 
     def get_n_bboxes_data_from_annots(
         self,
-        image_paths: List[Union[Path, str]],
+        image_paths: List[Union[str, Path]],
         annots: List[Union[Path, str, Dict]]
     ) -> List[List[BboxData]]:
         assert len(image_paths) == len(annots)

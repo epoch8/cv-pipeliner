@@ -23,7 +23,7 @@ class SuperviselyDataConverter(DataConverter):
     @DataConverter.assert_image_data
     def get_image_data_from_annot(
         self,
-        image_path: Union[Path, str],
+        image_path: Union[str, Path],
         annot: Union[Path, str, Dict]
     ) -> ImageData:
         if isinstance(annot, str) or isinstance(annot, Path):
