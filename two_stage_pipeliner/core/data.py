@@ -32,7 +32,9 @@ class BboxData:
     def open_cropped_image(
         self,
         inplace: bool = False,
-        source_image: np.ndarray = None
+        source_image: np.ndarray = None,
+        width_offset: int = 0,
+        height_offset: int = 0
     ) -> Union[None, np.ndarray]:
 
         if self.cropped_image is not None:
@@ -48,8 +50,8 @@ class BboxData:
 
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
-            cropped_image = image[self.ymin:self.ymax,
-                                  self.xmin:self.xmax]
+            cropped_image = image[self.ymin-height_offset:self.ymax+height_offset,
+                                  self.xmin-width_offset:self.xmax+width_offset]
 
         if inplace:
             super().__setattr__('cropped_image', cropped_image)

@@ -62,19 +62,18 @@ def get_label_to_base_label_image(
     base_labels_images_dir = Path(base_labels_images_dir)
     base_labels_images_paths = list(base_labels_images_dir.glob('*.png')) + list(base_labels_images_dir.glob('*.jp*g'))
     ann_class_names = [base_label_image_path.stem for base_label_image_path in base_labels_images_paths]
-    unknown_image_filepath = None
-    for candidate in ['unknown.png', 'unknown.jpg', 'unknown.jp*g']:
-        if (base_labels_images_dir / candidate).exists():
-            unknown_image_filepath = base_labels_images_dir / candidate
-            break
-    if unknown_image_filepath is None:
+    unknown_image_candidates = list(base_labels_images_dir.glob("unknown.*"))
+    if len(unknown_image_candidates) == 0:
         raise ValueError('base_labels_images_dir must have unknown.png, unknown.jpg or unknown.jpeg.')
+    else:
+        unknown_image_filepath = unknown_image_candidates[0]
 
     unknown_image = np.array(imageio.imread(unknown_image_filepath))
     label_to_base_label_image_dict = {}
     for label in ann_class_names + ['unknown']:
-        filepath = base_labels_images_dir / f"{label}.png"
-        if filepath.exists():
+        filepath_candidates = list(base_labels_images_dir.glob(f"{label}.*"))
+        if len(filepath_candidates) > 0:
+            filepath = filepath_candidates[0]
             render = np.array(imageio.imread(filepath))
         else:
             render = unknown_image
@@ -98,9 +97,13 @@ def concat_images(
     thumbnail_size_b: Tuple[int, int] = None,
     how: Literal['horizontally', 'vertically'] = 'horizontally'
 ) -> np.ndarray:
-    if image_a.shape[-1] == 3:
+    if len(image_a.shape) == 2 or image_a.shape[-1] == 1:
+        image_a = cv2.cvtColor(image_a, cv2.COLOR_GRAY2RGBA)
+    elif image_a.shape[-1] == 3:
         image_a = cv2.cvtColor(image_a, cv2.COLOR_RGB2RGBA)
-    if image_b.shape[-1] == 3:
+    if len(image_b.shape) == 2 or image_b.shape[-1] == 1:
+        image_b = cv2.cvtColor(image_b, cv2.COLOR_GRAY2RGBA)
+    elif image_b.shape[-1] == 3:
         image_b = cv2.cvtColor(image_b, cv2.COLOR_RGB2RGBA)
     if thumbnail_size_a is not None:
         image_a = Image.fromarray(image_a)

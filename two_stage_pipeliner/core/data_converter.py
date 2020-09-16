@@ -129,10 +129,8 @@ class DataConverter(abc.ABC):
     def get_n_bboxes_data_from_annots(
         self,
         image_paths: List[Union[str, Path]],
-        annots: List[Union[Path, str, Dict]]
+        annots: Literal[List[Union[Path, str, Dict]], Union[Path, str, Dict]]
     ) -> List[List[BboxData]]:
-        assert len(image_paths) == len(annots)
-
         images_data = self.get_images_data_from_annots(image_paths, annots)
         n_bboxes_data = [image_data.bboxes_data for image_data in images_data]
         return n_bboxes_data
