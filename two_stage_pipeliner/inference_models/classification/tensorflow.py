@@ -92,7 +92,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         top_n: int = 1
     ) -> ClassificationOutput:
         predictions = self._raw_predict(input)
-        max_scores_top_n_idxs = np.array(predictions).argsort(axis=1)[:, -top_n:]
+        max_scores_top_n_idxs = (-np.array(predictions)).argsort(axis=1)[:, :top_n]
         id_to_class_names_repeated = np.repeat(
             a=self.id_to_class_name[None, ...],
             repeats=len(input),
