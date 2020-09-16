@@ -1,6 +1,7 @@
 from typing import List
 
 import numpy as np
+import imageio
 
 from two_stage_pipeliner.core.data import BboxData
 from two_stage_pipeliner.core.batch_generator import BatchGenerator
@@ -21,9 +22,22 @@ class BatchGeneratorBboxData(BatchGenerator):
 
     def __getitem__(self, index) -> List[BboxData]:
         batch = super().__getitem__(index)
+        unique_image_paths = set([
+            bbox_data.image_path for bbox_data in batch
+            if bbox_data.image_path is not None
+        ])
+        image_path_to_source_image = {
+            image_path: np.array(imageio.imread(image_path, pilmode="RGB"))
+            for image_path in unique_image_paths
+        }
         for bbox_data in batch:
+            source_image = (
+                image_path_to_source_image[bbox_data.image_path]
+                if bbox_data.image_path is not None
+                else None
+            )
             if self.open_cropped_images and bbox_data.cropped_image is None:
-                bbox_data.open_cropped_image(inplace=True)
+                bbox_data.open_cropped_image(source_image=source_image, inplace=True)
         return batch
 
     @property
