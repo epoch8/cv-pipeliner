@@ -20,8 +20,8 @@ class PipelineInferencer(Inferencer):
         n_pred_cropped_images: List[List[np.ndarray]],
         n_pred_bboxes: List[List[Tuple[int, int, int, int]]],
         n_pred_detection_scores: List[List[float]],
-        n_pred_labels_top_n: List[List[str]],
-        n_pred_classification_scores_top_n: List[List[float]],
+        n_pred_labels_top_n: List[List[List[str]]],
+        n_pred_classification_scores_top_n: List[List[List[float]]],
         open_images_in_images_data: bool,
         open_cropped_images_in_bboxes_data: bool
     ) -> List[ImageData]:
