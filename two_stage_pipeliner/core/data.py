@@ -50,8 +50,12 @@ class BboxData:
 
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
-            cropped_image = image[max(0, self.ymin-height_offset):self.ymax+height_offset,
-                                  max(0, self.xmin-width_offset):self.xmax+width_offset]
+            height, width, _ = image.shape
+            width_offset = max(0, min(width_offset, self.xmin-width_offset, width-self.xmax))
+            height_offset = max(0, min(height_offset, self.ymin-height_offset, height-self.ymax))
+
+            cropped_image = image[self.ymin-height_offset:self.ymax+height_offset,
+                                  self.xmin-width_offset:self.xmax+width_offset]
 
         if inplace:
             super().__setattr__('cropped_image', cropped_image)
