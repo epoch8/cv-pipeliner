@@ -1,7 +1,7 @@
 import os
 import tempfile
 from pathlib import Path
-from typing import Union, Literal, List
+from typing import Union, List
 from io import BytesIO
 
 import tensorflow as tf
@@ -12,6 +12,7 @@ from two_stage_pipeliner.visualizers.core.image_data import visualize_image_data
 from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from two_stage_pipeliner.tracking.video_inferencer import VideoInferencer
 from two_stage_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
+from two_stage_pipeliner.utils.images import get_label_to_base_label_image
 
 from .data import get_images_data_from_dir, get_videos_data_from_dir
 from .model import (
@@ -20,7 +21,7 @@ from .model import (
     load_pipeline_inferencer
 )
 from .config import get_cfg_defaults
-from .visualization import illustrate_bboxes_data, get_label_to_base_label_image
+from .visualization import illustrate_bboxes_data
 
 import streamlit as st
 st.set_option('deprecation.showfileUploaderEncoding', False)

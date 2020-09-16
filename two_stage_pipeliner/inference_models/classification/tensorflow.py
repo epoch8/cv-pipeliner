@@ -68,9 +68,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         else:
             self._preprocess_input = model_spec.preprocess_input
 
-        self.id_to_class_name = {
-            id: class_name for id, class_name in enumerate(self._class_names)
-        }
+        self.id_to_class_name = np.array([class_name for class_name in self._class_names])
 
         # Run model through a dummy image so that variables are created
         width, height = self.input_size
@@ -88,15 +86,22 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             raw_predictions_batch = self.model.predict(images)
         return raw_predictions_batch
 
-    def predict(self,
-                input: ClassificationInput,
-                disable_tqdm: bool = False) -> ClassificationOutput:
+    def predict(
+        self,
+        input: ClassificationInput,
+        top_n: int = 1
+    ) -> ClassificationOutput:
         predictions = self._raw_predict(input)
-        max_scores_idxs = np.argmax(predictions, axis=1)
-        pred_labels = np.array([self.id_to_class_name[i] for i in max_scores_idxs])
-        pred_scores = np.max(predictions, axis=1)
+        max_scores_top_n_idxs = (-np.array(predictions)).argsort(axis=1)[:, :top_n]
+        id_to_class_names_repeated = np.repeat(
+            a=self.id_to_class_name[None, ...],
+            repeats=len(input),
+            axis=0
+        )
+        pred_labels_top_n = np.take_along_axis(id_to_class_names_repeated, max_scores_top_n_idxs, axis=1)
+        pred_scores_top_n = np.take_along_axis(predictions, max_scores_top_n_idxs, axis=1)
 
-        return pred_labels, pred_scores
+        return pred_labels_top_n, pred_scores_top_n
 
     def preprocess_input(self, input: ClassificationInput):
         return self._preprocess_input(input)

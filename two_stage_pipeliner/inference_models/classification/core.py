@@ -7,11 +7,11 @@ from two_stage_pipeliner.core.inference_model import ModelSpec, InferenceModel
 Label = str
 Score = float
 
-Labels = List[Label]
-Scores = List[Score]
+Labels_Top_N = List[List[Label]]
+Scores_Top_N = List[List[Score]]
 
 ClassificationInput = List[np.ndarray]
-ClassificationOutput = Tuple[Labels, Scores]
+ClassificationOutput = Tuple[Labels_Top_N, Scores_Top_N]
 
 
 class ClassificationModelSpec(ModelSpec):
@@ -28,7 +28,11 @@ class ClassificationModel(InferenceModel):
         super().load(model_spec)
 
     @abc.abstractmethod
-    def predict(self, input: ClassificationInput) -> ClassificationOutput:
+    def predict(
+        self,
+        input: ClassificationInput,
+        top_n: int = 1
+    ) -> ClassificationOutput:
         pass
 
     @abc.abstractmethod

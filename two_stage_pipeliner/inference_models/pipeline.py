@@ -62,7 +62,8 @@ class PipelineModel(InferenceModel):
     def predict(
         self,
         input: PipelineInput,
-        detection_score_threshold: float
+        detection_score_threshold: float,
+        classification_top_n: int = 1
     ) -> PipelineOutput:
         logger.info("Running detection...")
         detection_input = self.detection_model.preprocess_input(input)
@@ -82,16 +83,19 @@ class PipelineModel(InferenceModel):
             for pred_cropped_images in n_pred_cropped_images
             for cropped_image in pred_cropped_images
         ])
-        pred_labels, pred_classification_scores = self.classification_model.predict(classification_input)
-        n_pred_labels = self._split_chunks(pred_labels, shapes)
-        n_pred_classification_scores = self._split_chunks(pred_classification_scores, shapes)
+        pred_labels_top_n, pred_classification_scores_top_n = self.classification_model.predict(
+            input=classification_input,
+            top_n=classification_top_n
+        )
+        n_pred_labels_top_n = self._split_chunks(pred_labels_top_n, shapes)
+        n_pred_classification_scores_top_n = self._split_chunks(pred_classification_scores_top_n, shapes)
         logger.info("Classification end!")
         return (
             n_pred_cropped_images,
             n_pred_bboxes,
             n_pred_detection_scores,
-            n_pred_labels,
-            n_pred_classification_scores
+            n_pred_labels_top_n,
+            n_pred_classification_scores_top_n
         )
 
     def preprocess_input(self, input):

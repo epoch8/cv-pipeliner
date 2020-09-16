@@ -3,7 +3,7 @@ import json
 from typing import Union, Dict, List
 from pathlib import Path
 
-from two_stage_pipeliner.core.data_converter import DataConverter, assert_image_data
+from two_stage_pipeliner.core.data_converter import DataConverter
 from two_stage_pipeliner.core.data import BboxData, ImageData
 
 
@@ -20,10 +20,10 @@ class BrickitDataConverter(DataConverter):
             skip_nonexists=skip_nonexists
         )
 
-    @assert_image_data
+    @DataConverter.assert_image_data
     def get_image_data_from_annot(
         self,
-        image_path: Union[Path, str],
+        image_path: Union[str, Path],
         annot: Union[Path, str, Dict]
     ) -> ImageData:
         if isinstance(annot, str) or isinstance(annot, Path):
@@ -37,9 +37,7 @@ class BrickitDataConverter(DataConverter):
                 image_idx = i
                 break
         if image_idx is None:
-            raise ValueError(
-                f"Image {image_path} does not have annotation in given annot."
-            )
+            return None
 
         annot = annot[image_idx]
 
@@ -68,25 +66,3 @@ class BrickitDataConverter(DataConverter):
             ))
 
         return image_data
-
-    def get_images_data_from_annots(
-        self,
-        image_paths: List[Union[Path, str]],
-        annots: Union[Path, str, Dict]
-    ) -> List[ImageData]:
-        if isinstance(annots, str) or isinstance(annots, Path):
-            with open(annots, 'r', encoding='utf8') as f:
-                annots = json.load(f)
-
-        images_data = [self.get_image_data_from_annot(image_path, annots) for image_path in image_paths]
-        return images_data
-
-    def get_n_bboxes_data_from_annots(
-        self,
-        image_paths: List[Union[Path, str]],
-        annots: Union[Path, str, Dict]
-    ) -> List[List[BboxData]]:
-
-        images_data = self.get_images_data_from_annots(image_paths, annots)
-        n_bboxes_data = [image_data.bboxes_data for image_data in images_data]
-        return n_bboxes_data

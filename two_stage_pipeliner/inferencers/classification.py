@@ -16,12 +16,14 @@ class ClassificationInferencer(Inferencer):
     def _postprocess_predictions(
         self,
         bboxes_data: List[BboxData],
-        pred_labels: List[str],
-        pred_scores: List[float],
+        pred_labels_top_n: List[List[str]],
+        pred_scores_top_n: List[List[float]],
         open_cropped_images_in_bboxes_data: bool
     ) -> List[List[BboxData]]:
         bboxes_data_res = []
-        for (bbox_data, pred_label, pred_classification_score) in zip(bboxes_data, pred_labels, pred_scores):
+        for (bbox_data, pred_label_top_n, pred_classification_score_top_n) in zip(
+            bboxes_data, pred_labels_top_n, pred_scores_top_n
+        ):
             cropped_image = bbox_data.cropped_image if open_cropped_images_in_bboxes_data else None
             bboxes_data_res.append(BboxData(
                 image_path=bbox_data.image_path,
@@ -32,8 +34,11 @@ class ClassificationInferencer(Inferencer):
                 xmax=bbox_data.xmax,
                 ymax=bbox_data.ymax,
                 detection_score=bbox_data.detection_score,
-                label=pred_label,
-                classification_score=pred_classification_score
+                label=pred_label_top_n[0],
+                classification_score=pred_classification_score_top_n[0],
+                top_n=len(pred_label_top_n),
+                labels_top_n=pred_label_top_n,
+                classification_scores_top_n=pred_classification_score_top_n
             ))
 
         return bboxes_data_res
@@ -51,6 +56,7 @@ class ClassificationInferencer(Inferencer):
     def predict(
         self,
         n_bboxes_data_gen: BatchGeneratorBboxData,
+        top_n: int = 1,
         open_cropped_images_in_bboxes_data: bool = False,
         disable_tqdm: bool = False
     ) -> List[List[BboxData]]:
@@ -60,11 +66,14 @@ class ClassificationInferencer(Inferencer):
             for bboxes_data in n_bboxes_data_gen:
                 input = [bbox_data.cropped_image for bbox_data in bboxes_data]
                 input = self.model.preprocess_input(input)
-                pred_labels, pred_scores = self.model.predict(input)
+                pred_labels_top_n, pred_scores_top_n = self.model.predict(
+                    input=input,
+                    top_n=top_n
+                )
                 pred_bboxes_data.extend(self._postprocess_predictions(
                     bboxes_data=bboxes_data,
-                    pred_labels=pred_labels,
-                    pred_scores=pred_scores,
+                    pred_labels_top_n=pred_labels_top_n,
+                    pred_scores_top_n=pred_scores_top_n,
                     open_cropped_images_in_bboxes_data=open_cropped_images_in_bboxes_data
                 ))
                 pbar.update(len(bboxes_data))
