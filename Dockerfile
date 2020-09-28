@@ -29,12 +29,12 @@ RUN cd models/research/ && \
     pip3 install --use-feature=2020-resolver . && \
     cd ../.. && rm -rf models/
 
-# Install two-stage-pipeliner
-ADD two_stage_pipeliner /tmp/two_stage_pipeliner/
+# Install cv_pipeliner
+ADD cv_pipeliner /tmp/cv_pipeliner/
 ADD setup.py /tmp/setup.py
 ADD requirements.txt /tmp/requirements.txt
 RUN pip3 install --use-feature=2020-resolver /tmp/ && \
-    rm -rf /tmp/two_stage_pipeliner/ && \
+    rm -rf /tmp/cv_pipeliner/ && \
     rm -rf /tmp/setup.py && \
     rm -rf /tmp/requirements.txt
 

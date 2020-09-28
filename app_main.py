@@ -1,6 +1,6 @@
 import os
 import streamlit as st
-from two_stage_pipeliner.app.app import run_app
+from cv_pipeliner.app.app import run_app
 
 if 'TWO_STAGE_PIPELINER_APP_CONFIG' in os.environ:
     run_app(os.environ['TWO_STAGE_PIPELINER_APP_CONFIG'])
