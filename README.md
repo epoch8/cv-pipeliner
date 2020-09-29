@@ -14,7 +14,7 @@ make app-run
 # Backend
 How to build and run:
 
-- Set the config `backend/config.yaml` (TFLite models are supported only)
+- Set the config `backend/config.yaml` (TFLite models are supported only). Models can be downloaded from @bobokvsky in Slack.
 ```
 make backend-build
 make backend-run
