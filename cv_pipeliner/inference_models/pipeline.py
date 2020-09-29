@@ -3,8 +3,8 @@ from dataclasses import dataclass
 import numpy as np
 
 from cv_pipeliner.core.inference_model import InferenceModel, ModelSpec
-from cv_pipeliner.inference_models.detection.core import DetectionModelSpec
-from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
+from cv_pipeliner.inference_models.detection.core import DetectionModelSpec, DetectionModel
+from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec, ClassificationModel
 
 from cv_pipeliner.logging import logger
 
@@ -48,6 +48,20 @@ class PipelineModel(InferenceModel):
         super().load(model_spec)
         self.detection_model = model_spec.detection_model_spec.load()
         self.classification_model = model_spec.classification_model_spec.load()
+
+    def load_from_loaded_models(
+        self,
+        detection_model: DetectionModel,
+        classification_model: ClassificationModel
+    ):
+        isinstance(detection_model, DetectionModel)
+        isinstance(classification_model, ClassificationModel)
+        self._model_spec = PipelineModelSpec(
+            detection_model_spec=detection_model.model_spec,
+            classification_model_spec=classification_model.model_spec
+        )
+        self.detection_model = detection_model
+        self.classification_model = classification_model
 
     def _split_chunks(self,
                       _list: List,

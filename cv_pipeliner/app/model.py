@@ -5,16 +5,14 @@ from typing import List, Dict
 
 import tensorflow as tf
 
-from cv_pipeliner.inference_models.detection.core import DetectionModelSpec
+from cv_pipeliner.inference_models.detection.core import DetectionModelSpec, DetectionModel
 from cv_pipeliner.inference_models.detection.object_detection_api import (
     ObjectDetectionAPI_ModelSpec,
     ObjectDetectionAPI_pb_ModelSpec,
     ObjectDetectionAPI_TFLite_ModelSpec
 )
-from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
+from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec, ClassificationModel
 from cv_pipeliner.inference_models.classification.tensorflow import TensorFlow_ClassificationModelSpec
-from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
-from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 
 from yacs.config import CfgNode
 from .config import (
@@ -146,17 +144,19 @@ def get_description_to_classification_model_definition_from_config(
     return description_to_classification_model_definition
 
 
-@st.cache(hash_funcs=HASH_FUNCS, allow_output_mutation=True, show_spinner=False)
-def load_pipeline_inferencer(
+@st.cache(hash_funcs=HASH_FUNCS, allow_output_mutation=True)
+def load_detection_model(
     detection_model_spec: DetectionModelSpec,
-    classification_model_spec: ClassificationModelSpec
-) -> PipelineInferencer:
+) -> DetectionModel:
 
-    pipeline_model_spec = PipelineModelSpec(
-        detection_model_spec=detection_model_spec,
-        classification_model_spec=classification_model_spec
-    )
-    pipeline_model = pipeline_model_spec.load()
-    pipeline_inferencer = PipelineInferencer(pipeline_model)
+    detection_model = detection_model_spec.load()
+    return detection_model
 
-    return pipeline_inferencer
+
+@st.cache(hash_funcs=HASH_FUNCS, allow_output_mutation=True)
+def load_classification_model(
+    classification_model_spec: ClassificationModelSpec,
+) -> ClassificationModel:
+
+    classification_model = classification_model_spec.load()
+    return classification_model

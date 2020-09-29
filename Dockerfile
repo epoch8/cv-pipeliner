@@ -30,15 +30,10 @@ RUN cd models/research/ && \
     cd ../.. && rm -rf models/
 
 # Install cv_pipeliner
-ADD cv_pipeliner /tmp/cv_pipeliner/
-ADD setup.py /tmp/setup.py
-ADD requirements.txt /tmp/requirements.txt
-RUN pip3 install --use-feature=2020-resolver /tmp/ && \
-    rm -rf /tmp/cv_pipeliner/ && \
-    rm -rf /tmp/setup.py && \
-    rm -rf /tmp/requirements.txt
+ADD cv_pipeliner /app/cv_pipeliner/
+ADD setup.py /app/setup.py
+ADD requirements.txt /app/requirements.txt
+RUN pip3 install -e /app/ --use-feature=2020-resolver
 
-ADD app_main.py /app/app_main.py
-ADD app_config.yaml /app/app_config.yaml
-WORKDIR /app/
-CMD ["streamlit", "run", "app_main.py", "--server.port", "80"]
+WORKDIR /app/cv_pipeliner/app/
+CMD ["streamlit", "run", "app.py", "--server.port", "80"]

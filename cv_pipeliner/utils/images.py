@@ -64,7 +64,9 @@ def get_label_to_base_label_image(
     ann_class_names = [base_label_image_path.stem for base_label_image_path in base_labels_images_paths]
     unknown_image_candidates = list(base_labels_images_dir.glob("unknown.*"))
     if len(unknown_image_candidates) == 0:
-        raise ValueError('base_labels_images_dir must have unknown.png, unknown.jpg or unknown.jpeg.')
+        raise ValueError(
+            f'Folder "{base_labels_images_dir}" with base labels images must have unknown.png, unknown.jpg or unknown.jpeg.'
+        )
     else:
         unknown_image_filepath = unknown_image_candidates[0]
 
