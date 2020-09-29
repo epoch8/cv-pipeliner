@@ -1,16 +1,24 @@
 include build.env
 
-IMAGE=${DOCKER_REPO}/${RELEASE}
+APP_IMAGE=${DOCKER_REPO}/${APP_RELEASE}
+BACKEND_IMAGE=${DOCKER_REPO}/${BACKEND_RELEASE}
 
-build:
-	docker build -t ${IMAGE}:${VERSION} .
+app-build:
+	docker build -f app/DockerFile -t ${APP_IMAGE}:${APP_VERSION} .
 
-upload:
-	docker push ${IMAGE}:${VERSION}
+app-upload:
+	docker push ${APP_IMAGE}:${APP_VERSION}
 
-run:
-	ifndef TWO_STAGE_PIPELINER_APP_CONFIG:
-	$(error Variable TWO_STAGE_PIPELINER_APP_CONFIG is not set)
-	endif
-	docker run -e TWO_STAGE_PIPELINER_APP_CONFIG=${TWO_STAGE_PIPELINER_APP_CONFIG} -p 80:80 -t ${IMAGE}:${VERSION}
+app-run:
+	test -n "$(CV_PIPELINER_APP_CONFIG)"  # $$CV_PIPELINER_APP_CONFIG
+	docker run -e CV_PIPELINER_APP_CONFIG=${CV_PIPELINER_APP_CONFIG} -p 80:80 -t ${APP_IMAGE}:${APP_VERSION}
 
+backend-build:
+	docker build -f backend/DockerFile -t ${BACKEND_RELEASE}:${BACKEND_VERSION} .
+
+backend-upload:
+	docker push -e CV_PIPELINER_BACKEND_MODEL_CONFIG=${CV_PIPELINER_BACKEND_MODEL_CONFIG} -p 5000:5000 ${BACKEND_RELEASE}:${BACKEND_VERSION}
+
+backend-run:
+	test -n "$(CV_PIPELINER_BACKEND_MODEL_CONFIG)"  # $$CV_PIPELINER_BACKEND_MODEL_CONFIG
+	docker run -p 5000:5000 -t ${BACKEND_RELEASE}:${BACKEND_VERSION}

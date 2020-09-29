@@ -29,16 +29,14 @@ RUN cd models/research/ && \
     pip3 install --use-feature=2020-resolver . && \
     cd ../.. && rm -rf models/
 
-# Install two-stage-pipeliner
-ADD two_stage_pipeliner /tmp/two_stage_pipeliner/
-ADD setup.py /tmp/setup.py
-ADD requirements.txt /tmp/requirements.txt
-RUN pip3 install --use-feature=2020-resolver /tmp/ && \
-    rm -rf /tmp/two_stage_pipeliner/ && \
-    rm -rf /tmp/setup.py && \
-    rm -rf /tmp/requirements.txt
+# Install cv_pipeliner
+ADD cv_pipeliner /app/cv_pipeliner/
+ADD setup.py /app/setup.py
+ADD requirements.txt /app/requirements.txt
+RUN pip3 install -e /app/ --use-feature=2020-resolver
 
-ADD app_main.py /app/app_main.py
-ADD app_config.yaml /app/app_config.yaml
-WORKDIR /app/
-CMD ["streamlit", "run", "app_main.py", "--server.port", "80"]
+RUN pip3 install flask
+ADD backend /backend/
+WORKDIR /backend/
+ENV FLASK_APP="app.py"
+CMD ["flask", "run", "--host", "0.0.0.0", "--port", "5000"]

@@ -38,7 +38,7 @@ tensorflow_cls_model.input_size = (224, 224)
 tensorflow_cls_model.preprocess_input_script_file = './preprocess_input.py'
 tensorflow_cls_model.class_names = 'class_names.json'
 tensorflow_cls_model.model_path = 'path5'
-tensorflow_cls_model.saved_model_type = 'tf.keras'  # "tf.saved_model", "tf.keras"
+tensorflow_cls_model.saved_model_type = 'tf.keras'  # 'tf.saved_model', 'tf.keras', tflite'
 cfg.models.classification = [tensorflow_cls_model]
 
 cfg.data = CfgNode()
