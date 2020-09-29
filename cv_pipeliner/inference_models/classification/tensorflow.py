@@ -19,7 +19,7 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     preprocess_input: Literal[Callable[[List[np.ndarray]], np.ndarray], Union[str, Path]]
     class_names: Literal[List[str], Union[str, Path]]
     model_path: Literal[Union[str, Path], tf.keras.Model]
-    saved_model_type: Literal["tf.saved_model", "tf.keras", "ClassType[tf.keras.Model]"]
+    saved_model_type: Literal["tf.saved_model", "tf.keras", "ClassType[tf.keras.Model]", "tflite"]
 
     @property
     def inference_model(self) -> ClassVar['Tensorflow_ClassificationModel']:
@@ -57,6 +57,14 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self.model = self.loaded_model.signatures["serving_default"]
         elif model_spec.saved_model_type == "ClassType[tf.keras.Model]":
             self.model = model_spec.model_path
+        elif model_spec.saved_model_type == 'tflite':
+            self.model = tf.lite.Interpreter(
+                model_path=str(model_spec.model_path)
+            )
+            self.model.allocate_tensors()
+            self.input_index = self.model.get_input_details()[0]['index']
+            self.output_index = self.model.get_output_details()[0]['index']
+            self.dtype = np.uint8
         else:
             raise ValueError(
                 "Tensorflow_ClassificationModel got unknown saved_model_type "
@@ -73,6 +81,8 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         # Run model through a dummy image so that variables are created
         width, height = self.input_size
         zeros = np.zeros([1, width, height, 3])
+        if model_spec.saved_model_type == 'tflite':
+            zeros = zeros.astype(np.uint8)
         self._raw_predict(zeros)
 
     def _raw_predict(
@@ -84,6 +94,13 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             raw_predictions_batch = self.model(input_tensor)
         elif self.model_spec.saved_model_type in ["tf.keras", "ClassType[tf.keras.Model]"]:
             raw_predictions_batch = self.model.predict(images)
+        elif self.model_spec.saved_model_type == 'tflite':
+            images = np.array(images, dtype=np.uint8)
+            self.model.resize_tensor_input(0, [len(images), *self.input_size, 3])
+            self.model.allocate_tensors()
+            self.model.set_tensor(self.input_index, images)
+            self.model.invoke()
+            raw_predictions_batch = self.model.get_tensor(self.output_index)
         return raw_predictions_batch
 
     def predict(
