@@ -9,7 +9,7 @@ from cv_pipeliner.inference_models.classification.tensorflow import TensorFlow_C
 from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 
-from .config import cfg as _cfg
+from src.config import cfg as _cfg
 
 
 def load_pipeline_inferencer(cfg: _cfg) -> PipelineInferencer:

@@ -8,3 +8,4 @@ notebooks/reports/
 .vscode/
 __logs__/
 .pytest_cache/
+backend/models/

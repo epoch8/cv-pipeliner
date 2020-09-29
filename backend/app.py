@@ -1,10 +1,9 @@
-from dataclasses import asdict
 from typing import Dict
 
 from flask import Flask, request
 
-from cv_pipeliner.backend.config import get_cfg_defaults
-from cv_pipeliner.backend.model import load_pipeline_inferencer, inference
+from src.config import get_cfg_defaults
+from src.model import load_pipeline_inferencer, inference
 
 app = Flask(__name__)
 if 'CV_PIPELINER_BACKEND_MODEL_CONFIG' not in app.config:

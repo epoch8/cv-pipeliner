@@ -35,5 +35,8 @@ ADD setup.py /app/setup.py
 ADD requirements.txt /app/requirements.txt
 RUN pip3 install -e /app/ --use-feature=2020-resolver
 
-WORKDIR /app/cv_pipeliner/app/
-CMD ["streamlit", "run", "app.py", "--server.port", "80"]
+RUN pip3 install flask
+ADD backend /backend/
+WORKDIR /backend/
+ENV FLASK_APP="app.py"
+CMD ["flask", "run", "--host", "0.0.0.0", "--port", "5000"]

@@ -2,7 +2,7 @@ models:
     detection:
         object_detection_api_tflite:
             description: ''
-            model_path: 'detection_model.tflite'
+            model_path: 'models/detection_model.tflite'
             bboxes_output_index: 0
             scores_output_index: 2
             score_threshold: 0.3
@@ -11,7 +11,7 @@ models:
         tensorflow_cls_model:
             description: ''
             input_size: (224, 224)
-            preprocess_input_script_file: 'preprocess_input.py'
-            class_names: 'classes.json'
-            model_path: 'classification_model.tflite'
+            preprocess_input_script_file: 'models/preprocess_input/preprocess_input.py'
+            class_names: 'models/classes.json'
+            model_path: 'models/classification_model.tflite'
             saved_model_type: 'tflite'

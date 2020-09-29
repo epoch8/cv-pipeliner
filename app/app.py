@@ -15,15 +15,15 @@ from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
 from cv_pipeliner.utils.images import get_label_to_base_label_image
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.inference_models.pipeline import PipelineModel
-from cv_pipeliner.app.data import get_images_data_from_dir, get_videos_data_from_dir
-from cv_pipeliner.app.model import (
+from src.data import get_images_data_from_dir, get_videos_data_from_dir
+from src.model import (
     load_detection_model,
     load_classification_model,
     get_description_to_detection_model_definition_from_config,
     get_description_to_classification_model_definition_from_config
 )
-from cv_pipeliner.app.config import get_cfg_defaults
-from cv_pipeliner.app.visualization import illustrate_bboxes_data
+from src.config import get_cfg_defaults
+from src.visualization import illustrate_bboxes_data
 
 import streamlit as st
 st.set_option('deprecation.showfileUploaderEncoding', False)
