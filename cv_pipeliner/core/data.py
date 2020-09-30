@@ -5,6 +5,7 @@ from pathlib import Path
 
 import imageio
 import numpy as np
+import cv2
 
 
 @dataclass(frozen=True)
@@ -114,6 +115,10 @@ class ImageData:
             image = np.array(imageio.imread(self.image_path, pilmode="RGB"))
         elif self.image_bytes is not None:
             image = np.array(imageio.imread(self.image_bytes))
+            if image.shape[-1] == 4:
+                image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+            if len(image.shape) == 2 or image.shape[-1] == 1:
+                image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
         else:
             raise ValueError("ImageData doesn't have any image.")
 
