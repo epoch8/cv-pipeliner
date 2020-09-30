@@ -34,21 +34,21 @@ Example of POST:
 {
     "bboxes": [
         {
-            "label": "92593",
+            "label": "3437",
             "xmax": 753,
             "xmin": 589,
             "ymax": 812,
             "ymin": 648
         },
         {
-            "label": "92593",
+            "label": "3011",
             "xmax": 472,
             "xmin": 208,
             "ymax": 884,
             "ymin": 672
         },
         {
-            "label": "32054",
+            "label": "3001",
             "xmax": 642,
             "xmin": 429,
             "ymax": 468,
