@@ -1,4 +1,4 @@
-from typing import List, Tuple, ClassVar
+from typing import List, Tuple, Type
 from dataclasses import dataclass
 import numpy as np
 
@@ -15,7 +15,7 @@ class PipelineModelSpec(ModelSpec):
     classification_model_spec: ClassificationModelSpec
 
     @property
-    def inference_model(self) -> ClassVar['PipelineModel']:
+    def inference_model_cls(self) -> Type['PipelineModel']:
         from cv_pipeliner.inference_models.pipeline import PipelineModel
         return PipelineModel
 
@@ -43,9 +43,9 @@ PipelineOutput = List[
 
 
 class PipelineModel(InferenceModel):
-    def load(self, model_spec: PipelineModelSpec):
+    def __init__(self, model_spec: PipelineModelSpec):
         isinstance(model_spec, PipelineModelSpec)
-        super().load(model_spec)
+        super().__init__(model_spec)
         self.detection_model = model_spec.detection_model_spec.load()
         self.classification_model = model_spec.classification_model_spec.load()
 

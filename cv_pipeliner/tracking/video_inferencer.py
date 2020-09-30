@@ -23,7 +23,7 @@ from cv_pipeliner.tracking.sort_tracker import Sort
 
 @dataclass
 class FrameResult:
-    label: BboxData
+    label: str
     track_id: int
     ready_at_frame: int
 
@@ -119,7 +119,6 @@ class VideoInferencer:
             if tracked_id not in current_tracks_ids
         ]
         if current_not_tracked_items_idxs:
-            original_idxs = np.arange(len(tracked_ids))[current_not_tracked_items_idxs]
             current_not_tracked_bboxes = tracked_bboxes[current_not_tracked_items_idxs]
             current_not_tracked_ids = tracked_ids[current_not_tracked_items_idxs]
             bboxes_data = [
@@ -130,13 +129,8 @@ class VideoInferencer:
                                                      use_not_caught_elements_as_last_batch=True)
             pred_bboxes_data = self.classification_inferencer.predict(bboxes_data_gen)[0]
 
-            for i, bbox_data, tracked_id in zip(original_idxs, pred_bboxes_data, current_not_tracked_ids):
-                ready_at_frame = (
-                    frame_idx
-                    + detection_delay_frames
-                    + (classification_delay_frames * i)
-                )
-
+            for bbox_data, tracked_id in zip(pred_bboxes_data, current_not_tracked_ids):
+                ready_at_frame = frame_idx
                 frame_result = FrameResult(
                     label=bbox_data.label,
                     track_id=tracked_id,

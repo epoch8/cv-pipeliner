@@ -1,16 +1,14 @@
 import abc
-from typing import Tuple, ClassVar
+from typing import Tuple, Type
 
 
 class ModelSpec(abc.ABC):
-
     @abc.abstractproperty
-    def inference_model(self) -> ClassVar['InferenceModel']:
+    def inference_model_cls(self) -> Type['InferenceModel']:
         pass
 
-    def load(self):
-        inference_model = self.inference_model()
-        inference_model.load(self)
+    def load(self) -> 'InferenceModel':
+        inference_model = self.inference_model_cls(self)
         return inference_model
 
 
@@ -21,14 +19,13 @@ class InferenceModel(abc.ABC):
 
     Example:
         model_spec = ModelSpec(...)
-        inference_model = InferenceModel()
-        inference_model.load(model_spec)
+        inference_model = InferenceModel(model_spec)
         input = inference_model.preprocess_input(input)
         output = inference_model.predict(input)
 
     2nd way:
         model_spec = ModelSpec(...)
-        inference_model = model_spec.load_model()
+        inference_model = model_spec.load()
         input = inference_model.preprocess_input(input)
         output = inference_model.predict(input)
 
@@ -37,8 +34,7 @@ class InferenceModel(abc.ABC):
 
     """
 
-    @abc.abstractmethod
-    def load(self, model_spec: ModelSpec):
+    def __init__(self, model_spec: ModelSpec):
         self._model_spec = model_spec
         pass
 
