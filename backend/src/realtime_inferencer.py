@@ -143,7 +143,7 @@ class RealTimeInferencer:
         ready_frames_at_the_moment = [
             ready_frame
             for ready_frame in self.current_ready_frames_queue
-            if ready_frame.ready_at_frame <= self.current_frame_idx + self.detection_delay_frames + self.classification_delay_frames
+            if ready_frame.ready_at_frame <= self.current_frame_idx
         ]
         ready_tracks_ids_at_the_moment = [
             ready_frame.track_id for ready_frame in ready_frames_at_the_moment
