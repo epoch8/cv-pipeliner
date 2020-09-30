@@ -9,4 +9,4 @@ notebooks/reports/
 __logs__/
 .pytest_cache/
 backend/models/
-test/tmp/
+tests/tmp/

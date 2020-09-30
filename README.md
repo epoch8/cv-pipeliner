@@ -64,4 +64,4 @@ Realtime POST: you need personal `guid` for this:
 2. For every frame, POST image to `http://localhost:5000/realtime_predict/<guid>`, required content_type: `image/jpg`.
 3. POST `http://localhost:5000/realtime_end/<guid>`
 
-Example of use is in `test/backend_test.py`.
+Example of use is in `tests/backend_test.py`.
