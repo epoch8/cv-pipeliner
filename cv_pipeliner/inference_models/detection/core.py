@@ -1,5 +1,5 @@
 import abc
-from typing import List, Tuple, ClassVar
+from typing import List, Tuple, Type
 
 import numpy as np
 
@@ -23,15 +23,15 @@ DetectionOutput = Tuple[
 class DetectionModelSpec(ModelSpec):
 
     @abc.abstractproperty
-    def inference_model(self) -> ClassVar['DetectionModel']:
+    def inference_model_cls(self) -> Type['DetectionModel']:
         pass
 
 
 class DetectionModel(InferenceModel):
     @abc.abstractmethod
-    def load(self, model_spec: DetectionModelSpec):
+    def __init__(self, model_spec: DetectionModelSpec):
         assert isinstance(model_spec, DetectionModelSpec)
-        super().load(model_spec)
+        super().__init__(model_spec)
 
     @abc.abstractmethod
     def predict(self, input: DetectionInput,

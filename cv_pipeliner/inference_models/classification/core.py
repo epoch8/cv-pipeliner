@@ -1,5 +1,5 @@
 import abc
-from typing import List, Tuple, ClassVar
+from typing import List, Tuple, Type
 import numpy as np
 
 from cv_pipeliner.core.inference_model import ModelSpec, InferenceModel
@@ -17,15 +17,14 @@ ClassificationOutput = Tuple[Labels_Top_N, Scores_Top_N]
 class ClassificationModelSpec(ModelSpec):
 
     @abc.abstractproperty
-    def inference_model(self) -> ClassVar['ClassificationModel']:
+    def inference_model_cls(self) -> Type['ClassificationModel']:
         pass
 
 
 class ClassificationModel(InferenceModel):
-    @abc.abstractmethod
-    def load(self, model_spec: ClassificationModelSpec):
+    def __init__(self, model_spec: ClassificationModelSpec):
         assert isinstance(model_spec, ClassificationModelSpec)
-        super().load(model_spec)
+        super().__init__(model_spec)
 
     @abc.abstractmethod
     def predict(

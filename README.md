@@ -20,7 +20,7 @@ make backend-build
 make backend-run
 ```
 
-POST: `http://localhost:5000/predict/<int:guid>`, required content_type: `image/jpg`.
+POST: `http://localhost:5000/predict/`, required content_type: `image/jpg`.
 
 Example of POST:
 ```
@@ -28,7 +28,7 @@ Example of POST:
 >>> import json
 >>> file = 'examples/brickit-ml/35f20998-47ff-4d74-b2d9-245edc3dec32.jpeg'
 >>> headers = {'Content-type': 'image/jpg', 'Accept': 'application/json'}
->>> response = requests.post("http://localhost:5000/predict/0", headers=headers, data=open(file, 'rb'))
+>>> response = requests.post("http://localhost:5000/predict/", headers=headers, data=open(file, 'rb'))
 >>> print(json.dumps(json.loads(response.text), indent=4))
 
 {
@@ -55,7 +55,13 @@ Example of POST:
             "ymin": 245
         },
         ...
-    ],
-    "guid": 0
+    ]
 }
 ```
+
+Realtime POST: you need personal `guid` for this:
+1. POST `http://localhost:5000/realtime_start/<guid>`
+2. For every frame, POST image to `http://localhost:5000/realtime_predict/<guid>`, required content_type: `image/jpg`.
+3. POST `http://localhost:5000/realtime_end/<guid>`
+
+Example of use is in `test/backend_test.py`.

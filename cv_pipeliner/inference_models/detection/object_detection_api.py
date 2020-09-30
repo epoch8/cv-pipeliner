@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Tuple, Union, ClassVar, Literal
+from typing import List, Tuple, Union, Type, Literal
 from pathlib import Path
 
 import tensorflow as tf
@@ -7,7 +7,6 @@ import numpy as np
 
 from object_detection.utils import config_util
 from object_detection.builders import model_builder
-from skimage.transform import resize
 
 from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
@@ -21,7 +20,7 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
     checkpoint_path: Union[str, Path]
 
     @property
-    def inference_model(self) -> ClassVar['ObjectDetectionAPI_DetectionModel']:
+    def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
         from cv_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
         return ObjectDetectionAPI_DetectionModel
 
@@ -32,7 +31,7 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
 
     @property
-    def inference_model(self) -> ClassVar['ObjectDetectionAPI_DetectionModel']:
+    def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
         from cv_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
         return ObjectDetectionAPI_DetectionModel
 
@@ -44,7 +43,7 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     scores_output_index: int
 
     @property
-    def inference_model(self) -> ClassVar['ObjectDetectionAPI_DetectionModel']:
+    def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
         from cv_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
         return ObjectDetectionAPI_DetectionModel
 
@@ -77,7 +76,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
 
     def _load_object_detection_api_tflite(self, model_spec: ObjectDetectionAPI_TFLite_ModelSpec):
         assert isinstance(model_spec, ObjectDetectionAPI_TFLite_ModelSpec)
-        super().load(model_spec)
+        super().__init__(model_spec)
         self.model = tf.lite.Interpreter(
             model_path=str(model_spec.model_path)
         )
@@ -87,15 +86,15 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self.bboxes_index = output_details[model_spec.bboxes_output_index]['index']
         self.scores_index = output_details[model_spec.scores_output_index]['index']
 
-    def load(
+    def __init__(
         self,
-        model_spec: Literal[
+        model_spec: Union[
             ObjectDetectionAPI_ModelSpec,
             ObjectDetectionAPI_pb_ModelSpec,
             ObjectDetectionAPI_TFLite_ModelSpec
         ]
     ):
-        super().load(model_spec)
+        super().__init__(model_spec)
         if isinstance(model_spec, ObjectDetectionAPI_ModelSpec):
             self._load_object_detection_api(model_spec)
             self._raw_predict_single_image = self._raw_predict_single_image_default

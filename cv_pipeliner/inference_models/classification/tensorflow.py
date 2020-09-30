@@ -3,7 +3,7 @@ import sys
 import importlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple, Callable, Union, ClassVar, Literal
+from typing import List, Tuple, Callable, Union, Type, Literal
 
 import numpy as np
 import tensorflow as tf
@@ -16,13 +16,13 @@ from cv_pipeliner.inference_models.classification.core import (
 @dataclass(frozen=True)
 class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     input_size: Tuple[int, int]
-    preprocess_input: Literal[Callable[[List[np.ndarray]], np.ndarray], Union[str, Path]]
-    class_names: Literal[List[str], Union[str, Path]]
-    model_path: Literal[Union[str, Path], tf.keras.Model]
-    saved_model_type: Literal["tf.saved_model", "tf.keras", "ClassType[tf.keras.Model]", "tflite"]
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path]
+    class_names: Union[List[str], str, Path]
+    model_path: Union[str, Path, tf.keras.Model]
+    saved_model_type: Literal["tf.saved_model", "tf.keras", "Type[tf.keras.Model]", "tflite"]
 
     @property
-    def inference_model(self) -> ClassVar['Tensorflow_ClassificationModel']:
+    def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
         from cv_pipeliner.inference_models.classification.tensorflow import Tensorflow_ClassificationModel
         return Tensorflow_ClassificationModel
 
@@ -38,12 +38,12 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         sys.path.pop()
         return module.preprocess_input
 
-    def load(
+    def __init__(
         self,
         model_spec: TensorFlow_ClassificationModelSpec
     ):
         assert isinstance(model_spec, TensorFlow_ClassificationModelSpec)
-        super().load(model_spec)
+        super().__init__(model_spec)
         if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
             with open(model_spec.class_names, 'r', encoding='utf-8') as out:
                 self._class_names = json.load(out)
@@ -125,4 +125,4 @@ class Tensorflow_ClassificationModel(ClassificationModel):
 
     @property
     def class_names(self) -> List[str]:
-        return self._class_names
+        return self._class_name
