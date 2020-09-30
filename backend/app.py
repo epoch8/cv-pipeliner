@@ -39,8 +39,7 @@ def realtime_start(guid: str) -> Dict:
                 realtime_inferencer=RealTimeInferencer(
                     pipeline_inferencer=pipeline_inferencer,
                     fps=float(request.form['fps']),
-                    detection_delay=int(request.form['detection_delay']),
-                    classification_delay=int(request.form['classification_delay'])
+                    detection_delay=int(request.form['detection_delay'])
                 )
             )
             return jsonify(sucess=True)

@@ -27,7 +27,6 @@ class RealTimeInferencer:
         pipeline_inferencer: PipelineInferencer,
         fps: float,
         detection_delay: int,
-        classification_delay: int,
         batch_size: int = 16
     ):
         self.detection_inferencer = DetectionInferencer(pipeline_inferencer.model.detection_model)
@@ -35,11 +34,9 @@ class RealTimeInferencer:
 
         self.fps = fps
         self.detection_delay = detection_delay
-        self.classification_delay = classification_delay
         self.current_frame_idx = 0
 
         self.detection_delay_frames = int(round(self.detection_delay * fps / 1000))
-        self.classification_delay_frames = int(round(self.classification_delay * fps / 1000))
 
         self.sort_tracker = Sort()
         self.opencv_tracker = None

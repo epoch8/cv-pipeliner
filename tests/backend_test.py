@@ -18,8 +18,7 @@ response = requests.post(
     f"http://localhost:5000/realtime_start/{guid}",
     data={
         'fps': 30,
-        'detection_delay': 300,
-        'classification_delay': 50
+        'detection_delay': 300
     }
 )
 frames_files = (examples_dir / 'easy').glob('*.png')
