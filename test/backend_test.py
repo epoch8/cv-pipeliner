@@ -13,9 +13,9 @@ response = requests.post("http://localhost:5000/predict/", headers=headers, data
 with open(tmp_dir / f'{example_file.stem}.json', 'w') as out:
     json.dump(json.loads(response.text), out, indent=4)
 
-
+guid = 'AABBCC'
 response = requests.post(
-    "http://localhost:5000/realtime_start/AABBCC",
+    f"http://localhost:5000/realtime_start/{guid}",
     data={
         'fps': 30,
         'detection_delay': 300,
@@ -26,10 +26,10 @@ frames_files = (examples_dir / 'easy').glob('*.png')
 for frame_file in frames_files:
     print(f'POST for {frame_file}...')
     response = requests.post(
-        "http://localhost:5000/realtime_predict/AABBCC",
+        f"http://localhost:5000/realtime_predict/{guid}",
         headers=headers,
         data=open(frame_file, 'rb')
     )
     with open(tmp_dir / f'{frame_file.stem}.json', 'w') as out:
         json.dump(json.loads(response.text), out, indent=4)
-response = requests.post("http://localhost:5000/realtime_end/AABBCC")
+response = requests.post(f"http://localhost:5000/realtime_end/{guid}")

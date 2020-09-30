@@ -51,9 +51,8 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self._class_names = model_spec.class_names
         if model_spec.saved_model_type == "tf.keras":
             self.model = tf.keras.models.load_model(str(model_spec.model_path))
-            assert len(self._class_names) == int(self.model.output.shape[-1])
         elif model_spec.saved_model_type == "tf.saved_model":
-            self.loaded_model = tf.saved_model.load(str(model_spec.model_path))
+            self.loaded_model = tf.saved_model.load(str(model_spec.model_path))  # only to protect from gc
             self.model = self.loaded_model.signatures["serving_default"]
         elif model_spec.saved_model_type == "ClassType[tf.keras.Model]":
             self.model = model_spec.model_path

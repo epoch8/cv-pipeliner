@@ -7,7 +7,7 @@ class ModelSpec(abc.ABC):
     def inference_model_cls(self) -> Type['InferenceModel']:
         pass
 
-    def __init__(self) -> 'InferenceModel':
+    def load(self) -> 'InferenceModel':
         inference_model = self.inference_model_cls(self)
         return inference_model
 
@@ -19,14 +19,13 @@ class InferenceModel(abc.ABC):
 
     Example:
         model_spec = ModelSpec(...)
-        inference_model = InferenceModel()
-        inference_model.load(model_spec)
+        inference_model = InferenceModel(model_spec)
         input = inference_model.preprocess_input(input)
         output = inference_model.predict(input)
 
     2nd way:
         model_spec = ModelSpec(...)
-        inference_model = model_spec.load_model()
+        inference_model = model_spec.load()
         input = inference_model.preprocess_input(input)
         output = inference_model.predict(input)
 

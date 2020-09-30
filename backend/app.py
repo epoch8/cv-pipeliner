@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass
 from typing import Dict
 
@@ -18,6 +17,7 @@ cfg.freeze()
 
 pipeline_inferencer = load_pipeline_inferencer(cfg)
 guid_to_realtime_inferencer_data = {}
+
 
 @dataclass
 class RealTimeInferencerData:
