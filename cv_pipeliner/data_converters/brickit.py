@@ -74,7 +74,7 @@ class BrickitDataConverter(DataConverter):
         annot = {
             'filename': image_data.image_path.name,
             'objects': [{
-                'bbox': [bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax],
+                'bbox': [int(bbox_data.xmin), int(bbox_data.ymin), int(bbox_data.xmax), int(bbox_data.ymax)],
                 'label': bbox_data.label
             } for bbox_data in image_data.bboxes_data]
         }
