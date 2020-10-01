@@ -28,7 +28,7 @@ class DataConverter(abc.ABC):
         ) -> ImageData:
             image_data = fn(data_converter, image_path, annot)
             if image_data is None:
-                logger.info(
+                logger.warning(
                     f"Image {image_path} does not have annotation in given annot. Skipping..."
                 )
                 return None
