@@ -76,6 +76,6 @@ class BrickitDataConverter(DataConverter):
             'objects': [{
                 'bbox': [bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax],
                 'label': bbox_data.label
-            } for bbox_data in image_data.bboxes_data
+            } for bbox_data in image_data.bboxes_data]
         }
         return annot
