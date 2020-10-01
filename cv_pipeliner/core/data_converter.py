@@ -156,4 +156,4 @@ class DataConverter(abc.ABC):
             ImageData(image_path=bboxes_data[0].image_path, bboxes_data=bboxes_data)
             for bboxes_data in n_bboxes_data
         ]
-        return self.get_annot_from_images_datas(images_data)
+        return self.get_annot_from_images_data(images_data)
