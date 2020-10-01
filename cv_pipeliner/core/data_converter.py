@@ -141,7 +141,7 @@ class DataConverter(abc.ABC):
     ) -> Dict:
         return {}
 
-    def get_annot_from_images_datas(
+    def get_annot_from_images_data(
         self,
         images_data: ImageData
     ) -> Dict:
