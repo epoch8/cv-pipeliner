@@ -66,3 +66,16 @@ class BrickitDataConverter(DataConverter):
             ))
 
         return image_data
+
+    def get_annot_from_image_data(
+        self,
+        image_data: ImageData
+    ) -> Dict:
+        annot = {
+            'filename': image_data.image_path.name,
+            'objects': [{
+                'bbox': [bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax],
+                'label': bbox_data.label
+            } for bbox_data in image_data.bboxes_data
+        }
+        return annot
