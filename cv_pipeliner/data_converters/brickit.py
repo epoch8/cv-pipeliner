@@ -56,13 +56,18 @@ class BrickitDataConverter(DataConverter):
                 label = obj['label']
             else:
                 label = 'brick'
+            additional_info = {}
+            for key in obj:
+                if 'bbox' != key and 'label' != key:
+                    additional_info[key] = obj[key]
             image_data.bboxes_data.append(BboxData(
                 image_path=image_path,
                 xmin=xmin,
                 ymin=ymin,
                 xmax=xmax,
                 ymax=ymax,
-                label=label
+                label=label,
+                additional_info=additional_info
             ))
 
         return image_data
@@ -75,7 +80,10 @@ class BrickitDataConverter(DataConverter):
             'filename': image_data.image_path.name,
             'objects': [{
                 'bbox': [int(bbox_data.xmin), int(bbox_data.ymin), int(bbox_data.xmax), int(bbox_data.ymax)],
-                'label': bbox_data.label
+                'label': bbox_data.label,
+                **{
+                    key: bbox_data.additional_info[key] for key in bbox_data.additional_info
+                }
             } for bbox_data in image_data.bboxes_data]
         }
         return annot
