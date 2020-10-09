@@ -47,10 +47,9 @@ class LabelStudioDetectionDataConverter(DataConverter):
 
         bboxes_data = []
         if 'skipped' in completion and completion['skipped']:
-            results = []
-        else:
-            results = completion['result']
+            return None
 
+        results = completion['result']
         for result in results:
             if result['from_name'] != 'label':
                 continue

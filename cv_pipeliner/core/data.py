@@ -1,6 +1,6 @@
 import io
-from dataclasses import dataclass
-from typing import Union, List
+from dataclasses import dataclass, field
+from typing import Union, List, Dict
 from pathlib import Path
 
 import imageio
@@ -25,6 +25,8 @@ class BboxData:
     top_n: int = None
     labels_top_n: List[str] = None
     classification_scores_top_n: List[float] = None
+        
+    additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
         if self.image_path is not None:
@@ -34,8 +36,10 @@ class BboxData:
         self,
         inplace: bool = False,
         source_image: np.ndarray = None,
-        width_offset: int = 0,
-        height_offset: int = 0
+        xmin_offset: int = 0,
+        ymin_offset: int = 0,
+        xmax_offset: int = 0,
+        ymax_offset: int = 0
     ) -> Union[None, np.ndarray]:
 
         if self.cropped_image is not None:
@@ -52,11 +56,12 @@ class BboxData:
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
             height, width, _ = image.shape
-            width_offset = max(0, min(width_offset, self.xmin-width_offset, width-self.xmax))
-            height_offset = max(0, min(height_offset, self.ymin-height_offset, height-self.ymax))
-
-            cropped_image = image[self.ymin-height_offset:self.ymax+height_offset,
-                                  self.xmin-width_offset:self.xmax+width_offset]
+            xmin_offset = max(0, min(xmin_offset, self.xmin-xmin_offset))
+            ymin_offset = max(0, min(ymin_offset, self.ymin-ymin_offset))
+            xmax_offset = max(0, min(xmax_offset, width-self.xmax))
+            ymax_offset = max(0, min(ymax_offset, height-self.ymax))
+            cropped_image = image[self.ymin-ymin_offset:self.ymax+ymax_offset,
+                                  self.xmin-xmin_offset:self.xmax+xmax_offset]
 
         if inplace:
             super().__setattr__('cropped_image', cropped_image)

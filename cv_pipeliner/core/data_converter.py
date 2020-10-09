@@ -28,7 +28,7 @@ class DataConverter(abc.ABC):
         ) -> ImageData:
             image_data = fn(data_converter, image_path, annot)
             if image_data is None:
-                logger.info(
+                logger.warning(
                     f"Image {image_path} does not have annotation in given annot. Skipping..."
                 )
                 return None
@@ -134,3 +134,26 @@ class DataConverter(abc.ABC):
         images_data = self.get_images_data_from_annots(image_paths, annots)
         n_bboxes_data = [image_data.bboxes_data for image_data in images_data]
         return n_bboxes_data
+
+    def get_annot_from_image_data(
+        self,
+        image_data: ImageData
+    ) -> Dict:
+        return {}
+
+    def get_annot_from_images_data(
+        self,
+        images_data: ImageData
+    ) -> Dict:
+        annots = [self.get_annot_from_image_data(image_data) for image_data in images_data]
+        return annots
+
+    def get_annot_from_n_bboxes_data(
+        self,
+        n_bboxes_data: List[List[BboxData]],
+    ) -> List[List[BboxData]]:
+        images_data = [
+            ImageData(image_path=bboxes_data[0].image_path, bboxes_data=bboxes_data)
+            for bboxes_data in n_bboxes_data
+        ]
+        return self.get_annot_from_images_data(images_data)
