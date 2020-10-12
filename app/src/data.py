@@ -23,8 +23,7 @@ def get_images_data_from_dir(
     if images_annotation_type == 'brickit':
         if annotation_filename is None:
             annotation_filename = 'annotations.json'
-        else:
-            annots = images_dir / annotation_filename
+        annots = images_dir / annotation_filename
         if annots.exists():
             images_data = BrickitDataConverter().get_images_data_from_annots(
                 image_paths=image_paths, annots=annots

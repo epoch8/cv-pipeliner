@@ -117,17 +117,17 @@ draw_base_labels_with_given_label_to_base_label_image = (
     label_to_base_label_image if draw_label_images else None
 )
 
-input_type = st.sidebar.radio(
+input_type = st.radio(
     label='Input',
     options=["Image", "Video"]
 )
 
 if input_type == 'Image':
-    images_dirs = [d.keys() for d in cfg.data.images_dirs]
+    images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
     image_dir_to_annotation_filenames = {
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
     }
-    images_from = st.sidebar.selectbox(
+    images_from = st.selectbox(
         'Image from',
         options=['Upload'] + images_dirs
     )
@@ -140,7 +140,7 @@ if input_type == 'Image':
             image_data = None
         show_annotation = False
     else:
-        annotation_filename = st.sidebar.selectbox(
+        annotation_filename = st.selectbox(
             'Annotation filename',
             options=image_dir_to_annotation_filenames[images_from]
         )
@@ -159,7 +159,7 @@ if input_type == 'Image':
                 f"[{i}] {image_data.image_path.name}"
                 for i, image_data in enumerate(images_data)
             ]
-        images_data_selected_caption = st.sidebar.selectbox(
+        images_data_selected_caption = st.selectbox(
             label='Image',
             options=[None] + images_data_captions
         )
@@ -170,7 +170,7 @@ if input_type == 'Image':
         else:
             image_data = None
         if annotation_success:
-            show_annotation = st.sidebar.checkbox('Show annotation', value=False)
+            show_annotation = st.checkbox('Show annotation', value=False)
         else:
             show_annotation = False
 
@@ -180,7 +180,7 @@ if input_type == 'Image':
     )
 
 elif input_type == 'Video':
-    videos_from = st.sidebar.selectbox(
+    videos_from = st.selectbox(
         'Video from',
         options=['Upload'] + cfg.data.videos_dirs
     )
@@ -194,7 +194,7 @@ elif input_type == 'Video':
             f"[{i}] {video_path.name}"
             for i, video_path in enumerate(video_paths)
         ]
-        video_data_selected_caption = st.sidebar.selectbox(
+        video_data_selected_caption = st.selectbox(
             label='Video',
             options=[None] + videos_paths_captions
         )
