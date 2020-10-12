@@ -46,6 +46,7 @@ if cfg.system.use_gpu:
     if gpus:
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
+    os.environ["CUDA_VISIBLE_DEVICES"] = "01"
 else:
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
@@ -122,9 +123,13 @@ input_type = st.sidebar.radio(
 )
 
 if input_type == 'Image':
+    images_dirs = [d.keys() for d in cfg.data.images_dirs]
+    image_dir_to_annotation_filenames = {
+        image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
+    }
     images_from = st.sidebar.selectbox(
         'Image from',
-        options=['Upload'] + cfg.data.images_dirs
+        options=['Upload'] + images_dirs
     )
     if images_from == 'Upload':
         st.header('Image')
@@ -135,9 +140,14 @@ if input_type == 'Image':
             image_data = None
         show_annotation = False
     else:
+        annotation_filename = st.sidebar.selectbox(
+            'Annotation filename',
+            options=image_dir_to_annotation_filenames[images_from]
+        )
         images_data, annotation_success = get_images_data_from_dir(
             images_annotation_type=cfg.data.images_annotation_type,
-            images_dir=images_from
+            images_dir=images_from,
+            annotation_filename=annotation_filename
         )
         if annotation_success:
             images_data_captions = [

@@ -43,7 +43,10 @@ cfg.models.classification = [tensorflow_cls_model]
 
 cfg.data = CfgNode()
 cfg.data.base_labels_images_dir = 'renders/'
-cfg.data.images_dirs = ['images_dir1/', 'images_dir2/']
+cfg.data.images_dirs = [
+    {'images_dir_with_annotation/': ['annotations_filename.json']},
+    {'images_dir_without_annotation/': []}
+]
 cfg.data.images_annotation_type = 'supervisely'  # 'supervisely', 'brickit'
 cfg.data.videos_dirs = ['videos_dir1']
 cfg.data.minimum_iou = 0.5

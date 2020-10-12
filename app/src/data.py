@@ -12,7 +12,8 @@ import streamlit as st
 @st.cache(show_spinner=False)
 def get_images_data_from_dir(
     images_annotation_type: Literal['brickit', 'supervisely'],
-    images_dir: Union[str, Path]
+    images_dir: Union[str, Path],
+    annotation_filename: str = None
 ) -> List[ImageData]:
     images_dir = Path(images_dir)
     image_paths = sorted(
@@ -20,7 +21,10 @@ def get_images_data_from_dir(
     )
     annotation_success = False
     if images_annotation_type == 'brickit':
-        annots = (images_dir / 'annotations.json')
+        if annotation_filename is None:
+            annotation_filename = 'annotations.json'
+        else:
+            annots = images_dir / annotation_filename
         if annots.exists():
             images_data = BrickitDataConverter().get_images_data_from_annots(
                 image_paths=image_paths, annots=annots

@@ -35,8 +35,9 @@ data:
     base_labels_images_dir: 'renders/'
 
     images_dirs:
-        - 'images_dir1'
-        - 'images_dir2'
+        - 'images_dir_with_annotation/':
+            - 'annotations_filename.json'
+        - 'images_dir_without_annotation/': []
     images_annotation_type: 'supervisely'  # 'supervisely', 'brickit'
 
     videos_dirs:
