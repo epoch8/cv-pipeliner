@@ -1,6 +1,7 @@
 import os
 from typing import Callable
 from collections import Counter
+from pathlib import Path
 
 import numpy as np
 
@@ -33,11 +34,15 @@ image_dir_to_annotation_filenames = {
     image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
 }
 images_dirs = [image_dir for image_dir in images_dirs if len(image_dir_to_annotation_filenames[image_dir]) > 0]
+images_dirname_to_image_dir_paths = {
+    Path(image_dir).name: image_dir for image_dir in images_dirs
+}
 
 images_from = st.sidebar.selectbox(
     'Image from',
-    options=images_dirs
+    options=list(images_dirname_to_image_dir_paths)
 )
+images_from = images_dirname_to_image_dir_paths[images_from]
 annotation_filename = st.sidebar.selectbox(
     'Annotation filename',
     options=image_dir_to_annotation_filenames[images_from]
@@ -119,7 +124,7 @@ if labels is not None:
     class_names_counter = Counter(labels)
     class_names = sorted(set(labels), key=class_names_counter.get, reverse=True)
     classes_to_find_captions = [
-        f"{class_name} [{class_names_counter[class_name]} items]"
+        f"[{class_names_counter[class_name]} items] {class_name} [{label_to_description(class_name)}]"
         for class_name in class_names
     ]
     filter_by_labels = st.multiselect(
