@@ -92,11 +92,23 @@ if classification_model_description is not None:
     classification_model = load_classification_model(
         classification_model_spec=classification_model_definition.model_spec,
     )
+    class_names = sorted(
+        set(classification_model.class_names),
+        key=lambda x: int(x) if x.isdigit() else 0
+    )
+    classes_to_find_captions = [
+        f"{class_name} [{label_to_description(class_name)}]"
+        for class_name in class_names
+    ]
     filter_by_labels = st.sidebar.multiselect(
         label="Classes to find",
-        options=list(classification_model.class_names),
+        options=classes_to_find_captions,
         default=[]
     )
+    filter_by_labels = [
+        class_names[classes_to_find_captions.index(chosen_class_name)]
+        for chosen_class_name in filter_by_labels
+    ]
 
 if detection_model_description is not None and classification_model_description is not None:
     pipeline_model = PipelineModel()
@@ -134,10 +146,16 @@ if input_type == 'Image':
     image_dir_to_annotation_filenames = {
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
     }
+    images_dirname_to_image_dir_paths = {
+        Path(image_dir).name: image_dir for image_dir in images_dirs
+    }
+
     images_from = st.sidebar.selectbox(
         'Image from',
-        options=['Upload'] + images_dirs
+        options=list(images_dirname_to_image_dir_paths)
     )
+    images_from = images_dirname_to_image_dir_paths[images_from]
+
     if images_from == 'Upload':
         st.header('Image')
         image_bytes = st.file_uploader("Upload image", type=["png", "jpeg", "jpg"])
