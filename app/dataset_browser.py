@@ -32,6 +32,7 @@ images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
 image_dir_to_annotation_filenames = {
     image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
 }
+images_dirs = [image_dir for image_dir in images_dirs if len(image_dir_to_annotation_filenames[image_dir]) > 0]
 
 images_from = st.sidebar.selectbox(
     'Image from',
@@ -76,6 +77,7 @@ label_to_base_label_image = cached_get_label_to_base_label_image(base_labels_ima
 label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
 
 if view == 'detection':
+    st.markdown("Choose an image:")
     images_data_selected_caption = st.selectbox(
         label='Image',
         options=[None] + images_data_captions
@@ -120,18 +122,11 @@ if labels is not None:
         f"{class_name} [{class_names_counter[class_name]} items]"
         for class_name in class_names
     ]
-    if view == 'detection':
-        filter_by_labels = st.sidebar.multiselect(
-            label="Classes to find",
-            options=classes_to_find_captions,
-            default=[]
-        )
-    else:
-        filter_by_labels = st.multiselect(
-            label="Classes to find",
-            options=classes_to_find_captions,
-            default=[]
-        )
+    filter_by_labels = st.multiselect(
+        label="Classes to find",
+        options=classes_to_find_captions,
+        default=[]
+    )
     filter_by_labels = [
         class_names[classes_to_find_captions.index(chosen_class_name)]
         for chosen_class_name in filter_by_labels

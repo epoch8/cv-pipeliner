@@ -303,8 +303,6 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
             if isinstance(bbox_data, BboxData):
                 st.markdown(f"'{label}'")
                 st.text(label_to_description(label))
-                if bbox_data.image_path is not None:
-                    st.text(f"From image '{bbox_data.image_path.name}'")
                 st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
             elif isinstance(bbox_data, BboxDataMatching):
                 true_bbox_data = bbox_data.true_bbox_data
@@ -383,8 +381,8 @@ def illustrate_n_bboxes_data(
 
     inv = np.empty_like(indexes)
     inv[indexes] = np.arange(len(inv), dtype=inv.dtype)
-    cropped_images_and_renders = np.array(cropped_images_and_renders)[inv]
-    labels = np.array(labels)[inv]
+    cropped_images_and_renders = list(np.array(cropped_images_and_renders)[inv])
+    labels = list(np.array(labels)[inv])
 
     if mode == "one-by-one":
         for cropped_image_and_render, label, bbox_data in zip(cropped_images_and_renders, labels, page_bboxes_data):
