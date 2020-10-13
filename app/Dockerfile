@@ -37,5 +37,4 @@ RUN pip3 install -e /app/ --use-feature=2020-resolver
 
 ADD app /app/
 WORKDIR /app/
-CMD ["streamlit", "run", "app.py", "--server.port", "80"]
-CMD ["streamlit", "run", "dataset_browser.py", "--server.port", "81"]
+CMD ["./run_app.sh"]

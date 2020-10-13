@@ -11,7 +11,7 @@ app-upload:
 
 app-run:
 	test -n "$(CV_PIPELINER_APP_CONFIG)"  # $$CV_PIPELINER_APP_CONFIG
-	docker run -e CV_PIPELINER_APP_CONFIG=${CV_PIPELINER_APP_CONFIG} -p 80:80 -t ${APP_IMAGE}:${APP_VERSION}
+	docker run -e CV_PIPELINER_APP_CONFIG=${CV_PIPELINER_APP_CONFIG} -p 80:80 -p 81:81 -t ${APP_IMAGE}:${APP_VERSION}
 
 backend-build:
 	docker build -f backend/Dockerfile -t ${BACKEND_RELEASE}:${BACKEND_VERSION} .
