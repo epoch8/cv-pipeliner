@@ -307,13 +307,17 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
             elif isinstance(bbox_data, BboxDataMatching):
                 true_bbox_data = bbox_data.true_bbox_data
                 pred_bbox_data = bbox_data.pred_bbox_data
-                st.markdown(f"Prediction: '{pred_bbox_data.label}'")
-                st.text(label_to_description(pred_bbox_data.label))
-                st.text(f'Bbox: {[pred_bbox_data.xmin, pred_bbox_data.ymin, pred_bbox_data.xmax, pred_bbox_data.ymax]}')
-                st.markdown('-')
-                st.markdown(f"Ground Truth: '{true_bbox_data.label}'")
-                st.text(label_to_description(true_bbox_data.label))
-                st.text(f'Bbox: {[true_bbox_data.xmin, true_bbox_data.ymin, true_bbox_data.xmax, true_bbox_data.ymax]}')
+                if pred_bbox_data is not None:
+                    st.markdown(f"Prediction: '{pred_bbox_data.label}'")
+                    st.text(label_to_description(pred_bbox_data.label))
+                    st.text(f'Bbox: {[pred_bbox_data.xmin, pred_bbox_data.ymin, pred_bbox_data.xmax, pred_bbox_data.ymax]}')
+                    st.markdown('--')
+                if true_bbox_data is not None:
+                    st.markdown(f"Ground Truth: '{true_bbox_data.label}'")
+                    st.text(label_to_description(true_bbox_data.label))
+                    st.text(f'Bbox: {[true_bbox_data.xmin, true_bbox_data.ymin, true_bbox_data.xmax, true_bbox_data.ymax]}')
+                    st.markdown('--')
+                st.text(f'Pipeline error type: {bbox_data.get_pipeline_error_type()}')
             st.markdown('----')
     elif mode == "many":
         st.image(image=cropped_images_and_renders, caption=labels)
