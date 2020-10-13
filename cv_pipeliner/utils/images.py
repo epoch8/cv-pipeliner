@@ -5,7 +5,7 @@ from typing import List, Tuple, Union, Callable, Literal
 
 import imageio
 from matplotlib.figure import Figure
-from PIL import Image
+from PIL import Image, ImageFont, ImageDraw
 
 import cv2
 import numpy as np
@@ -65,7 +65,8 @@ def get_label_to_base_label_image(
     unknown_image_candidates = list(base_labels_images_dir.glob("unknown.*"))
     if len(unknown_image_candidates) == 0:
         raise ValueError(
-            f'Folder "{base_labels_images_dir}" with base labels images must have unknown.png, unknown.jpg or unknown.jpeg.'
+            f'Folder "{base_labels_images_dir}" with base labels images must have unknown.png, unknown.jpg '
+            'or unknown.jpeg.'
         )
     else:
         unknown_image_filepath = unknown_image_candidates[0]
@@ -171,3 +172,32 @@ def concat_images(
         )
 
     return new_image
+
+
+def put_text_on_image(
+    image: np.ndarray,
+    text: str,
+    fontsize: int,
+    ymax: int,
+    maximum_width: int,
+    font: str = 'arial.ttf',
+    fill: str = 'black'
+) -> np.ndarray:
+    texts = [text[i:i+maximum_width] for i in range(0, len(text), maximum_width)]
+    image_pil = Image.fromarray(image)
+    draw = ImageDraw.Draw(image_pil)
+    font = ImageFont.truetype(font, fontsize)
+    width, height = image_pil.size
+    for i, subtext in enumerate(texts):
+        text_width, text_height = font.getsize(subtext)
+        left = (width - text_width) // 2
+        text_bottom = ymax + (i+1)*fontsize
+        margin = np.ceil(0.05 * text_height)
+        draw.text(
+            xy=(left + margin, text_bottom - text_height - margin),
+            text=subtext,
+            fill=fill,
+            font=font
+        )
+    image = np.array(image_pil)
+    return image

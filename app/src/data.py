@@ -1,5 +1,7 @@
+import json
+
 from pathlib import Path
-from typing import Union, Literal, List
+from typing import Union, Literal, List, Callable, Dict
 
 from cv_pipeliner.core.data import ImageData
 
@@ -61,3 +63,22 @@ def get_videos_data_from_dir(
         list(videos_dir.glob('*.mp4')) + list(videos_dir.glob('*.m4v')) + list(videos_dir.glob('*.mov'))
     )
     return videos_paths
+
+
+@st.cache(show_spinner=False)
+def get_label_to_description(
+    label_to_description_dict: Union[str, Path, Dict]
+) -> Callable[[str], str]:
+    if isinstance(label_to_description_dict, str) or isinstance(label_to_description_dict, Path):
+        with open(label_to_description_dict, 'r') as src:
+            label_to_description_dict = json.load(src)
+
+    label_to_description_dict['unknown'] = 'No description.'
+
+    def label_to_description(label: str) -> str:
+        if label in label_to_description_dict:
+            return label_to_description_dict[label]
+        else:
+            return label_to_description_dict['unknown']
+
+    return label_to_description

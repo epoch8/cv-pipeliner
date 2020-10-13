@@ -1,7 +1,7 @@
 import os
 import tempfile
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Callable
 from io import BytesIO
 
 import tensorflow as tf
@@ -15,7 +15,7 @@ from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
 from cv_pipeliner.utils.images import get_label_to_base_label_image
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.inference_models.pipeline import PipelineModel
-from src.data import get_images_data_from_dir, get_videos_data_from_dir
+from src.data import get_images_data_from_dir, get_videos_data_from_dir, get_label_to_description
 from src.model import (
     load_detection_model,
     load_classification_model,
@@ -50,7 +50,14 @@ if cfg.system.use_gpu:
 else:
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-label_to_base_label_image = get_label_to_base_label_image(cfg.data.base_labels_images_dir)
+
+@st.cache(show_spinner=False, allow_output_mutation=True)
+def cached_get_label_to_base_label_image(**kwargs) -> Callable[[str], np.ndarray]:
+    return get_label_to_base_label_image(**kwargs)
+
+
+label_to_base_label_image = cached_get_label_to_base_label_image(base_labels_images_dir=cfg.data.base_labels_images_dir)
+label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
 description_to_detection_model_definition = get_description_to_detection_model_definition_from_config(cfg)
 description_to_classiticaion_model_definition = get_description_to_classification_model_definition_from_config(cfg)
 
@@ -117,7 +124,7 @@ draw_base_labels_with_given_label_to_base_label_image = (
     label_to_base_label_image if draw_label_images else None
 )
 
-input_type = st.radio(
+input_type = st.sidebar.radio(
     label='Input',
     options=["Image", "Video"]
 )
@@ -127,7 +134,7 @@ if input_type == 'Image':
     image_dir_to_annotation_filenames = {
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
     }
-    images_from = st.selectbox(
+    images_from = st.sidebar.selectbox(
         'Image from',
         options=['Upload'] + images_dirs
     )
@@ -140,7 +147,7 @@ if input_type == 'Image':
             image_data = None
         show_annotation = False
     else:
-        annotation_filename = st.selectbox(
+        annotation_filename = st.sidebar.selectbox(
             'Annotation filename',
             options=image_dir_to_annotation_filenames[images_from]
         )
@@ -159,7 +166,7 @@ if input_type == 'Image':
                 f"[{i}] {image_data.image_path.name}"
                 for i, image_data in enumerate(images_data)
             ]
-        images_data_selected_caption = st.selectbox(
+        images_data_selected_caption = st.sidebar.selectbox(
             label='Image',
             options=[None] + images_data_captions
         )
@@ -170,17 +177,18 @@ if input_type == 'Image':
         else:
             image_data = None
         if annotation_success:
-            show_annotation = st.checkbox('Show annotation', value=False)
+            show_annotation = st.sidebar.checkbox('Show annotation', value=False)
         else:
             show_annotation = False
 
     mode = st.sidebar.radio(
         label='Output bboxes',
-        options=["many", "one-by-one"]
+        options=["many", "one-by-one"],
+        index=1
     )
 
 elif input_type == 'Video':
-    videos_from = st.selectbox(
+    videos_from = st.sidebar.selectbox(
         'Video from',
         options=['Upload'] + cfg.data.videos_dirs
     )
@@ -288,20 +296,26 @@ if input_type == 'Image':
             illustrate_bboxes_data(
                 true_image_data=image_data,
                 label_to_base_label_image=label_to_base_label_image,
+                label_to_description=label_to_description,
                 mode=mode,
                 pred_image_data=pred_image_data,
                 minimum_iou=cfg.data.minimum_iou,
                 background_color_a=[0, 0, 0, 255],
                 true_background_color_b=[0, 255, 0, 255],
-                pred_background_color_b=[255, 255, 0, 255]
+                pred_background_color_b=[255, 255, 0, 255],
+                bbox_offset=100,
+                draw_rectangle_with_color=[0, 255, 0],
             )
         else:
             illustrate_bboxes_data(
                 true_image_data=pred_image_data,
                 label_to_base_label_image=label_to_base_label_image,
+                label_to_description=label_to_description,
                 mode=mode,
                 background_color_a=[0, 0, 0, 255],
-                true_background_color_b=[255, 255, 0, 255]
+                true_background_color_b=[255, 255, 0, 255],
+                bbox_offset=100,
+                draw_rectangle_with_color=[0, 255, 0],
             )
     else:
         if image_data is not None:
@@ -319,9 +333,12 @@ if input_type == 'Image':
                 illustrate_bboxes_data(
                     true_image_data=image_data,
                     label_to_base_label_image=label_to_base_label_image,
+                    label_to_description=label_to_description,
                     mode=mode,
                     background_color_a=[0, 0, 0, 255],
                     true_background_color_b=[0, 255, 0, 255],
+                    bbox_offset=100,
+                    draw_rectangle_with_color=[0, 255, 0],
                 )
             else:
                 image = image_data.open_image()

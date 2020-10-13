@@ -43,6 +43,7 @@ cfg.models.classification = [tensorflow_cls_model]
 
 cfg.data = CfgNode()
 cfg.data.base_labels_images_dir = 'renders/'
+cfg.data.labels_decriptions = 'label_to_description.json'
 cfg.data.images_dirs = [
     {'images_dir_with_annotation/': ['annotations_filename.json']},
     {'images_dir_without_annotation/': []}

@@ -43,11 +43,12 @@ PipelineOutput = List[
 
 
 class PipelineModel(InferenceModel):
-    def __init__(self, model_spec: PipelineModelSpec):
-        isinstance(model_spec, PipelineModelSpec)
-        super().__init__(model_spec)
-        self.detection_model = model_spec.detection_model_spec.load()
-        self.classification_model = model_spec.classification_model_spec.load()
+    def __init__(self, model_spec: PipelineModelSpec = None):
+        if model_spec is not None:
+            isinstance(model_spec, PipelineModelSpec)
+            super().__init__(model_spec)
+            self.detection_model = model_spec.detection_model_spec.load()
+            self.classification_model = model_spec.classification_model_spec.load()
 
     def load_from_loaded_models(
         self,

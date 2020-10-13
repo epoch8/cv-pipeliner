@@ -33,6 +33,7 @@ models:
 
 data:
     base_labels_images_dir: 'renders/'
+    labels_decriptions: 'label_to_description.json'
 
     images_dirs:
         - 'images_dir_with_annotation/':
