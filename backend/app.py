@@ -47,13 +47,14 @@ def realtime_start(guid: str) -> Dict:
 
 @app.route('/realtime_predict/<guid>', methods=['POST'])
 def realtime_predict(guid: str) -> Dict:
-    if request.method == 'POST' and request.content_type == 'image/jpg':
+    if request.method == 'POST' and request.files.get('image', ''):
         res_json = realtime_inference(
             realtime_inferencer=guid_to_realtime_inferencer_data[guid].realtime_inferencer,
-            image_bytes=request.data,
+            image_bytes=request.files.get('image', ''),
             detection_score_threshold=cfg.models.detection.object_detection_api_tflite.score_threshold,
         )
         return res_json
+    return jsonify(success=False)
 
 
 @app.route('/realtime_end/<guid>', methods=['POST'])
@@ -68,10 +69,18 @@ def realtime_end(guid: str) -> Dict:
 
 @app.route('/predict/', methods=['POST'])
 def predict() -> Dict:
-    if request.method == 'POST' and request.content_type == 'image/jpg':
+    if request.method == 'POST' and request.files.get('image', ''):
         res_json = inference(
             pipeline_inferencer=pipeline_inferencer,
-            image_bytes=request.data,
+            image_bytes=request.files.get('image', ''),
             detection_score_threshold=cfg.models.detection.object_detection_api_tflite.score_threshold
         )
         return res_json
+    return jsonify(success=False)
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
