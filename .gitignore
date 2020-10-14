@@ -12,3 +12,4 @@ backend/models/
 tests/tmp/
 frontend/node_modules
 frontend/build
+my_config.yaml

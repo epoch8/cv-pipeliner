@@ -35,6 +35,6 @@ ADD setup.py /app/setup.py
 ADD requirements.txt /app/requirements.txt
 RUN pip3 install -e /app/ --use-feature=2020-resolver
 
-ADD app /app/
-WORKDIR /app/
-CMD ["streamlit", "run", "app.py", "--server.port", "80"]
+ADD apps /apps/apps/
+WORKDIR /apps/
+CMD ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "80"]

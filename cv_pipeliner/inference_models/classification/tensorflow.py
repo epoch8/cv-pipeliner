@@ -124,4 +124,4 @@ class Tensorflow_ClassificationModel(ClassificationModel):
 
     @property
     def class_names(self) -> List[str]:
-        return self._class_name
+        return self._class_names

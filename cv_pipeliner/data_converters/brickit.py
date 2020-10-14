@@ -57,9 +57,10 @@ class BrickitDataConverter(DataConverter):
             else:
                 label = 'brick'
             additional_info = {}
-            for key in obj:
-                if 'bbox' != key and 'label' != key:
-                    additional_info[key] = obj[key]
+            if isinstance(obj, dict):
+                for key in obj:
+                    if 'bbox' != key and 'label' != key:
+                        additional_info[key] = obj[key]
             image_data.bboxes_data.append(BboxData(
                 image_path=image_path,
                 xmin=xmin,
