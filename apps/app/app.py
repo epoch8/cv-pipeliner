@@ -1,5 +1,6 @@
 import os
 import tempfile
+import sys
 from pathlib import Path
 from typing import Union, List, Callable
 from io import BytesIO
@@ -15,19 +16,26 @@ from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
 from cv_pipeliner.utils.images import get_label_to_base_label_image
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.inference_models.pipeline import PipelineModel
-from src.data import get_images_data_from_dir, get_videos_data_from_dir, get_label_to_description
-from src.model import (
+
+
+import streamlit as st
+from cv_pipeliner.utils.streamlit.data import (
+    get_images_data_from_dir, get_videos_data_from_dir, get_label_to_description
+)
+from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data
+
+main_folder = Path(__file__).parent.parent.parent
+sys.path.append(str(main_folder))
+from apps.app.model import (  # noqa: E402
     load_detection_model,
     load_classification_model,
     get_description_to_detection_model_definition_from_config,
     get_description_to_classification_model_definition_from_config
 )
-from src.config import get_cfg_defaults
-from src.visualization import illustrate_bboxes_data
+from apps.app.config import get_cfg_defaults  # noqa: E402
 
-import streamlit as st
+
 st.set_option('deprecation.showfileUploaderEncoding', False)
-
 
 if 'CV_PIPELINER_APP_CONFIG' in os.environ:
     config_file = os.environ['CV_PIPELINER_APP_CONFIG']
@@ -152,9 +160,8 @@ if input_type == 'Image':
 
     images_from = st.sidebar.selectbox(
         'Image from',
-        options=list(images_dirname_to_image_dir_paths)
+        options=['Upload'] + list(images_dirname_to_image_dir_paths)
     )
-    images_from = images_dirname_to_image_dir_paths[images_from]
 
     if images_from == 'Upload':
         st.header('Image')
@@ -165,6 +172,7 @@ if input_type == 'Image':
             image_data = None
         show_annotation = False
     else:
+        images_from = images_dirname_to_image_dir_paths[images_from]
         annotation_filename = st.sidebar.selectbox(
             'Annotation filename',
             options=image_dir_to_annotation_filenames[images_from]
@@ -345,7 +353,7 @@ if input_type == 'Image':
                 image = cached_visualize_image_data(
                     image_data=image_data,
                     use_labels=use_labels,
-                    draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+                    draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,  # noqa: E501
                 )
                 st.image(image=image, use_column_width=True)
                 illustrate_bboxes_data(
@@ -370,7 +378,7 @@ elif input_type == 'Video':
                 detection_delay=detection_delay,
                 detection_score_threshold=detection_score_threshold,
                 filter_by_labels=filter_by_labels,
-                draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image
+                draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image  # noqa: E501
             )
         st.video(result_video_file, format='video/mp4')
     else:

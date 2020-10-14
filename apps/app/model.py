@@ -15,7 +15,7 @@ from cv_pipeliner.inference_models.classification.core import ClassificationMode
 from cv_pipeliner.inference_models.classification.tensorflow import TensorFlow_ClassificationModelSpec
 
 from yacs.config import CfgNode
-from .config import (
+from apps.app.config import (
     object_detection_api,
     object_detection_api_pb,
     object_detection_api_tflite,

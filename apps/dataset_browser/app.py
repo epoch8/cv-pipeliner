@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import Callable
 from collections import Counter
 from pathlib import Path
@@ -8,21 +9,25 @@ import numpy as np
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels, get_n_bboxes_data_filtered_by_labels
 from cv_pipeliner.utils.images import get_label_to_base_label_image
-from src.data import get_images_data_from_dir, get_label_to_description
-from src.config import get_cfg_defaults
-from src.visualization import illustrate_bboxes_data, illustrate_n_bboxes_data
 
 import streamlit as st
+from cv_pipeliner.utils.streamlit.data import get_images_data_from_dir, get_label_to_description
+from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data, illustrate_n_bboxes_data
+
+main_folder = Path(__file__).parent.parent.parent
+sys.path.append(str(main_folder))
+from apps.dataset_browser.config import get_cfg_defaults  # noqa: E402
+
 st.set_option('deprecation.showfileUploaderEncoding', False)
 
 
-if 'CV_PIPELINER_APP_CONFIG' in os.environ:
-    config_file = os.environ['CV_PIPELINER_APP_CONFIG']
+if 'CV_PIPELINER_DATASET_BROWSER_CONFIG' in os.environ:
+    config_file = os.environ['CV_PIPELINER_DATASET_BROWSER_CONFIG']
 else:
     st.warning(
-        "Environment variable 'CV_PIPELINER_APP_CONFIG' was not found. Loading default config instead."
+        "Environment variable 'CV_PIPELINER_DATASET_BROWSER_CONFIG' was not found. Loading default config instead."
     )
-    config_file = 'config.yaml'
+    config_file = 'dataset_browser/config.yaml'
 
 cfg = get_cfg_defaults()
 cfg.merge_from_file(config_file)
@@ -99,10 +104,10 @@ if view == 'detection':
 
 elif view == 'classification':
     bboxes_data = [bbox_data for image_data in images_data for bbox_data in image_data.bboxes_data]
+    labels = [bbox_data.label for bbox_data in bboxes_data]
     randomize = st.sidebar.checkbox('Shuffle bboxes')
     if randomize:
         np.random.shuffle(bboxes_data)
-    labels = [bbox_data.label for bbox_data in bboxes_data]
 else:
     image_data = None
     bboxes_data = None
