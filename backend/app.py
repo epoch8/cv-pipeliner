@@ -47,14 +47,14 @@ def realtime_start(guid: str) -> Dict:
 
 @app.route('/realtime_predict/<guid>', methods=['POST'])
 def realtime_predict(guid: str) -> Dict:
-    if request.method == 'POST' and request.files.get('image', ''):
+    if request.method == 'POST' and request.files.get('image', '') and guid in guid_to_realtime_inferencer_data:
         res_json = realtime_inference(
             realtime_inferencer=guid_to_realtime_inferencer_data[guid].realtime_inferencer,
             image_bytes=request.files.get('image', ''),
             detection_score_threshold=cfg.models.detection.object_detection_api_tflite.score_threshold,
         )
         return res_json
-    return jsonify(success=False)
+    return jsonify(success=False, message='Realtime process with given guid is not started.'), 400
 
 
 @app.route('/realtime_end/<guid>', methods=['POST'])

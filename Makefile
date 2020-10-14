@@ -7,7 +7,6 @@ DATASET_BROWSER_IMAGE=${DOCKER_REPO}/${DATASET_BROWSER_RELEASE}
 
 app-build:
 	docker build -f apps/app/Dockerfile -t ${APP_IMAGE}:${APP_VERSION} .
->>>>>>> v1.0.1
 
 app-upload:
 	docker push ${APP_IMAGE}:${APP_VERSION}
@@ -23,13 +22,13 @@ backend-upload:
 	docker push ${BACKEND_IMAGE}:${BACKEND_VERSION}
 
 backend-run:
-	docker run -p 5000:5000 -t ${BACKEND_RELEASE}:${BACKEND_VERSION}
+	docker run -p 5000:5000 -t ${BACKEND_IMAGE}:${BACKEND_VERSION}
 
 frontend-build:
-	docker build -f frontend/Dockerfile -t ${FRONTEND_RELEASE}:${FRONTEND_VERSION} ./frontend
+	docker build -f frontend/Dockerfile -t ${FRONTEND_IMAGE}:${FRONTEND_VERSION} ./frontend
 
 frontend-run:
-	docker container run -p 80:80 -t ${FRONTEND_RELEASE}:${FRONTEND_VERSION}
+	docker container run -p 80:80 -t ${FRONTEND_IMAGE}:${FRONTEND_VERSION}
 
 realtime-run: backend-run frontend-run
 	docker run -p 5000:5000 -t ${BACKEND_IMAGE}:${BACKEND_VERSION}
