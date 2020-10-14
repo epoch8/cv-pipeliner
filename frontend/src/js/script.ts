@@ -1,4 +1,5 @@
 import Webcam from './webcam';
+import { Document } from './interfaces';
 
 const webcamElement = document.querySelector('.video') as HTMLVideoElement;
 const canvasElement = document.querySelector('.canvas') as HTMLCanvasElement;
@@ -10,15 +11,6 @@ const buttonFlipCamera = document.querySelector('.button--camera-flip') as HTMLB
 const buttonStart = document.querySelector('.button--start') as HTMLButtonElement;
 const buttonFullScreen = document.querySelector('.button--fullscreen') as HTMLButtonElement;
 const buttonDownload = document.querySelector('.button--download') as HTMLButtonElement;
-
-interface Document extends HTMLDocument {
-  mozCancelFullScreen?: any;
-  mozFullScreenElement?: any;
-  msExitFullscreen?: any;
-  msFullscreenElement?: any;
-  webkitExitFullscreen?: any;
-  webkitFullscreenElement?: any;
-}
 
 const webcam = new Webcam(webcamElement, 'environment', canvasElement);
 

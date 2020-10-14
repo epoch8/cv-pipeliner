@@ -222,10 +222,6 @@ export default class Webcam {
             formData.append('image', blob);
             const { data: { bboxes } } = await axios.post(`${Url.REALTIME_PREDICT}/${this._guid}`, formData);
 
-            if (!bboxes.length) {
-              reject();
-            }
-
             bboxes.forEach((box, index) => {
               if (!this._colorCache[box.label]) {
                 this._colorCache[box.label] = BOX_COLORS[index];
