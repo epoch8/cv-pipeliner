@@ -6,7 +6,6 @@ from pathlib import Path
 
 from cv_pipeliner.core.data_converter import DataConverter
 from cv_pipeliner.core.data import BboxData, ImageData
-from cv_pipeliner.utils.images import rotate_point
 
 
 class LabelStudioDetectionDataConverter(DataConverter):

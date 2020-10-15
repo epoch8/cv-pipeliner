@@ -113,6 +113,7 @@ class ImageData:
     image_bytes: io.BytesIO = None
     image: np.ndarray = None
     bboxes_data: List[BboxData] = None
+    additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
         if self.image_path is not None:
