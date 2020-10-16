@@ -3,7 +3,18 @@ import json
 import imageio
 from label_studio.ml import LabelStudioMLBase
 
-DIRECTORY = None  # cv.pipeliner --> DIRECTORY_TO_BE_CHANGED
+from cv_pipeliner.data_converters.brickit import BrickitDataConverter
+
+DIRECTORY = '/mnt/c/Users/bobokvsky/YandexDisk-bobok100500@yandex.ru/Job/temp/label_studio_detection/'
+DIRECTORY = Path(DIRECTORY)  # cv.pipeliner --> DIRECTORY_TO_BE_CHANGED
+IMAGE_PATHS = (DIRECTORY / 'main_project' / 'upload').glob('*.*')
+IMAGES_DATA = BrickitDataConverter().get_images_data_from_annots(
+    image_paths=IMAGE_PATHS,
+    annots=DIRECTORY / 'backend' / 'annotations.json'
+)
+FILENAME_TO_IMAGE_DATA = {
+    image_path
+}
 
 class PipelineBackend(LabelStudioMLBase):
     def __init__(self, **kwargs):
