@@ -7,13 +7,20 @@ import shutil
 
 from pathlib import Path
 from typing import List, Union, Dict
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import numpy as np
 from tqdm import tqdm
 
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.logging import logger
+from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageData
+from cv_pipeliner.inference_models.detection.core import DetectionModelSpec
+from cv_pipeliner.inferencers.detection import DetectionInferencer
+from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
+from cv_pipeliner.inferencers.pipeline import PipelineInferencer
+
+from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 
 from cv_pipeliner.utils.images import rotate_point
 
@@ -133,6 +140,7 @@ class LabelStudioProject:
     ):
         self.directory = Path(directory)
         self.main_project_directory = self.directory / 'main_project'
+        self.backend_project_directory = self.directory / 'backend'
         self.load()
 
     def generate_config_xml(
@@ -145,7 +153,7 @@ class LabelStudioProject:
         config_xml = f'''
 <View>
   <Image name="image" value="$image"/>
-  <RectangleLabels name="bbox" toName="image">
+  <RectangleLabels name="bbox" toName="image" canRotate="false">
 {labels}
   </RectangleLabels>
   <Choices name="trash" choice="multiple" toName="image" showInLine="true">
@@ -170,11 +178,102 @@ class LabelStudioProject:
             json.dump(self.class_names, out, indent=4)
         self.generate_config_xml(self.class_names)
 
+    def inference_and_make_predictions_for_backend(
+        self,
+        class_names: List[str],
+        image_paths: List[Union[str, Path]],
+        detection_model_spec: DetectionModelSpec,
+        detection_score_threshold: float,
+        classification_model_spec: DetectionModelSpec = None,
+        default_class_name: str = None,
+        batch_size: int = 16
+    ):
+        images_data = [ImageData(image_path=image_path) for image_path in image_paths]
+        images_data_gen = BatchGeneratorImageData(
+            data=images_data,
+            batch_size=16,
+            use_not_caught_elements_as_last_batch=True
+        )
+
+        if classification_model_spec is None:
+            detection_model = detection_model_spec.load()
+            detection_inferencer = DetectionInferencer(detection_model)
+            pred_images_data = detection_inferencer.predict(
+                images_data_gen=images_data_gen,
+                score_threshold=detection_score_threshold
+            )
+            if default_class_name is None:
+                default_class_name = class_names[0]
+            else:
+                default_class_name = (
+                    f"{default_class_name}{SPECIAL_CHARACTER}" if default_class_name.isdigit() else default_class_name
+                )
+                assert default_class_name in class_names
+            pred_images_data = [
+                ImageData(
+                    image_path=image_data.image_path,
+                    bboxes_data=[
+                        BboxData(
+                            xmin=bbox_data.xmin,
+                            ymin=bbox_data.ymin,
+                            xmax=bbox_data.ymax,
+                            ymax=bbox_data.ymax,
+                            label=default_class_name
+                        )
+                        for bbox_data in image_data.bboxes_data
+                    ]
+                )
+                for image_data in pred_images_data
+            ]
+        else:
+            pipeline_model_spec = PipelineModelSpec(
+                detection_model_spec=detection_model_spec,
+                classification_model_spec=classification_model_spec
+            )
+            pipeline_model = pipeline_model_spec.load()
+            pipeline_inferencer = PipelineInferencer(pipeline_model)
+            pred_images_data = pipeline_inferencer.predict(
+                images_data_gen=images_data_gen,
+                detection_score_threshold=detection_score_threshold
+            )
+            pred_images_data = [
+                ImageData(
+                    image_path=image_data.image_path,
+                    bboxes_data=[
+                        BboxData(
+                            xmin=bbox_data.xmin,
+                            ymin=bbox_data.ymin,
+                            xmax=bbox_data.ymax,
+                            ymax=bbox_data.ymax,
+                            label=bbox_data.label if bbox_data.label in class_names else bbox_data.label
+                        )
+                        for bbox_data in image_data.bboxes_data
+                    ]
+                )
+                for image_data in pred_images_data
+            ]
+            annotations = BrickitDataConverter().get_annot_from_images_data(pred_images_data)
+            with open(self.backend_project_directory / 'annotations.json', 'w') as out:
+                json.dump(annotations, out)
+
+
+    def initialize_backend(
+        self,
+        detection_model_spec: DetectionModelSpec = None
+    ):
+        label_studio_backend_process = subprocess.Popen(
+            ["label-studio-ml", "init", str(self.main_project_directory)],
+            stdout=subprocess.PIPE
+        )
+        output = '\n'.join([x.decode() for x in label_studio_process.communicate() if x])
+
     def initialize_project(
         self,
         class_names: List[str],
         port: int = 8080,
-        url: str = 'http://localhost:8080/'
+        url: str = 'http://localhost:8080/',
+        detection_model_spec: DetectionModelSpec = None,
+        classification_model_spec: DetectionModelSpec = None
     ):
         if self.directory.exists():
             raise ValueError(
