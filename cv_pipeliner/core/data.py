@@ -1,6 +1,6 @@
 import io
 from dataclasses import dataclass, field
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Tuple
 from pathlib import Path
 
 import imageio
@@ -25,7 +25,7 @@ class BboxData:
     top_n: int = None
     labels_top_n: List[str] = None
     classification_scores_top_n: List[float] = None
-        
+
     additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
@@ -39,7 +39,8 @@ class BboxData:
         xmin_offset: int = 0,
         ymin_offset: int = 0,
         xmax_offset: int = 0,
-        ymax_offset: int = 0
+        ymax_offset: int = 0,
+        draw_rectangle_with_color: Tuple[int, int, int, int] = None
     ) -> Union[None, np.ndarray]:
 
         if self.cropped_image is not None:
@@ -62,6 +63,15 @@ class BboxData:
             ymax_offset = max(0, min(ymax_offset, height-self.ymax))
             cropped_image = image[self.ymin-ymin_offset:self.ymax+ymax_offset,
                                   self.xmin-xmin_offset:self.xmax+xmax_offset]
+            if draw_rectangle_with_color is not None:
+                height, width, colors = cropped_image.shape
+                cropped_image = cv2.rectangle(
+                    img=cropped_image.copy(),
+                    pt1=(xmin_offset, ymin_offset),
+                    pt2=(width-xmax_offset, height-ymax_offset),
+                    color=draw_rectangle_with_color,
+                    thickness=2
+                )
 
         if inplace:
             super().__setattr__('cropped_image', cropped_image)

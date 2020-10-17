@@ -1,1 +1,3 @@
-examples/*
+**/examples/**/*.*
+**/__pycache__/**/*.*
+**/__logs__/**/*.*

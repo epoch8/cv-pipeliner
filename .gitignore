@@ -10,3 +10,4 @@ __logs__/
 .pytest_cache/
 backend/models/
 tests/tmp/
+my_config.yaml

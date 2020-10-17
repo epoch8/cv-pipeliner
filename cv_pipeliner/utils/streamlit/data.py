@@ -1,5 +1,7 @@
+import json
+
 from pathlib import Path
-from typing import Union, Literal, List
+from typing import Union, Literal, List, Callable, Dict
 
 from cv_pipeliner.core.data import ImageData
 
@@ -12,7 +14,8 @@ import streamlit as st
 @st.cache(show_spinner=False)
 def get_images_data_from_dir(
     images_annotation_type: Literal['brickit', 'supervisely'],
-    images_dir: Union[str, Path]
+    images_dir: Union[str, Path],
+    annotation_filename: str = None
 ) -> List[ImageData]:
     images_dir = Path(images_dir)
     image_paths = sorted(
@@ -20,7 +23,9 @@ def get_images_data_from_dir(
     )
     annotation_success = False
     if images_annotation_type == 'brickit':
-        annots = (images_dir / 'annotations.json')
+        if annotation_filename is None:
+            annotation_filename = 'annotations.json'
+        annots = images_dir / annotation_filename
         if annots.exists():
             images_data = BrickitDataConverter().get_images_data_from_annots(
                 image_paths=image_paths, annots=annots
@@ -58,3 +63,22 @@ def get_videos_data_from_dir(
         list(videos_dir.glob('*.mp4')) + list(videos_dir.glob('*.m4v')) + list(videos_dir.glob('*.mov'))
     )
     return videos_paths
+
+
+@st.cache(show_spinner=False)
+def get_label_to_description(
+    label_to_description_dict: Union[str, Path, Dict]
+) -> Callable[[str], str]:
+    if isinstance(label_to_description_dict, str) or isinstance(label_to_description_dict, Path):
+        with open(label_to_description_dict, 'r') as src:
+            label_to_description_dict = json.load(src)
+
+    label_to_description_dict['unknown'] = 'No description.'
+
+    def label_to_description(label: str) -> str:
+        if label in label_to_description_dict:
+            return label_to_description_dict[label]
+        else:
+            return label_to_description_dict['unknown']
+
+    return label_to_description

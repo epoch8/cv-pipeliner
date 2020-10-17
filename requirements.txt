@@ -11,4 +11,4 @@ scikit-image>=0.17.2
 yacs>=0.1.8
 imageio-ffmpeg>=0.4.2
 albumentations>=0.4.6
-streamlit>=0.66.0
+streamlit==0.66.0

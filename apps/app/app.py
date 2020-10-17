@@ -1,7 +1,8 @@
 import os
 import tempfile
+import sys
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Callable
 from io import BytesIO
 
 import tensorflow as tf
@@ -15,19 +16,26 @@ from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
 from cv_pipeliner.utils.images import get_label_to_base_label_image
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.inference_models.pipeline import PipelineModel
-from src.data import get_images_data_from_dir, get_videos_data_from_dir
-from src.model import (
+
+
+import streamlit as st
+from cv_pipeliner.utils.streamlit.data import (
+    get_images_data_from_dir, get_videos_data_from_dir, get_label_to_description
+)
+from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data
+
+main_folder = Path(__file__).parent.parent.parent
+sys.path.append(str(main_folder))
+from apps.app.model import (  # noqa: E402
     load_detection_model,
     load_classification_model,
     get_description_to_detection_model_definition_from_config,
     get_description_to_classification_model_definition_from_config
 )
-from src.config import get_cfg_defaults
-from src.visualization import illustrate_bboxes_data
+from apps.app.config import get_cfg_defaults  # noqa: E402
 
-import streamlit as st
+
 st.set_option('deprecation.showfileUploaderEncoding', False)
-
 
 if 'CV_PIPELINER_APP_CONFIG' in os.environ:
     config_file = os.environ['CV_PIPELINER_APP_CONFIG']
@@ -46,10 +54,18 @@ if cfg.system.use_gpu:
     if gpus:
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
+    os.environ["CUDA_VISIBLE_DEVICES"] = "01"
 else:
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-label_to_base_label_image = get_label_to_base_label_image(cfg.data.base_labels_images_dir)
+
+@st.cache(show_spinner=False, allow_output_mutation=True)
+def cached_get_label_to_base_label_image(**kwargs) -> Callable[[str], np.ndarray]:
+    return get_label_to_base_label_image(**kwargs)
+
+
+label_to_base_label_image = cached_get_label_to_base_label_image(base_labels_images_dir=cfg.data.base_labels_images_dir)
+label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
 description_to_detection_model_definition = get_description_to_detection_model_definition_from_config(cfg)
 description_to_classiticaion_model_definition = get_description_to_classification_model_definition_from_config(cfg)
 
@@ -84,11 +100,23 @@ if classification_model_description is not None:
     classification_model = load_classification_model(
         classification_model_spec=classification_model_definition.model_spec,
     )
+    class_names = sorted(
+        set(classification_model.class_names),
+        key=lambda x: int(x) if x.isdigit() else 0
+    )
+    classes_to_find_captions = [
+        f"{class_name} [{label_to_description(class_name)}]"
+        for class_name in class_names
+    ]
     filter_by_labels = st.sidebar.multiselect(
         label="Classes to find",
-        options=list(classification_model.class_names),
+        options=classes_to_find_captions,
         default=[]
     )
+    filter_by_labels = [
+        class_names[classes_to_find_captions.index(chosen_class_name)]
+        for chosen_class_name in filter_by_labels
+    ]
 
 if detection_model_description is not None and classification_model_description is not None:
     pipeline_model = PipelineModel()
@@ -122,10 +150,19 @@ input_type = st.sidebar.radio(
 )
 
 if input_type == 'Image':
+    images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
+    image_dir_to_annotation_filenames = {
+        image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
+    }
+    images_dirname_to_image_dir_paths = {
+        Path(image_dir).name: image_dir for image_dir in images_dirs
+    }
+
     images_from = st.sidebar.selectbox(
         'Image from',
-        options=['Upload'] + cfg.data.images_dirs
+        options=['Upload'] + list(images_dirname_to_image_dir_paths)
     )
+
     if images_from == 'Upload':
         st.header('Image')
         image_bytes = st.file_uploader("Upload image", type=["png", "jpeg", "jpg"])
@@ -135,9 +172,15 @@ if input_type == 'Image':
             image_data = None
         show_annotation = False
     else:
+        images_from = images_dirname_to_image_dir_paths[images_from]
+        annotation_filename = st.sidebar.selectbox(
+            'Annotation filename',
+            options=image_dir_to_annotation_filenames[images_from]
+        )
         images_data, annotation_success = get_images_data_from_dir(
             images_annotation_type=cfg.data.images_annotation_type,
-            images_dir=images_from
+            images_dir=images_from,
+            annotation_filename=annotation_filename
         )
         if annotation_success:
             images_data_captions = [
@@ -166,7 +209,8 @@ if input_type == 'Image':
 
     mode = st.sidebar.radio(
         label='Output bboxes',
-        options=["many", "one-by-one"]
+        options=["many", "one-by-one"],
+        index=1
     )
 
 elif input_type == 'Video':
@@ -184,7 +228,7 @@ elif input_type == 'Video':
             f"[{i}] {video_path.name}"
             for i, video_path in enumerate(video_paths)
         ]
-        video_data_selected_caption = st.sidebar.selectbox(
+        video_data_selected_caption = st.selectbox(
             label='Video',
             options=[None] + videos_paths_captions
         )
@@ -278,20 +322,26 @@ if input_type == 'Image':
             illustrate_bboxes_data(
                 true_image_data=image_data,
                 label_to_base_label_image=label_to_base_label_image,
+                label_to_description=label_to_description,
                 mode=mode,
                 pred_image_data=pred_image_data,
                 minimum_iou=cfg.data.minimum_iou,
                 background_color_a=[0, 0, 0, 255],
                 true_background_color_b=[0, 255, 0, 255],
-                pred_background_color_b=[255, 255, 0, 255]
+                pred_background_color_b=[255, 255, 0, 255],
+                bbox_offset=100,
+                draw_rectangle_with_color=[0, 255, 0],
             )
         else:
             illustrate_bboxes_data(
                 true_image_data=pred_image_data,
                 label_to_base_label_image=label_to_base_label_image,
+                label_to_description=label_to_description,
                 mode=mode,
                 background_color_a=[0, 0, 0, 255],
-                true_background_color_b=[255, 255, 0, 255]
+                true_background_color_b=[255, 255, 0, 255],
+                bbox_offset=100,
+                draw_rectangle_with_color=[0, 255, 0],
             )
     else:
         if image_data is not None:
@@ -303,15 +353,18 @@ if input_type == 'Image':
                 image = cached_visualize_image_data(
                     image_data=image_data,
                     use_labels=use_labels,
-                    draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+                    draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,  # noqa: E501
                 )
                 st.image(image=image, use_column_width=True)
                 illustrate_bboxes_data(
                     true_image_data=image_data,
                     label_to_base_label_image=label_to_base_label_image,
+                    label_to_description=label_to_description,
                     mode=mode,
                     background_color_a=[0, 0, 0, 255],
                     true_background_color_b=[0, 255, 0, 255],
+                    bbox_offset=100,
+                    draw_rectangle_with_color=[0, 255, 0],
                 )
             else:
                 image = image_data.open_image()
@@ -325,7 +378,7 @@ elif input_type == 'Video':
                 detection_delay=detection_delay,
                 detection_score_threshold=detection_score_threshold,
                 filter_by_labels=filter_by_labels,
-                draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image
+                draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image  # noqa: E501
             )
         st.video(result_video_file, format='video/mp4')
     else:

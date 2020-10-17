@@ -2,22 +2,33 @@ include build.env
 
 APP_IMAGE=${DOCKER_REPO}/${APP_RELEASE}
 BACKEND_IMAGE=${DOCKER_REPO}/${BACKEND_RELEASE}
+DATASET_BROWSER_IMAGE=${DOCKER_REPO}/${DATASET_BROWSER_RELEASE}
 
 app-build:
-	docker build -f app/DockerFile -t ${APP_IMAGE}:${APP_VERSION} .
+	docker build -f apps/app/Dockerfile -t ${APP_IMAGE}:${APP_VERSION} .
 
 app-upload:
 	docker push ${APP_IMAGE}:${APP_VERSION}
 
 app-run:
 	test -n "$(CV_PIPELINER_APP_CONFIG)"  # $$CV_PIPELINER_APP_CONFIG
-	docker run -e CV_PIPELINER_APP_CONFIG=${CV_PIPELINER_APP_CONFIG} -p 80:80 -t ${APP_IMAGE}:${APP_VERSION}
+	docker run -v /mnt/c/:/mnt/c/ -e CV_PIPELINER_APP_CONFIG=${CV_PIPELINER_APP_CONFIG} -p 80:80 -t ${APP_IMAGE}:${APP_VERSION}
 
 backend-build:
-	docker build -f backend/DockerFile -t ${BACKEND_RELEASE}:${BACKEND_VERSION} .
+	docker build -f backend/Dockerfile -t ${BACKEND_IMAGE}:${BACKEND_VERSION} .
 
 backend-upload:
-	docker push ${BACKEND_RELEASE}:${BACKEND_VERSION}
+	docker push ${BACKEND_IMAGE}:${BACKEND_VERSION}
 
 backend-run:
-	docker run -p 5000:5000 -t ${BACKEND_RELEASE}:${BACKEND_VERSION}
+	docker run -p 5000:5000 -t ${BACKEND_IMAGE}:${BACKEND_VERSION}
+
+dataset-browser-build:
+	docker build -f apps/dataset_browser/Dockerfile -t ${DATASET_BROWSER_IMAGE}:${DATASET_BROWSER_VERSION} .
+
+dataset-browser-upload:
+	docker push ${DATASET_BROWSER_IMAGE}:${DATASET_BROWSER_VERSION}
+
+dataset-browser-run:
+	test -n "$(CV_PIPELINER_DATASET_BROWSER_CONFIG)"  # $$CV_PIPELINER_DATASET_BROWSER_CONFIG
+	docker run -v /mnt/c/:/mnt/c/ -e CV_PIPELINER_DATASET_BROWSER_CONFIG=${CV_PIPELINER_DATASET_BROWSER_CONFIG} -p 80:80 -p 81:81 -t ${DATASET_BROWSER_IMAGE}:${DATASET_BROWSER_VERSION}
