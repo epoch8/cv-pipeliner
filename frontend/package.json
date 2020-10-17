@@ -1,3 +1,50 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:e7528fe3cdf40bbccec55a5c25fbde56bc08d6f55ee4da842084ddab7f191a41
-size 1529
+{
+  "name": "epoch8-webrtc",
+  "version": "1.0.0",
+  "description": "epoch8-webrtc",
+  "author": "demikhovr",
+  "main": "src/index.ts",
+  "license": "ISC",
+  "scripts": {
+    "start": "webpack-dev-server --config webpack.config.ts",
+    "build": "webpack --config webpack.config.ts",
+    "lint": "npm run lint:styles && npm run lint:ts",
+    "lint:styles": "stylelint './src/**/*.css'",
+    "lint:ts": "eslint --ext .ts src/"
+  },
+  "devDependencies": {
+    "@babel/core": "7.11.6",
+    "@babel/preset-env": "7.11.5",
+    "@babel/preset-typescript": "7.10.4",
+    "@types/html-webpack-plugin": "3.2.3",
+    "@types/mini-css-extract-plugin": "0.9.1",
+    "@types/webpack": "4.41.22",
+    "@types/webpack-dev-server": "3.11.0",
+    "@typescript-eslint/eslint-plugin": "4.1.0",
+    "@typescript-eslint/parser": "4.1.0",
+    "babel-loader": "8.1.0",
+    "clean-webpack-plugin": "3.0.0",
+    "css-loader": "4.2.2",
+    "cssnano": "4.1.10",
+    "eslint": "7.2.0",
+    "eslint-config-airbnb-base": "14.2.0",
+    "eslint-plugin-import": "2.22.0",
+    "html-loader": "1.3.0",
+    "html-webpack-plugin": "4.4.1",
+    "mini-css-extract-plugin": "0.11.0",
+    "postcss-loader": "4.0.0",
+    "postcss-nested": "4.2.3",
+    "stylelint": "13.7.0",
+    "stylelint-config-standard": "20.0.0",
+    "typescript": "4.0.2",
+    "webpack": "4.44.1",
+    "webpack-cli": "3.3.12",
+    "webpack-dev-server": "3.11.0"
+  },
+  "dependencies": {
+    "axios": "^0.20.0",
+    "core-js": "3.6.5",
+    "regenerator-runtime": "0.13.7",
+    "uuid": "^8.3.1"
+  }
+}

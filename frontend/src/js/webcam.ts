@@ -1,9 +1,3 @@
-import axios from 'axios';
-import { v4 as uuidv4 } from 'uuid';
-
-import { drawBox, drawLabel } from './helpers';
-import { BOX_COLORS, Url } from './constants';
-
 interface VideoConstraints {
   deviceId?: {
     exact: string;
@@ -19,11 +13,7 @@ interface SnapProps {
 export default class Webcam {
   private readonly _canvasElement: HTMLCanvasElement | null;
 
-  private _colorCache: { [key: string]: string };
-
   private _facingMode: VideoFacingModeEnum;
-
-  private _guid: number;
 
   private _selectedDeviceId: string;
 
@@ -39,9 +29,7 @@ export default class Webcam {
     canvasElement: HTMLCanvasElement | null = null,
   ) {
     this._canvasElement = canvasElement;
-    this._colorCache = {};
     this._facingMode = facingMode;
-    this._guid = null;
     this._selectedDeviceId = '';
     this._streamList = [];
     this._webcamElement = webcamElement;
@@ -189,7 +177,7 @@ export default class Webcam {
     });
   }
 
-  snap({ type = 'image/jpeg', quality = 0.92 }: SnapProps): Promise<string> {
+  snap({ type = 'image/jpeg', quality = 0.92 }: SnapProps): string {
     if (this._canvasElement !== null) {
       this._canvasElement.height = this._webcamElement.scrollHeight;
       this._canvasElement.width = this._webcamElement.scrollWidth;
@@ -215,57 +203,9 @@ export default class Webcam {
         this._canvasElement.height,
       );
 
-      return new Promise((resolve, reject) => {
-        const formData = new FormData();
-        this._canvasElement.toBlob(async (blob) => {
-          try {
-            formData.append('image', blob);
-            const { data: { bboxes } } = await axios.post(`${Url.REALTIME_PREDICT}/${this._guid}`, formData);
-
-            bboxes.forEach((box, index) => {
-              if (!this._colorCache[box.label]) {
-                this._colorCache[box.label] = BOX_COLORS[index];
-              }
-
-              drawBox(context, box, this._colorCache[box.label]);
-              drawBox(context, box, 'black', 1);
-              drawLabel(context, box, box.label, this._colorCache[box.label]);
-            });
-
-            const url = this._canvasElement.toDataURL(type, quality);
-            resolve(url);
-          } catch (err) {
-            reject(err);
-          }
-        });
-      });
+      return this._canvasElement.toDataURL(type, quality);
     }
 
     throw new Error('canvas element is missing');
-  }
-
-  async realtimeStart(fps: number, detectionDelay: number) {
-    try {
-      if (this._guid) {
-        await this.realtimeEnd();
-      }
-
-      this._guid = uuidv4();
-      const formData = new FormData();
-      formData.append('fps', `${fps}`);
-      formData.append('detection_delay', `${detectionDelay}`);
-      await axios.post(`${Url.REALTIME_START}/${this._guid}`, formData);
-    } catch (err) {
-      console.log('realtimeStart', err);
-    }
-  }
-
-  async realtimeEnd() {
-    try {
-      await axios.post(`${Url.REALTIME_END}/${this._guid}`);
-      this._guid = null;
-    } catch (err) {
-      console.log('realtimeEnd', err);
-    }
   }
 }

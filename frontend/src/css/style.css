@@ -31,18 +31,30 @@ body {
   top: -9999px;
 }
 
-.canvas {
-  display: none;
+.canvas-layers {
+  position: relative;
+  width: 100%;
 }
 
-.photo {
-  display: block;
+.image-layer,
+.boxes-layer {
   height: auto;
-  margin: auto;
   max-height: 100vh;
   max-width: 100%;
   object-fit: contain;
   width: 100%;
+}
+
+.image-layer {
+  position: relative;
+  z-index: 1;
+}
+
+.boxes-layer {
+  left: 0;
+  position: absolute;
+  top: 0;
+  z-index: 3;
 }
 
 .controls {
@@ -56,6 +68,7 @@ body {
   right: 10px;
   top: 10px;
   transition: opacity 0.16s ease;
+  z-index: 5;
 
   &:hover {
     opacity: 1;
@@ -91,6 +104,18 @@ body {
   flex-shrink: 0;
   margin-bottom: 5px;
   margin-right: 5px;
+
+  &--quality {
+    .input-field__input {
+      width: 75px;
+    }
+  }
+
+  &--delay {
+    .input-field__input {
+      width: 125px;
+    }
+  }
 }
 
 .input-field__label {
