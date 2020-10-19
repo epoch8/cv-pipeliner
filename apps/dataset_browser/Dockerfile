@@ -37,4 +37,6 @@ RUN pip3 install -e /app/ --use-feature=2020-resolver
 
 ADD apps /apps/apps/
 WORKDIR /apps/
+
+RUN python3 -c 'import matplotlib.font_manager'
 CMD ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "80"]

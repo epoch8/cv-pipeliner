@@ -1,32 +1,3 @@
-{
-  "compileOnSave": false,
-  "compilerOptions": {
-    "allowJs": false,
-    "baseUrl": "./",
-    "isolatedModules": true,
-    "lib": [
-      "dom",
-      "es2017"
-    ],
-    "moduleResolution": "node",
-    "noEmit": true,
-    "noImplicitAny": false,
-    "noImplicitReturns": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": true,
-    "outDir": "./",
-    "removeComments": true,
-    "sourceMap": true,
-    "strictNullChecks": true,
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "module": "commonjs",
-    "skipLibCheck": true,
-    "strict": true,
-    "target": "esnext"
-  },
-  "include": [
-    "src"
-  ]
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:f0ab07e9093a693250b4c535e0d2567772a60e686b26ebde5fdc2ab25abd91ff
+size 692
