@@ -12,3 +12,5 @@ yacs>=0.1.8
 imageio-ffmpeg>=0.4.2
 albumentations>=0.4.6
 streamlit==0.66.0
+dacite>=1.5.1
+label-studio>=0.7.5
