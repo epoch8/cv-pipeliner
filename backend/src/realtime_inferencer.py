@@ -1,14 +1,17 @@
+import time
 from dataclasses import dataclass
 from typing import List, Tuple
+from multiprocessing import Process, Queue, Event
 
 import numpy as np
 
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
+from cv_pipeliner.inference_models.detection.core import DetectionModelSpec
 from cv_pipeliner.inferencers.detection import DetectionInferencer
+from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
-from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 
 from cv_pipeliner.tracking.opencv_tracker import OpenCVTracker
 from cv_pipeliner.tracking.sort_tracker import Sort
@@ -21,16 +24,72 @@ class FrameResult:
     ready_at_frame: int
 
 
+@dataclass
+class BboxDataTrackId:
+    bbox_data: BboxData
+    track_id: int
+
+
+def classification_inferencer_queue(
+    classification_model_spec: ClassificationInferencer,
+    bbox_data_track_id_queue: Queue,
+    ready_bbox_data_track_id_queue: Queue,
+    status_event: Event,
+    time_sleep: float = 0.01
+):
+    classification_model = classification_model_spec.load()
+    classification_inferencer = ClassificationInferencer(classification_model)
+    while not status_event.is_set():
+        if not bbox_data_track_id_queue.empty():
+            bbox_data_track_id = bbox_data_track_id_queue.get(block=False)
+            bbox_data = bbox_data_track_id.bbox_data
+            bboxes_data_gen = BatchGeneratorBboxData(
+                [[bbox_data_track_id.bbox_data]], batch_size=1,
+                use_not_caught_elements_as_last_batch=True
+            )
+            pred_bbox_data = classification_inferencer.predict(bboxes_data_gen)[0][0]
+            label = pred_bbox_data.label
+            ready_bbox_data_track_id_queue.put(
+                BboxDataTrackId(
+                    bbox_data=BboxData(
+                        xmin=bbox_data.xmin,
+                        ymin=bbox_data.ymin,
+                        xmax=bbox_data.xmax,
+                        ymax=bbox_data.ymax,
+                        label=label
+                    ),
+                    track_id=bbox_data_track_id.track_id
+                )
+            )
+        else:
+            time.sleep(time_sleep)
+
+
 class RealTimeInferencer:
     def __init__(
         self,
-        pipeline_inferencer: PipelineInferencer,
+        detection_model_spec: DetectionModelSpec,
+        classification_model_spec: ClassificationModelSpec,
         fps: float,
         detection_delay: int,
         batch_size: int = 16
     ):
-        self.detection_inferencer = DetectionInferencer(pipeline_inferencer.model.detection_model)
-        self.classification_inferencer = ClassificationInferencer(pipeline_inferencer.model.classification_model)
+        self.detection_model = detection_model_spec.load()
+        self.detection_inferencer = DetectionInferencer(self.detection_model)
+        self.classification_model_spec = classification_model_spec
+        self.bbox_data_track_id_queue = Queue()
+        self.ready_bbox_data_track_id_queue = Queue()
+        self.status_event = Event()
+        self.classification_inferencer_process = Process(
+            target=classification_inferencer_queue,
+            args=(
+                self.classification_model_spec,
+                self.bbox_data_track_id_queue,
+                self.ready_bbox_data_track_id_queue,
+                self.status_event
+            )
+        )
+        self.classification_inferencer_process.start()
 
         self.fps = fps
         self.detection_delay = detection_delay
@@ -42,6 +101,11 @@ class RealTimeInferencer:
         self.opencv_tracker = None
 
         self.current_ready_frames_queue: List[FrameResult] = []
+
+    def __del__(self):
+        self.status_event.set()
+        self.classification_inferencer_process.join()
+        self.classification_inferencer_process.close()
 
     def update_sort_tracker(
         self,
@@ -108,13 +172,14 @@ class RealTimeInferencer:
                 BboxData(image=frame, xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)
                 for (xmin, ymin, xmax, ymax) in current_not_tracked_bboxes
             ]
-            bboxes_data_gen = BatchGeneratorBboxData([bboxes_data], batch_size=batch_size,
-                                                     use_not_caught_elements_as_last_batch=True)
-            pred_bboxes_data = self.classification_inferencer.predict(bboxes_data_gen)[0]
-
-            for bbox_data, tracked_id in zip(pred_bboxes_data, current_not_tracked_ids):
+            for bbox_data, tracked_id in zip(bboxes_data, current_not_tracked_ids):
+                bbox_data_track_id = BboxDataTrackId(
+                    bbox_data=bbox_data,
+                    track_id=tracked_id
+                )
+                self.bbox_data_track_id_queue.put(bbox_data_track_id)
                 frame_result = FrameResult(
-                    label=bbox_data.label,
+                    label='...',
                     track_id=tracked_id,
                     ready_at_frame=self.current_frame_idx
                 )
@@ -145,10 +210,20 @@ class RealTimeInferencer:
         ready_tracks_ids_at_the_moment = [
             ready_frame.track_id for ready_frame in ready_frames_at_the_moment
         ]
+        ready_tracks_ids_at_the_moment_set = set(ready_tracks_ids_at_the_moment)
+
+        if not self.ready_bbox_data_track_id_queue.empty():
+            pred_bbox_data_track_id = self.ready_bbox_data_track_id_queue.get(block=False)
+            pred_bbox_data = pred_bbox_data_track_id.bbox_data
+            track_id = pred_bbox_data_track_id.track_id
+            if track_id in ready_tracks_ids_at_the_moment_set:
+                ready_frames_at_the_moment[
+                    ready_tracks_ids_at_the_moment.index(track_id)
+                ].label = pred_bbox_data.label
 
         bboxes_data = []
         for bbox, track_id in zip(tracked_bboxes, tracked_ids):
-            if track_id not in ready_tracks_ids_at_the_moment:
+            if track_id not in ready_tracks_ids_at_the_moment_set:
                 continue
             xmin, ymin, xmax, ymax = bbox
             ready_frame = ready_frames_at_the_moment[ready_tracks_ids_at_the_moment.index(track_id)]

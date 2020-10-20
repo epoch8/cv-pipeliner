@@ -3,8 +3,13 @@ from typing import Dict
 
 from flask import Flask, request, jsonify
 
+from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
+from cv_pipeliner.inferencers.pipeline import PipelineInferencer
+
 from src.config import get_cfg_defaults
-from src.model import load_pipeline_inferencer, inference, realtime_inference
+from src.model import (
+    get_detection_model_spec, get_classification_model_spec, inference, realtime_inference
+)
 from src.realtime_inferencer import RealTimeInferencer
 
 app = Flask(__name__)
@@ -15,8 +20,15 @@ cfg = get_cfg_defaults()
 cfg.merge_from_file(config_file)
 cfg.freeze()
 
-pipeline_inferencer = load_pipeline_inferencer(cfg)
+detection_model_spec = get_detection_model_spec(cfg)
+classification_model_spec = get_classification_model_spec(cfg)
 guid_to_realtime_inferencer_data = {}
+pipeline_model_spec = PipelineModelSpec(
+    detection_model_spec=detection_model_spec,
+    classification_model_spec=classification_model_spec
+)
+pipeline_model = pipeline_model_spec.load()
+pipeline_inferencer = PipelineInferencer(pipeline_model)
 
 
 @dataclass
@@ -37,7 +49,8 @@ def realtime_start(guid: str) -> Dict:
             guid_to_realtime_inferencer_data[guid] = RealTimeInferencerData(
                 guid=guid,
                 realtime_inferencer=RealTimeInferencer(
-                    pipeline_inferencer=pipeline_inferencer,
+                    detection_model_spec=detection_model_spec,
+                    classification_model_spec=classification_model_spec,
                     fps=float(request.form['fps']),
                     detection_delay=int(request.form['detection_delay'])
                 )
@@ -47,13 +60,14 @@ def realtime_start(guid: str) -> Dict:
 
 @app.route('/realtime_predict/<guid>', methods=['POST'])
 def realtime_predict(guid: str) -> Dict:
-    if request.method == 'POST' and request.content_type == 'image/jpg':
+    if request.method == 'POST' and request.files.get('image', '') and guid in guid_to_realtime_inferencer_data:
         res_json = realtime_inference(
             realtime_inferencer=guid_to_realtime_inferencer_data[guid].realtime_inferencer,
-            image_bytes=request.data,
+            image_bytes=request.files.get('image', ''),
             detection_score_threshold=cfg.models.detection.object_detection_api_tflite.score_threshold,
         )
         return res_json
+    return jsonify(success=False, message='Realtime process with given guid is not started.'), 400
 
 
 @app.route('/realtime_end/<guid>', methods=['POST'])
@@ -68,10 +82,19 @@ def realtime_end(guid: str) -> Dict:
 
 @app.route('/predict/', methods=['POST'])
 def predict() -> Dict:
-    if request.method == 'POST' and request.content_type == 'image/jpg':
+    if request.method == 'POST' and request.files.get('image', ''):
         res_json = inference(
             pipeline_inferencer=pipeline_inferencer,
-            image_bytes=request.data,
+            image_bytes=request.files.get('image', ''),
             detection_score_threshold=cfg.models.detection.object_detection_api_tflite.score_threshold
         )
         return res_json
+    return jsonify(success=False)
+
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response

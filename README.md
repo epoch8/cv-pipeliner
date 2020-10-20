@@ -65,3 +65,11 @@ Realtime POST: you need personal `guid` for this:
 3. POST `http://localhost:5000/realtime_end/<guid>`
 
 Example of use is in `tests/backend_test.py`.
+
+# Frontend
+How to build and run:
+
+```
+make frontend-build
+make frontend-run
+```
