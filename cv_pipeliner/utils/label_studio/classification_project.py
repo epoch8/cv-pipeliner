@@ -1,17 +1,491 @@
-import json
-import math
-import numpy as np
 
-from typing import Dict, Union, Tuple, List
+import os
+import stat
+import json
+import subprocess
+import pickle
+
+from PIL import Image
 from pathlib import Path
+from typing import List, Union, Dict
+from dataclasses import dataclass
+
+import numpy as np
+import imageio
+from tqdm import tqdm
 
 from cv_pipeliner.core.data import ImageData, BboxData
+from cv_pipeliner.logging import logger
+from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
 from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
-from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
+from cv_pipeliner.inferencers.classification import ClassificationInferencer
+
+from cv_pipeliner.data_converters.brickit import BrickitDataConverter
+
+from cv_pipeliner.utils.images import rotate_point
 
 
-def prepare_annotations_by_using_top_n_predictions(
-    images_data: List[ImageData],
-    classification_model_spec: ClassificationModelSpec
-):
-    pass
+MAIN_PROJECT_FILENAME = 'main_project'
+BACKEND_PROJECT_FILENAME = 'backend'
+CLASSIFICATION_BACKEND_SCRIPT = Path(__file__).absolute().parent / 'classification_backend.py'
+SPECIAL_CHARACTER = '\u2800'  # Label studio can't accept class_names when it's digit, so we add this invisible char.
+
+
+@dataclass
+class TaskData:
+    task_json: Dict
+    id: int
+    bbox_data: ImageData
+    is_done: bool = False
+    is_skipped: bool = False
+    is_trash: bool = False
+
+    def _parse_rectangle_labels(
+        self,
+        result: Dict,
+        src_image_path: Union[str, Path],
+        src_bbox_data: BboxData
+    ) -> BboxData:
+        original_height = result['original_height']
+        original_width = result['original_width']
+        height = result['value']['height']
+        width = result['value']['width']
+        xmin = result['value']['x']
+        ymin = result['value']['y']
+        angle = result['value']['rotation']
+        label = result['value']['rectanglelabels'][0]
+        xmax = xmin + width
+        ymax = ymin + height
+        xmin = xmin / 100 * original_width
+        ymin = ymin / 100 * original_height
+        xmax = xmax / 100 * original_width
+        ymax = ymax / 100 * original_height
+        points = [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
+        new_points = [rotate_point(x=x, y=y, cx=xmin, cy=ymin, angle=angle) for (x, y) in points]
+        xmin = max(0, min([x for (x, y) in new_points]))
+        ymin = max(0, min([y for (x, y) in new_points]))
+        xmax = max([x for (x, y) in new_points])
+        ymax = max([y for (x, y) in new_points])
+        bbox = np.array([xmin, ymin, xmax, ymax])
+        bbox = bbox.round().astype(int)
+        xmin, ymin, xmax, ymax = bbox
+        bbox_data = BboxData(
+            image_path=src_image_path,
+            xmin=src_bbox_data.xmin+xmin,
+            ymin=src_bbox_data.ymin+ymin,
+            xmax=src_bbox_data.xmin+xmax,
+            ymax=src_bbox_data.ymin+ymax,
+            label=label,
+            top_n=src_bbox_data.top_n,
+            labels_top_n=src_bbox_data.labels_top_n,
+            additional_info=src_bbox_data.additional_info
+        )
+        return bbox_data
+
+    def _parse_completion(
+        self,
+        completions_json: Dict
+    ):
+        self.is_done = True
+        src_image_path = completions_json['data']['src_image_path']
+        bbox_data = BboxData(
+            image_path=src_image_path,
+            xmin=completions_json['data']['src_bbox_data']['xmin'],
+            ymin=completions_json['data']['src_bbox_data']['ymin'],
+            xmax=completions_json['data']['src_bbox_data']['xmax'],
+            ymax=completions_json['data']['src_bbox_data']['ymax'],
+            label=completions_json['data']['bbox_data_as_cropped_image']['label'],
+            top_n=completions_json['data']['src_bbox_data']['top_n'],
+            labels_top_n=completions_json['data']['src_bbox_data']['labels_top_n'],
+            additional_info=completions_json['data']['src_bbox_data']['additional_info']
+        )
+        additional_info = bbox_data.additional_info
+
+        if len(completions_json['completions']) > 1:
+            raise ValueError(
+                f'Find a task with two or more completions. Task_id: {self.id}'
+            )
+        completion = completions_json['completions'][0]
+        if 'skipped' in completion and completion['skipped']:
+            self.is_skipped = True
+        else:
+            from_names = [result['from_name'] for result in completion['result']]
+            if from_names.count('bbox') == 0:
+                logger.warning(f"Task {self.id} doesn't have bbox. Fix it. It will be taken from default bbox...")
+            if from_names.count('bbox') >= 2:
+                logger.warning(f"Task {self.id} have more than 1 bboxes. Fix it. It will be taken from default bbox...")
+            for result in completion['result']:
+                from_name = result['from_name']
+                if from_name == 'bbox':
+                    bbox_data = self._parse_rectangle_labels(
+                        result=result,
+                        src_image_path=src_image_path,
+                        src_bbox_data=bbox_data
+                    )
+                    additional_info = bbox_data.additional_info
+                elif from_name == 'trash':
+                    if 'Trash' in result['value']['choices']:
+                        self.is_trash = True
+                        additional_info['is_trash'] = True
+                elif from_name == 'additional_label':
+                    additional_info['additional_label'] = result['value']['text'][0]
+        return bbox_data
+
+    def __init__(
+        self,
+        main_project_directory: Union[str, Path],
+        task_json: Dict
+    ):
+        self.task_json = task_json
+        self.id = task_json['id']
+        completions_filepath = Path(main_project_directory) / 'completions' / f'{self.id}.json'
+        if completions_filepath.exists():
+            with open(completions_filepath, 'r') as src:
+                completions_json = json.load(src)
+            self.bbox_data = self._parse_completion(
+                completions_json=completions_json
+            )
+        else:
+            self.bbox_data = BboxData(
+                image_path=task_json['data']['src_image_path'],
+                xmin=task_json['data']['src_bbox_data']['xmin'],
+                ymin=task_json['data']['src_bbox_data']['ymin'],
+                xmax=task_json['data']['src_bbox_data']['xmax'],
+                ymax=task_json['data']['src_bbox_data']['ymax'],
+                label=task_json['data']['src_bbox_data']['label'],
+                top_n=task_json['data']['src_bbox_data']['top_n'],
+                labels_top_n=task_json['data']['src_bbox_data']['labels_top_n'],
+                additional_info=task_json['data']['src_bbox_data']['additional_info']
+            )
+
+
+class LabelStudioProject_Classification:
+    def __init__(
+        self,
+        directory: Union[str, Path]
+    ):
+        self.directory = Path(directory)
+        self.main_project_directory = self.directory / MAIN_PROJECT_FILENAME
+        self.backend_project_directory = self.directory / BACKEND_PROJECT_FILENAME
+        self.load()
+
+    def _class_name_with_special_character(self, class_name: str) -> str:
+        if SPECIAL_CHARACTER in class_name:
+            return class_name
+        else:
+            return f"{class_name}{SPECIAL_CHARACTER}" if class_name.isdigit() else class_name
+
+    def _class_name_without_special_character(self, class_name: str) -> str:
+        return class_name.replace(SPECIAL_CHARACTER, '')
+
+    def generate_config_xml(
+        self,
+        class_names: List[str]
+    ):
+        labels = '\n'.join(
+            [f'<Label value="{class_name}"/>' for class_name in class_names]
+        )
+        config_xml = f'''
+<View>
+  <Image name="image" value="$image"/>
+  <RectangleLabels name="bbox" toName="image" canRotate="false">
+    {labels}
+  </RectangleLabels>
+  <TextArea name="additional_label"
+            toName="image"
+            showSubmitButton="true"
+            maxSubmissions="1"
+            editable="true"/>
+  <Choices name="trash" choice="multiple" toName="image" showInLine="true">
+    <Choice value="Trash"/>
+    <Choice value="---"/>
+  </Choices>
+</View>
+'''.strip('\n')
+
+        # TODO: add choices by top-n
+
+        with open(self.main_project_directory/'config.xml', 'w') as out:
+            out.write(config_xml)
+
+    def set_class_names(
+        self,
+        class_names: Union[str, Path, List[str]]
+    ):
+        if isinstance(class_names, str) or isinstance(class_names, Path):
+            with open(class_names, 'r') as src:
+                class_names = json.load(src)
+        self.class_names = [
+            self._class_name_with_special_character(class_name)
+            for class_name in class_names
+        ]
+        with open(self.main_project_directory/'class_names.json', 'w') as out:
+            json.dump(self.class_names, out, indent=4)
+        self.generate_config_xml(self.class_names)
+
+    def inference_and_make_predictions_for_backend(
+        self,
+        image_paths: List[Union[str, Path]],
+        n_bboxes_data: List[List[BboxData]],
+        default_class_name: str = None,
+        batch_size: int = 16,
+        top_n: int = 1   # TO BE ADDED
+    ):
+        logger.info('Making inference for tasks...')
+        bboxes_data_gen = BatchGeneratorBboxData(
+            data=n_bboxes_data,
+            batch_size=16,
+            use_not_caught_elements_as_last_batch=True
+        )
+
+        if default_class_name is None:
+            default_class_name = self.class_names[0]
+        else:
+            default_class_name = self._class_name_with_special_character(default_class_name)
+            assert default_class_name in self.class_names
+
+        classification_model = self.classification_model_spec.load()
+        classification_inferencer = ClassificationInferencer(classification_model)
+        pred_n_bboxes_data = classification_inferencer.predict(bboxes_data_gen=bboxes_data_gen)
+        pred_n_bboxes_data = [
+            [
+                BboxData(
+                    image_path=bbox_data.image_path,
+                    xmin=bbox_data.xmin,
+                    ymin=bbox_data.ymin,
+                    xmax=bbox_data.xmax,
+                    ymax=bbox_data.ymax,
+                    label=(
+                        self._class_name_with_special_character(bbox_data.label)
+                        if self._class_name_with_special_character(bbox_data.label) in self.class_names
+                        else default_class_name
+                    ),
+                    additional_info={
+                        'top_n': bbox_data.top_n,
+                        'labels_top_n': [
+                            self._class_name_with_special_character(label)
+                            if self._class_name_with_special_character(label) in self.class_names
+                            else default_class_name
+                            for label in bbox_data.labels_top_n
+                        ]
+                    }
+                )
+                for bbox_data in bboxes_data
+            ]
+            for bboxes_data in pred_n_bboxes_data
+        ]
+        predictions = BrickitDataConverter().get_annot_from_n_bboxes_data(image_paths, pred_n_bboxes_data)
+        with open(self.backend_project_directory / 'predictions.json', 'w') as out:
+            json.dump(predictions, out)
+
+    def initialize_backend(
+        self,
+        backend_port: int,
+        classification_model_spec: ClassificationModelSpec = None
+    ):
+        self.classification_model_spec = classification_model_spec
+        logger.info('Initializing LabelStudioProject backend...')
+        backend_project_process = subprocess.Popen(
+            ["label-studio-ml", "init", str(self.backend_project_directory), '--script',
+                str(CLASSIFICATION_BACKEND_SCRIPT)],
+            stdout=subprocess.PIPE
+        )
+        backend_project_process.wait()
+        if self.classification_model_spec is not None:
+            with open(self.backend_project_directory / 'classification_model_spec.pkl', 'wb') as out:
+                pickle.dump(classification_model_spec, out)
+
+        with open(self.main_project_directory/'config.json', 'r') as src:
+            config_json = json.load(src)
+        config_json['ml_backends'].append({
+            'url': f'http://localhost:{backend_port}/',
+            'name': 'main_model'
+        })
+        with open(self.main_project_directory/'config.json', 'w') as out:
+            json.dump(config_json, out, indent=4)
+
+    def initialize_project(
+        self,
+        class_names: Union[str, Path, List[str]],
+        port: int = 8080,
+        url: str = 'http://localhost:8080/',
+        classification_model_spec: ClassificationModelSpec = None,
+        backend_port: int = 9080,
+    ):
+        if self.directory.exists():
+            raise ValueError(
+                f'Directory {self.directory} is exists. Delete it before creating the project.'
+            )
+        label_studio_process = subprocess.Popen(
+            ["label-studio", "init", str(self.main_project_directory)],
+            stdout=subprocess.PIPE
+        )
+        output = '\n'.join([x.decode() for x in label_studio_process.communicate() if x])
+        self.cv_pipeliner_settings = {
+            'port': port,
+            'backend_port': backend_port,
+            'url': url,  # use hack for our cluster
+            'additional_info': 'This project was created by cv_pipeliner.utils.label_studio.'
+        }
+        if 'Label Studio has been successfully initialized' in output:
+            logger.info(f'Initializing LabelStudioProject "{self.directory.name}"...')
+            self.set_class_names(class_names)
+            (self.main_project_directory / 'upload').mkdir()
+            with open(self.main_project_directory / 'cv_pipeliner_settings.json', 'w') as out:
+                json.dump(self.cv_pipeliner_settings, out, indent=4)
+        else:
+            raise ValueError(f'Label Studio has not been initialized. Output: {output}.')
+
+        self.initialize_backend(
+            backend_port=backend_port,
+            classification_model_spec=classification_model_spec
+        )
+
+        run_command = (
+            '#!/bin/sh\n'
+            f'label-studio-ml start {self.backend_project_directory} -p {backend_port} & '
+            f'label-studio start {self.main_project_directory} -p {port}'
+        )
+
+        with open(self.directory / 'run.sh', 'w') as out:
+            out.write(run_command)
+        st = os.stat(self.directory / 'run.sh')  # chmod +x
+        os.chmod(self.directory / 'run.sh', st.st_mode | stat.S_IEXEC)
+
+        self.running_project_process = None
+
+    def run_project(self):
+        if self.running_project_process is None:
+            logger.info(
+                f'Start project "{self.directory.name}" (port {self.cv_pipeliner_settings["port"]})...'
+            )
+            self.running_project_process = subprocess.Popen(
+                ["./run.sh"],
+                stdout=subprocess.PIPE,
+                cwd=str(self.directory)
+            )
+        else:
+            raise ValueError('The project is already running.')
+
+    def _load_tasks(self):
+        with open(self.main_project_directory/'tasks.json', 'r') as src:
+            tasks_json = json.load(src)
+        tasks_json = [tasks_json[key] for key in tasks_json]
+        self.tasks_data = [
+            TaskData(
+                main_project_directory=self.main_project_directory,
+                task_json=task_json
+            )
+            for task_json in tasks_json
+        ]
+
+    def load(self):
+        if (self.main_project_directory / 'cv_pipeliner_settings.json').exists():
+            logger.info(f'Loading LabelStudioProject "{self.directory.name}"...')
+            with open(self.main_project_directory / 'cv_pipeliner_settings.json', 'r') as src:
+                self.cv_pipeliner_settings = json.load(src)
+            with open(self.main_project_directory/'class_names.json', 'r') as src:
+                self.class_names = json.load(src)
+            self._load_tasks()
+
+        if (self.backend_project_directory / 'classification_model_spec.pkl').exists():
+            with open(self.backend_project_directory / 'classification_model_spec.pkl', 'rb') as src:
+                self.classification_model_spec = pickle.load(src)
+        else:
+            self.classification_model_spec = None
+
+    def add_tasks(
+        self,
+        image_paths: List[Union[str, Path]],
+        n_bboxes_data: List[List[BboxData]],
+        default_class_name: str = None,
+        batch_size: int = 16,
+        bbox_offset: int = 150
+    ):
+        with open(self.main_project_directory/'tasks.json', 'r') as src:
+            tasks_json = json.load(src)
+        tasks_ids = [tasks_json[key]['id'] for key in tasks_json]
+        start = max(tasks_ids) if len(tasks_ids) > 0 else 0
+        logger.info('Adding tasks...')
+        if self.classification_model_spec is not None:
+            self.inference_and_make_predictions_for_backend(
+                n_bboxes_data=n_bboxes_data,
+                default_class_name=default_class_name,
+                batch_size=batch_size
+            )
+        for image_path, bboxes_data in tqdm(list(zip(image_paths, n_bboxes_data))):
+            source_image = imageio.imread(image_path, pilmode='RGB')
+            for id, bbox_data in enumerate(bboxes_data, start=start):
+                bbox_data_as_cropped_image = bbox_data.open_cropped_image(
+                    source_image=source_image,
+                    xmin_offset=bbox_offset,
+                    ymin_offset=bbox_offset,
+                    xmax_offset=bbox_offset,
+                    ymax_offset=bbox_offset,
+                    draw_rectangle_with_color=[0, 255, 0],
+                    return_as_bbox_data_in_cropped_image=True
+                )
+                cropped_image = bbox_data_as_cropped_image.open_image()
+                bbox = (bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)
+                filename = f"{image_path.stem}_{bbox}.png"
+                image = (
+                    f"{self.cv_pipeliner_settings['url']}/data/upload/{filename}"  # noqa: E501
+                )
+                cropped_image_path = self.main_project_directory / 'upload' / filename
+                Image.fromarray(cropped_image).save(cropped_image_path)
+                tasks_json[str(id)] = {
+                    'id': id,
+                    'data': {
+                        'image': str(image),
+                        'src_image_path': str(image_path),
+                        'src_bbox_data': bbox_data.asdict(
+                            use_special_character_func=self._class_name_with_special_character
+                        ),
+                        'cropped_image_path': str(cropped_image_path),
+                        'bbox_data_as_cropped_image': bbox_data_as_cropped_image.asdict(
+                            use_special_character_func=self._class_name_with_special_character
+                        )
+                    }
+                }
+            start = id
+        with open(self.main_project_directory/'tasks.json', 'w') as out:
+            json.dump(tasks_json, out, indent=4)
+        self._load_tasks()
+
+    def get_ready_images_data(
+        self,
+        take_done_tasks: bool = False
+    ) -> List[ImageData]:
+        with open(self.main_project_directory/'tasks.json', 'r') as src:
+            tasks_json = json.load(src)
+        image_paths = list(set([str(tasks_json[key]['data']['src_image_path']) for key in tasks_json]))
+        bboxes_data = np.array([
+            task_data.bbox_data
+            for task_data in self.tasks_data
+            if (take_done_tasks and task_data.is_done or not take_done_tasks) and not task_data.is_skipped
+        ])
+        image_paths_in_bboxes_data = np.array([
+            str(bbox_data.image_path)
+            for bbox_data in bboxes_data
+        ])
+        images_data = [
+            ImageData(
+                image_path=image_path,
+                bboxes_data=[
+                    BboxData(
+                        image_path=bbox_data.image_path,
+                        xmin=bbox_data.xmin,
+                        ymin=bbox_data.ymin,
+                        xmax=bbox_data.xmax,
+                        ymax=bbox_data.ymax,
+                        label=(
+                            self._class_name_without_special_character(bbox_data.label)
+                        ),
+                        additional_info=bbox_data.additional_info
+                    )
+                    for bbox_data in bboxes_data[image_paths_in_bboxes_data == image_path]
+                ]
+            )
+            for image_path in image_paths
+        ]
+        return images_data

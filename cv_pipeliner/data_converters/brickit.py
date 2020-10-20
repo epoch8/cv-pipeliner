@@ -40,12 +40,11 @@ class BrickitDataConverter(DataConverter):
             return None
 
         annot = annot[image_idx]
-
-        image_data = ImageData(
-            image_path=image_path,
-            image=None,
-            bboxes_data=[]
-        )
+        additional_info = {}
+        for key in annot:
+            if key not in ['objects', 'filename']:
+                additional_info[key] = annot[key]
+        bboxes_data = []
         for obj in annot['objects']:
             if 'bbox' in obj:
                 xmin, ymin, xmax, ymax = obj['bbox']
@@ -61,7 +60,7 @@ class BrickitDataConverter(DataConverter):
                 for key in obj:
                     if 'bbox' != key and 'label' != key:
                         additional_info[key] = obj[key]
-            image_data.bboxes_data.append(BboxData(
+            bboxes_data.append(BboxData(
                 image_path=image_path,
                 xmin=xmin,
                 ymin=ymin,
@@ -70,6 +69,12 @@ class BrickitDataConverter(DataConverter):
                 label=label,
                 additional_info=additional_info
             ))
+
+        image_data = ImageData(
+            image_path=image_path,
+            bboxes_data=bboxes_data,
+            additional_info=additional_info
+        )
 
         return image_data
 
@@ -87,4 +92,7 @@ class BrickitDataConverter(DataConverter):
                 }
             } for bbox_data in image_data.bboxes_data]
         }
+        if len(image_data.additional_info) > 0:
+            for key in image_data.additional_info:
+                annot[key] = image_data.additional_info[key]
         return annot

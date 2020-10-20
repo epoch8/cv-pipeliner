@@ -201,3 +201,31 @@ def put_text_on_image(
         )
     image = np.array(image_pil)
     return image
+
+
+def draw_rectangle(
+    image: np.ndarray,
+    xmin: int,
+    ymin: int,
+    xmax: int,
+    ymax: int,
+    color: Tuple[int, int, int],
+    thickness: int,
+    alpha: float
+):
+    image_original = image.copy()
+    image = image.copy()
+
+    image[max(0, ymin-thickness):ymin, max(0, xmin-thickness):(xmax+thickness), :] = np.uint8(
+        (1-alpha) * image_original[max(0, ymin-thickness):ymin, max(0, xmin-thickness):(xmax+thickness), :] + alpha * np.array(color)  # noqa: E501
+    )
+    image[ymax:ymax+thickness, max(0, xmin-thickness):(xmax+thickness), :] = np.uint8(
+        (1-alpha) * image_original[ymax:ymax+thickness, max(0, xmin-thickness):(xmax+thickness), :] + alpha * np.array(color)  # noqa: E501
+    )
+    image[max(0, ymin-thickness):(ymax+thickness), xmax:xmax+thickness, :] = np.uint8(
+        (1-alpha) * image_original[max(0, ymin-thickness):(ymax+thickness), xmax:xmax+thickness, :] + alpha * np.array(color)  # noqa: E501
+    )
+    image[max(0, ymin-thickness):ymax+thickness, max(0, xmin-thickness):xmin, :] = np.uint8(
+        (1-alpha) * image_original[max(0, ymin-thickness):ymax+thickness, max(0, xmin-thickness):xmin, :] + alpha * np.array(color)  # noqa: E501
+    )
+    return image

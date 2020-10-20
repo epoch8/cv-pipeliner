@@ -18,6 +18,7 @@ from cv_pipeliner.logging import logger
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from cv_pipeliner.inference_models.detection.core import DetectionModelSpec
 from cv_pipeliner.inferencers.detection import DetectionInferencer
+from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 
@@ -137,7 +138,7 @@ class TaskData:
             )
 
 
-class LabelStudioProject:
+class LabelStudioProject_Detection:
     def __init__(
         self,
         directory: Union[str, Path]
@@ -161,13 +162,13 @@ class LabelStudioProject:
         class_names: List[str]
     ):
         labels = '\n'.join(
-            [f'    <Label value="{class_name}"/>' for class_name in class_names]
+            [f'<Label value="{class_name}"/>' for class_name in class_names]
         )
         config_xml = f'''
 <View>
   <Image name="image" value="$image"/>
   <RectangleLabels name="bbox" toName="image" canRotate="false">
-{labels}
+    {labels}
   </RectangleLabels>
   <Choices name="trash" choice="multiple" toName="image" showInLine="true">
     <Choice value="Trash"/>
@@ -227,6 +228,7 @@ class LabelStudioProject:
                     image_path=image_data.image_path,
                     bboxes_data=[
                         BboxData(
+                            image_path=bbox_data.image_path,
                             xmin=bbox_data.xmin,
                             ymin=bbox_data.ymin,
                             xmax=bbox_data.xmax,
@@ -255,6 +257,7 @@ class LabelStudioProject:
                     image_path=image_data.image_path,
                     bboxes_data=[
                         BboxData(
+                            image_path=bbox_data.image_path,
                             xmin=bbox_data.xmin,
                             ymin=bbox_data.ymin,
                             xmax=bbox_data.xmax,
@@ -279,7 +282,7 @@ class LabelStudioProject:
         self,
         backend_port: int,
         detection_model_spec: DetectionModelSpec,
-        classification_model_spec: DetectionModelSpec = None
+        classification_model_spec: ClassificationModelSpec = None
     ):
         self.detection_model_spec = detection_model_spec
         self.classification_model_spec = classification_model_spec
@@ -312,7 +315,7 @@ class LabelStudioProject:
         port: int = 8080,
         url: str = 'http://localhost:8080/',
         detection_model_spec: DetectionModelSpec = None,
-        classification_model_spec: DetectionModelSpec = None,
+        classification_model_spec: ClassificationModelSpec = None,
         backend_port: int = 9080,
     ):
         if self.directory.exists():
@@ -456,13 +459,15 @@ class LabelStudioProject:
                 image_path=image_data.image_path,
                 bboxes_data=[
                     BboxData(
+                        image_path=bbox_data.image_path,
                         xmin=bbox_data.xmin,
                         ymin=bbox_data.ymin,
                         xmax=bbox_data.xmax,
                         ymax=bbox_data.ymax,
                         label=(
                             self._class_name_without_special_character(bbox_data.label)
-                        )
+                        ),
+                        additional_info=bbox_data.additional_info
                     )
                     for bbox_data in image_data.bboxes_data
                 ]

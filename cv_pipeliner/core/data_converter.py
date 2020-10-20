@@ -150,10 +150,11 @@ class DataConverter(abc.ABC):
 
     def get_annot_from_n_bboxes_data(
         self,
+        image_paths: List[Union[str, Path]],
         n_bboxes_data: List[List[BboxData]],
     ) -> List[List[BboxData]]:
         images_data = [
-            ImageData(image_path=bboxes_data[0].image_path, bboxes_data=bboxes_data)
-            for bboxes_data in n_bboxes_data
+            ImageData(image_path=image_path, bboxes_data=bboxes_data)
+            for image_path, bboxes_data in zip(image_paths, n_bboxes_data)
         ]
         return self.get_annot_from_images_data(images_data)

@@ -19,7 +19,7 @@ def get_df_classification_metrics(
     true_labels = [bbox_data.label for bbox_data in true_bboxes_data]
     pred_labels = [bbox_data.label for bbox_data in pred_bboxes_data]
     df_classification_metrics = pd.DataFrame(
-        classification_report(true_labels, pred_labels, output_dict=True),
+        classification_report(true_labels, pred_labels, output_dict=True, zero_division=0),
         dtype=object
     ).T
     df_classification_metrics.loc['accuracy', 'support'] = len(true_labels)

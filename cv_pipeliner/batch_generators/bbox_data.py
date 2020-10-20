@@ -20,7 +20,7 @@ class BatchGeneratorBboxData(BatchGenerator):
         super().__init__(data, batch_size, use_not_caught_elements_as_last_batch)
         self.open_cropped_images = open_cropped_images
 
-    def __getitem__(self, index) -> List[BboxData]:
+    def __getitem__(self, index: int) -> List[BboxData]:
         batch = super().__getitem__(index)
         unique_image_paths = set([
             bbox_data.image_path for bbox_data in batch
