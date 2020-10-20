@@ -4,17 +4,18 @@ import stat
 import json
 import subprocess
 import shutil
+import pickle
 
 from pathlib import Path
 from typing import List, Union, Dict
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
 import numpy as np
 from tqdm import tqdm
 
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.logging import logger
-from two_stage_pipeliner.batch_generators.image_data import BatchGeneratorImageData
+from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from cv_pipeliner.inference_models.detection.core import DetectionModelSpec
 from cv_pipeliner.inferencers.detection import DetectionInferencer
 from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
@@ -23,6 +24,12 @@ from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 
 from cv_pipeliner.utils.images import rotate_point
+
+
+MAIN_PROJECT_FILENAME = 'main_project'
+BACKEND_PROJECT_FILENAME = 'backend'
+DETECTION_BACKEND_SCRIPT = Path(__file__).absolute().parent / 'detection_backend.py'
+SPECIAL_CHARACTER = '\u2800'  # Label studio can't accept class_names when it's digit, so we add this invisible char.
 
 
 @dataclass
@@ -130,18 +137,24 @@ class TaskData:
             )
 
 
-SPECIAL_CHARACTER = '⠀'  # Label studio can't accept class_names when it's number, so we add this invisible character.
-
-
 class LabelStudioProject:
     def __init__(
         self,
         directory: Union[str, Path]
     ):
         self.directory = Path(directory)
-        self.main_project_directory = self.directory / 'main_project'
-        self.backend_project_directory = self.directory / 'backend'
+        self.main_project_directory = self.directory / MAIN_PROJECT_FILENAME
+        self.backend_project_directory = self.directory / BACKEND_PROJECT_FILENAME
         self.load()
+
+    def _class_name_with_special_character(self, class_name: str) -> str:
+        if SPECIAL_CHARACTER in class_name:
+            return class_name
+        else:
+            return f"{class_name}{SPECIAL_CHARACTER}" if class_name.isdigit() else class_name
+
+    def _class_name_without_special_character(self, class_name: str) -> str:
+        return class_name.replace(SPECIAL_CHARACTER, '')
 
     def generate_config_xml(
         self,
@@ -168,10 +181,13 @@ class LabelStudioProject:
 
     def set_class_names(
         self,
-        class_names: List[str]
+        class_names: Union[str, Path, List[str]]
     ):
+        if isinstance(class_names, str) or isinstance(class_names, Path):
+            with open(class_names, 'r') as src:
+                class_names = json.load(src)
         self.class_names = [
-            f"{class_name}{SPECIAL_CHARACTER}" if class_name.isdigit() else class_name
+            self._class_name_with_special_character(class_name)
             for class_name in class_names
         ]
         with open(self.main_project_directory/'class_names.json', 'w') as out:
@@ -180,14 +196,12 @@ class LabelStudioProject:
 
     def inference_and_make_predictions_for_backend(
         self,
-        class_names: List[str],
         image_paths: List[Union[str, Path]],
-        detection_model_spec: DetectionModelSpec,
         detection_score_threshold: float,
-        classification_model_spec: DetectionModelSpec = None,
         default_class_name: str = None,
         batch_size: int = 16
     ):
+        logger.info('Making inference for tasks...')
         images_data = [ImageData(image_path=image_path) for image_path in image_paths]
         images_data_gen = BatchGeneratorImageData(
             data=images_data,
@@ -195,20 +209,19 @@ class LabelStudioProject:
             use_not_caught_elements_as_last_batch=True
         )
 
-        if classification_model_spec is None:
-            detection_model = detection_model_spec.load()
+        if default_class_name is None:
+            default_class_name = self.class_names[0]
+        else:
+            default_class_name = self._class_name_with_special_character(default_class_name)
+            assert default_class_name in self.class_names
+
+        if self.classification_model_spec is None:
+            detection_model = self.detection_model_spec.load()
             detection_inferencer = DetectionInferencer(detection_model)
             pred_images_data = detection_inferencer.predict(
                 images_data_gen=images_data_gen,
                 score_threshold=detection_score_threshold
             )
-            if default_class_name is None:
-                default_class_name = class_names[0]
-            else:
-                default_class_name = (
-                    f"{default_class_name}{SPECIAL_CHARACTER}" if default_class_name.isdigit() else default_class_name
-                )
-                assert default_class_name in class_names
             pred_images_data = [
                 ImageData(
                     image_path=image_data.image_path,
@@ -216,7 +229,7 @@ class LabelStudioProject:
                         BboxData(
                             xmin=bbox_data.xmin,
                             ymin=bbox_data.ymin,
-                            xmax=bbox_data.ymax,
+                            xmax=bbox_data.xmax,
                             ymax=bbox_data.ymax,
                             label=default_class_name
                         )
@@ -227,8 +240,8 @@ class LabelStudioProject:
             ]
         else:
             pipeline_model_spec = PipelineModelSpec(
-                detection_model_spec=detection_model_spec,
-                classification_model_spec=classification_model_spec
+                detection_model_spec=self.detection_model_spec,
+                classification_model_spec=self.classification_model_spec
             )
             pipeline_model = pipeline_model_spec.load()
             pipeline_inferencer = PipelineInferencer(pipeline_model)
@@ -236,6 +249,7 @@ class LabelStudioProject:
                 images_data_gen=images_data_gen,
                 detection_score_threshold=detection_score_threshold
             )
+
             pred_images_data = [
                 ImageData(
                     image_path=image_data.image_path,
@@ -243,37 +257,63 @@ class LabelStudioProject:
                         BboxData(
                             xmin=bbox_data.xmin,
                             ymin=bbox_data.ymin,
-                            xmax=bbox_data.ymax,
+                            xmax=bbox_data.xmax,
                             ymax=bbox_data.ymax,
-                            label=bbox_data.label if bbox_data.label in class_names else bbox_data.label
+                            label=(
+                                self._class_name_with_special_character(bbox_data.label)
+                                if self._class_name_with_special_character(bbox_data.label) in self.class_names
+                                else default_class_name
+                            )
                         )
                         for bbox_data in image_data.bboxes_data
                     ]
                 )
                 for image_data in pred_images_data
             ]
-            annotations = BrickitDataConverter().get_annot_from_images_data(pred_images_data)
-            with open(self.backend_project_directory / 'annotations.json', 'w') as out:
-                json.dump(annotations, out)
 
+        predictions = BrickitDataConverter().get_annot_from_images_data(pred_images_data)
+        with open(self.backend_project_directory / 'predictions.json', 'w') as out:
+            json.dump(predictions, out)
 
     def initialize_backend(
         self,
-        detection_model_spec: DetectionModelSpec = None
+        backend_port: int,
+        detection_model_spec: DetectionModelSpec,
+        classification_model_spec: DetectionModelSpec = None
     ):
-        label_studio_backend_process = subprocess.Popen(
-            ["label-studio-ml", "init", str(self.main_project_directory)],
-            stdout=subprocess.PIPE
-        )
-        output = '\n'.join([x.decode() for x in label_studio_process.communicate() if x])
+        self.detection_model_spec = detection_model_spec
+        self.classification_model_spec = classification_model_spec
+        if self.detection_model_spec is not None:
+            logger.info('Initializing LabelStudioProject backend...')
+            backend_project_process = subprocess.Popen(
+                ["label-studio-ml", "init", str(self.backend_project_directory), '--script',
+                    str(DETECTION_BACKEND_SCRIPT)],
+                stdout=subprocess.PIPE
+            )
+            backend_project_process.wait()
+            with open(self.backend_project_directory / 'detection_model_spec.pkl', 'wb') as out:
+                pickle.dump(detection_model_spec, out)
+            if classification_model_spec is not None:
+                with open(self.backend_project_directory / 'classification_model_spec.pkl', 'wb') as out:
+                    pickle.dump(classification_model_spec, out)
+
+            with open(self.main_project_directory/'config.json', 'r') as src:
+                config_json = json.load(src)
+            config_json['ml_backends'].append({
+                'url': f'http://localhost:{backend_port}/',
+                'name': 'main_model'
+            })
+            with open(self.main_project_directory/'config.json', 'w') as out:
+                json.dump(config_json, out, indent=4)
 
     def initialize_project(
         self,
-        class_names: List[str],
+        class_names: Union[str, Path, List[str]],
         port: int = 8080,
         url: str = 'http://localhost:8080/',
         detection_model_spec: DetectionModelSpec = None,
-        classification_model_spec: DetectionModelSpec = None
+        classification_model_spec: DetectionModelSpec = None,
+        backend_port: int = 9080,
     ):
         if self.directory.exists():
             raise ValueError(
@@ -286,6 +326,7 @@ class LabelStudioProject:
         output = '\n'.join([x.decode() for x in label_studio_process.communicate() if x])
         self.cv_pipeliner_settings = {
             'port': port,
+            'backend_port': backend_port,
             'url': url,  # use hack for our cluster
             'additional_info': 'This project was created by cv_pipeliner.utils.label_studio.'
         }
@@ -295,11 +336,46 @@ class LabelStudioProject:
             (self.main_project_directory / 'upload').mkdir()
             with open(self.main_project_directory / 'cv_pipeliner_settings.json', 'w') as out:
                 json.dump(self.cv_pipeliner_settings, out, indent=4)
+        else:
+            raise ValueError(f'Label Studio has not been initialized. Output: {output}.')
 
-            with open(self.directory / 'run.sh', 'w') as out:
-                out.write(f'label-studio start {self.main_project_directory} -p {port}')
-            st = os.stat(self.directory / 'run.sh')  # chmod +x
-            os.chmod(self.directory / 'run.sh', st.st_mode | stat.S_IEXEC)
+        self.initialize_backend(
+            backend_port=backend_port,
+            detection_model_spec=detection_model_spec,
+            classification_model_spec=classification_model_spec
+        )
+
+        if self.detection_model_spec is None:
+            run_command = (
+                '#!/bin/sh\n'
+                f'label-studio start {self.main_project_directory} -p {port}'
+            )
+        else:
+            run_command = (
+                '#!/bin/sh\n'
+                f'label-studio-ml start {self.backend_project_directory} -p {backend_port} & '
+                f'label-studio start {self.main_project_directory} -p {port}'
+            )
+
+        with open(self.directory / 'run.sh', 'w') as out:
+            out.write(run_command)
+        st = os.stat(self.directory / 'run.sh')  # chmod +x
+        os.chmod(self.directory / 'run.sh', st.st_mode | stat.S_IEXEC)
+
+        self.running_project_process = None
+
+    def run_project(self):
+        if self.running_project_process is None:
+            logger.info(
+                f'Start project "{self.directory.name}" (port {self.cv_pipeliner_settings["port"]})...'
+            )
+            self.running_project_process = subprocess.Popen(
+                ["./run.sh"],
+                stdout=subprocess.PIPE,
+                cwd=str(self.directory)
+            )
+        else:
+            raise ValueError('The project is already running.')
 
     def _load_tasks(self):
         with open(self.main_project_directory/'tasks.json', 'r') as src:
@@ -322,15 +398,37 @@ class LabelStudioProject:
                 self.class_names = json.load(src)
             self._load_tasks()
 
+        if self.backend_project_directory.exists():
+            with open(self.backend_project_directory / 'detection_model_spec.pkl', 'rb') as src:
+                self.detection_model_spec = pickle.load(src)
+            if (self.backend_project_directory / 'classification_model_spec.pkl').exists():
+                with open(self.backend_project_directory / 'classification_model_spec.pkl', 'rb') as src:
+                    self.classification_model_spec = pickle.load(src)
+            else:
+                self.classification_model_spec = None
+        else:
+            self.detection_model_spec = None
+            self.classification_model_spec = None
+
     def add_tasks(
         self,
-        image_paths: List[Union[str, Path]]
+        image_paths: List[Union[str, Path]],
+        detection_score_threshold: float = None,
+        default_class_name: str = None,
+        batch_size: int = 16
     ):
         with open(self.main_project_directory/'tasks.json', 'r') as src:
             tasks_json = json.load(src)
         tasks_ids = [tasks_json[key]['id'] for key in tasks_json]
         start = max(tasks_ids) if len(tasks_ids) > 0 else 0
         logger.info('Adding tasks...')
+        if self.detection_model_spec is not None:
+            self.inference_and_make_predictions_for_backend(
+                image_paths=image_paths,
+                detection_score_threshold=detection_score_threshold,
+                default_class_name=default_class_name,
+                batch_size=batch_size
+            )
         for id, image_path in tqdm(list(enumerate(image_paths, start=start))):
             image = (
                 f"{self.cv_pipeliner_settings['url']}/data/upload/{image_path.name}"  # noqa: E501
@@ -352,5 +450,23 @@ class LabelStudioProject:
             task_data.image_data
             for task_data in self.tasks_data
             if task_data.is_done and not task_data.is_skipped
+        ]
+        images_data = [
+            ImageData(
+                image_path=image_data.image_path,
+                bboxes_data=[
+                    BboxData(
+                        xmin=bbox_data.xmin,
+                        ymin=bbox_data.ymin,
+                        xmax=bbox_data.xmax,
+                        ymax=bbox_data.ymax,
+                        label=(
+                            self._class_name_without_special_character(bbox_data.label)
+                        )
+                    )
+                    for bbox_data in image_data.bboxes_data
+                ]
+            )
+            for image_data in images_data
         ]
         return images_data

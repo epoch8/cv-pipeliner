@@ -9,7 +9,7 @@ LOGS_DIRECTORY = Path(__file__).parent / '__logs__'
 LOGS_DIRECTORY.mkdir(exist_ok=True, parents=True)
 LOG_FILENAME = datetime.now().strftime("%Y-%m-%d_%Hh.logs")
 
-logger = logging.getLogger('two-stage-pipeliner')
+logger = logging.getLogger('cv-pipeliner')
 formatter = logging.Formatter(
     "%(asctime)s [%(name)s] [%(levelname)s] %(message)s"
 )
