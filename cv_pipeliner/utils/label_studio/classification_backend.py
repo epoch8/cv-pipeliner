@@ -30,17 +30,8 @@ class ClassificationBackend(LabelStudioMLBase):
         # collect input images
         predictions = []
         for task in tasks:
-            bbox_data_as_cropped_image = BboxData(
-                image_path=task['data']['cropped_image_path'],
-                xmin=task['data']['bbox_data_as_cropped_image']['xmin'],
-                ymin=task['data']['bbox_data_as_cropped_image']['ymin'],
-                xmax=task['data']['bbox_data_as_cropped_image']['xmax'],
-                ymax=task['data']['bbox_data_as_cropped_image']['ymax'],
-                label=task['data']['bbox_data_as_cropped_image']['label'],
-                top_n=task['data']['bbox_data_as_cropped_image']['top_n'],
-                labels_top_n=task['data']['bbox_data_as_cropped_image']['labels_top_n'],
-                additional_info=task['data']['bbox_data_as_cropped_image']['additional_info']
-            )
+            bbox_data_as_cropped_image = BboxData()
+            bbox_data_as_cropped_image.from_dict(task['data']['bbox_data_as_cropped_image'])
             image = bbox_data_as_cropped_image.open_image()
             original_width, original_height = image.shape[1], image.shape[0]
             result = []

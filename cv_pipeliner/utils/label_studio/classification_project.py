@@ -20,8 +20,6 @@ from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
 from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
 
-from cv_pipeliner.data_converters.brickit import BrickitDataConverter
-
 from cv_pipeliner.utils.images import rotate_point
 
 
@@ -88,17 +86,8 @@ class TaskData:
     ):
         self.is_done = True
         src_image_path = completions_json['data']['src_image_path']
-        bbox_data = BboxData(
-            image_path=src_image_path,
-            xmin=completions_json['data']['src_bbox_data']['xmin'],
-            ymin=completions_json['data']['src_bbox_data']['ymin'],
-            xmax=completions_json['data']['src_bbox_data']['xmax'],
-            ymax=completions_json['data']['src_bbox_data']['ymax'],
-            label=completions_json['data']['bbox_data_as_cropped_image']['label'],
-            top_n=completions_json['data']['src_bbox_data']['top_n'],
-            labels_top_n=completions_json['data']['src_bbox_data']['labels_top_n'],
-            additional_info=completions_json['data']['src_bbox_data']['additional_info']
-        )
+        bbox_data = BboxData()
+        bbox_data.from_dict(completions_json['data']['src_bbox_data'])
         additional_info = bbox_data.additional_info
 
         if len(completions_json['completions']) > 1:
@@ -146,17 +135,8 @@ class TaskData:
                 completions_json=completions_json
             )
         else:
-            self.bbox_data = BboxData(
-                image_path=task_json['data']['src_image_path'],
-                xmin=task_json['data']['src_bbox_data']['xmin'],
-                ymin=task_json['data']['src_bbox_data']['ymin'],
-                xmax=task_json['data']['src_bbox_data']['xmax'],
-                ymax=task_json['data']['src_bbox_data']['ymax'],
-                label=task_json['data']['src_bbox_data']['label'],
-                top_n=task_json['data']['src_bbox_data']['top_n'],
-                labels_top_n=task_json['data']['src_bbox_data']['labels_top_n'],
-                additional_info=task_json['data']['src_bbox_data']['additional_info']
-            )
+            self.bbox_data = BboxData()
+            self.bbox_data.from_dict(task_json['data']['src_bbox_data'])
 
 
 class LabelStudioProject_Classification:
@@ -247,36 +227,18 @@ class LabelStudioProject_Classification:
         classification_model = self.classification_model_spec.load()
         classification_inferencer = ClassificationInferencer(classification_model)
         pred_n_bboxes_data = classification_inferencer.predict(bboxes_data_gen=bboxes_data_gen)
-        pred_n_bboxes_data = [
-            [
-                BboxData(
-                    image_path=bbox_data.image_path,
-                    xmin=bbox_data.xmin,
-                    ymin=bbox_data.ymin,
-                    xmax=bbox_data.xmax,
-                    ymax=bbox_data.ymax,
-                    label=(
-                        self._class_name_with_special_character(bbox_data.label)
-                        if self._class_name_with_special_character(bbox_data.label) in self.class_names
-                        else default_class_name
-                    ),
-                    additional_info={
-                        'top_n': bbox_data.top_n,
-                        'labels_top_n': [
-                            self._class_name_with_special_character(label)
-                            if self._class_name_with_special_character(label) in self.class_names
-                            else default_class_name
-                            for label in bbox_data.labels_top_n
-                        ]
-                    }
-                )
-                for bbox_data in bboxes_data
-            ]
-            for bboxes_data in pred_n_bboxes_data
-        ]
-        predictions = BrickitDataConverter().get_annot_from_n_bboxes_data(image_paths, pred_n_bboxes_data)
-        with open(self.backend_project_directory / 'predictions.json', 'w') as out:
-            json.dump(predictions, out)
+
+        def func_label(label: str) -> str:
+            label_with_special_character = self._class_name_with_special_character(label)
+            if label_with_special_character in self.class_names:
+                return label_with_special_character
+            else:
+                return default_class_name
+
+        for pred_bboxes_data in pred_n_bboxes_data:
+            for pred_bbox_data in pred_bboxes_data:
+                pred_bbox_data.apply_str_func_to_label_inplace(func_label)
+        return pred_n_bboxes_data
 
     def initialize_backend(
         self,
@@ -408,7 +370,7 @@ class LabelStudioProject_Classification:
         start = max(tasks_ids) if len(tasks_ids) > 0 else 0
         logger.info('Adding tasks...')
         if self.classification_model_spec is not None:
-            self.inference_and_make_predictions_for_backend(
+            n_bboxes_data = self.inference_and_make_predictions_for_backend(
                 n_bboxes_data=n_bboxes_data,
                 default_class_name=default_class_name,
                 batch_size=batch_size
@@ -433,18 +395,17 @@ class LabelStudioProject_Classification:
                 )
                 cropped_image_path = self.main_project_directory / 'upload' / filename
                 Image.fromarray(cropped_image).save(cropped_image_path)
+                bbox_data.apply_str_func_to_label_inplace(self._class_name_with_special_character)
+                bbox_data_as_cropped_image.apply_str_func_to_label_inplace(self._class_name_with_special_character)
+                bbox_data_as_cropped_image.set_image_path(cropped_image_path)
                 tasks_json[str(id)] = {
                     'id': id,
                     'data': {
                         'image': str(image),
                         'src_image_path': str(image_path),
-                        'src_bbox_data': bbox_data.asdict(
-                            use_special_character_func=self._class_name_with_special_character
-                        ),
+                        'src_bbox_data': bbox_data.asdict(),
                         'cropped_image_path': str(cropped_image_path),
-                        'bbox_data_as_cropped_image': bbox_data_as_cropped_image.asdict(
-                            use_special_character_func=self._class_name_with_special_character
-                        )
+                        'bbox_data_as_cropped_image': bbox_data_as_cropped_image.asdict()
                     }
                 }
             start = id
@@ -481,6 +442,8 @@ class LabelStudioProject_Classification:
                         label=(
                             self._class_name_without_special_character(bbox_data.label)
                         ),
+                        top_n=bbox_data.top_n,
+                        labels_top_n=bbox_data.labels_top_n,
                         additional_info=bbox_data.additional_info
                     )
                     for bbox_data in bboxes_data[image_paths_in_bboxes_data == image_path]

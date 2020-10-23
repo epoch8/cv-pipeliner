@@ -55,6 +55,10 @@ class TaskData:
         ymin = result['value']['y']
         angle = result['value']['rotation']
         label = result['value']['rectanglelabels'][0]
+        if len(result['value']['rectanglelabels']) == 2:
+            additional_info = json.loads(result['value']['rectanglelabels'][1])
+        else:
+            additional_info = {}
         xmax = xmin + width
         ymax = ymin + height
         xmin = xmin / 100 * original_width
@@ -76,7 +80,8 @@ class TaskData:
             ymin=ymin,
             xmax=xmax,
             ymax=ymax,
-            label=label
+            label=label,
+            additional_info=additional_info
         )
         return bbox_data
 
@@ -85,18 +90,19 @@ class TaskData:
         completions_json: Dict
     ):
         self.is_done = True
-        bboxes_data = []
-        additional_info = {}
-
         if len(completions_json['completions']) > 1:
             raise ValueError(
                 f'Find a task with two or more completions. Task_id: {self.id}'
             )
         completion = completions_json['completions'][0]
         image_path = Path(completions_json['data']['src_image_path'])
+        additional_info = completions_json['data']['src_image_data']['additional_info']
         if 'skipped' in completion and completion['skipped']:
             self.is_skipped = True
+            image_data = ImageData()
+            image_data.from_dict(completions_json['data']['src_image_data'])
         else:
+            bboxes_data = []
             for result in completion['result']:
                 from_name = result['from_name']
                 if from_name == 'bbox':
@@ -110,12 +116,12 @@ class TaskData:
                     if 'Trash' in result['value']['choices']:
                         self.is_trash = True
                         additional_info['is_trash'] = True
-
-        return ImageData(
-            image_path=image_path,
-            bboxes_data=bboxes_data,
-            additional_info=additional_info
-        )
+            image_data = ImageData(
+                image_path=Path(completions_json['data']['src_image_path']),
+                bboxes_data=bboxes_data,
+                additional_info=additional_info
+            )
+        return image_data
 
     def __init__(
         self,
@@ -132,10 +138,8 @@ class TaskData:
                 completions_json=completions_json
             )
         else:
-            image_path = Path(task_json['data']['src_image_path'])
-            self.image_data = ImageData(
-                image_path=image_path
-            )
+            self.image_data = ImageData()
+            self.image_data.from_dict(task_json['data']['src_image_data'])
 
 
 class LabelStudioProject_Detection:
@@ -201,7 +205,7 @@ class LabelStudioProject_Detection:
         detection_score_threshold: float,
         default_class_name: str = None,
         batch_size: int = 16
-    ):
+    ) -> List[ImageData]:
         logger.info('Making inference for tasks...')
         images_data = [ImageData(image_path=image_path) for image_path in image_paths]
         images_data_gen = BatchGeneratorImageData(
@@ -252,31 +256,7 @@ class LabelStudioProject_Detection:
                 detection_score_threshold=detection_score_threshold
             )
 
-            pred_images_data = [
-                ImageData(
-                    image_path=image_data.image_path,
-                    bboxes_data=[
-                        BboxData(
-                            image_path=bbox_data.image_path,
-                            xmin=bbox_data.xmin,
-                            ymin=bbox_data.ymin,
-                            xmax=bbox_data.xmax,
-                            ymax=bbox_data.ymax,
-                            label=(
-                                self._class_name_with_special_character(bbox_data.label)
-                                if self._class_name_with_special_character(bbox_data.label) in self.class_names
-                                else default_class_name
-                            )
-                        )
-                        for bbox_data in image_data.bboxes_data
-                    ]
-                )
-                for image_data in pred_images_data
-            ]
-
-        predictions = BrickitDataConverter().get_annot_from_images_data(pred_images_data)
-        with open(self.backend_project_directory / 'predictions.json', 'w') as out:
-            json.dump(predictions, out)
+        return pred_images_data
 
     def initialize_backend(
         self,
@@ -286,28 +266,27 @@ class LabelStudioProject_Detection:
     ):
         self.detection_model_spec = detection_model_spec
         self.classification_model_spec = classification_model_spec
+        logger.info('Initializing LabelStudioProject backend...')
+        backend_project_process = subprocess.Popen(
+            ["label-studio-ml", "init", str(self.backend_project_directory), '--script',
+                str(DETECTION_BACKEND_SCRIPT)],
+            stdout=subprocess.PIPE
+        )
+        backend_project_process.wait()
         if self.detection_model_spec is not None:
-            logger.info('Initializing LabelStudioProject backend...')
-            backend_project_process = subprocess.Popen(
-                ["label-studio-ml", "init", str(self.backend_project_directory), '--script',
-                    str(DETECTION_BACKEND_SCRIPT)],
-                stdout=subprocess.PIPE
-            )
-            backend_project_process.wait()
             with open(self.backend_project_directory / 'detection_model_spec.pkl', 'wb') as out:
                 pickle.dump(detection_model_spec, out)
             if classification_model_spec is not None:
                 with open(self.backend_project_directory / 'classification_model_spec.pkl', 'wb') as out:
                     pickle.dump(classification_model_spec, out)
-
-            with open(self.main_project_directory/'config.json', 'r') as src:
-                config_json = json.load(src)
-            config_json['ml_backends'].append({
-                'url': f'http://localhost:{backend_port}/',
-                'name': 'main_model'
-            })
-            with open(self.main_project_directory/'config.json', 'w') as out:
-                json.dump(config_json, out, indent=4)
+        with open(self.main_project_directory/'config.json', 'r') as src:
+            config_json = json.load(src)
+        config_json['ml_backends'].append({
+            'url': f'http://localhost:{backend_port}/',
+            'name': 'main_model'
+        })
+        with open(self.main_project_directory/'config.json', 'w') as out:
+            json.dump(config_json, out, indent=4)
 
     def initialize_project(
         self,
@@ -347,19 +326,11 @@ class LabelStudioProject_Detection:
             detection_model_spec=detection_model_spec,
             classification_model_spec=classification_model_spec
         )
-
-        if self.detection_model_spec is None:
-            run_command = (
-                '#!/bin/sh\n'
-                f'label-studio start {self.main_project_directory} -p {port}'
-            )
-        else:
-            run_command = (
-                '#!/bin/sh\n'
-                f'label-studio-ml start {self.backend_project_directory} -p {backend_port} & '
-                f'label-studio start {self.main_project_directory} -p {port}'
-            )
-
+        run_command = (
+            '#!/bin/sh\n'
+            f'label-studio-ml start {self.backend_project_directory} -p {backend_port} & '
+            f'label-studio start {self.main_project_directory} -p {port}'
+        )
         with open(self.directory / 'run.sh', 'w') as out:
             out.write(run_command)
         st = os.stat(self.directory / 'run.sh')  # chmod +x
@@ -370,7 +341,9 @@ class LabelStudioProject_Detection:
     def run_project(self):
         if self.running_project_process is None:
             logger.info(
-                f'Start project "{self.directory.name}" (port {self.cv_pipeliner_settings["port"]})...'
+                f'Start project "{self.directory.name}"'
+                f'(port {self.cv_pipeliner_settings["port"]} and '
+                f'backend port port {self.cv_pipeliner_settings["backend_port"]})...'
             )
             self.running_project_process = subprocess.Popen(
                 ["./run.sh"],
@@ -415,7 +388,7 @@ class LabelStudioProject_Detection:
 
     def add_tasks(
         self,
-        image_paths: List[Union[str, Path]],
+        images: Union[List[Union[str, Path]], List[ImageData]],
         detection_score_threshold: float = None,
         default_class_name: str = None,
         batch_size: int = 16
@@ -425,53 +398,63 @@ class LabelStudioProject_Detection:
         tasks_ids = [tasks_json[key]['id'] for key in tasks_json]
         start = max(tasks_ids) if len(tasks_ids) > 0 else 0
         logger.info('Adding tasks...')
-        if self.detection_model_spec is not None:
-            self.inference_and_make_predictions_for_backend(
-                image_paths=image_paths,
-                detection_score_threshold=detection_score_threshold,
-                default_class_name=default_class_name,
-                batch_size=batch_size
-            )
-        for id, image_path in tqdm(list(enumerate(image_paths, start=start))):
+
+        if all([isinstance(image, ImageData) for image in images]):
+            images_data = images
+        else:
+            if not all([isinstance(image, str) or isinstance(image, Path) for image in images]):
+                raise ValueError('Argument images can be only list of paths or list of ImageData.')
+            else:
+                image_paths = images
+                if self.detection_model_spec is not None and detection_score_threshold is not None:
+                    images_data = self.inference_and_make_predictions_for_backend(
+                        image_paths=image_paths,
+                        detection_score_threshold=detection_score_threshold,
+                        default_class_name=default_class_name,
+                        batch_size=batch_size
+                    )
+                else:
+                    images_data = [ImageData(image_path=image_path, bboxes_data=[]) for image_path in image_paths]
+
+        for image_data in images_data:
+            image_data.apply_str_func_to_labels_inplace(self._class_name_with_special_character)
+
+        for id, image_data in tqdm(list(enumerate(images_data, start=start))):
+            image_path = image_data.image_path
             image = (
                 f"{self.cv_pipeliner_settings['url']}/data/upload/{image_path.name}"  # noqa: E501
             )
-            shutil.copy(image_path, self.main_project_directory / 'upload' / f'{image_path.name}')
+            filepath = self.main_project_directory / 'upload' / f'{image_path.name}'
+            if filepath.exists():
+                raise ValueError(f'Error: task with image {image_path} is already exists.')
+            shutil.copy(image_path, filepath)
             tasks_json[str(id)] = {
                 'id': id,
                 'data': {
                     'image': str(image),
-                    'src_image_path': str(image_path)
+                    'src_image_path': str(image_path),
+                    'src_image_data': image_data.asdict()
                 },
             }
         with open(self.main_project_directory/'tasks.json', 'w') as out:
             json.dump(tasks_json, out, indent=4)
         self._load_tasks()
 
-    def get_ready_images_data(self) -> List[ImageData]:
+    def get_images_data(
+        self,
+        get_only_done: bool = False,
+        get_only_not_skipped: bool = True
+    ) -> List[ImageData]:
         images_data = [
             task_data.image_data
             for task_data in self.tasks_data
-            if task_data.is_done and not task_data.is_skipped
-        ]
-        images_data = [
-            ImageData(
-                image_path=image_data.image_path,
-                bboxes_data=[
-                    BboxData(
-                        image_path=bbox_data.image_path,
-                        xmin=bbox_data.xmin,
-                        ymin=bbox_data.ymin,
-                        xmax=bbox_data.xmax,
-                        ymax=bbox_data.ymax,
-                        label=(
-                            self._class_name_without_special_character(bbox_data.label)
-                        ),
-                        additional_info=bbox_data.additional_info
-                    )
-                    for bbox_data in image_data.bboxes_data
-                ]
+            if (
+                (get_only_done and task_data.is_done) or (not get_only_done)
+                and
+                (get_only_not_skipped and not task_data.is_skipped) or (not get_only_not_skipped)
             )
-            for image_data in images_data
         ]
+        for image_data in images_data:
+            image_data.apply_str_func_to_labels_inplace(self._class_name_without_special_character)
+
         return images_data
