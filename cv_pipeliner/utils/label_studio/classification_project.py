@@ -33,12 +33,48 @@ SPECIAL_CHARACTER = '\u2800'  # Label studio can't accept class_names when it's 
 class TaskData:
     task_json: Dict
     id: int
-    bbox_data: ImageData
+    bbox_data: BboxData
     is_done: bool = False
     is_skipped: bool = False
     is_trash: bool = False
 
-    def _parse_rectangle_labels(
+    def convert_to_rectangle_label(
+        self
+    ) -> Dict:
+        bbox_data_as_cropped_image = BboxData()
+        bbox_data_as_cropped_image.from_dict(self.task_json['data']['bbox_data_as_cropped_image'])
+        image = bbox_data_as_cropped_image.open_image()
+        original_width, original_height = image.shape[1], image.shape[0]
+        ymin, xmin, ymax, xmax = (
+            bbox_data_as_cropped_image.ymin, bbox_data_as_cropped_image.xmin,
+            bbox_data_as_cropped_image.ymax, bbox_data_as_cropped_image.xmax
+        )
+        height = ymax - ymin
+        width = xmax - xmin
+        x = xmin / original_width * 100
+        y = ymin / original_height * 100
+        height = height / original_height * 100
+        width = width / original_width * 100
+        rectangle_label = {
+            "from_name": "bbox",
+            "to_name": "image",
+            "type": "rectanglelabels",
+            "original_width": original_width,
+            "original_height": original_height,
+            "value": {
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height,
+                "rectanglelabels": [
+                    bbox_data_as_cropped_image.label
+                ],
+                "rotation": 0,
+            }
+        }
+        return rectangle_label
+
+    def parse_rectangle_labels(
         self,
         result: Dict,
         src_image_path: Union[str, Path],
@@ -106,7 +142,7 @@ class TaskData:
             for result in completion['result']:
                 from_name = result['from_name']
                 if from_name == 'bbox':
-                    bbox_data = self._parse_rectangle_labels(
+                    bbox_data = self.parse_rectangle_labels(
                         result=result,
                         src_image_path=src_image_path,
                         src_bbox_data=bbox_data
@@ -139,6 +175,20 @@ class TaskData:
             self.bbox_data.from_dict(task_json['data']['src_bbox_data'])
 
 
+def load_tasks(main_project_directory) -> List[TaskData]:
+    with open(main_project_directory/'tasks.json', 'r') as src:
+        tasks_json = json.load(src)
+    tasks_json = [tasks_json[key] for key in tasks_json]
+    tasks_data = [
+        TaskData(
+            main_project_directory=main_project_directory,
+            task_json=task_json
+        )
+        for task_json in tasks_json
+    ]
+    return tasks_data
+
+
 class LabelStudioProject_Classification:
     def __init__(
         self,
@@ -147,7 +197,7 @@ class LabelStudioProject_Classification:
         self.directory = Path(directory).absolute()
         self.main_project_directory = self.directory / MAIN_PROJECT_FILENAME
         self.backend_project_directory = self.directory / BACKEND_PROJECT_FILENAME
-        
+
         self.running_project_process = None
         self.load()
 
@@ -331,18 +381,6 @@ class LabelStudioProject_Classification:
         else:
             raise ValueError('The project is already running.')
 
-    def _load_tasks(self):
-        with open(self.main_project_directory/'tasks.json', 'r') as src:
-            tasks_json = json.load(src)
-        tasks_json = [tasks_json[key] for key in tasks_json]
-        self.tasks_data = [
-            TaskData(
-                main_project_directory=self.main_project_directory,
-                task_json=task_json
-            )
-            for task_json in tasks_json
-        ]
-
     def load(self):
         if (self.main_project_directory / 'cv_pipeliner_settings.json').exists():
             logger.info(f'Loading LabelStudioProject "{self.directory.name}"...')
@@ -350,7 +388,7 @@ class LabelStudioProject_Classification:
                 self.cv_pipeliner_settings = json.load(src)
             with open(self.main_project_directory/'class_names.json', 'r') as src:
                 self.class_names = json.load(src)
-            self._load_tasks()
+            load_tasks(self.main_project_directory)
 
         if (self.backend_project_directory / 'classification_model_spec.pkl').exists():
             with open(self.backend_project_directory / 'classification_model_spec.pkl', 'rb') as src:
@@ -413,7 +451,7 @@ class LabelStudioProject_Classification:
             start = id
         with open(self.main_project_directory/'tasks.json', 'w') as out:
             json.dump(tasks_json, out, indent=4)
-        self._load_tasks()
+        load_tasks(self.main_project_directory)
 
     def get_ready_images_data(
         self,

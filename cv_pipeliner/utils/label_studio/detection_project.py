@@ -1,5 +1,6 @@
 
 import os
+import time
 import stat
 import json
 import subprocess
@@ -42,7 +43,40 @@ class TaskData:
     is_skipped: bool = False
     is_trash: bool = False
 
-    def _parse_rectangle_labels(
+    def convert_to_rectangle_labels(self) -> Dict:
+        image = self.image_data.open_image()
+        original_width, original_height = image.shape[1], image.shape[0]
+        rectangle_labels = []
+        for bbox_data in self.image_data.bboxes_data:
+            xmin, ymin, xmax, ymax = (
+                bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax
+            )
+            height = ymax - ymin
+            width = xmax - xmin
+            x = xmin / original_width * 100
+            y = ymin / original_height * 100
+            height = height / original_height * 100
+            width = width / original_width * 100
+            rectangle_labels.append({
+                "from_name": "bbox",
+                "to_name": "image",
+                "type": "rectanglelabels",
+                "original_width": original_width,
+                "original_height": original_height,
+                "value": {
+                    "x": x,
+                    "y": y,
+                    "width": width,
+                    "height": height,
+                    "rectanglelabels": [
+                        bbox_data.label, json.dumps(bbox_data.additional_info)
+                    ],
+                    "rotation": 0,
+                }
+            })
+        return rectangle_labels
+
+    def parse_rectangle_labels(
         self,
         result: Dict,
         image_path: Union[str, Path]
@@ -107,7 +141,7 @@ class TaskData:
                 from_name = result['from_name']
                 if from_name == 'bbox':
                     bboxes_data.append(
-                        self._parse_rectangle_labels(
+                        self.parse_rectangle_labels(
                             result=result,
                             image_path=image_path
                         )
@@ -142,6 +176,20 @@ class TaskData:
             self.image_data.from_dict(task_json['data']['src_image_data'])
 
 
+def load_tasks(main_project_directory) -> List[TaskData]:
+    with open(main_project_directory/'tasks.json', 'r') as src:
+        tasks_json = json.load(src)
+    tasks_json = [tasks_json[key] for key in tasks_json]
+    tasks_data = [
+        TaskData(
+            main_project_directory=main_project_directory,
+            task_json=task_json
+        )
+        for task_json in tasks_json
+    ]
+    return tasks_data
+
+
 class LabelStudioProject_Detection:
     def __init__(
         self,
@@ -150,7 +198,7 @@ class LabelStudioProject_Detection:
         self.directory = Path(directory).absolute()
         self.main_project_directory = self.directory / MAIN_PROJECT_FILENAME
         self.backend_project_directory = self.directory / BACKEND_PROJECT_FILENAME
-        
+
         self.running_project_process = None
         self.load()
 
@@ -355,18 +403,6 @@ class LabelStudioProject_Detection:
         else:
             raise ValueError('The project is already running.')
 
-    def _load_tasks(self):
-        with open(self.main_project_directory/'tasks.json', 'r') as src:
-            tasks_json = json.load(src)
-        tasks_json = [tasks_json[key] for key in tasks_json]
-        self.tasks_data = [
-            TaskData(
-                main_project_directory=self.main_project_directory,
-                task_json=task_json
-            )
-            for task_json in tasks_json
-        ]
-
     def load(self):
         if (self.main_project_directory / 'cv_pipeliner_settings.json').exists():
             logger.info(f'Loading LabelStudioProject "{self.directory.name}"...')
@@ -374,7 +410,7 @@ class LabelStudioProject_Detection:
                 self.cv_pipeliner_settings = json.load(src)
             with open(self.main_project_directory/'class_names.json', 'r') as src:
                 self.class_names = json.load(src)
-            self._load_tasks()
+            self.tasks_data = load_tasks(self.main_project_directory)
 
         if (self.backend_project_directory / 'detection_model_spec.pkl').exists():
             with open(self.backend_project_directory / 'detection_model_spec.pkl', 'rb') as src:
@@ -393,7 +429,8 @@ class LabelStudioProject_Detection:
         images: Union[List[Union[str, Path]], List[ImageData]],
         detection_score_threshold: float = None,
         default_class_name: str = None,
-        batch_size: int = 16
+        batch_size: int = 16,
+        reannotate_following_images_filenames: List[str] = None
     ):
         with open(self.main_project_directory/'tasks.json', 'r') as src:
             tasks_json = json.load(src)
@@ -403,6 +440,7 @@ class LabelStudioProject_Detection:
 
         if all([isinstance(image, ImageData) for image in images]):
             images_data = images
+            add_completions = True
         else:
             if not all([isinstance(image, str) or isinstance(image, Path) for image in images]):
                 raise ValueError('Argument images can be only list of paths or list of ImageData.')
@@ -417,6 +455,7 @@ class LabelStudioProject_Detection:
                     )
                 else:
                     images_data = [ImageData(image_path=image_path, bboxes_data=[]) for image_path in image_paths]
+            add_completions = False
 
         for image_data in images_data:
             image_data.apply_str_func_to_labels_inplace(self._class_name_with_special_character)
@@ -436,11 +475,34 @@ class LabelStudioProject_Detection:
                     'image': str(image),
                     'src_image_path': str(image_path),
                     'src_image_data': image_data.asdict()
-                },
+                }
             }
+
         with open(self.main_project_directory/'tasks.json', 'w') as out:
             json.dump(tasks_json, out, indent=4)
-        self._load_tasks()
+
+        self.tasks_data = load_tasks(self.main_project_directory)
+        if all([isinstance(image, ImageData) for image in images]):  # already annotated
+            current_time = int(time.time())
+            for task_data in self.tasks_data:
+                filename = task_data.image_data.image_path.name
+                if (
+                    add_completions and reannotate_following_images_filenames is not None and
+                    filename in reannotate_following_images_filenames
+                ):
+                    continue
+
+                completions_json = tasks_json[str(task_data.id)].copy()
+                completions_json['completions'] = [
+                    {
+                        'created_at': current_time,
+                        'id': str(task_data.id),
+                        'result': task_data.convert_to_rectangle_labels(),
+                    }
+                ]
+                with open(self.main_project_directory / f"completions/{task_data.id}.json", 'w') as out:
+                    json.dump(completions_json, out, indent=4)
+            self.tasks_data = load_tasks(self.main_project_directory)
 
     def get_images_data(
         self,

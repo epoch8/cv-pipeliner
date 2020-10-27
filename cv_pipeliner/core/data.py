@@ -105,7 +105,8 @@ class BboxData:
                     classification_score=self.classification_score,
                     top_n=self.top_n,
                     labels_top_n=self.labels_top_n,
-                    classification_scores_top_n=self.classification_scores_top_n
+                    classification_scores_top_n=self.classification_scores_top_n,
+                    additional_info=self.additional_info
                 )
             else:
                 return cropped_image
@@ -147,13 +148,13 @@ class BboxData:
     def asdict(self) -> Dict:
         return {
             'image_path': str(self.image_path),
-            'xmin': self.xmin,
-            'ymin': self.ymin,
-            'xmax': self.xmax,
-            'ymax': self.ymax,
-            'label': self.label,
-            'top_n': self.top_n,
-            'labels_top_n': self.labels_top_n,
+            'xmin': int(self.xmin),
+            'ymin': int(self.ymin),
+            'xmax': int(self.xmax),
+            'ymax': int(self.ymax),
+            'label': str(self.label),
+            'top_n': int(self.top_n) if self.top_n is not None else None,
+            'labels_top_n': [str(label) for label in self.labels_top_n] if self.labels_top_n is not None else None,
             'additional_info': self.additional_info
         }
 
