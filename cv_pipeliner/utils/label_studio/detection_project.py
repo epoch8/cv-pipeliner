@@ -391,7 +391,7 @@ class LabelStudioProject_Detection:
     def run_project(self):
         if self.running_project_process is None:
             logger.info(
-                f'Start project "{self.directory.name}"'
+                f'Start project "{self.directory.name}" '
                 f'(port {self.cv_pipeliner_settings["port"]} and '
                 f'backend port port {self.cv_pipeliner_settings["backend_port"]})...'
             )

@@ -371,7 +371,9 @@ class LabelStudioProject_Classification:
     def run_project(self):
         if self.running_project_process is None:
             logger.info(
-                f'Start project "{self.directory.name}" (port {self.cv_pipeliner_settings["port"]})...'
+                f'Start project "{self.directory.name}" '
+                f'(port {self.cv_pipeliner_settings["port"]} and '
+                f'backend port port {self.cv_pipeliner_settings["backend_port"]})...'
             )
             self.running_project_process = subprocess.Popen(
                 ["./run.sh"],
