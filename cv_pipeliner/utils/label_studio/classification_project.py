@@ -20,8 +20,6 @@ from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
 from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
 
-from cv_pipeliner.data_converters.brickit import BrickitDataConverter
-
 from cv_pipeliner.utils.images import rotate_point
 
 
@@ -35,12 +33,48 @@ SPECIAL_CHARACTER = '\u2800'  # Label studio can't accept class_names when it's 
 class TaskData:
     task_json: Dict
     id: int
-    bbox_data: ImageData
+    bbox_data: BboxData
     is_done: bool = False
     is_skipped: bool = False
     is_trash: bool = False
 
-    def _parse_rectangle_labels(
+    def convert_to_rectangle_label(
+        self
+    ) -> Dict:
+        bbox_data_as_cropped_image = BboxData()
+        bbox_data_as_cropped_image.from_dict(self.task_json['data']['bbox_data_as_cropped_image'])
+        image = bbox_data_as_cropped_image.open_image()
+        original_width, original_height = image.shape[1], image.shape[0]
+        ymin, xmin, ymax, xmax = (
+            bbox_data_as_cropped_image.ymin, bbox_data_as_cropped_image.xmin,
+            bbox_data_as_cropped_image.ymax, bbox_data_as_cropped_image.xmax
+        )
+        height = ymax - ymin
+        width = xmax - xmin
+        x = xmin / original_width * 100
+        y = ymin / original_height * 100
+        height = height / original_height * 100
+        width = width / original_width * 100
+        rectangle_label = {
+            "from_name": "bbox",
+            "to_name": "image",
+            "type": "rectanglelabels",
+            "original_width": original_width,
+            "original_height": original_height,
+            "value": {
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height,
+                "rectanglelabels": [
+                    bbox_data_as_cropped_image.label
+                ],
+                "rotation": 0,
+            }
+        }
+        return rectangle_label
+
+    def parse_rectangle_labels(
         self,
         result: Dict,
         src_image_path: Union[str, Path],
@@ -88,17 +122,8 @@ class TaskData:
     ):
         self.is_done = True
         src_image_path = completions_json['data']['src_image_path']
-        bbox_data = BboxData(
-            image_path=src_image_path,
-            xmin=completions_json['data']['src_bbox_data']['xmin'],
-            ymin=completions_json['data']['src_bbox_data']['ymin'],
-            xmax=completions_json['data']['src_bbox_data']['xmax'],
-            ymax=completions_json['data']['src_bbox_data']['ymax'],
-            label=completions_json['data']['bbox_data_as_cropped_image']['label'],
-            top_n=completions_json['data']['src_bbox_data']['top_n'],
-            labels_top_n=completions_json['data']['src_bbox_data']['labels_top_n'],
-            additional_info=completions_json['data']['src_bbox_data']['additional_info']
-        )
+        bbox_data = BboxData()
+        bbox_data.from_dict(completions_json['data']['src_bbox_data'])
         additional_info = bbox_data.additional_info
 
         if len(completions_json['completions']) > 1:
@@ -117,7 +142,7 @@ class TaskData:
             for result in completion['result']:
                 from_name = result['from_name']
                 if from_name == 'bbox':
-                    bbox_data = self._parse_rectangle_labels(
+                    bbox_data = self.parse_rectangle_labels(
                         result=result,
                         src_image_path=src_image_path,
                         src_bbox_data=bbox_data
@@ -146,17 +171,22 @@ class TaskData:
                 completions_json=completions_json
             )
         else:
-            self.bbox_data = BboxData(
-                image_path=task_json['data']['src_image_path'],
-                xmin=task_json['data']['src_bbox_data']['xmin'],
-                ymin=task_json['data']['src_bbox_data']['ymin'],
-                xmax=task_json['data']['src_bbox_data']['xmax'],
-                ymax=task_json['data']['src_bbox_data']['ymax'],
-                label=task_json['data']['src_bbox_data']['label'],
-                top_n=task_json['data']['src_bbox_data']['top_n'],
-                labels_top_n=task_json['data']['src_bbox_data']['labels_top_n'],
-                additional_info=task_json['data']['src_bbox_data']['additional_info']
-            )
+            self.bbox_data = BboxData()
+            self.bbox_data.from_dict(task_json['data']['src_bbox_data'])
+
+
+def load_tasks(main_project_directory) -> List[TaskData]:
+    with open(main_project_directory/'tasks.json', 'r') as src:
+        tasks_json = json.load(src)
+    tasks_json = [tasks_json[key] for key in tasks_json]
+    tasks_data = [
+        TaskData(
+            main_project_directory=main_project_directory,
+            task_json=task_json
+        )
+        for task_json in tasks_json
+    ]
+    return tasks_data
 
 
 class LabelStudioProject_Classification:
@@ -164,9 +194,11 @@ class LabelStudioProject_Classification:
         self,
         directory: Union[str, Path]
     ):
-        self.directory = Path(directory)
+        self.directory = Path(directory).absolute()
         self.main_project_directory = self.directory / MAIN_PROJECT_FILENAME
         self.backend_project_directory = self.directory / BACKEND_PROJECT_FILENAME
+
+        self.running_project_process = None
         self.load()
 
     def _class_name_with_special_character(self, class_name: str) -> str:
@@ -247,36 +279,18 @@ class LabelStudioProject_Classification:
         classification_model = self.classification_model_spec.load()
         classification_inferencer = ClassificationInferencer(classification_model)
         pred_n_bboxes_data = classification_inferencer.predict(bboxes_data_gen=bboxes_data_gen)
-        pred_n_bboxes_data = [
-            [
-                BboxData(
-                    image_path=bbox_data.image_path,
-                    xmin=bbox_data.xmin,
-                    ymin=bbox_data.ymin,
-                    xmax=bbox_data.xmax,
-                    ymax=bbox_data.ymax,
-                    label=(
-                        self._class_name_with_special_character(bbox_data.label)
-                        if self._class_name_with_special_character(bbox_data.label) in self.class_names
-                        else default_class_name
-                    ),
-                    additional_info={
-                        'top_n': bbox_data.top_n,
-                        'labels_top_n': [
-                            self._class_name_with_special_character(label)
-                            if self._class_name_with_special_character(label) in self.class_names
-                            else default_class_name
-                            for label in bbox_data.labels_top_n
-                        ]
-                    }
-                )
-                for bbox_data in bboxes_data
-            ]
-            for bboxes_data in pred_n_bboxes_data
-        ]
-        predictions = BrickitDataConverter().get_annot_from_n_bboxes_data(image_paths, pred_n_bboxes_data)
-        with open(self.backend_project_directory / 'predictions.json', 'w') as out:
-            json.dump(predictions, out)
+
+        def func_label(label: str) -> str:
+            label_with_special_character = self._class_name_with_special_character(label)
+            if label_with_special_character in self.class_names:
+                return label_with_special_character
+            else:
+                return default_class_name
+
+        for pred_bboxes_data in pred_n_bboxes_data:
+            for pred_bbox_data in pred_bboxes_data:
+                pred_bbox_data.apply_str_func_to_label_inplace(func_label)
+        return pred_n_bboxes_data
 
     def initialize_backend(
         self,
@@ -367,18 +381,6 @@ class LabelStudioProject_Classification:
         else:
             raise ValueError('The project is already running.')
 
-    def _load_tasks(self):
-        with open(self.main_project_directory/'tasks.json', 'r') as src:
-            tasks_json = json.load(src)
-        tasks_json = [tasks_json[key] for key in tasks_json]
-        self.tasks_data = [
-            TaskData(
-                main_project_directory=self.main_project_directory,
-                task_json=task_json
-            )
-            for task_json in tasks_json
-        ]
-
     def load(self):
         if (self.main_project_directory / 'cv_pipeliner_settings.json').exists():
             logger.info(f'Loading LabelStudioProject "{self.directory.name}"...')
@@ -386,7 +388,7 @@ class LabelStudioProject_Classification:
                 self.cv_pipeliner_settings = json.load(src)
             with open(self.main_project_directory/'class_names.json', 'r') as src:
                 self.class_names = json.load(src)
-            self._load_tasks()
+            load_tasks(self.main_project_directory)
 
         if (self.backend_project_directory / 'classification_model_spec.pkl').exists():
             with open(self.backend_project_directory / 'classification_model_spec.pkl', 'rb') as src:
@@ -408,7 +410,7 @@ class LabelStudioProject_Classification:
         start = max(tasks_ids) if len(tasks_ids) > 0 else 0
         logger.info('Adding tasks...')
         if self.classification_model_spec is not None:
-            self.inference_and_make_predictions_for_backend(
+            n_bboxes_data = self.inference_and_make_predictions_for_backend(
                 n_bboxes_data=n_bboxes_data,
                 default_class_name=default_class_name,
                 batch_size=batch_size
@@ -433,24 +435,23 @@ class LabelStudioProject_Classification:
                 )
                 cropped_image_path = self.main_project_directory / 'upload' / filename
                 Image.fromarray(cropped_image).save(cropped_image_path)
+                bbox_data.apply_str_func_to_label_inplace(self._class_name_with_special_character)
+                bbox_data_as_cropped_image.apply_str_func_to_label_inplace(self._class_name_with_special_character)
+                bbox_data_as_cropped_image.set_image_path(cropped_image_path)
                 tasks_json[str(id)] = {
                     'id': id,
                     'data': {
                         'image': str(image),
                         'src_image_path': str(image_path),
-                        'src_bbox_data': bbox_data.asdict(
-                            use_special_character_func=self._class_name_with_special_character
-                        ),
+                        'src_bbox_data': bbox_data.asdict(),
                         'cropped_image_path': str(cropped_image_path),
-                        'bbox_data_as_cropped_image': bbox_data_as_cropped_image.asdict(
-                            use_special_character_func=self._class_name_with_special_character
-                        )
+                        'bbox_data_as_cropped_image': bbox_data_as_cropped_image.asdict()
                     }
                 }
             start = id
         with open(self.main_project_directory/'tasks.json', 'w') as out:
             json.dump(tasks_json, out, indent=4)
-        self._load_tasks()
+        load_tasks(self.main_project_directory)
 
     def get_ready_images_data(
         self,
@@ -481,6 +482,8 @@ class LabelStudioProject_Classification:
                         label=(
                             self._class_name_without_special_character(bbox_data.label)
                         ),
+                        top_n=bbox_data.top_n,
+                        labels_top_n=bbox_data.labels_top_n,
                         additional_info=bbox_data.additional_info
                     )
                     for bbox_data in bboxes_data[image_paths_in_bboxes_data == image_path]

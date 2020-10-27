@@ -88,6 +88,9 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         if self.model_spec.saved_model_type == "tf.saved_model":
             input_tensor = tf.convert_to_tensor(images, dtype=tf.dtypes.float32)
             raw_predictions_batch = self.model(input_tensor)
+            if isinstance(raw_predictions_batch, dict):
+                key = list(raw_predictions_batch)[0]
+                raw_predictions_batch = np.array(raw_predictions_batch[key])
         elif self.model_spec.saved_model_type in ["tf.keras", "ClassType[tf.keras.Model]"]:
             raw_predictions_batch = self.model.predict(images)
         elif self.model_spec.saved_model_type == 'tflite':

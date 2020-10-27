@@ -2,6 +2,7 @@ import io
 from dataclasses import dataclass, field
 from typing import Union, List, Dict, Tuple, Callable
 from pathlib import Path
+from collections import ChainMap
 
 import imageio
 import numpy as np
@@ -104,7 +105,8 @@ class BboxData:
                     classification_score=self.classification_score,
                     top_n=self.top_n,
                     labels_top_n=self.labels_top_n,
-                    classification_scores_top_n=self.classification_scores_top_n
+                    classification_scores_top_n=self.classification_scores_top_n,
+                    additional_info=self.additional_info
                 )
             else:
                 return cropped_image
@@ -137,17 +139,30 @@ class BboxData:
     def assert_label_is_valid(self):
         assert self.label is not None
 
-    def asdict(self, use_special_character_func: Callable[[str], str] = None):
+    def apply_str_func_to_label_inplace(self, func: Callable[[str], str]):
+        super().__setattr__('label', func(self.label))
+
+    def set_image_path(self, image_path: Union[str, Path]):
+        super().__setattr__('image_path', image_path)
+
+    def asdict(self) -> Dict:
         return {
-            'xmin': self.xmin,
-            'ymin': self.ymin,
-            'xmax': self.xmax,
-            'ymax': self.ymax,
-            'label': self.label if use_special_character_func is None else use_special_character_func(self.label),
-            'top_n': self.top_n,
-            'labels_top_n': self.labels_top_n,
+            'image_path': str(self.image_path),
+            'xmin': int(self.xmin),
+            'ymin': int(self.ymin),
+            'xmax': int(self.xmax),
+            'ymax': int(self.ymax),
+            'label': str(self.label),
+            'top_n': int(self.top_n) if self.top_n is not None else None,
+            'labels_top_n': [str(label) for label in self.labels_top_n] if self.labels_top_n is not None else None,
             'additional_info': self.additional_info
         }
+
+    def from_dict(self, d):
+        for key in ['image_path', 'xmin', 'ymin', 'xmax', 'ymax', 'label', 'top_n', 'labels_top_n', 'additional_info']:
+            if key in d:
+                super().__setattr__(key, d[key])
+        self.__post_init__()
 
 
 @dataclass(frozen=True)
@@ -163,6 +178,10 @@ class ImageData:
             super().__setattr__('image_path', Path(self.image_path))
         if self.bboxes_data is None:
             super().__setattr__('bboxes_data', [])
+
+    def apply_str_func_to_labels_inplace(self, func: Callable[[str], str]):
+        for bbox_data in self.bboxes_data:
+            bbox_data.apply_str_func_to_label_inplace(func)
 
     def open_image(self, inplace: bool = False) -> Union[None, np.ndarray]:
         if self.image is not None:
@@ -185,3 +204,21 @@ class ImageData:
             super().__setattr__('image', image)
         else:
             return image
+
+    def asdict(self) -> Dict:
+        return {
+            'image_path': str(self.image_path),
+            'bboxes_data': [bbox_data.asdict() for bbox_data in self.bboxes_data],
+            'additional_info': self.additional_info
+        }
+
+    def from_dict(self, d):
+        for key in ['image_path', 'additional_info']:
+            if key in d:
+                super().__setattr__(key, d[key])
+        if 'bboxes_data' in d:
+            bboxes_data = [BboxData() for i in range(len(d['bboxes_data']))]
+            for bbox_data, d_i in zip(bboxes_data, d['bboxes_data']):
+                bbox_data.from_dict(d_i)
+            super().__setattr__('bboxes_data', bboxes_data)
+        self.__post_init__()
