@@ -506,7 +506,7 @@ class LabelStudioProject_Detection:
 
     def get_images_data(
         self,
-        get_only_done: bool = False,
+        get_only_done: bool = True,
         get_only_not_skipped: bool = True
     ) -> List[ImageData]:
         images_data = [

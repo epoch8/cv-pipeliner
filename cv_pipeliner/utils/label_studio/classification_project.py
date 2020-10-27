@@ -457,7 +457,8 @@ class LabelStudioProject_Classification:
 
     def get_ready_images_data(
         self,
-        take_done_tasks: bool = False
+        get_only_done: bool = True,
+        get_only_not_skipped: bool = True
     ) -> List[ImageData]:
         with open(self.main_project_directory/'tasks.json', 'r') as src:
             tasks_json = json.load(src)
@@ -465,7 +466,11 @@ class LabelStudioProject_Classification:
         bboxes_data = np.array([
             task_data.bbox_data
             for task_data in self.tasks_data
-            if (take_done_tasks and task_data.is_done or not take_done_tasks) and not task_data.is_skipped
+            if (
+                (get_only_done and task_data.is_done) or (not get_only_done)
+                and
+                (get_only_not_skipped and not task_data.is_skipped) or (not get_only_not_skipped)
+            )
         ])
         image_paths_in_bboxes_data = np.array([
             str(bbox_data.image_path)
