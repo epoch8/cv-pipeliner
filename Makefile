@@ -16,7 +16,7 @@ app-run:
 	docker run -v /mnt/c/:/mnt/c/ -e CV_PIPELINER_APP_CONFIG=${CV_PIPELINER_APP_CONFIG} -p 80:80 -t ${APP_IMAGE}:${APP_VERSION}
 
 backend-build:
-	docker build -f backend/Dockerfile -t ${BACKEND_IMAGE}:${BACKEND_VERSION} .
+	docker build -f apps/backend/Dockerfile -t ${BACKEND_IMAGE}:${BACKEND_VERSION} .
 
 backend-upload:
 	docker push ${BACKEND_IMAGE}:${BACKEND_VERSION}
@@ -25,7 +25,7 @@ backend-run:
 	docker run -p 5000:5000 -t ${BACKEND_IMAGE}:${BACKEND_VERSION}
 
 frontend-build:
-	docker build -f frontend/Dockerfile -t ${FRONTEND_IMAGE}:${FRONTEND_VERSION} ./frontend
+	docker build -f apps/frontend/Dockerfile -t ${FRONTEND_IMAGE}:${FRONTEND_VERSION} ./frontend
 
 frontend-run:
 	docker container run -p 80:80 -t ${FRONTEND_IMAGE}:${FRONTEND_VERSION}

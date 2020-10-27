@@ -439,7 +439,7 @@ class LabelStudioProject_Classification:
                 Image.fromarray(cropped_image).save(cropped_image_path)
                 bbox_data.apply_str_func_to_label_inplace(self._class_name_with_special_character)
                 bbox_data_as_cropped_image.apply_str_func_to_label_inplace(self._class_name_with_special_character)
-                bbox_data_as_cropped_image.set_image_path(cropped_image_path)
+                bbox_data_as_cropped_image.set_image(image_path=cropped_image_path)
                 tasks_json[str(id)] = {
                     'id': id,
                     'data': {

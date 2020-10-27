@@ -36,7 +36,7 @@ ADD requirements.txt /app/requirements.txt
 RUN pip3 install -e /app/ --use-feature=2020-resolver
 
 RUN pip3 install flask
-ADD backend /backend/
+ADD apps/backend/ /backend/
 WORKDIR /backend/
 ENV FLASK_APP="app.py"
 CMD ["flask", "run", "--host", "0.0.0.0", "--port", "5000", "--without-threads"]
