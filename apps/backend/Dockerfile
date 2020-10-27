@@ -21,8 +21,7 @@ RUN conda update -n base -c defaults conda
 RUN conda install -c anaconda python=3.8
 
 # Install Object Detection API
-ADD https://api.github.com/repos/tensorflow/models/git/refs/heads/master version.json
-RUN rm version.json && git clone https://github.com/tensorflow/models.git
+RUN git clone https://github.com/tensorflow/models.git
 RUN cd models/research/ && \
     protoc object_detection/protos/*.proto --python_out=. && \
     cp object_detection/packages/tf2/setup.py . && \
@@ -36,7 +35,7 @@ ADD requirements.txt /app/requirements.txt
 RUN pip3 install -e /app/ --use-feature=2020-resolver
 
 RUN pip3 install flask
-ADD apps/backend/ /backend/
-WORKDIR /backend/
-ENV FLASK_APP="app.py"
+ADD apps/backend/ /apps/apps/backend/
+WORKDIR /apps/
+ENV FLASK_APP="apps/backend/app.py"
 CMD ["flask", "run", "--host", "0.0.0.0", "--port", "5000", "--without-threads"]

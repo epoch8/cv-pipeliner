@@ -1,20 +1,17 @@
 import imageio
-import requests
 
-from dataclasses import dataclass
-from typing import List, Dict, Union
+from typing import List, Dict
 
-from cv_pipeliner.core.data import ImageData, BboxData
+from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
-from cv_pipeliner.inference_models.detection.core import DetectionModelSpec
 from cv_pipeliner.inference_models.detection.object_detection_api import (
     ObjectDetectionAPI_ModelSpec,
     ObjectDetectionAPI_pb_ModelSpec,
     ObjectDetectionAPI_TFLite_ModelSpec
 )
-from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from cv_pipeliner.inference_models.classification.tensorflow import TensorFlow_ClassificationModelSpec
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
+from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
 from yacs.config import CfgNode
 from apps.backend.src.config import (
@@ -24,24 +21,6 @@ from apps.backend.src.config import (
     tensorflow_cls_model
 )
 from apps.backend.src.realtime_inferencer import RealTimeInferencer
-
-
-@dataclass
-class DetectionModelDefinition:
-    description: str
-    model_spec: Union[
-        DetectionModelSpec, ObjectDetectionAPI_ModelSpec,
-        ObjectDetectionAPI_pb_ModelSpec, ObjectDetectionAPI_TFLite_ModelSpec
-    ]
-    score_threshold: float
-    model_index: str
-
-
-@dataclass
-class ClassificationDefinition:
-    description: str
-    model_spec: Union[ClassificationModelSpec, TensorFlow_ClassificationModelSpec]  # noqa: E501
-    model_index: str
 
 
 def get_list_cfg_from_dict(d: Dict):

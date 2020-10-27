@@ -1,4 +1,4 @@
-**/examples/**/*.*
-**/__pycache__/**/*.*
-**/__logs__/**/*.*
-**/node_modules
+examples/
+__pycache__/
+__logs__/
+node_modules/

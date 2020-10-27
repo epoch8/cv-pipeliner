@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  demostand:
+    image: "epoch8/cv-pipeliner-app:1.0.3"
+    container_name: "app"
+    ports:
+      - "80:80"
+    env_file: my_env_file.env
+    volumes:
+        - type: bind
+          source: /mnt/c/
+          target: /mnt/c/
+
+
+  backend:
+    image: "epoch8/cv-pipeliner-backend:1.0.1"
+    container_name: "backend"
+    expose: 
+      - 5000
+    ports:
+      - "5000:5000"
+    env_file: my_env_file.env
+    volumes:
+        - type: bind
+          source: /mnt/c/
+          target: /mnt/c/

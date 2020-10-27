@@ -1,3 +1,6 @@
+import sys
+from pathlib import Path
+
 import os
 import logging
 
@@ -12,11 +15,12 @@ from cv_pipeliner.inference_models.detection.core import DetectionModel
 from cv_pipeliner.inference_models.classification.core import ClassificationModel
 from cv_pipeliner.inference_models.pipeline import PipelineModel
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
+from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
-from apps.backend.src.config import get_cfg_defaults
-from apps.backend.src.realtime_inferencer import RealTimeInferencer
-from apps.backend.src.model import (
-    DetectionModelDefinition, ClassificationDefinition,
+sys.path.insert(0, str(Path(__file__).absolute().parent.parent.parent))
+from apps.backend.src.config import get_cfg_defaults  # noqa: E402
+from apps.backend.src.realtime_inferencer import RealTimeInferencer  # noqa: E402
+from apps.backend.src.model import (  # noqa: E402
     get_detection_models_definitions_from_config,
     get_classification_models_definitions_from_config,
     inference, realtime_inference

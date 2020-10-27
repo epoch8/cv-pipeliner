@@ -23,11 +23,11 @@ from cv_pipeliner.utils.streamlit.data import (
     get_images_data_from_dir, get_videos_data_from_dir, get_label_to_description
 )
 from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data
+from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
 main_folder = Path(__file__).parent.parent.parent
 sys.path.append(str(main_folder))
 from apps.app.config import get_cfg_defaults  # noqa: E402
-from apps.backend.src.model import DetectionModelDefinition, ClassificationDefinition
 
 
 st.set_option('deprecation.showfileUploaderEncoding', False)
