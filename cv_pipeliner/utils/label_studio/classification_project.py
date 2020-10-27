@@ -144,9 +144,11 @@ class LabelStudioProject_Classification:
         self,
         directory: Union[str, Path]
     ):
-        self.directory = Path(directory)
+        self.directory = Path(directory).absolute()
         self.main_project_directory = self.directory / MAIN_PROJECT_FILENAME
         self.backend_project_directory = self.directory / BACKEND_PROJECT_FILENAME
+        
+        self.running_project_process = None
         self.load()
 
     def _class_name_with_special_character(self, class_name: str) -> str:

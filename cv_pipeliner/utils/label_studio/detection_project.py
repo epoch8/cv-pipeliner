@@ -147,9 +147,11 @@ class LabelStudioProject_Detection:
         self,
         directory: Union[str, Path]
     ):
-        self.directory = Path(directory)
+        self.directory = Path(directory).absolute()
         self.main_project_directory = self.directory / MAIN_PROJECT_FILENAME
         self.backend_project_directory = self.directory / BACKEND_PROJECT_FILENAME
+        
+        self.running_project_process = None
         self.load()
 
     def _class_name_with_special_character(self, class_name: str) -> str:
@@ -374,16 +376,16 @@ class LabelStudioProject_Detection:
                 self.class_names = json.load(src)
             self._load_tasks()
 
-        if self.backend_project_directory.exists():
+        if (self.backend_project_directory / 'detection_model_spec.pkl').exists():
             with open(self.backend_project_directory / 'detection_model_spec.pkl', 'rb') as src:
                 self.detection_model_spec = pickle.load(src)
-            if (self.backend_project_directory / 'classification_model_spec.pkl').exists():
-                with open(self.backend_project_directory / 'classification_model_spec.pkl', 'rb') as src:
-                    self.classification_model_spec = pickle.load(src)
-            else:
-                self.classification_model_spec = None
         else:
             self.detection_model_spec = None
+
+        if (self.backend_project_directory / 'classification_model_spec.pkl').exists():
+            with open(self.backend_project_directory / 'classification_model_spec.pkl', 'rb') as src:
+                self.classification_model_spec = pickle.load(src)
+        else:
             self.classification_model_spec = None
 
     def add_tasks(
