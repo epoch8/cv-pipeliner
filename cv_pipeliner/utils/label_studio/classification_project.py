@@ -424,6 +424,7 @@ class LabelStudioProject_Classification:
             )
         for image_path, bboxes_data in tqdm(list(zip(image_paths, n_bboxes_data))):
             source_image = imageio.imread(image_path, pilmode='RGB')
+            id = start  # if first bboxes_data is [] 
             for id, bbox_data in enumerate(bboxes_data, start=start):
                 bbox_data_as_cropped_image = bbox_data.open_cropped_image(
                     source_image=source_image,
