@@ -215,14 +215,14 @@ class LabelStudioProject_Classification:
         can_rotate: bool = False
     ):
         labels = '\n'.join(
-            [f'<Label value="{class_name}"/>' for class_name in class_names]
+            [f'    <Label value="{class_name}"/>' for class_name in class_names]
         )
         can_rotate = 'true' if can_rotate else 'false'
         config_xml = f'''
 <View>
   <Image name="image" value="$image"/>
   <RectangleLabels name="bbox" toName="image" canRotate="{can_rotate}">
-    {labels}
+{labels}
   </RectangleLabels>
   <TextArea name="additional_label"
             toName="image"
