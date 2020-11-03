@@ -320,7 +320,8 @@ class LabelStudioProject_Detection:
                 str(DETECTION_BACKEND_SCRIPT)],
             stdout=subprocess.PIPE
         )
-        backend_project_process.wait()
+        output = '\n'.join([x.decode() for x in backend_project_process.communicate() if x])
+        logger.info(output)
         if self.detection_model_spec is not None:
             with open(self.backend_project_directory / 'detection_model_spec.pkl', 'wb') as out:
                 pickle.dump(detection_model_spec, out)
@@ -349,6 +350,7 @@ class LabelStudioProject_Detection:
             raise ValueError(
                 f'Directory {self.directory} is exists. Delete it before creating the project.'
             )
+        logger.info(f'Initializing LabelStudioProject "{self.directory.name}"...')
         label_studio_process = subprocess.Popen(
             ["label-studio", "init", str(self.main_project_directory)],
             stdout=subprocess.PIPE
@@ -360,8 +362,8 @@ class LabelStudioProject_Detection:
             'url': url,  # use hack for our cluster
             'additional_info': 'This project was created by cv_pipeliner.utils.label_studio.'
         }
+        logger.info(output)
         if 'Label Studio has been successfully initialized' in output:
-            logger.info(f'Initializing LabelStudioProject "{self.directory.name}"...')
             self.set_class_names(class_names)
             (self.main_project_directory / 'upload').mkdir()
             with open(self.main_project_directory / 'cv_pipeliner_settings.json', 'w') as out:
