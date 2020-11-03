@@ -81,6 +81,7 @@ class BboxData:
                 for (x, y) in rotated_points
             ]
             if draw_rectangle_with_color is not None:
+                cropped_image = cropped_image.copy()
                 height, width, colors = cropped_image.shape
                 rect = cv2.minAreaRect(np.array(rotated_points_in_cropped_image))
                 box = cv2.boxPoints(rect)
