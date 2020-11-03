@@ -7,7 +7,6 @@ import imageio
 import numpy as np
 import cv2
 
-from cv_pipeliner.utils.images import draw_rectangle
 from cv_pipeliner.utils.images import rotate_point
 
 

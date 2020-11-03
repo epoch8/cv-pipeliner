@@ -23,8 +23,6 @@ from cv_pipeliner.inference_models.classification.core import ClassificationMode
 from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 
-from cv_pipeliner.utils.images import rotate_point
-
 
 MAIN_PROJECT_FILENAME = 'main_project'
 BACKEND_PROJECT_FILENAME = 'backend'

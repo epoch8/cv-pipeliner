@@ -20,8 +20,6 @@ from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
 from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
 
-from cv_pipeliner.utils.images import rotate_point
-
 
 MAIN_PROJECT_FILENAME = 'main_project'
 BACKEND_PROJECT_FILENAME = 'backend'
@@ -97,12 +95,6 @@ class TaskData:
         ymax = ymax / 100 * original_height
         src_xmin = int(bbox_data_as_cropped_image.additional_info['src_xmin'])
         src_ymin = int(bbox_data_as_cropped_image.additional_info['src_ymin'])
-        # points = [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
-        # new_points = [rotate_point(x=x, y=y, cx=xmin, cy=ymin, angle=angle) for (x, y) in points]
-        # xmin = max(0, min([x for (x, y) in new_points]))
-        # ymin = max(0, min([y for (x, y) in new_points]))
-        # xmax = max([x for (x, y) in new_points])
-        # ymax = max([y for (x, y) in new_points])
         bbox = np.array([xmin, ymin, xmax, ymax])
         bbox = bbox.round().astype(int)
         xmin, ymin, xmax, ymax = bbox
@@ -128,6 +120,8 @@ class TaskData:
         src_image_path = completions_json['data']['src_image_path']
         bbox_data = BboxData()
         bbox_data.from_dict(completions_json['data']['src_bbox_data'])
+        bbox_data_as_cropped_image = BboxData()
+        bbox_data_as_cropped_image.from_dict(completions_json['data']['bbox_data_as_cropped_image'])
         additional_info = bbox_data.additional_info
 
         if len(completions_json['completions']) > 1:
@@ -149,7 +143,8 @@ class TaskData:
                     bbox_data = self.parse_rectangle_labels(
                         result=result,
                         src_image_path=src_image_path,
-                        src_bbox_data=bbox_data
+                        src_bbox_data=bbox_data,
+                        bbox_data_as_cropped_image=bbox_data_as_cropped_image
                     )
                     additional_info = bbox_data.additional_info
                 elif from_name == 'trash':
