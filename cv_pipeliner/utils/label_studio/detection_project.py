@@ -131,7 +131,7 @@ class TaskData:
         image_path = Path(completions_json['data']['src_image_path'])
         additional_info = completions_json['data']['src_image_data']['additional_info']
         if 'skipped' in completion and completion['skipped']:
-            logger.info(f"WARNING: task {completions_json['id']} was skipped.")
+            logger.warning(f"Task {completions_json['id']} was skipped.")
             self.is_skipped = True
             image_data = ImageData()
             image_data.from_dict(completions_json['data']['src_image_data'])
