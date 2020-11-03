@@ -48,7 +48,7 @@ class BboxData:
         thickness: int = 3,
         alpha: float = 0.3,
         return_as_bbox_data_in_cropped_image: bool = False,
-    ) -> Union[None, np.ndarray]:
+    ) -> Union[None, np.ndarray, 'BboxData']:
 
         if self.cropped_image is not None:
             if not inplace:
@@ -102,20 +102,37 @@ class BboxData:
             super().__setattr__('cropped_image', cropped_image)
         else:
             if return_as_bbox_data_in_cropped_image:
+                cx = rotated_points_in_cropped_image[0][0]
+                cy = rotated_points_in_cropped_image[0][1]
+                unrotated_points_in_cropped_image = [
+                    rotate_point(x=x, y=y, cx=cx, cy=cy, angle=-self.angle)
+                    for (x, y) in rotated_points_in_cropped_image
+                ]
+                unrotated_xmin_in_cropped_image = max(0, min([x for (x, y) in unrotated_points_in_cropped_image]))
+                unrotated_ymin_in_cropped_image = max(0, min([y for (x, y) in unrotated_points_in_cropped_image]))
+                unrotated_xmax_in_cropped_image = max([x for (x, y) in unrotated_points_in_cropped_image])
+                unrotated_ymax_in_cropped_image = max([y for (x, y) in unrotated_points_in_cropped_image])
                 return BboxData(
                     image_path=self.image_path,
                     image=cropped_image,
-                    xmin=xmin_in_cropped_image,
-                    ymin=ymin_in_cropped_image,
-                    xmax=width-xmax_in_cropped_image,
-                    ymax=height-ymax_in_cropped_image,
+                    xmin=unrotated_xmin_in_cropped_image,
+                    ymin=unrotated_ymin_in_cropped_image,
+                    xmax=unrotated_xmax_in_cropped_image,
+                    ymax=unrotated_ymax_in_cropped_image,
+                    angle=self.angle,
                     label=self.label,
                     detection_score=self.detection_score,
                     classification_score=self.classification_score,
                     top_n=self.top_n,
                     labels_top_n=self.labels_top_n,
                     classification_scores_top_n=self.classification_scores_top_n,
-                    additional_info=self.additional_info
+                    additional_info={
+                        **self.additional_info,
+                        **{
+                            'src_xmin': xmin-xmin_in_cropped_image,
+                            'src_ymin': ymin-ymin_in_cropped_image
+                        }
+                    }
                 )
             else:
                 return cropped_image

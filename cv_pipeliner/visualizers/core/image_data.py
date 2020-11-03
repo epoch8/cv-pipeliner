@@ -4,20 +4,105 @@ from typing import Literal, List, Callable, Tuple
 import numpy as np
 import imutils
 import cv2
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
-from object_detection.utils.visualization_utils import (
-    STANDARD_COLORS, draw_bounding_box_on_image
-)
+from object_detection.utils.visualization_utils import STANDARD_COLORS
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
+from cv_pipeliner.utils.images import rotate_point
+
+
+# Taken from object_detection.utils.visualization_utils
+def draw_bounding_box_on_image(
+    image: Image,
+    ymin: int,
+    xmin: int,
+    ymax: int,
+    xmax: int,
+    angle: int = 0,
+    color='red',
+    thickness=4,
+    display_str_list=(),
+    use_normalized_coordinates=True
+):
+    """Adds a bounding box to an image.
+
+    Bounding box coordinates can be specified in either absolute (pixel) or
+    normalized coordinates by setting the use_normalized_coordinates argument.
+
+    Each string in display_str_list is displayed on a separate line above the
+    bounding box in black text on a rectangle filled with the input 'color'.
+    If the top of the bounding box extends to the edge of the image, the strings
+    are displayed below the bounding box.
+
+    Args:
+    image: a PIL.Image object.
+    ymin: ymin of bounding box.
+    xmin: xmin of bounding box.
+    ymax: ymax of bounding box.
+    xmax: xmax of bounding box.
+    angle: angle of bounding box.
+    color: color to draw bounding box. Default is red.
+    thickness: line thickness. Default value is 4.
+    display_str_list: list of strings to display in box
+                        (each to be shown on its own line).
+    use_normalized_coordinates: If True (default), treat coordinates
+        ymin, xmin, ymax, xmax as relative to the image.  Otherwise treat
+        coordinates as absolute.
+    """
+    draw = ImageDraw.Draw(image)
+    im_width, im_height = image.size
+    if use_normalized_coordinates:
+        (left, right, top, bottom) = (xmin * im_width, xmax * im_width, ymin * im_height, ymax * im_height)
+    else:
+        (left, right, top, bottom) = (xmin, xmax, ymin, ymax)
+    points = [(left, top), (left, bottom), (right, bottom), (right, top), (left, top)]
+    rotated_points = [rotate_point(x=x, y=y, cx=left, cy=top, angle=angle) for (x, y) in points]
+    if thickness > 0:
+        draw.line(
+            rotated_points,
+            width=thickness,
+            fill=color
+        )
+    try:
+        font = ImageFont.truetype('arial.ttf', 24)
+    except IOError:
+        font = ImageFont.load_default()
+
+    # If the total height of the display strings added to the top of the bounding
+    # box exceeds the top of the image, stack the strings below the bounding box
+    # instead of above.
+    display_str_heights = [font.getsize(ds)[1] for ds in display_str_list]
+    # Each display_str has a top and bottom margin of 0.05x.
+    total_display_str_height = (1 + 2 * 0.05) * sum(display_str_heights)
+
+    if top > total_display_str_height:
+        text_bottom = top
+    else:
+        text_bottom = bottom + total_display_str_height
+    # Reverse list and print from bottom to top.
+    for display_str in display_str_list[::-1]:
+        text_width, text_height = font.getsize(display_str)
+        margin = np.ceil(0.05 * text_height)
+        draw.rectangle(
+            [(left, text_bottom - text_height - 2 * margin), (left + text_width, text_bottom)],
+            fill=color
+        )
+        draw.text(
+            (left + margin, text_bottom - text_height - margin),
+            display_str,
+            fill='black',
+            font=font
+        )
+        text_bottom -= text_height - 2 * margin
 
 
 # Taken from object_detection.utils.visualization_utils
 def visualize_boxes_and_labels_on_image_array(
     image: np.ndarray,
     bboxes: List[Tuple[int, int, int, int]],
+    angles: List[int],
     labels: List[str],
     scores: List[float],
     use_normalized_coordinates=False,
@@ -38,6 +123,7 @@ def visualize_boxes_and_labels_on_image_array(
     Args:
       image: uint8 numpy array with shape (img_height, img_width, 3)
       boxes: a numpy array of shape [N, 4]
+      angles: a numpy array of shape [N].
       labels: a numpy array of shape [N]. Note that class indices are 1-based.
       scores: a numpy array of shape [N] or None.  If scores=None, then
         this function assumes that the boxes to be plotted are groundtruth
@@ -86,7 +172,7 @@ def visualize_boxes_and_labels_on_image_array(
 
     # Draw all boxes onto image.
     image_pil = Image.fromarray(np.uint8(image)).convert('RGB')
-    for bbox in bboxes:
+    for bbox, angle in zip(bboxes, angles):
         bbox = tuple(bbox.tolist())
         ymin, xmin, ymax, xmax = bbox
         draw_bounding_box_on_image(
@@ -95,6 +181,7 @@ def visualize_boxes_and_labels_on_image_array(
             xmin=xmin,
             ymax=ymax,
             xmax=xmax,
+            angle=angle,
             color=bbox_to_color[bbox],
             thickness=line_thickness,
             display_str_list=bbox_to_display_str[bbox],
@@ -178,6 +265,7 @@ def visualize_image_data(
         (bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax)
         for bbox_data in bboxes_data
     ])
+    angles = [bbox_data.angle for bbox_data in bboxes_data]
     if score_type == 'detection':
         scores = np.array([bbox_data.detection_score for bbox_data in bboxes_data])
         skip_scores = False
@@ -191,6 +279,7 @@ def visualize_image_data(
     image = visualize_boxes_and_labels_on_image_array(
             image=image,
             bboxes=bboxes,
+            angles=angles,
             scores=scores,
             labels=labels,
             use_normalized_coordinates=False,

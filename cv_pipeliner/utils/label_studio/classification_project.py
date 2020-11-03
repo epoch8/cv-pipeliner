@@ -69,7 +69,7 @@ class TaskData:
                 "rectanglelabels": [
                     bbox_data_as_cropped_image.label
                 ],
-                "rotation": 0,
+                "rotation": bbox_data_as_cropped_image.angle,
             }
         }
         return rectangle_label
@@ -78,7 +78,8 @@ class TaskData:
         self,
         result: Dict,
         src_image_path: Union[str, Path],
-        src_bbox_data: BboxData
+        src_bbox_data: BboxData,
+        bbox_data_as_cropped_image: BboxData
     ) -> BboxData:
         original_height = result['original_height']
         original_width = result['original_width']
@@ -86,7 +87,7 @@ class TaskData:
         width = result['value']['width']
         xmin = result['value']['x']
         ymin = result['value']['y']
-        angle = result['value']['rotation']
+        angle = int(result['value']['rotation'])
         label = result['value']['rectanglelabels'][0]
         xmax = xmin + width
         ymax = ymin + height
@@ -94,21 +95,24 @@ class TaskData:
         ymin = ymin / 100 * original_height
         xmax = xmax / 100 * original_width
         ymax = ymax / 100 * original_height
-        points = [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
-        new_points = [rotate_point(x=x, y=y, cx=xmin, cy=ymin, angle=angle) for (x, y) in points]
-        xmin = max(0, min([x for (x, y) in new_points]))
-        ymin = max(0, min([y for (x, y) in new_points]))
-        xmax = max([x for (x, y) in new_points])
-        ymax = max([y for (x, y) in new_points])
+        src_xmin = int(bbox_data_as_cropped_image.additional_info['src_xmin'])
+        src_ymin = int(bbox_data_as_cropped_image.additional_info['src_ymin'])
+        # points = [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
+        # new_points = [rotate_point(x=x, y=y, cx=xmin, cy=ymin, angle=angle) for (x, y) in points]
+        # xmin = max(0, min([x for (x, y) in new_points]))
+        # ymin = max(0, min([y for (x, y) in new_points]))
+        # xmax = max([x for (x, y) in new_points])
+        # ymax = max([y for (x, y) in new_points])
         bbox = np.array([xmin, ymin, xmax, ymax])
         bbox = bbox.round().astype(int)
         xmin, ymin, xmax, ymax = bbox
         bbox_data = BboxData(
             image_path=src_image_path,
-            xmin=src_bbox_data.xmin+xmin,
-            ymin=src_bbox_data.ymin+ymin,
-            xmax=src_bbox_data.xmin+xmax,
-            ymax=src_bbox_data.ymin+ymax,
+            xmin=src_xmin+xmin,
+            ymin=src_ymin+ymin,
+            xmax=src_xmin+xmax,
+            ymax=src_ymin+ymax,
+            angle=angle,
             label=label,
             top_n=src_bbox_data.top_n,
             labels_top_n=src_bbox_data.labels_top_n,
@@ -212,15 +216,17 @@ class LabelStudioProject_Classification:
 
     def generate_config_xml(
         self,
-        class_names: List[str]
+        class_names: List[str],
+        can_rotate: bool = False
     ):
         labels = '\n'.join(
             [f'<Label value="{class_name}"/>' for class_name in class_names]
         )
+        can_rotate = 'true' if can_rotate else 'false'
         config_xml = f'''
 <View>
   <Image name="image" value="$image"/>
-  <RectangleLabels name="bbox" toName="image" canRotate="false">
+  <RectangleLabels name="bbox" toName="image" canRotate="{can_rotate}">
     {labels}
   </RectangleLabels>
   <TextArea name="additional_label"
@@ -242,7 +248,8 @@ class LabelStudioProject_Classification:
 
     def set_class_names(
         self,
-        class_names: Union[str, Path, List[str]]
+        class_names: Union[str, Path, List[str]],
+        can_rotate: bool = False
     ):
         if isinstance(class_names, str) or isinstance(class_names, Path):
             with open(class_names, 'r') as src:
@@ -253,7 +260,7 @@ class LabelStudioProject_Classification:
         ]
         with open(self.main_project_directory/'class_names.json', 'w') as out:
             json.dump(self.class_names, out, indent=4)
-        self.generate_config_xml(self.class_names)
+        self.generate_config_xml(class_names=self.class_names, can_rotate=can_rotate)
 
     def inference_and_make_predictions_for_backend(
         self,
@@ -322,6 +329,7 @@ class LabelStudioProject_Classification:
     def initialize_project(
         self,
         class_names: Union[str, Path, List[str]],
+        can_rotate: bool = False,
         port: int = 8080,
         url: str = 'http://localhost:8080/',
         classification_model_spec: ClassificationModelSpec = None,
@@ -345,7 +353,7 @@ class LabelStudioProject_Classification:
         }
         logger.info(output)
         if 'Label Studio has been successfully initialized' in output:
-            self.set_class_names(class_names)
+            self.set_class_names(class_names=class_names, can_rotate=can_rotate)
             (self.main_project_directory / 'upload').mkdir()
             with open(self.main_project_directory / 'cv_pipeliner_settings.json', 'w') as out:
                 json.dump(self.cv_pipeliner_settings, out, indent=4)
@@ -392,7 +400,7 @@ class LabelStudioProject_Classification:
                 self.cv_pipeliner_settings = json.load(src)
             with open(self.main_project_directory/'class_names.json', 'r') as src:
                 self.class_names = json.load(src)
-            load_tasks(self.main_project_directory)
+            self.tasks_data = load_tasks(self.main_project_directory)
 
         if (self.backend_project_directory / 'classification_model_spec.pkl').exists():
             with open(self.backend_project_directory / 'classification_model_spec.pkl', 'rb') as src:
@@ -488,6 +496,7 @@ class LabelStudioProject_Classification:
                         ymin=bbox_data.ymin,
                         xmax=bbox_data.xmax,
                         ymax=bbox_data.ymax,
+                        angle=bbox_data.angle,
                         label=(
                             self._class_name_without_special_character(bbox_data.label)
                         ),

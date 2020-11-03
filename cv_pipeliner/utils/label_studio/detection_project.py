@@ -69,7 +69,7 @@ class TaskData:
                     "rectanglelabels": [
                         bbox_data.label, json.dumps(bbox_data.additional_info)
                     ],
-                    "rotation": 0,
+                    "rotation": bbox_data.angle,
                 }
             })
         return rectangle_labels
@@ -85,7 +85,7 @@ class TaskData:
         width = result['value']['width']
         xmin = result['value']['x']
         ymin = result['value']['y']
-        angle = result['value']['rotation']
+        angle = int(result['value']['rotation'])
         label = result['value']['rectanglelabels'][0]
         if len(result['value']['rectanglelabels']) == 2:
             additional_info = json.loads(result['value']['rectanglelabels'][1])
@@ -97,12 +97,12 @@ class TaskData:
         ymin = ymin / 100 * original_height
         xmax = xmax / 100 * original_width
         ymax = ymax / 100 * original_height
-        points = [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
-        new_points = [rotate_point(x=x, y=y, cx=xmin, cy=ymin, angle=angle) for (x, y) in points]
-        xmin = max(0, min([x for (x, y) in new_points]))
-        ymin = max(0, min([y for (x, y) in new_points]))
-        xmax = max([x for (x, y) in new_points])
-        ymax = max([y for (x, y) in new_points])
+        # points = [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
+        # new_points = [rotate_point(x=x, y=y, cx=xmin, cy=ymin, angle=angle) for (x, y) in points]
+        # xmin = max(0, min([x for (x, y) in new_points]))
+        # ymin = max(0, min([y for (x, y) in new_points]))
+        # xmax = max([x for (x, y) in new_points])
+        # ymax = max([y for (x, y) in new_points])
         bbox = np.array([xmin, ymin, xmax, ymax])
         bbox = bbox.round().astype(int)
         xmin, ymin, xmax, ymax = bbox
@@ -112,6 +112,7 @@ class TaskData:
             ymin=ymin,
             xmax=xmax,
             ymax=ymax,
+            angle=angle,
             label=label,
             additional_info=additional_info
         )
@@ -211,15 +212,17 @@ class LabelStudioProject_Detection:
 
     def generate_config_xml(
         self,
-        class_names: List[str]
+        class_names: List[str],
+        can_rotate: bool = False
     ):
         labels = '\n'.join(
             [f'<Label value="{class_name}"/>' for class_name in class_names]
         )
+        can_rotate = 'true' if can_rotate else 'false'
         config_xml = f'''
 <View>
   <Image name="image" value="$image"/>
-  <RectangleLabels name="bbox" toName="image" canRotate="false">
+  <RectangleLabels name="bbox" toName="image" canRotate="{can_rotate}">
     {labels}
   </RectangleLabels>
   <Choices name="trash" choice="multiple" toName="image" showInLine="true">
@@ -234,7 +237,8 @@ class LabelStudioProject_Detection:
 
     def set_class_names(
         self,
-        class_names: Union[str, Path, List[str]]
+        class_names: Union[str, Path, List[str]],
+        can_rotate: bool = False
     ):
         if isinstance(class_names, str) or isinstance(class_names, Path):
             with open(class_names, 'r') as src:
@@ -245,7 +249,7 @@ class LabelStudioProject_Detection:
         ]
         with open(self.main_project_directory/'class_names.json', 'w') as out:
             json.dump(self.class_names, out, indent=4)
-        self.generate_config_xml(self.class_names)
+        self.generate_config_xml(class_names=self.class_names, can_rotate=can_rotate)
 
     def inference_and_make_predictions_for_backend(
         self,
@@ -340,6 +344,7 @@ class LabelStudioProject_Detection:
     def initialize_project(
         self,
         class_names: Union[str, Path, List[str]],
+        can_rotate: bool = False,
         port: int = 8080,
         url: str = 'http://localhost:8080/',
         detection_model_spec: DetectionModelSpec = None,
@@ -364,7 +369,7 @@ class LabelStudioProject_Detection:
         }
         logger.info(output)
         if 'Label Studio has been successfully initialized' in output:
-            self.set_class_names(class_names)
+            self.set_class_names(class_names=class_names, can_rotate=can_rotate)
             (self.main_project_directory / 'upload').mkdir()
             with open(self.main_project_directory / 'cv_pipeliner_settings.json', 'w') as out:
                 json.dump(self.cv_pipeliner_settings, out, indent=4)
