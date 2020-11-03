@@ -165,6 +165,9 @@ class BboxData:
     def assert_label_is_valid(self):
         assert self.label is not None
 
+    def set_label(self, label: str):
+        super().__setattr__('label', label)
+
     def apply_str_func_to_label_inplace(self, func: Callable[[str], str]):
         super().__setattr__('label', func(self.label))
 
