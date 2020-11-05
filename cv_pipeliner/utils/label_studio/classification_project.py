@@ -413,8 +413,8 @@ class LabelStudioProject_Classification:
     ):
         with open(self.main_project_directory/'tasks.json', 'r') as src:
             tasks_json = json.load(src)
-        tasks_ids = [tasks_json[key]['id'] for key in tasks_json]
-        start = max(tasks_ids) if len(tasks_ids) > 0 else 0
+        tasks_ids = [tasks_json[task_id]['id'] for task_id in tasks_json]
+        id = max(tasks_ids) + 1 if len(tasks_ids) > 0 else 0
         logger.info('Adding tasks...')
         if self.classification_model_spec is not None:
             n_bboxes_data = self.inference_and_make_predictions_for_backend(
@@ -422,10 +422,19 @@ class LabelStudioProject_Classification:
                 default_class_name=default_class_name,
                 batch_size=batch_size
             )
+        tasks_images = set(tasks_json[task_id]['data']['image'] for task_id in tasks_json)
         for image_path, bboxes_data in tqdm(list(zip(image_paths, n_bboxes_data))):
             source_image = imageio.imread(image_path, pilmode='RGB')
-            id = start  # if first bboxes_data is [] 
-            for id, bbox_data in enumerate(bboxes_data, start=start):
+            for bbox_data in bboxes_data:
+                bbox = (bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)
+                filename = f"{image_path.stem}_{bbox}.png"
+                image = (
+                    f"{self.cv_pipeliner_settings['url']}/data/upload/{filename}"  # noqa: E501
+                )
+                if str(image) in tasks_images:
+                    logger.info(f"Task with filename {filename} is already exists. Skipping...")
+                    continue
+                tasks_images.add(str(image))
                 bbox_data_as_cropped_image = bbox_data.open_cropped_image(
                     source_image=source_image,
                     xmin_offset=bbox_offset,
@@ -436,11 +445,6 @@ class LabelStudioProject_Classification:
                     return_as_bbox_data_in_cropped_image=True
                 )
                 cropped_image = bbox_data_as_cropped_image.open_image()
-                bbox = (bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)
-                filename = f"{image_path.stem}_{bbox}.png"
-                image = (
-                    f"{self.cv_pipeliner_settings['url']}/data/upload/{filename}"  # noqa: E501
-                )
                 cropped_image_path = self.main_project_directory / 'upload' / filename
                 Image.fromarray(cropped_image).save(cropped_image_path)
                 bbox_data.apply_str_func_to_label_inplace(self._class_name_with_special_character)
@@ -456,7 +460,7 @@ class LabelStudioProject_Classification:
                         'bbox_data_as_cropped_image': bbox_data_as_cropped_image.asdict()
                     }
                 }
-            start = id
+                id += 1
         with open(self.main_project_directory/'tasks.json', 'w') as out:
             json.dump(tasks_json, out, indent=4)
         load_tasks(self.main_project_directory)
