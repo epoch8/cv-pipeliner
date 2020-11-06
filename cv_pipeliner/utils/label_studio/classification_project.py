@@ -20,8 +20,6 @@ from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
 from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
 
-from cv_pipeliner.utils.images import rotate_point
-
 
 MAIN_PROJECT_FILENAME = 'main_project'
 BACKEND_PROJECT_FILENAME = 'backend'
@@ -69,7 +67,7 @@ class TaskData:
                 "rectanglelabels": [
                     bbox_data_as_cropped_image.label
                 ],
-                "rotation": 0,
+                "rotation": bbox_data_as_cropped_image.angle,
             }
         }
         return rectangle_label
@@ -78,7 +76,8 @@ class TaskData:
         self,
         result: Dict,
         src_image_path: Union[str, Path],
-        src_bbox_data: BboxData
+        src_bbox_data: BboxData,
+        bbox_data_as_cropped_image: BboxData
     ) -> BboxData:
         original_height = result['original_height']
         original_width = result['original_width']
@@ -86,7 +85,7 @@ class TaskData:
         width = result['value']['width']
         xmin = result['value']['x']
         ymin = result['value']['y']
-        angle = result['value']['rotation']
+        angle = int(result['value']['rotation'])
         label = result['value']['rectanglelabels'][0]
         xmax = xmin + width
         ymax = ymin + height
@@ -94,21 +93,18 @@ class TaskData:
         ymin = ymin / 100 * original_height
         xmax = xmax / 100 * original_width
         ymax = ymax / 100 * original_height
-        points = [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
-        new_points = [rotate_point(x=x, y=y, cx=xmin, cy=ymin, angle=angle) for (x, y) in points]
-        xmin = max(0, min([x for (x, y) in new_points]))
-        ymin = max(0, min([y for (x, y) in new_points]))
-        xmax = max([x for (x, y) in new_points])
-        ymax = max([y for (x, y) in new_points])
+        src_xmin = int(bbox_data_as_cropped_image.additional_info['src_xmin'])
+        src_ymin = int(bbox_data_as_cropped_image.additional_info['src_ymin'])
         bbox = np.array([xmin, ymin, xmax, ymax])
         bbox = bbox.round().astype(int)
         xmin, ymin, xmax, ymax = bbox
         bbox_data = BboxData(
             image_path=src_image_path,
-            xmin=src_bbox_data.xmin+xmin,
-            ymin=src_bbox_data.ymin+ymin,
-            xmax=src_bbox_data.xmin+xmax,
-            ymax=src_bbox_data.ymin+ymax,
+            xmin=src_xmin+xmin,
+            ymin=src_ymin+ymin,
+            xmax=src_xmin+xmax,
+            ymax=src_ymin+ymax,
+            angle=angle,
             label=label,
             top_n=src_bbox_data.top_n,
             labels_top_n=src_bbox_data.labels_top_n,
@@ -124,6 +120,8 @@ class TaskData:
         src_image_path = completions_json['data']['src_image_path']
         bbox_data = BboxData()
         bbox_data.from_dict(completions_json['data']['src_bbox_data'])
+        bbox_data_as_cropped_image = BboxData()
+        bbox_data_as_cropped_image.from_dict(completions_json['data']['bbox_data_as_cropped_image'])
         additional_info = bbox_data.additional_info
 
         if len(completions_json['completions']) > 1:
@@ -145,7 +143,8 @@ class TaskData:
                     bbox_data = self.parse_rectangle_labels(
                         result=result,
                         src_image_path=src_image_path,
-                        src_bbox_data=bbox_data
+                        src_bbox_data=bbox_data,
+                        bbox_data_as_cropped_image=bbox_data_as_cropped_image
                     )
                     additional_info = bbox_data.additional_info
                 elif from_name == 'trash':
@@ -212,16 +211,18 @@ class LabelStudioProject_Classification:
 
     def generate_config_xml(
         self,
-        class_names: List[str]
+        class_names: List[str],
+        can_rotate: bool = False
     ):
         labels = '\n'.join(
-            [f'<Label value="{class_name}"/>' for class_name in class_names]
+            [f'    <Label value="{class_name}"/>' for class_name in class_names]
         )
+        can_rotate = 'true' if can_rotate else 'false'
         config_xml = f'''
 <View>
   <Image name="image" value="$image"/>
-  <RectangleLabels name="bbox" toName="image" canRotate="false">
-    {labels}
+  <RectangleLabels name="bbox" toName="image" canRotate="{can_rotate}">
+{labels}
   </RectangleLabels>
   <TextArea name="additional_label"
             toName="image"
@@ -242,7 +243,8 @@ class LabelStudioProject_Classification:
 
     def set_class_names(
         self,
-        class_names: Union[str, Path, List[str]]
+        class_names: Union[str, Path, List[str]],
+        can_rotate: bool = False
     ):
         if isinstance(class_names, str) or isinstance(class_names, Path):
             with open(class_names, 'r') as src:
@@ -253,7 +255,7 @@ class LabelStudioProject_Classification:
         ]
         with open(self.main_project_directory/'class_names.json', 'w') as out:
             json.dump(self.class_names, out, indent=4)
-        self.generate_config_xml(self.class_names)
+        self.generate_config_xml(class_names=self.class_names, can_rotate=can_rotate)
 
     def inference_and_make_predictions_for_backend(
         self,
@@ -304,7 +306,8 @@ class LabelStudioProject_Classification:
                 str(CLASSIFICATION_BACKEND_SCRIPT)],
             stdout=subprocess.PIPE
         )
-        backend_project_process.wait()
+        output = '\n'.join([x.decode() for x in backend_project_process.communicate() if x])
+        logger.info(output)
         if self.classification_model_spec is not None:
             with open(self.backend_project_directory / 'classification_model_spec.pkl', 'wb') as out:
                 pickle.dump(classification_model_spec, out)
@@ -321,6 +324,7 @@ class LabelStudioProject_Classification:
     def initialize_project(
         self,
         class_names: Union[str, Path, List[str]],
+        can_rotate: bool = False,
         port: int = 8080,
         url: str = 'http://localhost:8080/',
         classification_model_spec: ClassificationModelSpec = None,
@@ -330,6 +334,7 @@ class LabelStudioProject_Classification:
             raise ValueError(
                 f'Directory {self.directory} is exists. Delete it before creating the project.'
             )
+        logger.info(f'Initializing LabelStudioProject "{self.directory.name}"...')
         label_studio_process = subprocess.Popen(
             ["label-studio", "init", str(self.main_project_directory)],
             stdout=subprocess.PIPE
@@ -341,9 +346,9 @@ class LabelStudioProject_Classification:
             'url': url,  # use hack for our cluster
             'additional_info': 'This project was created by cv_pipeliner.utils.label_studio.'
         }
+        logger.info(output)
         if 'Label Studio has been successfully initialized' in output:
-            logger.info(f'Initializing LabelStudioProject "{self.directory.name}"...')
-            self.set_class_names(class_names)
+            self.set_class_names(class_names=class_names, can_rotate=can_rotate)
             (self.main_project_directory / 'upload').mkdir()
             with open(self.main_project_directory / 'cv_pipeliner_settings.json', 'w') as out:
                 json.dump(self.cv_pipeliner_settings, out, indent=4)
@@ -390,7 +395,7 @@ class LabelStudioProject_Classification:
                 self.cv_pipeliner_settings = json.load(src)
             with open(self.main_project_directory/'class_names.json', 'r') as src:
                 self.class_names = json.load(src)
-            load_tasks(self.main_project_directory)
+            self.tasks_data = load_tasks(self.main_project_directory)
 
         if (self.backend_project_directory / 'classification_model_spec.pkl').exists():
             with open(self.backend_project_directory / 'classification_model_spec.pkl', 'rb') as src:
@@ -408,8 +413,8 @@ class LabelStudioProject_Classification:
     ):
         with open(self.main_project_directory/'tasks.json', 'r') as src:
             tasks_json = json.load(src)
-        tasks_ids = [tasks_json[key]['id'] for key in tasks_json]
-        start = max(tasks_ids) if len(tasks_ids) > 0 else 0
+        tasks_ids = [tasks_json[task_id]['id'] for task_id in tasks_json]
+        id = max(tasks_ids) + 1 if len(tasks_ids) > 0 else 0
         logger.info('Adding tasks...')
         if self.classification_model_spec is not None:
             n_bboxes_data = self.inference_and_make_predictions_for_backend(
@@ -417,9 +422,19 @@ class LabelStudioProject_Classification:
                 default_class_name=default_class_name,
                 batch_size=batch_size
             )
+        tasks_images = set(tasks_json[task_id]['data']['image'] for task_id in tasks_json)
         for image_path, bboxes_data in tqdm(list(zip(image_paths, n_bboxes_data))):
             source_image = imageio.imread(image_path, pilmode='RGB')
-            for id, bbox_data in enumerate(bboxes_data, start=start):
+            for bbox_data in bboxes_data:
+                bbox = (bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)
+                filename = f"{image_path.stem}_{bbox}.png"
+                image = (
+                    f"{self.cv_pipeliner_settings['url']}/data/upload/{filename}"  # noqa: E501
+                )
+                if str(image) in tasks_images:
+                    logger.info(f"Task with filename {filename} is already exists. Skipping...")
+                    continue
+                tasks_images.add(str(image))
                 bbox_data_as_cropped_image = bbox_data.open_cropped_image(
                     source_image=source_image,
                     xmin_offset=bbox_offset,
@@ -430,11 +445,6 @@ class LabelStudioProject_Classification:
                     return_as_bbox_data_in_cropped_image=True
                 )
                 cropped_image = bbox_data_as_cropped_image.open_image()
-                bbox = (bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)
-                filename = f"{image_path.stem}_{bbox}.png"
-                image = (
-                    f"{self.cv_pipeliner_settings['url']}/data/upload/{filename}"  # noqa: E501
-                )
                 cropped_image_path = self.main_project_directory / 'upload' / filename
                 Image.fromarray(cropped_image).save(cropped_image_path)
                 bbox_data.apply_str_func_to_label_inplace(self._class_name_with_special_character)
@@ -450,7 +460,7 @@ class LabelStudioProject_Classification:
                         'bbox_data_as_cropped_image': bbox_data_as_cropped_image.asdict()
                     }
                 }
-            start = id
+                id += 1
         with open(self.main_project_directory/'tasks.json', 'w') as out:
             json.dump(tasks_json, out, indent=4)
         load_tasks(self.main_project_directory)
@@ -486,6 +496,7 @@ class LabelStudioProject_Classification:
                         ymin=bbox_data.ymin,
                         xmax=bbox_data.xmax,
                         ymax=bbox_data.ymax,
+                        angle=bbox_data.angle,
                         label=(
                             self._class_name_without_special_character(bbox_data.label)
                         ),

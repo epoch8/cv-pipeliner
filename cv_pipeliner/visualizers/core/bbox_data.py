@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,7 +13,8 @@ def visualize_bboxes_data(
     visualize_size: int = None,
     pred_bboxes_data: List[BboxData] = None,
     type_only: Literal['TP+FP', 'TP', 'FP'] = 'TP+FP',
-    use_random: bool = False
+    use_random: bool = False,
+    draw_rectangle_with_color: Tuple[int, int, int] = None,
 ) -> np.ndarray:
     true_labels = np.array(
         [bbox_data.label for bbox_data in bboxes_data]
@@ -60,7 +61,7 @@ def visualize_bboxes_data(
 
     for idx, ax in zip(idxs, axes.flatten()):
         bbox_data = bboxes_data[idx]
-        bbox = bbox_data.open_cropped_image().copy()
+        bbox = bbox_data.open_cropped_image(draw_rectangle_with_color=draw_rectangle_with_color).copy()
         label = bbox_data.label
         bbox = np.array(bbox)
         ax.imshow(bbox)

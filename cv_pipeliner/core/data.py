@@ -2,13 +2,12 @@ import io
 from dataclasses import dataclass, field
 from typing import Union, List, Dict, Tuple, Callable
 from pathlib import Path
-from collections import ChainMap
 
 import imageio
 import numpy as np
 import cv2
 
-from cv_pipeliner.utils.images import draw_rectangle
+from cv_pipeliner.utils.images import rotate_point
 
 
 @dataclass(frozen=True)
@@ -21,6 +20,7 @@ class BboxData:
     ymin: int = None
     xmax: int = None
     ymax: int = None
+    angle: int = 0
     detection_score: float = None
     label: str = None
     classification_score: float = None
@@ -47,7 +47,7 @@ class BboxData:
         thickness: int = 3,
         alpha: float = 0.3,
         return_as_bbox_data_in_cropped_image: bool = False,
-    ) -> Union[None, np.ndarray]:
+    ) -> Union[None, np.ndarray, 'BboxData']:
 
         if self.cropped_image is not None:
             if not inplace:
@@ -62,51 +62,77 @@ class BboxData:
 
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
+            points = [(self.xmin, self.ymin), (self.xmin, self.ymax), (self.xmax, self.ymin), (self.xmax, self.ymax)]
+            rotated_points = [rotate_point(x=x, y=y, cx=self.xmin, cy=self.ymin, angle=self.angle) for (x, y) in points]
+            xmin = max(0, min([x for (x, y) in rotated_points]))
+            ymin = max(0, min([y for (x, y) in rotated_points]))
+            xmax = max([x for (x, y) in rotated_points])
+            ymax = max([y for (x, y) in rotated_points])
             height, width, _ = image.shape
-            xmin_in_cropped_image = max(0, min(xmin_offset, self.xmin-xmin_offset))
-            ymin_in_cropped_image = max(0, min(ymin_offset, self.ymin-ymin_offset))
-            xmax_in_cropped_image = max(0, min(xmax_offset, width-self.xmax))
-            ymax_in_cropped_image = max(0, min(ymax_offset, height-self.ymax))
-            cropped_image = image[self.ymin-ymin_in_cropped_image:self.ymax+ymax_in_cropped_image,
-                                  self.xmin-xmin_in_cropped_image:self.xmax+xmax_in_cropped_image]
+            xmin_in_cropped_image = max(0, min(xmin_offset, xmin-xmin_offset))
+            ymin_in_cropped_image = max(0, min(ymin_offset, ymin-ymin_offset))
+            xmax_in_cropped_image = max(0, min(xmax_offset, width-xmax))
+            ymax_in_cropped_image = max(0, min(ymax_offset, height-ymax))
+            cropped_image = image[ymin-ymin_in_cropped_image:ymax+ymax_in_cropped_image,
+                                  xmin-xmin_in_cropped_image:xmax+xmax_in_cropped_image]
+            rotated_points_in_cropped_image = [
+                [x-(xmin-xmin_in_cropped_image), y-(ymin-ymin_in_cropped_image)]
+                for (x, y) in rotated_points
+            ]
             if draw_rectangle_with_color is not None:
+                cropped_image = cropped_image.copy()
                 height, width, colors = cropped_image.shape
-                cropped_image = draw_rectangle(
-                    image=cropped_image,
-                    xmin=xmin_in_cropped_image,
-                    ymin=ymin_in_cropped_image,
-                    xmax=width-xmax_in_cropped_image,
-                    ymax=height-ymax_in_cropped_image,
+                rect = cv2.minAreaRect(np.array(rotated_points_in_cropped_image))
+                box = cv2.boxPoints(rect)
+                box = np.int0(box)
+                cropped_image_zeros = np.ones_like(cropped_image)
+                cv2.drawContours(
+                    image=cropped_image_zeros,
+                    contours=[box],
+                    contourIdx=0,
                     color=draw_rectangle_with_color,
-                    thickness=thickness,
-                    alpha=alpha
+                    thickness=thickness
                 )
-                # cv2.rectangle(
-                #     img=cropped_image.copy(),
-                #     pt1=(xmin_in_cropped_image, ymin_in_cropped_image),
-                #     pt2=(width-xmax_in_cropped_image, height-ymax_in_cropped_image),
-                #     color=draw_rectangle_with_color,
-                #     thickness=2
-                # )
+                colored_regions = (cropped_image_zeros == draw_rectangle_with_color)
+                cropped_image[colored_regions] = (
+                    (1 - alpha) * cropped_image[colored_regions] + alpha * cropped_image_zeros[colored_regions]
+                )
 
         if inplace:
             super().__setattr__('cropped_image', cropped_image)
         else:
             if return_as_bbox_data_in_cropped_image:
+                cx = rotated_points_in_cropped_image[0][0]
+                cy = rotated_points_in_cropped_image[0][1]
+                unrotated_points_in_cropped_image = [
+                    rotate_point(x=x, y=y, cx=cx, cy=cy, angle=-self.angle)
+                    for (x, y) in rotated_points_in_cropped_image
+                ]
+                unrotated_xmin_in_cropped_image = max(0, min([x for (x, y) in unrotated_points_in_cropped_image]))
+                unrotated_ymin_in_cropped_image = max(0, min([y for (x, y) in unrotated_points_in_cropped_image]))
+                unrotated_xmax_in_cropped_image = max([x for (x, y) in unrotated_points_in_cropped_image])
+                unrotated_ymax_in_cropped_image = max([y for (x, y) in unrotated_points_in_cropped_image])
                 return BboxData(
                     image_path=self.image_path,
                     image=cropped_image,
-                    xmin=xmin_in_cropped_image,
-                    ymin=ymin_in_cropped_image,
-                    xmax=width-xmax_in_cropped_image,
-                    ymax=height-ymax_in_cropped_image,
+                    xmin=unrotated_xmin_in_cropped_image,
+                    ymin=unrotated_ymin_in_cropped_image,
+                    xmax=unrotated_xmax_in_cropped_image,
+                    ymax=unrotated_ymax_in_cropped_image,
+                    angle=self.angle,
                     label=self.label,
                     detection_score=self.detection_score,
                     classification_score=self.classification_score,
                     top_n=self.top_n,
                     labels_top_n=self.labels_top_n,
                     classification_scores_top_n=self.classification_scores_top_n,
-                    additional_info=self.additional_info
+                    additional_info={
+                        **self.additional_info,
+                        **{
+                            'src_xmin': xmin-xmin_in_cropped_image,
+                            'src_ymin': ymin-ymin_in_cropped_image
+                        }
+                    }
                 )
             else:
                 return cropped_image
@@ -139,6 +165,9 @@ class BboxData:
     def assert_label_is_valid(self):
         assert self.label is not None
 
+    def set_label(self, label: str):
+        super().__setattr__('label', label)
+
     def apply_str_func_to_label_inplace(self, func: Callable[[str], str]):
         super().__setattr__('label', func(self.label))
 
@@ -159,6 +188,7 @@ class BboxData:
             'ymin': int(self.ymin),
             'xmax': int(self.xmax),
             'ymax': int(self.ymax),
+            'angle': int(self.angle),
             'label': str(self.label),
             'top_n': int(self.top_n) if self.top_n is not None else None,
             'labels_top_n': [str(label) for label in self.labels_top_n] if self.labels_top_n is not None else None,
@@ -166,7 +196,10 @@ class BboxData:
         }
 
     def from_dict(self, d):
-        for key in ['image_path', 'xmin', 'ymin', 'xmax', 'ymax', 'label', 'top_n', 'labels_top_n', 'additional_info']:
+        for key in [
+            'image_path', 'xmin', 'ymin', 'xmax', 'ymax',
+            'angle', 'label', 'top_n', 'labels_top_n', 'additional_info'
+        ]:
             if key in d:
                 super().__setattr__(key, d[key])
         self.__post_init__()
