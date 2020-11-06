@@ -23,8 +23,6 @@ from cv_pipeliner.inference_models.classification.core import ClassificationMode
 from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 
-from cv_pipeliner.data_converters.brickit import BrickitDataConverter
-
 from cv_pipeliner.utils.images import rotate_point
 
 

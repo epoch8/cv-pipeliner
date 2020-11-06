@@ -1,55 +1,26 @@
-import _thread
-import weakref
-from dataclasses import dataclass
+import imageio
+
 from typing import List, Dict
 
-import tensorflow as tf
-
-from cv_pipeliner.inference_models.detection.core import DetectionModelSpec, DetectionModel
+from cv_pipeliner.core.data import ImageData
+from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from cv_pipeliner.inference_models.detection.object_detection_api import (
     ObjectDetectionAPI_ModelSpec,
     ObjectDetectionAPI_pb_ModelSpec,
     ObjectDetectionAPI_TFLite_ModelSpec
 )
-from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec, ClassificationModel
 from cv_pipeliner.inference_models.classification.tensorflow import TensorFlow_ClassificationModelSpec
+from cv_pipeliner.inferencers.pipeline import PipelineInferencer
+from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
 from yacs.config import CfgNode
-from apps.app.config import (
+from apps.backend.src.config import (
     object_detection_api,
     object_detection_api_pb,
     object_detection_api_tflite,
     tensorflow_cls_model
 )
-
-import streamlit as st
-
-
-HASH_FUNCS = {
-    tf.python.util.object_identity._ObjectIdentityWrapper: id,
-    tf.python.util.object_identity._WeakObjectIdentityWrapper: id,
-    type(weakref.ref(type({}))): id,
-    weakref.KeyedRef: id,
-    type({}.keys()): id,
-    _thread.RLock: id,
-    _thread.LockType: id,
-    _thread._local: id,
-    type(tf.compat.v1.get_variable_scope()): id,
-    tf.python.framework.ops.EagerTensor: id
-}
-
-
-@dataclass
-class DetectionModelDefinition:
-    description: str
-    model_spec: DetectionModelSpec
-    score_threshold: float
-
-
-@dataclass
-class ClassificationDefinition:
-    description: str
-    model_spec: ClassificationModelSpec
+from apps.backend.src.realtime_inferencer import RealTimeInferencer
 
 
 def get_list_cfg_from_dict(d: Dict):
@@ -70,11 +41,11 @@ def get_cfg_from_dict(d: Dict, possible_cfgs: List[CfgNode]):
     return cfg, key
 
 
-@st.cache(show_spinner=False)
-def get_description_to_detection_model_definition_from_config(
+def get_detection_models_definitions_from_config(
     cfg: CfgNode
-) -> Dict[str, DetectionModelDefinition]:
+) -> DetectionModelDefinition:
     detection_models_definitions = []
+    detection_models_indexes = []
     for detection_cfg in cfg.models.detection:
         detection_cfg, key = get_cfg_from_dict(
             d=detection_cfg,
@@ -83,13 +54,14 @@ def get_description_to_detection_model_definition_from_config(
         detection_model_definition = DetectionModelDefinition(
             description=detection_cfg.description,
             score_threshold=detection_cfg.score_threshold,
-            model_spec=None
+            model_spec=None,
+            model_index=detection_cfg.model_index
         )
+        detection_models_indexes.append(detection_model_definition.model_index)
         if key == 'object_detection_api':
-            object_detection_api
             detection_model_definition.model_spec = ObjectDetectionAPI_ModelSpec(
                 config_path=detection_cfg.config_path,
-                checkpoint_path=detection_cfg.checkpoint_path
+                checkpoint_path=detection_cfg.checkpoint_path,
             )
         elif key == 'object_detection_api_pb':
             detection_model_definition.model_spec = ObjectDetectionAPI_pb_ModelSpec(
@@ -104,19 +76,17 @@ def get_description_to_detection_model_definition_from_config(
             )
         detection_models_definitions.append(detection_model_definition)
 
-    description_to_detection_model_definition = {
-        detection_model_definition.description: detection_model_definition
-        for detection_model_definition in detection_models_definitions
-    }
+    if len(set(detection_models_indexes)) != len(detection_models_indexes):
+        raise ValueError('Detection model indexes in config file must be different.')
 
-    return description_to_detection_model_definition
+    return detection_models_definitions
 
 
-@st.cache(show_spinner=False)
-def get_description_to_classification_model_definition_from_config(
+def get_classification_models_definitions_from_config(
     cfg: CfgNode
-) -> Dict[str, ClassificationDefinition]:
+) -> ClassificationDefinition:
     classification_models_definitions = []
+    classification_model_indexes = []
     for classification_cfg in cfg.models.classification:
         classification_cfg, key = get_cfg_from_dict(
             d=classification_cfg,
@@ -124,8 +94,10 @@ def get_description_to_classification_model_definition_from_config(
         )
         classification_model_definition = ClassificationDefinition(
             description=classification_cfg.description,
-            model_spec=None
+            model_spec=None,
+            model_index=classification_cfg.model_index
         )
+        classification_model_indexes.append(classification_cfg.model_index)
         if key == 'tensorflow_cls_model':
             classification_model_definition.model_spec = TensorFlow_ClassificationModelSpec(
                 input_size=classification_cfg.input_size,
@@ -136,27 +108,47 @@ def get_description_to_classification_model_definition_from_config(
             )
         classification_models_definitions.append(classification_model_definition)
 
-    description_to_classification_model_definition = {
-        classification_model_definition.description: classification_model_definition
-        for classification_model_definition in classification_models_definitions
-    }
+    if len(set(classification_model_indexes)) != len(classification_model_indexes):
+        raise ValueError('Classification model indexes must be different.')
 
-    return description_to_classification_model_definition
+    return classification_models_definitions
 
 
-@st.cache(hash_funcs=HASH_FUNCS, allow_output_mutation=True)
-def load_detection_model(
-    detection_model_spec: DetectionModelSpec,
-) -> DetectionModel:
+def inference(
+    pipeline_inferencer: PipelineInferencer,
+    image_bytes: bytes,
+    detection_score_threshold: float
+) -> Dict:
+    image = imageio.imread(image_bytes, pilmode='RGB')
+    image_data = ImageData(
+        image=image
+    )
+    image_data_gen = BatchGeneratorImageData([image_data], batch_size=1,
+                                             use_not_caught_elements_as_last_batch=True)
+    pred_image_data = pipeline_inferencer.predict(
+        image_data_gen,
+        detection_score_threshold=detection_score_threshold,
+        open_images_in_images_data=False,
+        open_cropped_images_in_bboxes_data=False
+    )[0]
+    json_res = pred_image_data.asdict()
 
-    detection_model = detection_model_spec.load()
-    return detection_model
+    return json_res
 
 
-@st.cache(hash_funcs=HASH_FUNCS, allow_output_mutation=True)
-def load_classification_model(
-    classification_model_spec: ClassificationModelSpec,
-) -> ClassificationModel:
+def realtime_inference(
+    realtime_inferencer: RealTimeInferencer,
+    image_bytes: bytes,
+    detection_score_threshold: float,
+    batch_size: int = 16
+) -> Dict:
+    image = imageio.imread(image_bytes, pilmode='RGB')
+    pred_bboxes_data = realtime_inferencer.predict_on_frame(
+        frame=image,
+        detection_score_threshold=detection_score_threshold,
+        batch_size=batch_size
+    )
+    pred_image_data = ImageData(bboxes_data=pred_bboxes_data)
+    json_res = pred_image_data.asdict()
 
-    classification_model = classification_model_spec.load()
-    return classification_model
+    return json_res

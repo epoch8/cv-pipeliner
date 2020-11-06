@@ -142,12 +142,19 @@ class BboxData:
     def apply_str_func_to_label_inplace(self, func: Callable[[str], str]):
         super().__setattr__('label', func(self.label))
 
-    def set_image_path(self, image_path: Union[str, Path]):
-        super().__setattr__('image_path', image_path)
+    def set_image(
+        self,
+        image_path: Union[str, Path] = None,
+        image_bytes: io.BytesIO = None
+    ):
+        if image_path is not None:
+            super().__setattr__('image_path', image_path)
+        if image_bytes is not None:
+            super().__setattr__('image_bytes', image_bytes)
 
     def asdict(self) -> Dict:
         return {
-            'image_path': str(self.image_path),
+            'image_path': str(self.image_path) if self.image_path is not None else None,
             'xmin': int(self.xmin),
             'ymin': int(self.ymin),
             'xmax': int(self.xmax),
@@ -179,6 +186,18 @@ class ImageData:
         if self.bboxes_data is None:
             super().__setattr__('bboxes_data', [])
 
+    def set_images(
+        self,
+        image_path: Union[str, Path] = None,
+        image_bytes: io.BytesIO = None
+    ):
+        if image_path is not None:
+            super().__setattr__('image_path', image_path)
+        if image_bytes is not None:
+            super().__setattr__('image_bytes', image_bytes)
+        for bbox_data in self.bboxes_data:
+            bbox_data.set_image(image_path=image_path, image_bytes=image_bytes)
+
     def apply_str_func_to_labels_inplace(self, func: Callable[[str], str]):
         for bbox_data in self.bboxes_data:
             bbox_data.apply_str_func_to_label_inplace(func)
@@ -207,7 +226,7 @@ class ImageData:
 
     def asdict(self) -> Dict:
         return {
-            'image_path': str(self.image_path),
+            'image_path': str(self.image_path) if self.image_path is not None else None,
             'bboxes_data': [bbox_data.asdict() for bbox_data in self.bboxes_data],
             'additional_info': self.additional_info
         }

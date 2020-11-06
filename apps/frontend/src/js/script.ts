@@ -100,7 +100,7 @@ const snapBoxes = () => {
       cancelTokenSource = axios.CancelToken.source();
 
       try {
-        const { data: { bboxes } } = await axios.post(`${Url.REALTIME_PREDICT}/${guid}`, formData, {
+        const { data: { bboxes_data } } = await axios.post(`${Url.REALTIME_PREDICT}/${guid}`, formData, {
           cancelToken: cancelTokenSource.token,
         });
 
@@ -111,7 +111,7 @@ const snapBoxes = () => {
           canvasBoxes.height,
         );
 
-        bboxes.forEach((box, index) => {
+        bboxes_data.forEach((box, index) => {
           if (!colorCache[box.label]) {
             colorCache[box.label] = BOX_COLORS[index];
           }

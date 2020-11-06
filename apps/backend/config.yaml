@@ -1,0 +1,36 @@
+system:
+    use_gpu: false
+
+models:
+    detection:
+        - object_detection_api:  # load from Object Detection API checkpoint
+            description: 'Object Detection API model (from checkpoint)'
+            config_path: 'path1'
+            checkpoint_path: 'path2'
+            score_threshold: 0.3
+            model_index: 'detection_model1'
+
+        - object_detection_api_pb:   # load from Object Detection API saved_model.pb
+            description: 'Object Detection API model (from saved_model.pb)'
+            saved_model_dir: 'saved_model_dir/'
+            input_type: 'float_image_tensor'  # 'image_tensor', 'float_image_tensor', 'encoded_image_string_tensor'
+            score_threshold: 0.3
+            model_index: 'detection_model2'
+
+        - object_detection_api_tflite:  # load from Object Detection API TFLite dynamic graph
+            description: 'Object Detection API model (from TFLite)'
+            model_path: 'path4'
+            bboxes_output_index: 0
+            scores_output_index: 1
+            score_threshold: 0.3
+            model_index: 'detection_model3'
+
+    classification:
+        - tensorflow_cls_model:
+            description: 'Classficiation Tensorflow Keras Model'
+            input_size: (224, 224)
+            preprocess_input_script_file: 'preprocess_input/preprocess_input.py'  # must have function preprocess_input(input: List[np.ndarray]) -> np.ndarray
+            class_names: 'class_names.json'
+            model_path: 'path5'
+            saved_model_type: 'tf.keras'  # 'tf.saved_model', 'tf.keras', 'tflite'
+            model_index: 'classification_model1'

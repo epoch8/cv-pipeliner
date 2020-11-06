@@ -15,7 +15,7 @@ from cv_pipeliner.inference_models.classification.core import (
 
 @dataclass(frozen=True)
 class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
-    input_size: Tuple[int, int]
+    input_size: Union[Tuple[int, int], List[int]]
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path]
     class_names: Union[List[str], str, Path]
     model_path: Union[str, Path, tf.keras.Model]

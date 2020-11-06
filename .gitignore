@@ -8,8 +8,10 @@ notebooks/reports/
 .vscode/
 __logs__/
 .pytest_cache/
-backend/models/
+apps/backend/models/
 tests/tmp/
-frontend/node_modules
-frontend/build
+apps/frontend/node_modules
+apps/frontend/build
 my_config.yaml
+my_exports.sh
+my_env_file.env
