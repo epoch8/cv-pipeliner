@@ -5,6 +5,9 @@ cfg = CfgNode()
 cfg.backend = CfgNode()
 cfg.backend.url = 'http://localhost:5000/'
 
+cfg.frontend = CfgNode()
+cfg.frontend.url = 'http://localhost:5001/'
+
 cfg.data = CfgNode()
 cfg.data.base_labels_images_dir = 'renders/'
 cfg.data.labels_decriptions = 'label_to_description.json'

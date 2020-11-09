@@ -1,26 +1,46 @@
-version: '3'
+version: '3.8'
 
 services:
-  demostand:
-    image: "epoch8/cv-pipeliner-app:1.0.3"
-    container_name: "app"
+  cv_pipeliner_backend:
+    build:
+      context: .
+      dockerfile: ./apps/backend/Dockerfile
+    container_name: "cv_pipeliner_backend"
+    expose: 
+      - 5000
     ports:
-      - "80:80"
-    env_file: my_env_file.env
+      - "5000:5000"
+    env_file: sample.env
     volumes:
         - type: bind
           source: /mnt/c/
           target: /mnt/c/
 
-
-  backend:
-    image: "epoch8/cv-pipeliner-backend:1.0.1"
-    container_name: "backend"
+  cv_pipeliner_frontend:
+    build: ./apps/frontend/
+    container_name: "cv_pipeliner_frontend"
+    depends_on:
+      - cv_pipeliner_backend
     expose: 
-      - 5000
+      - 5001
     ports:
-      - "5000:5000"
-    env_file: my_env_file.env
+      - "5001:80"
+    volumes:
+        - type: bind
+          source: /mnt/c/
+          target: /mnt/c/
+
+  cv_pipeliner_app:
+    build:
+      context: .
+      dockerfile: ./apps/app/Dockerfile
+    depends_on:
+      - cv_pipeliner_backend
+      - cv_pipeliner_frontend
+    container_name: "cv_pipeliner_app"
+    ports:
+      - "80:80"
+    env_file: sample.env
     volumes:
         - type: bind
           source: /mnt/c/

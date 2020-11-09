@@ -12,6 +12,6 @@ apps/backend/models/
 tests/tmp/
 apps/frontend/node_modules
 apps/frontend/build
-my_config.yaml
-my_exports.sh
-my_env_file.env
+my_config*.yaml
+my_exports*.sh
+my_env*.env

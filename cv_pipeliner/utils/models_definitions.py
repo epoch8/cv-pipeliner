@@ -11,6 +11,7 @@ from cv_pipeliner.inference_models.classification.tensorflow import TensorFlow_C
 
 from typing import Union
 
+
 @dataclass
 class DetectionModelDefinition:
     description: str
