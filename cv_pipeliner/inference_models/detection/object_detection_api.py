@@ -118,7 +118,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         image: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray]:
         input_tensor = tf.convert_to_tensor(image, dtype=self.input_dtype)
-        if self.input_dtype == "encoded_image_string_tensor":
+        if self.model_spec.input_type == "encoded_image_string_tensor":
             input_tensor = tf.io.encode_jpeg(input_tensor)
         input_tensor = input_tensor[None, ...]
         detection_output_dict = self.model(input_tensor)

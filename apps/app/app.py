@@ -1,9 +1,8 @@
 import os
-import tempfile
 import json
 import sys
 from pathlib import Path
-from typing import Union, List, Callable
+from typing import Callable
 from io import BytesIO
 from urllib.parse import urljoin
 
@@ -14,13 +13,12 @@ from PIL import Image
 
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
-from cv_pipeliner.tracking.video_inferencer import VideoInferencer
 from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
 from cv_pipeliner.utils.images import get_label_to_base_label_image
 
 import streamlit as st
 from cv_pipeliner.utils.streamlit.data import (
-    get_images_data_from_dir, get_videos_data_from_dir, get_label_to_description
+    get_images_data_from_dir, get_label_to_description
 )
 from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data
 from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
@@ -55,7 +53,7 @@ label_to_base_label_image = cached_get_label_to_base_label_image(
     base_labels_images_dir=cfg.data.base_labels_images_dir
 )
 label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
-models_definitions_response = requests.post(urljoin(cfg.backend.url, 'get_available_models/'))
+models_definitions_response = requests.get(urljoin(cfg.backend.url, 'get_available_models/'))
 if models_definitions_response.ok:
     models_definitions = json.loads(models_definitions_response.text)
     detection_models_definitions = [
@@ -78,7 +76,7 @@ description_to_classiticaion_model_definition = {
     classification_model_definition.description: classification_model_definition
     for classification_model_definition in classification_models_definitions
 }
-current_model_definition_response = requests.post(urljoin(cfg.backend.url, 'get_current_models/'))
+current_model_definition_response = requests.get(urljoin(cfg.backend.url, 'get_current_models/'))
 if current_model_definition_response.ok:
     current_models_definitions = json.loads(current_model_definition_response.text)
     detection_model_definition = from_dict(
@@ -155,7 +153,7 @@ draw_base_labels_with_given_label_to_base_label_image = (
 
 input_type = st.sidebar.radio(
     label='Input',
-    options=["Image", "Video"]
+    options=["Image", "Camera"]
 )
 
 if input_type == 'Image':
@@ -221,43 +219,10 @@ if input_type == 'Image':
         options=["many", "one-by-one"],
         index=1
     )
-
-# elif input_type == 'Video':
-#     videos_from = st.sidebar.selectbox(
-#         'Video from',
-#         options=['Upload'] + cfg.data.videos_dirs
-#     )
-#     st.header('Video')
-#     if videos_from == 'Upload':
-#         st.text('Please do not upload large files, they will take longer time to process.')
-#         video_file = st.file_uploader("Upload video", type=["mp4", "m4v", "mov"])
-#     else:
-#         video_paths = get_videos_data_from_dir(videos_dir=videos_from)
-#         videos_paths_captions = [
-#             f"[{i}] {video_path.name}"
-#             for i, video_path in enumerate(video_paths)
-#         ]
-#         video_data_selected_caption = st.selectbox(
-#             label='Video',
-#             options=[None] + videos_paths_captions
-#         )
-
-#         if video_data_selected_caption is not None:
-#             video_path_caption_index = videos_paths_captions.index(video_data_selected_caption)
-#             video_path = video_paths[video_path_caption_index]
-#             with open(video_path, 'rb') as src:
-#                 video_file = BytesIO(src.read())
-#             st.text(video_data_selected_caption)
-#         else:
-#             video_file = None
-
-#     st.sidebar.title("Delays")
-#     detection_delay = st.sidebar.slider(
-#         "Detection delay in ms", min_value=0, max_value=500, value=300
-#     )
-#     classification_delay = st.sidebar.slider(
-#         "Classification delay in ms", min_value=0, max_value=500, value=50
-#     )
+elif input_type == "Camera":
+    st.markdown(
+        f"# Check your model settings and go to the next url: {cfg.frontend.url}"
+    )
 
 
 @st.cache(show_spinner=False, allow_output_mutation=True)
@@ -295,32 +260,6 @@ def inference_one_image(
         )
 
     return pred_image_data
-
-
-# def inference_one_video(
-#     video_file: Union[str, Path, BytesIO],
-#     classification_delay: int,
-#     detection_delay: int,
-#     detection_score_threshold: float,
-#     filter_by_labels: List[str],
-#     draw_base_labels_with_given_label_to_base_label_image: bool
-# ) -> tempfile.NamedTemporaryFile:
-
-#     video_inferencer = VideoInferencer(
-#         pipeline_inferencer=pipeline_inferencer,
-#         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
-#         write_labels=use_labels
-#     )
-
-#     result_video_file = video_inferencer.process_video(
-#         video_file=video_file,
-#         classification_delay=classification_delay,
-#         detection_delay=detection_delay,
-#         detection_score_threshold=detection_score_threshold,
-#         filter_by_labels=filter_by_labels
-#     )
-
-#     return result_video_file
 
 
 @st.cache(show_spinner=False, allow_output_mutation=True)
@@ -403,18 +342,3 @@ if input_type == 'Image':
             else:
                 image = image_data.open_image()
                 st.image(image=image, use_column_width=True)
-# elif input_type == 'Video':
-#     if run and video_file is not None:
-#         with st.spinner("Working on your video..."):
-#             result_video_file = inference_one_video(
-#                 video_file=video_file,
-#                 classification_delay=classification_delay,
-#                 detection_delay=detection_delay,
-#                 detection_score_threshold=detection_score_threshold,
-#                 filter_by_labels=filter_by_labels,
-#                 draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image  # noqa: E501
-#             )
-#         st.video(result_video_file, format='video/mp4')
-#     else:
-#         if video_file is not None:
-#             st.video(video_file, format='video/mp4')

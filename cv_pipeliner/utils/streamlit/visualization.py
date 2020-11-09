@@ -249,7 +249,7 @@ def illustrate_bboxes_data(
 
     if pred_image_data is not None:
         st.text(f"Found {len(pred_image_data.bboxes_data)} bboxes!")
-        st.text(f"""
+        st.markdown(f"""
 True Positives: {image_data_matching.get_pipeline_TP()}
 False Positives: {image_data_matching.get_pipeline_FP()}
 False Negatives: {image_data_matching.get_pipeline_FN()}
@@ -302,22 +302,22 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
             st.image(image=cropped_image_and_render)
             if isinstance(bbox_data, BboxData):
                 st.markdown(f"'{label}'")
-                st.text(label_to_description(label))
+                st.markdown(label_to_description(label))
                 st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
             elif isinstance(bbox_data, BboxDataMatching):
                 true_bbox_data = bbox_data.true_bbox_data
                 pred_bbox_data = bbox_data.pred_bbox_data
                 if pred_bbox_data is not None:
                     st.markdown(f"Prediction: '{pred_bbox_data.label}'")
-                    st.text(label_to_description(pred_bbox_data.label))
+                    st.markdown(label_to_description(pred_bbox_data.label))
                     st.text(f'Bbox: {[pred_bbox_data.xmin, pred_bbox_data.ymin, pred_bbox_data.xmax, pred_bbox_data.ymax]}')
                     st.markdown('--')
                 if true_bbox_data is not None:
                     st.markdown(f"Ground Truth: '{true_bbox_data.label}'")
-                    st.text(label_to_description(true_bbox_data.label))
+                    st.markdown(label_to_description(true_bbox_data.label))
                     st.text(f'Bbox: {[true_bbox_data.xmin, true_bbox_data.ymin, true_bbox_data.xmax, true_bbox_data.ymax]}')
                     st.markdown('--')
-                st.text(f'Pipeline error type: {bbox_data.get_pipeline_error_type()}')
+                st.markdown(f'Pipeline error type: {bbox_data.get_pipeline_error_type()}')
             st.markdown('----')
     elif mode == "many":
         st.image(image=cropped_images_and_renders, caption=labels)
@@ -342,7 +342,7 @@ def illustrate_n_bboxes_data(
     if len(bboxes_data) == 0:
         return
 
-    st.text(f"Found {len(bboxes_data)} bboxes!")
+    st.markdown(f"Found {len(bboxes_data)} bboxes!")
 
     n_split = int(np.ceil(len(bboxes_data) / average_maximum_images_per_page))
     splitted_bboxes_data = np.array_split(bboxes_data, n_split)
@@ -392,7 +392,7 @@ def illustrate_n_bboxes_data(
         for cropped_image_and_render, label, bbox_data in zip(cropped_images_and_renders, labels, page_bboxes_data):
             st.image(image=cropped_image_and_render)
             st.markdown(label)
-            st.text(label_to_description(label))
+            st.markdown(label_to_description(label))
             st.text(f"From image '{bbox_data.image_path.name}'")
             st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
             st.markdown('----')

@@ -35,32 +35,37 @@ def classification_inferencer_queue(
     bbox_data_track_id_queue: Queue,
     ready_bbox_data_track_id_queue: Queue,
     status_event: Event,
-    time_sleep: float = 0.01
+    batch_size: int,
+    time_sleep: float = 0.3,
 ):
     classification_model = classification_model_spec.load()
     classification_inferencer = ClassificationInferencer(classification_model)
     while not status_event.is_set():
         if not bbox_data_track_id_queue.empty():
-            bbox_data_track_id = bbox_data_track_id_queue.get(block=False)
-            bbox_data = bbox_data_track_id.bbox_data
+            current_batch_size = 0
+            bboxes_data_tracks_ids = []
+            while current_batch_size < batch_size and not bbox_data_track_id_queue.empty():
+                bboxes_data_tracks_ids.append(bbox_data_track_id_queue.get(block=False))
+                current_batch_size += 1
             bboxes_data_gen = BatchGeneratorBboxData(
-                [[bbox_data_track_id.bbox_data]], batch_size=1,
+                data=[[bbox_data_track_id.bbox_data] for bbox_data_track_id in bboxes_data_tracks_ids],
+                batch_size=batch_size,
                 use_not_caught_elements_as_last_batch=True
             )
-            pred_bbox_data = classification_inferencer.predict(bboxes_data_gen)[0][0]
-            label = pred_bbox_data.label
-            ready_bbox_data_track_id_queue.put(
-                BboxDataTrackId(
-                    bbox_data=BboxData(
-                        xmin=bbox_data.xmin,
-                        ymin=bbox_data.ymin,
-                        xmax=bbox_data.xmax,
-                        ymax=bbox_data.ymax,
-                        label=label
-                    ),
-                    track_id=bbox_data_track_id.track_id
+            pred_bboxes_data = classification_inferencer.predict(bboxes_data_gen)[0]
+            for pred_bbox_data, bbox_data_track_id in zip(pred_bboxes_data, bboxes_data_tracks_ids):
+                ready_bbox_data_track_id_queue.put(
+                    BboxDataTrackId(
+                        bbox_data=BboxData(
+                            xmin=bbox_data_track_id.bbox_data.xmin,
+                            ymin=bbox_data_track_id.bbox_data.ymin,
+                            xmax=bbox_data_track_id.bbox_data.xmax,
+                            ymax=bbox_data_track_id.bbox_data.ymax,
+                            label=pred_bbox_data.label
+                        ),
+                        track_id=bbox_data_track_id.track_id
+                    )
                 )
-            )
         else:
             time.sleep(time_sleep)
 
@@ -72,11 +77,12 @@ class RealTimeInferencer:
         classification_model_spec: ClassificationModelSpec,
         fps: float,
         detection_delay: int,
-        batch_size: int = 16
+        batch_size: int = 4
     ):
         self.detection_model = detection_model_spec.load()
         self.detection_inferencer = DetectionInferencer(self.detection_model)
         self.classification_model_spec = classification_model_spec
+        self.batch_size = batch_size
         self.bbox_data_track_id_queue = Queue()
         self.ready_bbox_data_track_id_queue = Queue()
         self.status_event = Event()
@@ -86,7 +92,8 @@ class RealTimeInferencer:
                 self.classification_model_spec,
                 self.bbox_data_track_id_queue,
                 self.ready_bbox_data_track_id_queue,
-                self.status_event
+                self.status_event,
+                self.batch_size
             )
         )
         self.classification_inferencer_process.start()

@@ -1,7 +1,7 @@
 export enum Url {
   PREDICT = 'http://localhost:5000/predict/',
   REALTIME_END = 'http://localhost:5000/realtime_end',
-  REALTIME_PREDICT = 'http://localhost:5000/realtime_predict/',
+  REALTIME_PREDICT = 'http://localhost:5000/realtime_predict',
   REALTIME_START = 'http://localhost:5000/realtime_start',
 }
 
@@ -27,5 +27,4 @@ export const BOX_COLORS = [
   'rgba(0, 0, 117, 0.9)',
   'rgba(128, 128, 128, 0.9)',
   'rgba(255, 255, 255, 0.9)',
-  'rgba(0, 0, 0, 0.9)',
 ];
