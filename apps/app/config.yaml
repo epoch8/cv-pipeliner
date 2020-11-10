@@ -1,6 +1,9 @@
 backend:
     url: 'http://localhost:5000/'
 
+frontend:
+    url: 'http://localhost:5001/'
+
 data:
     base_labels_images_dir: 'renders/'
     labels_decriptions: 'label_to_description.json'
