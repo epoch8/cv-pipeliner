@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3'
 
 services:
   cv_pipeliner_backend:
@@ -40,6 +40,19 @@ services:
     container_name: "cv_pipeliner_app"
     ports:
       - "80:80"
+    env_file: sample.env
+    volumes:
+        - type: bind
+          source: /mnt/c/
+          target: /mnt/c/
+
+  cv_pipeliner_dataset_browser:
+    build:
+      context: .
+      dockerfile: ./apps/dataset_browser/Dockerfile
+    container_name: "dataset_browser"
+    ports:
+      - "81:81"
     env_file: sample.env
     volumes:
         - type: bind
