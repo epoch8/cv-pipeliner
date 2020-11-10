@@ -29,13 +29,15 @@ RUN cd models/research/ && \
     cd ../.. && rm -rf models/
 
 # Install cv_pipeliner
+ADD requirements.txt /app/requirements.txt
+RUN pip3 install -r /app/requirements.txt
+
 ADD cv_pipeliner /app/cv_pipeliner/
 ADD setup.py /app/setup.py
-ADD requirements.txt /app/requirements.txt
-RUN pip3 install -e /app/ --use-feature=2020-resolver
+RUN pip3 install -e /app/
 
 ADD apps /apps/apps/
 WORKDIR /apps/
 
 RUN python3 -c 'import matplotlib.font_manager'
-CMD ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "80"]
+CMD ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]
