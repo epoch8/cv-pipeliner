@@ -45,7 +45,7 @@ class Dummy_ClassificationModel(ClassificationModel):
             for i in range(len(input))
         ]
         pred_scores_top_n = [
-            [self.default_class_name for j in range(top_n)]
+            [1. for j in range(top_n)]
             for i in range(len(input))
         ]
         return pred_labels_top_n, pred_scores_top_n
