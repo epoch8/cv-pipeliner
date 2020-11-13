@@ -2,7 +2,7 @@ import os
 import json
 import sys
 from pathlib import Path
-from typing import Callable, Union
+from typing import Callable
 from io import BytesIO
 from urllib.parse import urljoin
 
