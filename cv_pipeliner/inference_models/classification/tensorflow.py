@@ -51,17 +51,22 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self._class_names = model_spec.class_names
         if model_spec.saved_model_type == "tf.keras":
             self.model = tf.keras.models.load_model(str(model_spec.model_path))
+            self.dtype = np.float32
         elif model_spec.saved_model_type == "tf.saved_model":
             self.loaded_model = tf.saved_model.load(str(model_spec.model_path))  # only to protect from gc
             self.model = self.loaded_model.signatures["serving_default"]
+            self.dtype = np.float32
         elif model_spec.saved_model_type == "ClassType[tf.keras.Model]":
             self.model = model_spec.model_path
+            self.dtype = np.float32
         elif model_spec.saved_model_type == 'tflite':
             self.model = tf.lite.Interpreter(
                 model_path=str(model_spec.model_path)
             )
             self.model.allocate_tensors()
-            self.input_index = self.model.get_input_details()[0]['index']
+            input_details = self.model.get_input_details()[0]
+            self.input_index = input_details['index']
+            self.dtype = input_details['dtype']
             self.output_index = self.model.get_output_details()[0]['index']
         else:
             raise ValueError(
@@ -78,7 +83,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
 
         # Run model through a dummy image so that variables are created
         width, height = self.input_size
-        zeros = np.zeros([1, width, height, 3], dtype=np.float32)
+        zeros = np.zeros([1, width, height, 3], dtype=self.dtype)
         self._raw_predict(zeros)
 
     def _raw_predict(
@@ -86,7 +91,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         images: np.ndarray
     ):
         if self.model_spec.saved_model_type == "tf.saved_model":
-            input_tensor = tf.convert_to_tensor(images, dtype=tf.dtypes.float32)
+            input_tensor = tf.convert_to_tensor(images, dtype=self.dtype)
             raw_predictions_batch = self.model(input_tensor)
             if isinstance(raw_predictions_batch, dict):
                 key = list(raw_predictions_batch)[0]
@@ -94,6 +99,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         elif self.model_spec.saved_model_type in ["tf.keras", "ClassType[tf.keras.Model]"]:
             raw_predictions_batch = self.model.predict(images)
         elif self.model_spec.saved_model_type == 'tflite':
+            images = tf.convert_to_tensor(images, dtype=self.dtype)
             self.model.resize_tensor_input(0, [len(images), *self.input_size, 3])
             self.model.allocate_tensors()
             self.model.set_tensor(self.input_index, images)
