@@ -43,7 +43,12 @@ tensorflow_cls_model.class_names = 'class_names.json'
 tensorflow_cls_model.model_path = 'path5'
 tensorflow_cls_model.saved_model_type = 'tf.keras'  # 'tf.saved_model', 'tf.keras', tflite'
 tensorflow_cls_model.model_index = 'classification_model1'
-cfg.models.classification = [tensorflow_cls_model]
+
+dummy_cls_model = CfgNode()
+dummy_cls_model.description = 'Classficiation Tensorflow Keras Dummy Model'
+dummy_cls_model.default_class_name = 'dummy'
+dummy_cls_model.model_index = 'classification_model2'
+cfg.models.classification = [tensorflow_cls_model, dummy_cls_model]
 
 
 def get_cfg_defaults():

@@ -10,6 +10,7 @@ from cv_pipeliner.inference_models.detection.object_detection_api import (
     ObjectDetectionAPI_TFLite_ModelSpec
 )
 from cv_pipeliner.inference_models.classification.tensorflow import TensorFlow_ClassificationModelSpec
+from cv_pipeliner.inference_models.classification.dummy import Dummy_ClassificationModelSpec
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
@@ -18,7 +19,8 @@ from apps.backend.src.config import (
     object_detection_api,
     object_detection_api_pb,
     object_detection_api_tflite,
-    tensorflow_cls_model
+    tensorflow_cls_model,
+    dummy_cls_model
 )
 from apps.backend.src.realtime_inferencer import RealTimeInferencer
 
@@ -90,7 +92,7 @@ def get_classification_models_definitions_from_config(
     for classification_cfg in cfg.models.classification:
         classification_cfg, key = get_cfg_from_dict(
             d=classification_cfg,
-            possible_cfgs=[tensorflow_cls_model]
+            possible_cfgs=[tensorflow_cls_model, dummy_cls_model]
         )
         classification_model_definition = ClassificationDefinition(
             description=classification_cfg.description,
@@ -105,6 +107,10 @@ def get_classification_models_definitions_from_config(
                 class_names=classification_cfg.class_names,
                 model_path=classification_cfg.model_path,
                 saved_model_type=classification_cfg.saved_model_type
+            )
+        elif key == 'dummy_cls_model':
+            classification_model_definition.model_spec = Dummy_ClassificationModelSpec(
+                default_class_name=classification_cfg.default_class_name
             )
         classification_models_definitions.append(classification_model_definition)
 

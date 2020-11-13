@@ -2,7 +2,7 @@ import os
 import json
 import sys
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Union
 from io import BytesIO
 from urllib.parse import urljoin
 
@@ -117,8 +117,15 @@ detection_score_threshold = st.sidebar.slider(
     value=detection_model_definition.score_threshold,
     step=0.05
 )
-with open(classification_model_definition.model_spec.class_names, 'r') as src:
-    class_names = json.load(src)
+if (
+    isinstance(classification_model_definition.model_spec.class_names, str)
+    or
+    isinstance(classification_model_definition.model_spec.class_names, Path)
+):
+    with open(classification_model_definition.model_spec.class_names, 'r') as src:
+        class_names = json.load(src)
+else:
+    class_names = classification_model_definition.model_spec.class_names
 class_names = sorted(
     set(class_names),
     key=lambda x: int(x) if x.isdigit() else 0

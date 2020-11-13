@@ -8,6 +8,7 @@ from cv_pipeliner.inference_models.detection.object_detection_api import (
 )
 from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from cv_pipeliner.inference_models.classification.tensorflow import TensorFlow_ClassificationModelSpec
+from cv_pipeliner.inference_models.classification.dummy import Dummy_ClassificationModelSpec
 
 from typing import Union
 
@@ -26,5 +27,5 @@ class DetectionModelDefinition:
 @dataclass
 class ClassificationDefinition:
     description: str
-    model_spec: Union[ClassificationModelSpec, TensorFlow_ClassificationModelSpec]  # noqa: E501
+    model_spec: Union[ClassificationModelSpec, TensorFlow_ClassificationModelSpec, Dummy_ClassificationModelSpec]  # noqa: E501
     model_index: str
