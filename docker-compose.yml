@@ -4,7 +4,7 @@ services:
   cv_pipeliner_backend:
     build:
       context: .
-      dockerfile: ./apps/backend/Dockerfile
+      dockerfile: ./Dockerfile
     container_name: "cv_pipeliner_backend"
     expose: 
       - 5000
@@ -58,3 +58,4 @@ services:
         - type: bind
           source: /mnt/c/
           target: /mnt/c/
+    command: ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]
