@@ -2,60 +2,51 @@ version: '3'
 
 services:
   cv_pipeliner_backend:
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    container_name: "cv_pipeliner_backend"
+    image: epoch8/cv-pipeliner-app:0.1.0
     expose: 
       - 5000
     ports:
       - "5000:5000"
     env_file: sample.env
+    environment:
+      CV_PIPELINER_BACKEND_MODEL_CONFIG: /examples/models/backend_config_crpt.yaml
+      FLASK_APP: apps/backend/app.py
     volumes:
-        - type: bind
-          source: /mnt/c/
-          target: /mnt/c/
+      - ./examples:/examples
 
-  cv_pipeliner_frontend:
-    build: ./apps/frontend/
-    container_name: "cv_pipeliner_frontend"
-    depends_on:
-      - cv_pipeliner_backend
-    expose: 
-      - 5001
-    ports:
-      - "5001:80"
-    volumes:
-        - type: bind
-          source: /mnt/c/
-          target: /mnt/c/
+    command: ["flask", "run", "--host", "0.0.0.0", "--port", "5000", "--without-threads"]
+
+  # cv_pipeliner_frontend:
+  #   image: epoch8/cv-pipeliner-frontend:0.1.0
+  #   depends_on:
+  #     - cv_pipeliner_backend
+  #   expose: 
+  #     - 5001
+  #   ports:
+  #     - "5001:80"
+  #   volumes:
+  #       - type: bind
+  #         source: /mnt/c/
+  #         target: /mnt/c/
 
   cv_pipeliner_app:
-    build:
-      context: .
-      dockerfile: ./apps/app/Dockerfile
+    image: epoch8/cv-pipeliner-app:0.1.0
     depends_on:
       - cv_pipeliner_backend
-      - cv_pipeliner_frontend
+      # - cv_pipeliner_frontend
     container_name: "cv_pipeliner_app"
     ports:
       - "80:80"
-    env_file: sample.env
+    environment:
+      CV_PIPELINER_APP_CONFIG: /examples/models/app_config_crpt.yaml
     volumes:
-        - type: bind
-          source: /mnt/c/
-          target: /mnt/c/
+      - ./examples:/examples
+    command: ["streamlit", "run", "apps/app/app.py", "--server.port", "80"]
 
-  cv_pipeliner_dataset_browser:
-    build:
-      context: .
-      dockerfile: ./apps/dataset_browser/Dockerfile
-    container_name: "dataset_browser"
-    ports:
-      - "81:81"
-    env_file: sample.env
-    volumes:
-        - type: bind
-          source: /mnt/c/
-          target: /mnt/c/
-    command: ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]
+  # cv_pipeliner_dataset_browser:
+  #   image: epoch8/cv-pipeliner-app:0.1.0
+  #   container_name: "dataset_browser"
+  #   ports:
+  #     - "81:81"
+  #   env_file: sample.env
+  #   command: ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]
