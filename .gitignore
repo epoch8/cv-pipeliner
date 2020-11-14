@@ -15,4 +15,4 @@ apps/frontend/build
 my_config*.yaml
 my_exports*.sh
 my_env*.env
-models/
+examples/
