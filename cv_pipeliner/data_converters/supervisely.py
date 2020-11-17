@@ -3,6 +3,8 @@ import json
 from typing import Union, Dict, List
 from pathlib import Path
 
+import fsspec
+
 from cv_pipeliner.core.data_converter import DataConverter
 from cv_pipeliner.core.data import BboxData, ImageData
 
@@ -24,10 +26,11 @@ class SuperviselyDataConverter(DataConverter):
     def get_image_data_from_annot(
         self,
         image_path: Union[str, Path],
-        annot: Union[Path, str, Dict]
+        annot: Union[Path, str, Dict],
+        fs: fsspec.filesystem = fsspec.filesystem('file')
     ) -> ImageData:
         if isinstance(annot, str) or isinstance(annot, Path):
-            with open(annot, 'r', encoding='utf8') as f:
+            with fs.open(annot, 'r', encoding='utf8') as f:
                 annot = json.load(f)
         image_data = ImageData(
             image_path=image_path,

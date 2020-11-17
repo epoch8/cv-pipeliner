@@ -5,6 +5,7 @@ import json
 from typing import Union, List, Dict, Literal
 from pathlib import Path
 
+import fsspec
 from cv_pipeliner.logging import logger
 from cv_pipeliner.core.data import BboxData, ImageData
 
@@ -24,9 +25,10 @@ class DataConverter(abc.ABC):
         def wrapped(
             data_converter: "DataConverter",
             image_path: Union[str, Path],
-            annot: Union[Path, str, Dict]
+            annot: Union[Path, str, Dict],
+            **kwargs
         ) -> ImageData:
-            image_data = fn(data_converter, image_path, annot)
+            image_data = fn(data_converter, image_path, annot, **kwargs)
             if image_data is None:
                 logger.warning(
                     f"Image {image_path} does not have annotation in given annot. Skipping..."
@@ -56,13 +58,12 @@ class DataConverter(abc.ABC):
                     continue
 
                 if data_converter.class_names is not None and data_converter.class_mapper is not None:
-                    bbox_data.set_label(data_converter._filter_label_by_class_mapper(
+                    bbox_data.label = data_converter._filter_label_by_class_mapper(
                         bbox_data.label,
                         data_converter.class_names,
                         data_converter.class_mapper,
                         data_converter.default_value
-                    ))
-
+                    )
                 if (
                     data_converter.class_names and
                     bbox_data.label not in data_converter.class_names and
@@ -100,26 +101,36 @@ class DataConverter(abc.ABC):
     def get_image_data_from_annot(
         self,
         image_path: Union[str, Path],
-        annot: Union[Path, str, Dict]
+        annot: Union[Path, str, Dict],
+        fs: fsspec.filesystem = fsspec.filesystem('file')
     ) -> ImageData:
         pass
 
     def get_images_data_from_annots(
         self,
         image_paths: List[Union[str, Path]],
-        annots: Literal[List[Union[Path, str, Dict]], Union[Path, str, Dict]]
+        annots: Literal[List[Union[Path, str, Dict]], Union[Path, str, Dict]],
+        fs: fsspec.filesystem = fsspec.filesystem('file')
     ) -> List[ImageData]:
         if isinstance(annots, str) or isinstance(annots, Path):
-            with open(annots, 'r', encoding='utf8') as f:
+            with fs.open(annots, 'r', encoding='utf8') as f:
                 annots = json.load(f)
             images_data = [
-                self.get_image_data_from_annot(image_path, annots)
+                self.get_image_data_from_annot(
+                    image_path=image_path,
+                    annot=annots,
+                    fs=fs
+                )
                 for image_path in image_paths
             ]
         elif isinstance(annots, List):
             assert len(image_paths) == len(annots)
             images_data = [
-                self.get_image_data_from_annot(image_path, annot)
+                self.get_image_data_from_annot(
+                    image_path=image_path,
+                    annot=annot,
+                    fs=fs
+                )
                 for image_path, annot in zip(image_paths, annots)
             ]
 
@@ -129,9 +140,14 @@ class DataConverter(abc.ABC):
     def get_n_bboxes_data_from_annots(
         self,
         image_paths: List[Union[str, Path]],
-        annots: Literal[List[Union[Path, str, Dict]], Union[Path, str, Dict]]
+        annots: Literal[List[Union[Path, str, Dict]], Union[Path, str, Dict]],
+        fs: fsspec.filesystem = fsspec.filesystem('file')
     ) -> List[List[BboxData]]:
-        images_data = self.get_images_data_from_annots(image_paths, annots)
+        images_data = self.get_images_data_from_annots(
+            image_paths=image_paths,
+            annots=annots,
+            fs=fs
+        )
         n_bboxes_data = [image_data.bboxes_data for image_data in images_data]
         return n_bboxes_data
 

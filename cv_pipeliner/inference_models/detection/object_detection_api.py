@@ -1,9 +1,12 @@
+import tempfile
 from dataclasses import dataclass
 from typing import List, Tuple, Union, Type, Literal
 from pathlib import Path
 
 import tensorflow as tf
 import numpy as np
+import fsspec
+from pathy import Pathy
 
 from object_detection.utils import config_util
 from object_detection.builders import model_builder
@@ -12,12 +15,13 @@ from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
 )
 from cv_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from_image
+from cv_pipeliner.utils.files import copy_files_to_temp_folder
 
 
 @dataclass(frozen=True)
 class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
-    config_path: Union[str, Path]
-    checkpoint_path: Union[str, Path]
+    config_path: Union[str, Pathy]
+    checkpoint_path: Union[str, Pathy]
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -27,7 +31,7 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
 
 @dataclass(frozen=True)
 class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
-    saved_model_dir: Union[str, Path]
+    saved_model_dir: Union[str, Pathy]
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
 
     @property
@@ -38,7 +42,7 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
 
 @dataclass(frozen=True)
 class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
-    model_path: Union[str, Path]
+    model_path: Union[str, Pathy]
     bboxes_output_index: int
     scores_output_index: int
 
@@ -50,35 +54,67 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
 
 class ObjectDetectionAPI_DetectionModel(DetectionModel):
     def _load_object_detection_api(self, model_spec: ObjectDetectionAPI_ModelSpec):
+        temp_dir = tempfile.TemporaryDirectory()
+        temp_dir_path = Path(temp_dir.name)
+        model_config_path = temp_dir_path / Pathy(model_spec.config_path).name
+        with open(model_config_path, 'wb') as out:
+            with self.filesystem.open(model_spec.config_path, 'rb') as src:
+                out.write(src.read())
+        checkpoint_path = temp_dir_path / Pathy(model_spec.checkpoint_path).name
+        for src_file in self.filesystem.glob(f"{model_spec.checkpoint_path}*"):
+            out_file = temp_dir_path / Pathy(src_file).name
+            with open(out_file, 'wb') as out:
+                with self.filesystem.open(src_file, 'rb') as src:
+                    out.write(src.read())
         configs = config_util.get_configs_from_pipeline_file(
-            pipeline_config_path=str(model_spec.config_path)
+            pipeline_config_path=str(model_config_path)
         )
         model_config = configs['model']
         self.model = model_builder.build(
             model_config=model_config, is_training=False
         )
         ckpt = tf.compat.v2.train.Checkpoint(model=self.model)
-        ckpt.restore(str(model_spec.checkpoint_path)).expect_partial()
-        self.input_dtype = tf.dtypes.float32
+        ckpt.restore(str(checkpoint_path)).expect_partial()
+        self.input_dtype = np.float32
 
-    def _load_object_detection_api_pb(self, model_spec: ObjectDetectionAPI_pb_ModelSpec):
-        self.loaded_model = tf.saved_model.load(str(model_spec.saved_model_dir))
+        # Run model through a dummy image so that variables are created
+        zeros = np.zeros([640, 640, 3])
+        self._raw_predict_single_image_default(zeros)
+
+        temp_dir.cleanup()
+
+    def _load_object_detection_api_pb(
+        self,
+        model_spec: ObjectDetectionAPI_pb_ModelSpec
+    ):
+        temp_folder = copy_files_to_temp_folder(
+            directory=model_spec.saved_model_dir,
+            fs=self.filesystem,
+            pattern='**'
+        )
+        temp_folder_path = Path(temp_folder.name)
+        self.loaded_model = tf.saved_model.load(str(temp_folder_path))
         self.model = self.loaded_model.signatures["serving_default"]
         if model_spec.input_type in ["image_tensor", "encoded_image_string_tensor"]:
-            self.input_dtype = tf.dtypes.uint8
+            self.input_dtype = np.uint8
         elif model_spec.input_type == "float_image_tensor":
-            self.input_dtype = tf.dtypes.float32
+            self.input_dtype = np.float32
         else:
             raise ValueError(
                 "input_type of ObjectDetectionAPI_pb_ModelSpec can be image_tensor, float_image_tensor "
                 "or encoded_image_string_tensor."
             )
 
+        temp_folder.cleanup()
+
     def _load_object_detection_api_tflite(self, model_spec: ObjectDetectionAPI_TFLite_ModelSpec):
-        assert isinstance(model_spec, ObjectDetectionAPI_TFLite_ModelSpec)
-        super().__init__(model_spec)
+        temp_file = tempfile.NamedTemporaryFile()
+        with self.filesystem.open(model_spec.model_path, 'rb') as src:
+            temp_file.write(src.read())
+        model_path = Path(temp_file.name)
+
         self.model = tf.lite.Interpreter(
-            model_path=str(model_spec.model_path)
+            model_path=str(model_path)
         )
         self.model.allocate_tensors()
         self.input_index = self.model.get_input_details()[0]['index']
@@ -86,15 +122,21 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self.bboxes_index = output_details[model_spec.bboxes_output_index]['index']
         self.scores_index = output_details[model_spec.scores_output_index]['index']
 
+        temp_file.close()
+
     def __init__(
         self,
         model_spec: Union[
             ObjectDetectionAPI_ModelSpec,
             ObjectDetectionAPI_pb_ModelSpec,
             ObjectDetectionAPI_TFLite_ModelSpec
-        ]
+        ],
+        fs: fsspec.filesystem = fsspec.filesystem('file')
     ):
         super().__init__(model_spec)
+
+        self.filesystem = fs
+
         if isinstance(model_spec, ObjectDetectionAPI_ModelSpec):
             self._load_object_detection_api(model_spec)
             self._raw_predict_single_image = self._raw_predict_single_image_default
@@ -109,16 +151,16 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
                 f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}"
             )
 
-        # Run model through a dummy image so that variables are created
-        zeros = np.zeros([640, 640, 3])
-        self._raw_predict_single_image(zeros)
-
     def _raw_predict_single_image_default(
         self,
         image: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray]:
         input_tensor = tf.convert_to_tensor(image, dtype=self.input_dtype)
-        if self.model_spec.input_type == "encoded_image_string_tensor":
+        if (
+            isinstance(self.model_spec, ObjectDetectionAPI_pb_ModelSpec)
+            and
+            self.model_spec.input_type == "encoded_image_string_tensor"
+        ):
             input_tensor = tf.io.encode_jpeg(input_tensor)
         input_tensor = input_tensor[None, ...]
         detection_output_dict = self.model(input_tensor)

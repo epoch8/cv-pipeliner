@@ -1,10 +1,8 @@
-import sys
-from pathlib import Path
-
 import os
 import logging
 
 import tensorflow as tf
+import fsspec
 
 from dataclasses import dataclass, asdict
 from typing import Dict
@@ -17,10 +15,9 @@ from cv_pipeliner.inference_models.pipeline import PipelineModel
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
-sys.path.insert(0, str(Path(__file__).absolute().parent.parent.parent))
-from apps.backend.src.config import get_cfg_defaults  # noqa: E402
-from apps.backend.src.realtime_inferencer import RealTimeInferencer  # noqa: E402
-from apps.backend.src.model import (  # noqa: E402
+from apps.config import get_cfg_defaults
+from apps.backend.src.realtime_inferencer import RealTimeInferencer
+from apps.backend.src.model import (
     get_detection_models_definitions_from_config,
     get_classification_models_definitions_from_config,
     inference, realtime_inference
@@ -28,20 +25,14 @@ from apps.backend.src.model import (  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
-if 'CV_PIPELINER_BACKEND_MODEL_CONFIG' in os.environ:
-    CONFIG_FILE = os.environ['CV_PIPELINER_BACKEND_MODEL_CONFIG']
-else:
-    app.logger.warning(
-        "Environment variable 'CV_PIPELINER_BACKEND_MODEL_CONFIG' was not found. Loading default config instead."
-    )
-    CONFIG_FILE = 'config.yaml'
+CONFIG_FILE = os.environ['CV_PIPELINER_APP_CONFIG']
 CURRENT_CONFIG_FILE_ST_MTIME = os.stat(CONFIG_FILE).st_mtime
 CONFIG = get_cfg_defaults()
 CONFIG.merge_from_file(CONFIG_FILE)
 
 
 def set_gpu():
-    if CONFIG.system.use_gpu:
+    if CONFIG.backend.system.use_gpu:
         gpus = tf.config.experimental.list_physical_devices('GPU')
         if gpus:
             for gpu in gpus:
@@ -122,7 +113,9 @@ def set_detection_model(detection_model_index: str = None):
     detection_model_definition = index_to_detection_model_definition[detection_model_index]
     app.logger.info(f"Loading detection model '{detection_model_definition.model_index}'...")
     CURRENT_PIPELINE_DEFINITION.detection_model_definition = detection_model_definition
-    CURRENT_PIPELINE_DEFINITION.detection_model = detection_model_definition.model_spec.load()
+    CURRENT_PIPELINE_DEFINITION.detection_model = detection_model_definition.model_spec.load(
+        fs=fsspec.filesystem(CONFIG.backend.system.filesystem)
+    )
     CURRENT_PIPELINE_DEFINITION.reload()
 
     app.logger.info("Detection model loaded successfully.")
@@ -148,7 +141,9 @@ def set_classification_model(classification_model_index: str = None):
     classification_model_definition = index_to_classification_model_definition[classification_model_index]
     app.logger.info(f"Loading classification model {classification_model_definition.model_index}...")
     CURRENT_PIPELINE_DEFINITION.classification_model_definition = classification_model_definition
-    CURRENT_PIPELINE_DEFINITION.classification_model = classification_model_definition.model_spec.load()
+    CURRENT_PIPELINE_DEFINITION.classification_model = classification_model_definition.model_spec.load(
+        fs=fsspec.filesystem(CONFIG.backend.system.filesystem)
+    )
     CURRENT_PIPELINE_DEFINITION.reload()
     app.logger.info("Classification model loaded successfully.")
 
@@ -248,6 +243,7 @@ def before_request():
         )
         CURRENT_CONFIG_FILE_ST_MTIME = config_file_st_mtime
         CONFIG.merge_from_file(CONFIG_FILE)
+        set_gpu()
         load_from_config()
 
 

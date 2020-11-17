@@ -9,6 +9,14 @@ from PIL import Image, ImageFont, ImageDraw
 
 import cv2
 import numpy as np
+import fsspec
+import zipfile
+import tempfile
+from pathy import Pathy
+from tqdm import tqdm
+
+from cv_pipeliner.logging import logger
+from cv_pipeliner.utils.files import fixed_fsspec_glob
 
 
 def denormalize_bboxes(bboxes: List[Tuple[float, float, float, float]],
@@ -57,31 +65,79 @@ def rotate_point(
     return xnew, ynew
 
 
+def open_image_with_fsspec(
+    image_path: Union[str, Path],
+    open_as_rgb: bool = False
+) -> np.ndarray:
+    image_path = Pathy(image_path)
+    if image_path.scheme == 'gs':
+        fs = fsspec.filesystem('gcs')
+        with fs.open(image_path, 'rb') as src:
+            image_bytes = src.read()
+        image = np.array(imageio.imread(image_bytes))
+    else:
+        image = np.array(imageio.imread(image_path, pilmode="RGB"))
+
+    if open_as_rgb:
+        if image.shape[-1] == 4:
+            image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+        if len(image.shape) == 2 or image.shape[-1] == 1:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+
+    return image
+
+
 def get_label_to_base_label_image(
-    base_labels_images_dir: Union[str, Path]
+    base_labels_images_dir: Union[str, Path],
+    fs: fsspec.filesystem = fsspec.filesystem('file')
 ) -> Callable[[str], np.ndarray]:
-    base_labels_images_dir = Path(base_labels_images_dir)
-    base_labels_images_paths = list(base_labels_images_dir.glob('*.png')) + list(base_labels_images_dir.glob('*.jp*g'))
-    ann_class_names = [base_label_image_path.stem for base_label_image_path in base_labels_images_paths]
-    unknown_image_candidates = list(base_labels_images_dir.glob("unknown.*"))
+    base_labels_images_dir = Pathy(base_labels_images_dir)
+
+    if base_labels_images_dir.suffix == '.zip':  # loading one-by-one from GCS is very slow
+        logger.info('Zip file detected. Extracting to temp folder...')
+        temp_dir = tempfile.TemporaryDirectory()
+        temp_dir_path = Path(temp_dir.name)
+
+        temp_zip_file = temp_dir_path / base_labels_images_dir.name
+        with open(temp_zip_file, 'wb') as out:
+            with fs.open(str(base_labels_images_dir), 'rb') as src:
+                out.write(src.read())
+        with zipfile.ZipFile(temp_zip_file, 'r') as zip_ref:
+            zip_ref.extractall(temp_dir_path)
+        temp_zip_file.unlink()
+        base_labels_images_dir = temp_dir_path
+        fs = fsspec.filesystem('file')
+    else:
+        temp_dir = None
+
+    base_labels_images_paths = (
+        list(fixed_fsspec_glob(fs, str(base_labels_images_dir / '*.png'))) +
+        list(fixed_fsspec_glob(fs, str(base_labels_images_dir / '*.jp*g')))
+    )
+    ann_class_names = [Pathy(base_label_image_path).stem for base_label_image_path in base_labels_images_paths]
+    unknown_image_candidates = list(fixed_fsspec_glob(fs, str(base_labels_images_dir / 'unknown.*')))
     if len(unknown_image_candidates) == 0:
         raise ValueError(
-            f'Folder "{base_labels_images_dir}" with base labels images must have unknown.png, unknown.jpg '
-            'or unknown.jpeg.'
+            f'Folder "{base_labels_images_dir}" must have image with name "unknown.*"'
         )
     else:
         unknown_image_filepath = unknown_image_candidates[0]
-
-    unknown_image = np.array(imageio.imread(unknown_image_filepath))
+    with fs.open(unknown_image_filepath, 'rb') as src:
+        unknown_image = np.array(imageio.imread(src.read()))
     label_to_base_label_image_dict = {}
-    for label in ann_class_names + ['unknown']:
-        filepath_candidates = list(base_labels_images_dir.glob(f"{label}.*"))
+    logger.info(f"Loading base labels images from {base_labels_images_dir}...")
+    for label in tqdm(ann_class_names + ['unknown']):
+        filepath_candidates = list(fixed_fsspec_glob(fs, str(base_labels_images_dir / f"{label}.*")))
         if len(filepath_candidates) > 0:
             filepath = filepath_candidates[0]
-            render = np.array(imageio.imread(filepath))
+            with fs.open(filepath, 'rb') as src:
+                render = np.array(imageio.imread(src.read()))
         else:
             render = unknown_image
         label_to_base_label_image_dict[label] = render
+
+    if temp_dir is not None:
+        temp_dir.cleanup()
 
     def label_to_base_label_image(label: str) -> np.ndarray:
         if label in label_to_base_label_image_dict:

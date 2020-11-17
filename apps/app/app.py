@@ -1,6 +1,5 @@
 import os
 import json
-import sys
 from pathlib import Path
 from typing import Callable
 from io import BytesIO
@@ -8,6 +7,7 @@ from urllib.parse import urljoin
 
 import requests
 import numpy as np
+import fsspec
 from dacite import from_dict
 from PIL import Image
 
@@ -23,20 +23,12 @@ from cv_pipeliner.utils.streamlit.data import (
 from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data
 from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
-main_folder = Path(__file__).parent.parent.parent
-sys.path.append(str(main_folder))
-from apps.app.config import get_cfg_defaults  # noqa: E402
+from apps.config import get_cfg_defaults
 
 
 st.set_option('deprecation.showfileUploaderEncoding', False)
 
-if 'CV_PIPELINER_APP_CONFIG' in os.environ:
-    config_file = os.environ['CV_PIPELINER_APP_CONFIG']
-else:
-    st.warning(
-        "Environment variable 'CV_PIPELINER_APP_CONFIG' was not found. Loading default config instead."
-    )
-    config_file = 'config.yaml'
+config_file = os.environ['CV_PIPELINER_APP_CONFIG']
 
 cfg = get_cfg_defaults()
 cfg.merge_from_file(config_file)
@@ -44,15 +36,21 @@ cfg.freeze()
 
 
 @st.cache(show_spinner=False, allow_output_mutation=True)
-def cached_get_label_to_base_label_image(st_mtime: int, **kwargs) -> Callable[[str], np.ndarray]:
+def cached_get_label_to_base_label_image(**kwargs) -> Callable[[str], np.ndarray]:
     return get_label_to_base_label_image(**kwargs)
 
 
+backend_fs = fsspec.filesystem(cfg.backend.system.filesystem)
+app_fs = fsspec.filesystem(cfg.data.filesystem)
+
 label_to_base_label_image = cached_get_label_to_base_label_image(
-    st_mtime=os.stat(cfg.data.base_labels_images_dir).st_mtime,
-    base_labels_images_dir=cfg.data.base_labels_images_dir
+    base_labels_images_dir=cfg.data.base_labels_images_dir,
+    fs=app_fs
 )
-label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
+label_to_description = get_label_to_description(
+    label_to_description_dict=cfg.data.labels_decriptions,
+    fs=app_fs
+)
 models_definitions_response = requests.get(urljoin(cfg.backend.url, 'get_available_models/'))
 if models_definitions_response.ok:
     models_definitions = json.loads(models_definitions_response.text)
@@ -117,28 +115,49 @@ detection_score_threshold = st.sidebar.slider(
     value=detection_model_definition.score_threshold,
     step=0.05
 )
-with open(classification_model_definition.model_spec.class_names, 'r') as src:
-    class_names = json.load(src)
+if (
+    isinstance(classification_model_definition.model_spec.class_names, str)
+    or
+    isinstance(classification_model_definition.model_spec.class_names, Path)
+):
+    with backend_fs.open(classification_model_definition.model_spec.class_names, 'r') as src:
+        class_names = json.load(src)
+else:
+    class_names = classification_model_definition.model_spec.class_names
 class_names = sorted(
     set(class_names),
     key=lambda x: int(x) if x.isdigit() else 0
 )
-classes_to_find_captions = [
-    f"{class_name} [{label_to_description(class_name)}]"
-    for class_name in class_names
-]
+add_description_to_class_names = st.sidebar.checkbox('Add description in classes list')
+if add_description_to_class_names:
+    classes_to_find_captions = [
+        f"{class_name} [{label_to_description(class_name)}]"
+        for class_name in class_names
+    ]
+else:
+    classes_to_find_captions = class_names
 filter_by_labels = st.sidebar.multiselect(
     label="Classes to find",
     options=classes_to_find_captions,
     default=[]
 )
-filter_by_labels = [
-    class_names[classes_to_find_captions.index(chosen_class_name)]
-    for chosen_class_name in filter_by_labels
-]
-run = st.sidebar.checkbox('RUN')
+hide_labels = st.sidebar.multiselect(
+    label="Classes to hide",
+    options=classes_to_find_captions,
+    default=[]
+)
+if len(hide_labels) != 0:
+    filter_by_labels = [
+        class_names[classes_to_find_captions.index(chosen_class_name)]
+        for chosen_class_name in filter_by_labels
+    ] if len(filter_by_labels) > 0 else class_names
+    hide_labels = [
+        class_names[classes_to_find_captions.index(chosen_class_name)]
+        for chosen_class_name in hide_labels
+    ]
+filter_by_labels = list(set(filter_by_labels) - set(hide_labels))
 
-st.sidebar.title("Input")
+st.sidebar.title("Visualization")
 use_labels = st.sidebar.checkbox(
     'Write labels',
     value=True
@@ -151,21 +170,21 @@ draw_base_labels_with_given_label_to_base_label_image = (
     label_to_base_label_image if draw_label_images else None
 )
 
-input_type = st.sidebar.radio(
+input_type = st.radio(
     label='Input',
     options=["Image", "Camera"]
 )
 
 if input_type == 'Image':
     images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
-    image_dir_to_annotation_filenames = {
+    image_dir_to_annotation_filepaths = {
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
     }
     images_dirname_to_image_dir_paths = {
-        Path(image_dir).name: image_dir for image_dir in images_dirs
+        f"../{Path(image_dir).parent.name}/{Path(image_dir).name}": image_dir for image_dir in images_dirs
     }
 
-    images_from = st.sidebar.selectbox(
+    images_from = st.selectbox(
         'Image from',
         options=['Upload'] + list(images_dirname_to_image_dir_paths)
     )
@@ -180,14 +199,15 @@ if input_type == 'Image':
         show_annotation = False
     else:
         images_from = images_dirname_to_image_dir_paths[images_from]
-        annotation_filename = st.sidebar.selectbox(
+        annotation_filepath = st.selectbox(
             'Annotation filename',
-            options=image_dir_to_annotation_filenames[images_from]
+            options=image_dir_to_annotation_filepaths[images_from]
         )
         images_data, annotation_success = get_images_data_from_dir(
             images_annotation_type=cfg.data.images_annotation_type,
             images_dir=images_from,
-            annotation_filename=annotation_filename
+            annotation_filepath=annotation_filepath,
+            fs=app_fs
         )
         if annotation_success:
             images_data_captions = [
@@ -199,7 +219,7 @@ if input_type == 'Image':
                 f"[{i}] {image_data.image_path.name}"
                 for i, image_data in enumerate(images_data)
             ]
-        images_data_selected_caption = st.sidebar.selectbox(
+        images_data_selected_caption = st.selectbox(
             label='Image',
             options=[None] + images_data_captions
         )
@@ -210,7 +230,7 @@ if input_type == 'Image':
         else:
             image_data = None
         if annotation_success:
-            show_annotation = st.sidebar.checkbox('Show annotation', value=False)
+            show_annotation = st.checkbox('Show annotation', value=False)
         else:
             show_annotation = False
 
@@ -250,10 +270,8 @@ def inference_one_image(
     if response.ok:
         pred_image_data = ImageData()
         pred_image_data.from_dict(json.loads(response.text))  # returns empty images
-        pred_image_data.set_images(
-            image_path=image_data.image_path,
-            image_bytes=image_data.image_bytes
-        )
+        pred_image_data.image_path = image_data.image_path
+        pred_image_data.image_bytes = image_data.image_bytes
     else:
         raise ValueError(
             f'Something wrong with backend. Response: {response.text}'
@@ -266,6 +284,8 @@ def inference_one_image(
 def cached_visualize_image_data(**kwargs) -> np.ndarray:
     return visualize_image_data(**kwargs)
 
+
+run = st.checkbox('RUN PIPELINE')
 
 if input_type == 'Image':
     if run and image_data is not None:

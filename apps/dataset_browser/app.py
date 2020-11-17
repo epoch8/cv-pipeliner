@@ -1,46 +1,39 @@
 import os
-import sys
 from typing import Callable
 from collections import Counter
 from pathlib import Path
 
 import numpy as np
+import fsspec
+import streamlit as st
 
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels, get_n_bboxes_data_filtered_by_labels
 from cv_pipeliner.utils.images import get_label_to_base_label_image
 
-import streamlit as st
 from cv_pipeliner.utils.streamlit.data import get_images_data_from_dir, get_label_to_description
 from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data, illustrate_n_bboxes_data
 
-main_folder = Path(__file__).parent.parent.parent
-sys.path.append(str(main_folder))
-from apps.dataset_browser.config import get_cfg_defaults  # noqa: E402
+from apps.config import get_cfg_defaults
 
 st.set_option('deprecation.showfileUploaderEncoding', False)
 
 
-if 'CV_PIPELINER_DATASET_BROWSER_CONFIG' in os.environ:
-    config_file = os.environ['CV_PIPELINER_DATASET_BROWSER_CONFIG']
-else:
-    st.warning(
-        "Environment variable 'CV_PIPELINER_DATASET_BROWSER_CONFIG' was not found. Loading default config instead."
-    )
-    config_file = 'dataset_browser/config.yaml'
-
+config_file = os.environ['CV_PIPELINER_APP_CONFIG']
 cfg = get_cfg_defaults()
 cfg.merge_from_file(config_file)
 cfg.freeze()
 
+backend_fs = fsspec.filesystem(cfg.backend.system.filesystem)
+app_fs = fsspec.filesystem(cfg.data.filesystem)
 
 images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
-image_dir_to_annotation_filenames = {
+image_dir_to_annotation_filepaths = {
     image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
 }
-images_dirs = [image_dir for image_dir in images_dirs if len(image_dir_to_annotation_filenames[image_dir]) > 0]
+images_dirs = [image_dir for image_dir in images_dirs if len(image_dir_to_annotation_filepaths[image_dir]) > 0]
 images_dirname_to_image_dir_paths = {
-    Path(image_dir).name: image_dir for image_dir in images_dirs
+    f"../{Path(image_dir).parent.name}/{Path(image_dir).name}": image_dir for image_dir in images_dirs
 }
 
 images_from = st.sidebar.selectbox(
@@ -48,14 +41,15 @@ images_from = st.sidebar.selectbox(
     options=list(images_dirname_to_image_dir_paths)
 )
 images_from = images_dirname_to_image_dir_paths[images_from]
-annotation_filename = st.sidebar.selectbox(
-    'Annotation filename',
-    options=image_dir_to_annotation_filenames[images_from]
+annotation_filepath = st.sidebar.selectbox(
+    'Annotation filepath',
+    options=image_dir_to_annotation_filepaths[images_from]
 )
 images_data, annotation_success = get_images_data_from_dir(
     images_annotation_type=cfg.data.images_annotation_type,
     images_dir=images_from,
-    annotation_filename=annotation_filename
+    annotation_filepath=annotation_filepath,
+    fs=app_fs
 )
 
 if not annotation_success:
@@ -83,8 +77,14 @@ def cached_get_label_to_base_label_image(**kwargs) -> Callable[[str], np.ndarray
     return get_label_to_base_label_image(**kwargs)
 
 
-label_to_base_label_image = cached_get_label_to_base_label_image(base_labels_images_dir=cfg.data.base_labels_images_dir)
-label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
+label_to_base_label_image = cached_get_label_to_base_label_image(
+    base_labels_images_dir=cfg.data.base_labels_images_dir,
+    fs=app_fs
+)
+label_to_description = get_label_to_description(
+    label_to_description_dict=cfg.data.labels_decriptions,
+    fs=app_fs
+)
 
 if view == 'detection':
     st.markdown("Choose an image:")
@@ -113,6 +113,7 @@ else:
     bboxes_data = None
 
 if view == 'detection':
+    st.sidebar.title("Visualization")
     use_labels = st.sidebar.checkbox(
         'Write labels',
         value=True
