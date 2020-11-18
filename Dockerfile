@@ -38,6 +38,8 @@ RUN pip3 install -e /app/
 
 ADD apps /apps/apps/
 WORKDIR /apps/
+ENV PATH=$PATH:/apps/
+ENV PYTHONPATH /apps/
 
-RUN python3 -c 'import matplotlib.font_manager'
-CMD ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]
+# RUN python3 -c 'import matplotlib.font_manager'
+# CMD ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]

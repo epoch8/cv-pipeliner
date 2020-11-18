@@ -2,29 +2,30 @@ version: '3'
 
 services:
   cv_pipeliner_backend:
-    image: epoch8/cv-pipeliner-app:0.1.0
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.1.0
     expose: 
       - 5000
     ports:
       - "5000:5000"
     env_file: sample.env
     environment:
-      CV_PIPELINER_BACKEND_MODEL_CONFIG: /examples/backend_config_crpt.yaml
+      CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
       FLASK_APP: apps/backend/app.py
     volumes:
-      - ./examples/crpt:/examples
+      - ./configs/:/configs/
+      - ~/.config/gcloud:/root/.config/gcloud
 
     command: ["flask", "run", "--host", "0.0.0.0", "--port", "5000", "--without-threads"]
 
   cv_pipeliner_frontend:
-    image: epoch8/cv-pipeliner-frontend:0.1.0
+    image: eu.gcr.io/e8-gke/cv-pipeliner-frontend:0.1.0
     expose: 
       - 5001
     ports:
       - "5001:80"
 
   cv_pipeliner_app:
-    image: epoch8/cv-pipeliner-app:0.1.0
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.1.0
     depends_on:
       - cv_pipeliner_backend
       - cv_pipeliner_frontend
@@ -32,15 +33,21 @@ services:
     ports:
       - "80:80"
     environment:
-      CV_PIPELINER_APP_CONFIG: /examples/app_config_crpt.yaml
+      CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
     volumes:
-      - ./examples/crpt:/examples
+      - ./configs/:/configs/
+      - ~/.config/gcloud:/root/.config/gcloud
+
     command: ["streamlit", "run", "apps/app/app.py", "--server.port", "80"]
 
-  # cv_pipeliner_dataset_browser:
-  #   image: epoch8/cv-pipeliner-app:0.1.0
-  #   container_name: "dataset_browser"
-  #   ports:
-  #     - "81:81"
-  #   env_file: sample.env
-  #   command: ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]
+  cv_pipeliner_dataset_browser:
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.1.0
+    container_name: "dataset_browser"
+    ports:
+      - "81:81"
+    environment:
+      CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
+    volumes:
+      - ./configs/:/configs/
+      - ~/.config/gcloud:/root/.config/gcloud
+    command: ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]

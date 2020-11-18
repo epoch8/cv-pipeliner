@@ -1,5 +1,6 @@
 import os
 import logging
+import time
 
 import tensorflow as tf
 import fsspec
@@ -8,6 +9,7 @@ from dataclasses import dataclass, asdict
 from typing import Dict
 
 from flask import Flask, request, jsonify
+from traceback_with_variables import iter_tb_lines, ColorSchemes
 
 from cv_pipeliner.inference_models.detection.core import DetectionModel
 from cv_pipeliner.inference_models.classification.core import ClassificationModel
@@ -66,6 +68,7 @@ CURRENT_PIPELINE_DEFINITION = CurrentPipelineDefinition()  # noqa: E305
 class RealTimeInferencerData:
     guid: str
     realtime_inferencer: RealTimeInferencer
+    last_time: float
 GUID_TO_REALTIME_INFERENCER_DATA = {}  # noqa: E305
 
 
@@ -201,8 +204,11 @@ def realtime_start(guid: str) -> Dict:
                     detection_model_spec=CURRENT_PIPELINE_DEFINITION.detection_model_definition.model_spec,
                     classification_model_spec=CURRENT_PIPELINE_DEFINITION.classification_model_definition.model_spec,  # noqa: E501
                     fps=float(request.form['fps']),
-                    detection_delay=int(request.form['detection_delay'])
-                )
+                    detection_delay=int(request.form['detection_delay']),
+                    logger=app.logger,
+                    fs=fsspec.filesystem(CONFIG.backend.system.filesystem)
+                ),
+                last_time=time.time()
             )
             return jsonify(
                 success=True,
@@ -214,6 +220,7 @@ def realtime_start(guid: str) -> Dict:
 @app.route('/realtime_predict/<guid>', methods=['POST'])
 def realtime_predict(guid: str) -> Dict:
     if request.method == 'POST' and request.files.get('image', '') and guid in GUID_TO_REALTIME_INFERENCER_DATA:
+        GUID_TO_REALTIME_INFERENCER_DATA[guid].last_time = time.time()
         json_res = realtime_inference(
             realtime_inferencer=GUID_TO_REALTIME_INFERENCER_DATA[guid].realtime_inferencer,
             image_bytes=request.files.get('image', ''),
@@ -229,6 +236,7 @@ def realtime_end(guid: str) -> Dict:
         if guid not in GUID_TO_REALTIME_INFERENCER_DATA:
             return jsonify(success=False, message='Realtime process with given guid is not started.'), 400
         else:
+            del GUID_TO_REALTIME_INFERENCER_DATA[guid].realtime_inferencer
             del GUID_TO_REALTIME_INFERENCER_DATA[guid]
             return jsonify(success=True)
 
@@ -237,7 +245,16 @@ def realtime_end(guid: str) -> Dict:
 def before_request():
     config_file_st_mtime = os.stat(CONFIG_FILE).st_mtime
     global CURRENT_CONFIG_FILE_ST_MTIME
-    if CURRENT_CONFIG_FILE_ST_MTIME != config_file_st_mtime and len(GUID_TO_REALTIME_INFERENCER_DATA) == 0:
+    global GUID_TO_REALTIME_INFERENCER_DATA
+
+    current_time = time.time()
+    for guid in GUID_TO_REALTIME_INFERENCER_DATA:
+        if current_time - GUID_TO_REALTIME_INFERENCER_DATA[guid].last_time >= 3:
+            app.logger(f'Silent real time inferencer with {guid=} detected. Deleting.')
+            del GUID_TO_REALTIME_INFERENCER_DATA[guid].realtime_inferencer
+            del GUID_TO_REALTIME_INFERENCER_DATA
+
+    if CURRENT_CONFIG_FILE_ST_MTIME != config_file_st_mtime:
         app.logger.info(
             "Config change detected. Reloading everything..."
         )
@@ -253,3 +270,11 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
+
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    for line in iter_tb_lines(e=e, color_scheme=ColorSchemes.synthwave):
+        app.logger.error(line)
+
+    return 'Bad request', 500
