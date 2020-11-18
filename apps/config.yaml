@@ -6,7 +6,6 @@ backend:
 
   system:
     use_gpu: false
-    filesystem: 'file'  # 'file', 'gcs'
 
   models:
     detection:
@@ -47,9 +46,7 @@ backend:
           default_class_name: 'dummy'
           model_index: 'classification_model2' 
 
-data:
-  filesystem: 'file'  # 'file', 'gcs'
-  
+data:  
   base_labels_images_dir: 'renders/'
   labels_decriptions: 'label_to_description.json'
 

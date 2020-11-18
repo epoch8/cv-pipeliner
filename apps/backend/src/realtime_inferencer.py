@@ -5,7 +5,6 @@ from typing import List, Tuple
 from multiprocessing import Process, Queue, Event
 
 import numpy as np
-import fsspec
 
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
@@ -39,12 +38,9 @@ def classification_inferencer_queue(
     loading_status_event: Event,
     status_event: Event,
     batch_size: int,
-    time_sleep: float,
-    fs: fsspec.filesystem
+    time_sleep: float
 ):
-    classification_model = classification_model_spec.load(
-        fs=fs
-    )
+    classification_model = classification_model_spec.load()
     classification_inferencer = ClassificationInferencer(classification_model)
     loading_status_event.set()
     while not status_event.is_set():
@@ -86,19 +82,15 @@ class RealTimeInferencer:
         detection_delay: int,
         logger: logging.Logger,
         batch_size: int = 4,
-        classification_time_sleep: float = 0.3,
-        fs: fsspec.filesystem = fsspec.filesystem('file'),
+        classification_time_sleep: float = 0.3
     ):
         self.classification_model_spec = classification_model_spec
         self.batch_size = batch_size
         self.classification_time_sleep = classification_time_sleep
-        self.filesystem = fs
         self.logger = logger
 
         self.logger.info("RealTimeInferencer: Loading detection model...")
-        self.detection_model = detection_model_spec.load(
-            fs=self.filesystem
-        )
+        self.detection_model = detection_model_spec.load()
         self.detection_inferencer = DetectionInferencer(self.detection_model)
 
         self.bbox_data_track_id_queue = Queue()
@@ -114,8 +106,7 @@ class RealTimeInferencer:
                 self.loading_status_event,
                 self.status_event,
                 self.batch_size,
-                self.classification_time_sleep,
-                self.filesystem
+                self.classification_time_sleep
             )
         )
         self.logger.info("RealTimeInferencer: Loading classification model...")

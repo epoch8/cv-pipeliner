@@ -36,7 +36,8 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         self,
         script_file: Union[str, Pathy]
     ) -> Callable[[List[np.ndarray]], np.ndarray]:
-        with self.filesystem.open(script_file, 'r') as src:
+        fs = fsspec.filesystem(Pathy(script_file).scheme)
+        with fs.open(script_file, 'r') as src:
             script_code = src.read()
         with tempfile.TemporaryDirectory() as tmpdirname:
             module_folder = Path(tmpdirname) / 'module'
@@ -51,32 +52,31 @@ class Tensorflow_ClassificationModel(ClassificationModel):
 
     def __init__(
         self,
-        model_spec: TensorFlow_ClassificationModelSpec,
-        fs: fsspec.filesystem = fsspec.filesystem('file')
+        model_spec: TensorFlow_ClassificationModelSpec
     ):
         assert isinstance(model_spec, TensorFlow_ClassificationModelSpec)
         super().__init__(model_spec)
 
-        self.filesystem = fs
-
-        if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Pathy):
-            with self.filesystem.open(model_spec.class_names, 'r', encoding='utf-8') as out:
+        if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
+            fs = fsspec.filesystem(Pathy(model_spec.class_names).scheme)
+            with fs.open(model_spec.class_names, 'r', encoding='utf-8') as out:
                 self._class_names = json.load(out)
         else:
             self._class_names = model_spec.class_names
 
         if model_spec.saved_model_type in ["tf.keras", "tf.saved_model", "tflite"]:
-            if self.filesystem.isdir(model_spec.model_path):
+            fs = fsspec.filesystem(Pathy(model_spec.model_path).scheme)
+            if fs.isdir(model_spec.model_path):
                 temp_folder = copy_files_to_temp_folder(
                     directory=model_spec.model_path,
-                    fs=self.filesystem,
+                    fs=fs,
                     pattern='**'
                 )
                 model_path = Pathy(temp_folder.name)
                 temp_files_cleanup = temp_folder.cleanup
             else:
                 temp_file = tempfile.NamedTemporaryFile()
-                with self.filesystem.open(model_spec.model_path, 'rb') as src:
+                with fs.open(model_spec.model_path, 'rb') as src:
                     temp_file.write(src.read())
                 model_path = Pathy(temp_file.name)
                 temp_files_cleanup = temp_file.close

@@ -8,6 +8,8 @@ from urllib.parse import urljoin
 import requests
 import numpy as np
 import fsspec
+
+from pathy import Pathy
 from dacite import from_dict
 from PIL import Image
 
@@ -40,17 +42,8 @@ def cached_get_label_to_base_label_image(**kwargs) -> Callable[[str], np.ndarray
     return get_label_to_base_label_image(**kwargs)
 
 
-backend_fs = fsspec.filesystem(cfg.backend.system.filesystem)
-app_fs = fsspec.filesystem(cfg.data.filesystem)
-
-label_to_base_label_image = cached_get_label_to_base_label_image(
-    base_labels_images_dir=cfg.data.base_labels_images_dir,
-    fs=app_fs
-)
-label_to_description = get_label_to_description(
-    label_to_description_dict=cfg.data.labels_decriptions,
-    fs=app_fs
-)
+label_to_base_label_image = cached_get_label_to_base_label_image(base_labels_images_dir=cfg.data.base_labels_images_dir)
+label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
 models_definitions_response = requests.get(urljoin(cfg.backend.url, 'get_available_models/'))
 if models_definitions_response.ok:
     models_definitions = json.loads(models_definitions_response.text)
@@ -120,7 +113,8 @@ if (
     or
     isinstance(classification_model_definition.model_spec.class_names, Path)
 ):
-    with backend_fs.open(classification_model_definition.model_spec.class_names, 'r') as src:
+    fs = fsspec.filesystem(Pathy(classification_model_definition.model_spec.class_names).scheme)
+    with fs.open(classification_model_definition.model_spec.class_names, 'r') as src:
         class_names = json.load(src)
 else:
     class_names = classification_model_definition.model_spec.class_names
@@ -206,8 +200,7 @@ if input_type == 'Image':
         images_data, annotation_success = get_images_data_from_dir(
             images_annotation_type=cfg.data.images_annotation_type,
             images_dir=images_from,
-            annotation_filepath=annotation_filepath,
-            fs=app_fs
+            annotation_filepath=annotation_filepath
         )
         if annotation_success:
             images_data_captions = [

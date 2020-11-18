@@ -4,6 +4,7 @@ from typing import Union, Dict, List
 from pathlib import Path
 
 import fsspec
+from pathy import Pathy
 
 from cv_pipeliner.core.data_converter import DataConverter
 from cv_pipeliner.core.data import BboxData, ImageData
@@ -26,10 +27,10 @@ class BrickitDataConverter(DataConverter):
     def get_image_data_from_annot(
         self,
         image_path: Union[str, Path],
-        annot: Union[Path, str, Dict],
-        fs: fsspec.filesystem = fsspec.filesystem('file')
+        annot: Union[Path, str, Dict]
     ) -> ImageData:
         if isinstance(annot, str) or isinstance(annot, Path):
+            fs = fsspec.filesystem(Pathy(annot).scheme)
             with fs.open(annot, 'r', encoding='utf8') as f:
                 annot = json.load(f)
 

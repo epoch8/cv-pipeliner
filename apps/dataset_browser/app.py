@@ -4,7 +4,6 @@ from collections import Counter
 from pathlib import Path
 
 import numpy as np
-import fsspec
 import streamlit as st
 
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
@@ -23,9 +22,6 @@ config_file = os.environ['CV_PIPELINER_APP_CONFIG']
 cfg = get_cfg_defaults()
 cfg.merge_from_file(config_file)
 cfg.freeze()
-
-backend_fs = fsspec.filesystem(cfg.backend.system.filesystem)
-app_fs = fsspec.filesystem(cfg.data.filesystem)
 
 images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
 image_dir_to_annotation_filepaths = {
@@ -48,8 +44,7 @@ annotation_filepath = st.sidebar.selectbox(
 images_data, annotation_success = get_images_data_from_dir(
     images_annotation_type=cfg.data.images_annotation_type,
     images_dir=images_from,
-    annotation_filepath=annotation_filepath,
-    fs=app_fs
+    annotation_filepath=annotation_filepath
 )
 
 if not annotation_success:
@@ -77,14 +72,8 @@ def cached_get_label_to_base_label_image(**kwargs) -> Callable[[str], np.ndarray
     return get_label_to_base_label_image(**kwargs)
 
 
-label_to_base_label_image = cached_get_label_to_base_label_image(
-    base_labels_images_dir=cfg.data.base_labels_images_dir,
-    fs=app_fs
-)
-label_to_description = get_label_to_description(
-    label_to_description_dict=cfg.data.labels_decriptions,
-    fs=app_fs
-)
+label_to_base_label_image = cached_get_label_to_base_label_image(base_labels_images_dir=cfg.data.base_labels_images_dir)
+label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
 
 if view == 'detection':
     st.markdown("Choose an image:")

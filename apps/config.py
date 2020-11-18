@@ -11,7 +11,6 @@ cfg.backend.url = 'http://localhost:5000/'
 
 cfg.backend.system = CfgNode()
 cfg.backend.system.use_gpu = False
-cfg.backend.system.filesystem = 'file'
 
 cfg.backend.models = CfgNode()
 
@@ -59,7 +58,6 @@ dummy_cls_model.model_index = 'classification_model2'
 cfg.backend.models.classification = [tensorflow_cls_model, dummy_cls_model]
 
 cfg.data = CfgNode()
-cfg.data.filesystem = 'file'  # 'file', 'gcs'
 cfg.data.base_labels_images_dir = 'renders/'
 cfg.data.labels_decriptions = 'label_to_description.json'
 cfg.data.images_dirs = [

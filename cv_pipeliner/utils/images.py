@@ -88,10 +88,11 @@ def open_image_with_fsspec(
 
 
 def get_label_to_base_label_image(
-    base_labels_images_dir: Union[str, Path],
-    fs: fsspec.filesystem = fsspec.filesystem('file')
+    base_labels_images_dir: Union[str, Path]
 ) -> Callable[[str], np.ndarray]:
     base_labels_images_dir = Pathy(base_labels_images_dir)
+
+    fs = fsspec.filesystem(Pathy(base_labels_images_dir).scheme)
 
     if base_labels_images_dir.suffix == '.zip':  # loading one-by-one from GCS is very slow
         logger.info('Zip file detected. Extracting to temp folder...')

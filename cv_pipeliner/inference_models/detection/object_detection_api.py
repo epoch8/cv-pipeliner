@@ -15,7 +15,7 @@ from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
 )
 from cv_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from_image
-from cv_pipeliner.utils.files import copy_files_to_temp_folder
+from cv_pipeliner.utils.files import copy_files_to_temp_folder, fixed_fsspec_glob
 
 
 @dataclass(frozen=True)
@@ -57,14 +57,16 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         temp_dir = tempfile.TemporaryDirectory()
         temp_dir_path = Path(temp_dir.name)
         model_config_path = temp_dir_path / Pathy(model_spec.config_path).name
+        fs = fsspec.filesystem(Pathy(model_spec.config_path).scheme)
         with open(model_config_path, 'wb') as out:
-            with self.filesystem.open(model_spec.config_path, 'rb') as src:
+            with fs.open(model_spec.config_path, 'rb') as src:
                 out.write(src.read())
         checkpoint_path = temp_dir_path / Pathy(model_spec.checkpoint_path).name
-        for src_file in self.filesystem.glob(f"{model_spec.checkpoint_path}*"):
+        fs = fsspec.filesystem(Pathy(model_spec.checkpoint_path).scheme)
+        for src_file in fixed_fsspec_glob(fs, f"{model_spec.checkpoint_path}*"):
             out_file = temp_dir_path / Pathy(src_file).name
             with open(out_file, 'wb') as out:
-                with self.filesystem.open(src_file, 'rb') as src:
+                with fs.open(src_file, 'rb') as src:
                     out.write(src.read())
         configs = config_util.get_configs_from_pipeline_file(
             pipeline_config_path=str(model_config_path)
@@ -87,9 +89,10 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self,
         model_spec: ObjectDetectionAPI_pb_ModelSpec
     ):
+        fs = fsspec.filesystem(Pathy(model_spec.saved_model_dir).scheme)
         temp_folder = copy_files_to_temp_folder(
             directory=model_spec.saved_model_dir,
-            fs=self.filesystem,
+            fs=fs,
             pattern='**'
         )
         temp_folder_path = Path(temp_folder.name)
@@ -109,7 +112,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
 
     def _load_object_detection_api_tflite(self, model_spec: ObjectDetectionAPI_TFLite_ModelSpec):
         temp_file = tempfile.NamedTemporaryFile()
-        with self.filesystem.open(model_spec.model_path, 'rb') as src:
+        fs = fsspec.filesystem(Pathy(model_spec.model_path).scheme)
+        with fs.open(model_spec.model_path, 'rb') as src:
             temp_file.write(src.read())
         model_path = Path(temp_file.name)
 
@@ -131,11 +135,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             ObjectDetectionAPI_pb_ModelSpec,
             ObjectDetectionAPI_TFLite_ModelSpec
         ],
-        fs: fsspec.filesystem = fsspec.filesystem('file')
     ):
         super().__init__(model_spec)
-
-        self.filesystem = fs
 
         if isinstance(model_spec, ObjectDetectionAPI_ModelSpec):
             self._load_object_detection_api(model_spec)

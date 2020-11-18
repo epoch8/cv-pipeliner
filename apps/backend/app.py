@@ -3,7 +3,6 @@ import logging
 import time
 
 import tensorflow as tf
-import fsspec
 
 from dataclasses import dataclass, asdict
 from typing import Dict
@@ -116,9 +115,7 @@ def set_detection_model(detection_model_index: str = None):
     detection_model_definition = index_to_detection_model_definition[detection_model_index]
     app.logger.info(f"Loading detection model '{detection_model_definition.model_index}'...")
     CURRENT_PIPELINE_DEFINITION.detection_model_definition = detection_model_definition
-    CURRENT_PIPELINE_DEFINITION.detection_model = detection_model_definition.model_spec.load(
-        fs=fsspec.filesystem(CONFIG.backend.system.filesystem)
-    )
+    CURRENT_PIPELINE_DEFINITION.detection_model = detection_model_definition.model_spec.load()
     CURRENT_PIPELINE_DEFINITION.reload()
 
     app.logger.info("Detection model loaded successfully.")
@@ -144,9 +141,7 @@ def set_classification_model(classification_model_index: str = None):
     classification_model_definition = index_to_classification_model_definition[classification_model_index]
     app.logger.info(f"Loading classification model {classification_model_definition.model_index}...")
     CURRENT_PIPELINE_DEFINITION.classification_model_definition = classification_model_definition
-    CURRENT_PIPELINE_DEFINITION.classification_model = classification_model_definition.model_spec.load(
-        fs=fsspec.filesystem(CONFIG.backend.system.filesystem)
-    )
+    CURRENT_PIPELINE_DEFINITION.classification_model = classification_model_definition.model_spec.load()
     CURRENT_PIPELINE_DEFINITION.reload()
     app.logger.info("Classification model loaded successfully.")
 
@@ -205,8 +200,7 @@ def realtime_start(guid: str) -> Dict:
                     classification_model_spec=CURRENT_PIPELINE_DEFINITION.classification_model_definition.model_spec,  # noqa: E501
                     fps=float(request.form['fps']),
                     detection_delay=int(request.form['detection_delay']),
-                    logger=app.logger,
-                    fs=fsspec.filesystem(CONFIG.backend.system.filesystem)
+                    logger=app.logger
                 ),
                 last_time=time.time()
             )

@@ -18,9 +18,9 @@ from cv_pipeliner.utils.files import fixed_fsspec_glob
 def get_images_data_from_dir(
     images_annotation_type: Literal['brickit', 'supervisely'],
     images_dir: Union[str, Path],
-    annotation_filepath: Union[str, Path] = None,
-    fs: fsspec.filesystem = fsspec.filesystem('file')
+    annotation_filepath: Union[str, Path] = None
 ) -> List[ImageData]:
+    fs = fsspec.filesystem(Pathy(images_dir).scheme)
     images_dir = Pathy(images_dir)
     image_paths = sorted(
         list(fixed_fsspec_glob(fs, str(images_dir / '*.png'))) + list(fixed_fsspec_glob(fs, str(images_dir / '*.jp*g')))
@@ -33,8 +33,7 @@ def get_images_data_from_dir(
         if fs.exists(annotation_filepath):
             images_data = BrickitDataConverter().get_images_data_from_annots(
                 image_paths=image_paths,
-                annots=annotation_filepath,
-                fs=fs
+                annots=annotation_filepath
             )
             annotation_success = True
 
@@ -46,8 +45,7 @@ def get_images_data_from_dir(
         if len(image_paths) == len(annots_paths):
             images_data = SuperviselyDataConverter().get_images_data_from_annots(
                 image_paths=image_paths,
-                annots=annots_paths,
-                fs=fs
+                annots=annots_paths
             )
             annotation_success = True
         else:
@@ -65,10 +63,10 @@ def get_images_data_from_dir(
 
 @st.cache(show_spinner=False)
 def get_label_to_description(
-    label_to_description_dict: Union[str, Path, Dict],
-    fs: fsspec.filesystem = fsspec.filesystem('file')
+    label_to_description_dict: Union[str, Path, Dict]
 ) -> Callable[[str], str]:
     if isinstance(label_to_description_dict, str) or isinstance(label_to_description_dict, Path):
+        fs = fsspec.filesystem(Pathy(label_to_description_dict).scheme)
         with fs.open(label_to_description_dict, 'r') as src:
             label_to_description_dict = json.load(src)
 
