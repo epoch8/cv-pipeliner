@@ -40,14 +40,14 @@ services:
 
     command: ["streamlit", "run", "apps/app/app.py", "--server.port", "80"]
 
-  cv_pipeliner_dataset_browser:
-    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.1.0
-    container_name: "dataset_browser"
-    ports:
-      - "81:81"
-    environment:
-      CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
-    volumes:
-      - ./configs/:/configs/
-      - ~/.config/gcloud:/root/.config/gcloud
-    command: ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]
+  # cv_pipeliner_dataset_browser:
+  #   image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.1.0
+  #   container_name: "dataset_browser"
+  #   ports:
+  #     - "81:81"
+  #   environment:
+  #     CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
+  #   volumes:
+  #     - ./configs/:/configs/
+  #     - ~/.config/gcloud:/root/.config/gcloud
+  #   command: ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]
