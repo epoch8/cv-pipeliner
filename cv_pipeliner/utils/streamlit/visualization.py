@@ -1,7 +1,6 @@
 from typing import Tuple, Callable, Literal, List
 
 import numpy as np
-import imageio
 import imutils
 
 from cv_pipeliner.core.data import BboxData, ImageData

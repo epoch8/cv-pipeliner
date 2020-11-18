@@ -70,14 +70,10 @@ def open_image_with_fsspec(
     open_as_rgb: bool = False
 ) -> np.ndarray:
     image_path = Pathy(image_path)
-    if image_path.scheme == 'gs':
-        fs = fsspec.filesystem('gcs')
-        with fs.open(image_path, 'rb') as src:
-            image_bytes = src.read()
-        image = np.array(imageio.imread(image_bytes))
-    else:
-        image = np.array(imageio.imread(image_path, pilmode="RGB"))
-
+    fs = fsspec.filesystem(image_path.scheme)
+    with fs.open(str(image_path), 'rb') as src:
+        image_bytes = src.read()
+    image = np.array(imageio.imread(image_bytes))
     if open_as_rgb:
         if image.shape[-1] == 4:
             image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
