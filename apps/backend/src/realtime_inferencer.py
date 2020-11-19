@@ -1,4 +1,5 @@
 import time
+import logging
 from dataclasses import dataclass
 from typing import List, Tuple
 from multiprocessing import Process, Queue, Event
@@ -34,12 +35,14 @@ def classification_inferencer_queue(
     classification_model_spec: ClassificationInferencer,
     bbox_data_track_id_queue: Queue,
     ready_bbox_data_track_id_queue: Queue,
+    loading_status_event: Event,
     status_event: Event,
     batch_size: int,
-    time_sleep: float = 0.3,
+    time_sleep: float
 ):
     classification_model = classification_model_spec.load()
     classification_inferencer = ClassificationInferencer(classification_model)
+    loading_status_event.set()
     while not status_event.is_set():
         if not bbox_data_track_id_queue.empty():
             current_batch_size = 0
@@ -77,14 +80,22 @@ class RealTimeInferencer:
         classification_model_spec: ClassificationModelSpec,
         fps: float,
         detection_delay: int,
-        batch_size: int = 4
+        logger: logging.Logger,
+        batch_size: int = 4,
+        classification_time_sleep: float = 0.3
     ):
-        self.detection_model = detection_model_spec.load()
-        self.detection_inferencer = DetectionInferencer(self.detection_model)
         self.classification_model_spec = classification_model_spec
         self.batch_size = batch_size
+        self.classification_time_sleep = classification_time_sleep
+        self.logger = logger
+
+        self.logger.info("RealTimeInferencer: Loading detection model...")
+        self.detection_model = detection_model_spec.load()
+        self.detection_inferencer = DetectionInferencer(self.detection_model)
+
         self.bbox_data_track_id_queue = Queue()
         self.ready_bbox_data_track_id_queue = Queue()
+        self.loading_status_event = Event()
         self.status_event = Event()
         self.classification_inferencer_process = Process(
             target=classification_inferencer_queue,
@@ -92,11 +103,16 @@ class RealTimeInferencer:
                 self.classification_model_spec,
                 self.bbox_data_track_id_queue,
                 self.ready_bbox_data_track_id_queue,
+                self.loading_status_event,
                 self.status_event,
-                self.batch_size
+                self.batch_size,
+                self.classification_time_sleep
             )
         )
+        self.logger.info("RealTimeInferencer: Loading classification model...")
         self.classification_inferencer_process.start()
+        while not self.loading_status_event.is_set():
+            time.sleep(self.classification_time_sleep)
 
         self.fps = fps
         self.detection_delay = detection_delay
@@ -172,7 +188,7 @@ class RealTimeInferencer:
             idx for idx, tracked_id in enumerate(tracked_ids)
             if tracked_id not in current_tracks_ids
         ]
-        if current_not_tracked_items_idxs:
+        if len(current_not_tracked_items_idxs) > 0:
             current_not_tracked_bboxes = tracked_bboxes[current_not_tracked_items_idxs]
             current_not_tracked_ids = tracked_ids[current_not_tracked_items_idxs]
             bboxes_data = [

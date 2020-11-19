@@ -456,7 +456,8 @@ class LabelStudioProject_Detection:
             add_completions = False
 
         for image_data in images_data:
-            image_data.apply_str_func_to_labels_inplace(self._class_name_with_special_character)
+            for bbox_data in image_data.bboxes_data:
+                bbox_data.label = self._class_name_with_special_character(bbox_data.label)
 
         for id, image_data in tqdm(list(enumerate(images_data, start=start))):
             image_path = image_data.image_path
@@ -483,7 +484,7 @@ class LabelStudioProject_Detection:
         if all([isinstance(image, ImageData) for image in images]):  # already annotated
             current_time = int(time.time())
             for task_data in self.tasks_data:
-                filename = task_data.image_data.image_path.name
+                filename = task_data.image_data.image_name
                 if (
                     add_completions and reannotate_following_images_filenames is not None and
                     filename in reannotate_following_images_filenames
@@ -517,6 +518,7 @@ class LabelStudioProject_Detection:
             )
         ]
         for image_data in images_data:
-            image_data.apply_str_func_to_labels_inplace(self._class_name_without_special_character)
+            for bbox_data in image_data.bboxes_data:
+                bbox_data.label = self._class_name_without_special_character(bbox_data.label)
 
         return images_data

@@ -1,19 +1,40 @@
 import io
-from dataclasses import dataclass, field
-from typing import Union, List, Dict, Tuple, Callable
 from pathlib import Path
+from dataclasses import dataclass, field
+from typing import Union, List, Dict, Tuple
 
-import imageio
 import numpy as np
 import cv2
+import fsspec
+from pathy import Pathy
 
-from cv_pipeliner.utils.images import rotate_point
+from cv_pipeliner.utils.images import rotate_point, open_image
 
 
-@dataclass(frozen=True)
+def open_image_for_object(
+    obj: Union['ImageData', 'BboxData'],
+    inplace: bool = False
+) -> Union[None, np.ndarray]:
+    if obj.image is not None:
+        if not inplace:
+            return obj.image
+        else:
+            image = obj.image.copy()
+    elif obj.image_path is not None:
+        image = open_image(image=obj.image_path, open_as_rgb=True)
+    else:
+        raise ValueError("Object doesn't have any image.")
+
+    if inplace:
+        obj.image = image
+    else:
+        return image
+
+
+@dataclass
 class BboxData:
-    image_path: Union[str, Path] = None
-    image_bytes: io.BytesIO = None
+    image_path: [str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
+    image_name: str = None
     image: np.ndarray = None
     cropped_image: np.ndarray = None
     xmin: int = None
@@ -32,8 +53,13 @@ class BboxData:
     additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
-        if self.image_path is not None:
-            super().__setattr__('image_path', Path(self.image_path))
+        if isinstance(self.image_path, str) or isinstance(self.image_path, Path):
+            self.image_path = Pathy(self.image_path)
+            self.image_name = self.image_path.name
+        elif isinstance(self.image_path, fsspec.core.OpenFile):
+            self.image_name = Pathy(self.image_path.path).name
+        elif isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):
+            self.image_name = 'bytes'
 
     def open_cropped_image(
         self,
@@ -99,7 +125,7 @@ class BboxData:
                 )
 
         if inplace:
-            super().__setattr__('cropped_image', cropped_image)
+            self.cropped_image = cropped_image
         else:
             if return_as_bbox_data_in_cropped_image:
                 cx = rotated_points_in_cropped_image[0][0]
@@ -141,22 +167,7 @@ class BboxData:
         self,
         inplace: bool = False
     ) -> Union[None, np.ndarray]:
-        if self.image is not None:
-            if not inplace:
-                return self.image
-            else:
-                image = self.image.copy()
-        elif self.image_path is not None:
-            image = np.array(imageio.imread(self.image_path, pilmode="RGB"))
-        elif self.image_bytes is not None:
-            image = np.array(imageio.imread(self.image_bytes))
-        else:
-            raise ValueError("BboxData doesn't have any image.")
-
-        if inplace:
-            super().__setattr__('image', image)
-        else:
-            return image
+        return open_image_for_object(obj=self, inplace=inplace)
 
     def assert_coords_are_valid(self):
         assert all(x is not None for x in [self.xmin, self.ymin, self.xmax, self.ymax])
@@ -164,22 +175,6 @@ class BboxData:
 
     def assert_label_is_valid(self):
         assert self.label is not None
-
-    def set_label(self, label: str):
-        super().__setattr__('label', label)
-
-    def apply_str_func_to_label_inplace(self, func: Callable[[str], str]):
-        super().__setattr__('label', func(self.label))
-
-    def set_image(
-        self,
-        image_path: Union[str, Path] = None,
-        image_bytes: io.BytesIO = None
-    ):
-        if image_path is not None:
-            super().__setattr__('image_path', image_path)
-        if image_bytes is not None:
-            super().__setattr__('image_bytes', image_bytes)
 
     def asdict(self) -> Dict:
         return {
@@ -205,57 +200,28 @@ class BboxData:
         self.__post_init__()
 
 
-@dataclass(frozen=True)
+@dataclass
 class ImageData:
-    image_path: Union[str, Path] = None
-    image_bytes: io.BytesIO = None
+    image_path: [str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
+    image_name: str = None
     image: np.ndarray = None
-    bboxes_data: List[BboxData] = None
+    bboxes_data: List[BboxData] = field(default_factory=list)
     additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
-        if self.image_path is not None:
-            super().__setattr__('image_path', Path(self.image_path))
-        if self.bboxes_data is None:
-            super().__setattr__('bboxes_data', [])
+        if isinstance(self.image_path, str) or isinstance(self.image_path, Path):
+            self.image_path = Pathy(self.image_path)
+            self.image_name = self.image_path.name
+        elif isinstance(self.image_path, fsspec.core.OpenFile):
+            self.image_name = Pathy(self.image_path.path).name
+        elif isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):
+            self.image_name = 'bytes'
 
-    def set_images(
+    def open_image(
         self,
-        image_path: Union[str, Path] = None,
-        image_bytes: io.BytesIO = None
-    ):
-        if image_path is not None:
-            super().__setattr__('image_path', image_path)
-        if image_bytes is not None:
-            super().__setattr__('image_bytes', image_bytes)
-        for bbox_data in self.bboxes_data:
-            bbox_data.set_image(image_path=image_path, image_bytes=image_bytes)
-
-    def apply_str_func_to_labels_inplace(self, func: Callable[[str], str]):
-        for bbox_data in self.bboxes_data:
-            bbox_data.apply_str_func_to_label_inplace(func)
-
-    def open_image(self, inplace: bool = False) -> Union[None, np.ndarray]:
-        if self.image is not None:
-            if not inplace:
-                return self.image
-            else:
-                image = self.image.copy()
-        elif self.image_path is not None:
-            image = np.array(imageio.imread(self.image_path, pilmode="RGB"))
-        elif self.image_bytes is not None:
-            image = np.array(imageio.imread(self.image_bytes))
-            if image.shape[-1] == 4:
-                image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
-            if len(image.shape) == 2 or image.shape[-1] == 1:
-                image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-        else:
-            raise ValueError("ImageData doesn't have any image.")
-
-        if inplace:
-            super().__setattr__('image', image)
-        else:
-            return image
+        inplace: bool = False
+    ) -> Union[None, np.ndarray]:
+        return open_image_for_object(obj=self, inplace=inplace)
 
     def asdict(self) -> Dict:
         return {
@@ -272,5 +238,5 @@ class ImageData:
             bboxes_data = [BboxData() for i in range(len(d['bboxes_data']))]
             for bbox_data, d_i in zip(bboxes_data, d['bboxes_data']):
                 bbox_data.from_dict(d_i)
-            super().__setattr__('bboxes_data', bboxes_data)
+            self.bboxes_data = bboxes_data
         self.__post_init__()

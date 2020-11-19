@@ -44,7 +44,6 @@ class PipelineInferencer(Inferencer):
                 pred_cropped_image = pred_cropped_image if open_cropped_images_in_bboxes_data else None
                 bboxes_data.append(BboxData(
                     image_path=image_data.image_path,
-                    image_bytes=image_data.image_bytes,
                     cropped_image=pred_cropped_image,
                     xmin=xmin,
                     ymin=ymin,
@@ -60,7 +59,6 @@ class PipelineInferencer(Inferencer):
             image = image_data.image if open_images_in_images_data else None
             pred_images_data.append(ImageData(
                 image_path=image_data.image_path,
-                image_bytes=image_data.image_bytes,
                 image=image,
                 bboxes_data=bboxes_data
             ))
