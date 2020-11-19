@@ -39,10 +39,11 @@ RUN fc-cache
 # Install cv_pipeliner
 ADD requirements.txt /app/requirements.txt
 RUN pip3 install -r /app/requirements.txt
+RUN python3 -c 'import matplotlib.font_manager'
+
 ADD cv_pipeliner /app/cv_pipeliner/
 ADD setup.py /app/setup.py
 RUN pip3 install -e /app/
-RUN python3 -c 'import matplotlib.font_manager'
 
 
 # Add apps/

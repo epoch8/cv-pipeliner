@@ -15,7 +15,6 @@ def get_image_data_filtered_by_labels(
     ]
     return ImageData(
         image_path=image_data.image_path,
-        image_bytes=image_data.image_bytes,
         image=image_data.image,
         bboxes_data=bboxes_data
     )

@@ -27,7 +27,6 @@ class ClassificationInferencer(Inferencer):
             cropped_image = bbox_data.cropped_image if open_cropped_images_in_bboxes_data else None
             bboxes_data_res.append(BboxData(
                 image_path=bbox_data.image_path,
-                image_bytes=bbox_data.image_bytes,
                 cropped_image=cropped_image,
                 xmin=bbox_data.xmin,
                 ymin=bbox_data.ymin,

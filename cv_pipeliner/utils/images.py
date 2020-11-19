@@ -64,13 +64,22 @@ def rotate_point(
     return xnew, ynew
 
 
-def open_image_with_fsspec(
-    image_path: Union[str, Path],
+def open_image(
+    image: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO],
     open_as_rgb: bool = False
 ) -> np.ndarray:
-    image_path = Pathy(image_path)
-    with fsspec.open(str(image_path), 'rb') as src:
-        image_bytes = src.read()
+    if isinstance(image, str) or isinstance(image, Path):
+        with fsspec.open(str(image), 'rb') as src:
+            image_bytes = src.read()
+    elif isinstance(image, fsspec.core.OpenFile):
+        with image as src:
+            image_bytes = src.read()
+    elif isinstance(image, bytes):
+        image_bytes = image
+    elif isinstance(image, io.BytesIO):
+        image_bytes = image.getvalue()
+    else:
+        raise ValueError(f'Got unknown type: {type(image)}.')
     image = np.array(imageio.imread(image_bytes))
     if open_as_rgb:
         if image.shape[-1] == 4:

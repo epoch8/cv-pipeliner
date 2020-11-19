@@ -15,7 +15,7 @@ from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
 )
 from cv_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from_image
-from cv_pipeliner.utils.files import copy_files_to_temp_folder
+from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 
 
 @dataclass(frozen=True)
@@ -88,9 +88,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self,
         model_spec: ObjectDetectionAPI_pb_ModelSpec
     ):
-        temp_folder = copy_files_to_temp_folder(
-            directory=model_spec.saved_model_dir,
-            pattern='**'
+        temp_folder = copy_files_from_directory_to_temp_directory(
+            directory=model_spec.saved_model_dir
         )
         temp_folder_path = Path(temp_folder.name)
         self.loaded_model = tf.saved_model.load(str(temp_folder_path))

@@ -7,7 +7,6 @@ from cv_pipeliner.core.data import ImageData
 
 from cv_pipeliner.data_converters.supervisely import SuperviselyDataConverter
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
-from cv_pipeliner.utils.files import fsspec_glob
 
 import streamlit as st
 import fsspec
@@ -21,32 +20,34 @@ def get_images_data_from_dir(
 ) -> List[ImageData]:
     images_dir = Pathy(images_dir)
     image_paths = sorted(
-        fsspec_glob(str(images_dir / '*.png')) +
-        fsspec_glob(str(images_dir / '*.jp*g'))
+        fsspec.open_files(str(images_dir / '*.png')) +
+        fsspec.open_files(str(images_dir / '*.jp*g')),
+        key=lambda f: f.path
     )
     annotation_filepath = Pathy(annotation_filepath)
     annotation_success = False
-    if images_annotation_type == 'brickit':
-        if annotation_filepath is None:
-            annotation_filepath = images_dir / 'annotations.json'
-        images_data = BrickitDataConverter().get_images_data_from_annots(
-            image_paths=image_paths,
-            annots=annotation_filepath
-        )
-        annotation_success = True
 
-    elif images_annotation_type == 'supervisely':
-        annots_paths = sorted(
-            fsspec_glob(str(annotation_filepath / '*.json'))
-        )
-        if len(image_paths) == len(annots_paths):
-            images_data = SuperviselyDataConverter().get_images_data_from_annots(
+    if annotation_filepath is not None:
+        if images_annotation_type == 'brickit':
+            images_data = BrickitDataConverter().get_images_data_from_annots(
                 image_paths=image_paths,
-                annots=annots_paths
+                annots=annotation_filepath
             )
             annotation_success = True
-        else:
-            raise ValueError('Supervisely annotation: len(image_paths) != len(annots_paths).')
+
+        elif images_annotation_type == 'supervisely':
+            annots_paths = sorted(
+                fsspec.open_files(str(annotation_filepath / '*.json')),
+                key=lambda f: f.path
+            )
+            if len(image_paths) == len(annots_paths):
+                images_data = SuperviselyDataConverter().get_images_data_from_annots(
+                    image_paths=image_paths,
+                    annots=annots_paths
+                )
+                annotation_success = True
+            else:
+                raise ValueError('Supervisely annotation: len(image_paths) != len(annots_paths).')
 
     if not annotation_success:
         images_data = [ImageData(image_path=image_path) for image_path in image_paths]

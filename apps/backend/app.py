@@ -97,6 +97,7 @@ def get_current_models():
     }
 
 
+@app.route('/set_detection_model/<detection_model_index>', methods=['POST'])
 def set_detection_model(detection_model_index: str = None):
     detection_models_definitions = get_detection_models_definitions_from_config(CONFIG)
     index_to_detection_model_definition = {
@@ -244,9 +245,9 @@ def before_request():
     current_time = time.time()
     for guid in GUID_TO_REALTIME_INFERENCER_DATA:
         if current_time - GUID_TO_REALTIME_INFERENCER_DATA[guid].last_time >= 3:
-            app.logger(f'Silent real time inferencer with {guid=} detected. Deleting.')
+            app.logger.info(f'Silent real time inferencer with {guid=} detected. Deleting...')
             del GUID_TO_REALTIME_INFERENCER_DATA[guid].realtime_inferencer
-            del GUID_TO_REALTIME_INFERENCER_DATA
+            del GUID_TO_REALTIME_INFERENCER_DATA[guid]
 
     if CURRENT_CONFIG_FILE_ST_MTIME != config_file_st_mtime:
         app.logger.info(

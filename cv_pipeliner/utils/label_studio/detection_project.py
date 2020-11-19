@@ -484,7 +484,7 @@ class LabelStudioProject_Detection:
         if all([isinstance(image, ImageData) for image in images]):  # already annotated
             current_time = int(time.time())
             for task_data in self.tasks_data:
-                filename = task_data.image_data.image_path.name
+                filename = task_data.image_data.image_name
                 if (
                     add_completions and reannotate_following_images_filenames is not None and
                     filename in reannotate_following_images_filenames

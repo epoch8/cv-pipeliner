@@ -62,7 +62,7 @@ mode = st.sidebar.radio(
 )
 
 images_data_captions = [
-    f"[{i}] {image_data.image_path.name} [{len(image_data.bboxes_data)} bboxes]"
+    f"[{i}] {image_data.image_name} [{len(image_data.bboxes_data)} bboxes]"
     for i, image_data in enumerate(images_data)
 ]
 

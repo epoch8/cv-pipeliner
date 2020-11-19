@@ -76,7 +76,8 @@ class DataConverter(abc.ABC):
 
             image_data = ImageData(
                 image_path=image_data.image_path,
-                bboxes_data=new_bboxes_data
+                bboxes_data=new_bboxes_data,
+                additional_info=image_data.additional_info
             )
 
             return image_data
@@ -102,7 +103,7 @@ class DataConverter(abc.ABC):
     def get_image_data_from_annot(
         self,
         image_path: Union[str, Path],
-        annot: Union[Path, str, Dict]
+        annot: Union[Path, str, Dict, fsspec.core.OpenFile]
     ) -> ImageData:
         pass
 

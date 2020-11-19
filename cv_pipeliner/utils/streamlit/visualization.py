@@ -5,7 +5,7 @@ import imutils
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.metrics.image_data_matching import BboxDataMatching, ImageDataMatching
-from cv_pipeliner.utils.images import concat_images, open_image_with_fsspec
+from cv_pipeliner.utils.images import concat_images, open_image
 
 import streamlit as st
 
@@ -368,7 +368,7 @@ def illustrate_n_bboxes_data(
     for image_path in unique_image_paths:
         indexes_by_image_path = np.where(page_image_paths == image_path)[0]
         bboxes_data_by_image_path = page_bboxes_data[indexes_by_image_path]
-        source_image = open_image_with_fsspec(image_path=image_path, open_as_rgb=True)
+        source_image = open_image(image=image_path, open_as_rgb=True)
         cropped_images_and_renders_by_image_path, labels_by_image_path = get_illustrated_bboxes_data(
             source_image=source_image,
             bboxes_data=bboxes_data_by_image_path,
@@ -393,7 +393,7 @@ def illustrate_n_bboxes_data(
             st.image(image=cropped_image_and_render)
             st.markdown(label)
             st.markdown(label_to_description(label))
-            st.text(f"From image '{bbox_data.image_path.name}'")
+            st.text(f"From image '{bbox_data.image_name}'")
             st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
             st.markdown('----')
     elif mode == "many":

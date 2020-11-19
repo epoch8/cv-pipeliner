@@ -39,7 +39,6 @@ def get_true_and_pred_images_data_with_visualized_labels(
 
             tag_bbox_data_with_visualized_label = BboxData(
                 image_path=tag_bbox_data.image_path,
-                image_bytes=tag_bbox_data.image_bytes,
                 cropped_image=tag_bbox_data.cropped_image,
                 xmin=tag_bbox_data.xmin,
                 ymin=tag_bbox_data.ymin,
@@ -53,7 +52,6 @@ def get_true_and_pred_images_data_with_visualized_labels(
 
         tag_image_data_with_visualized_labels = ImageData(
             image_path=tag_image_data.image_path,
-            image_bytes=tag_image_data.image_bytes,
             image=tag_image_data.image,
             bboxes_data=tag_bboxes_data_with_visualized_label
         )

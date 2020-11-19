@@ -14,7 +14,7 @@ from pathy import Pathy
 from cv_pipeliner.inference_models.classification.core import (
     ClassificationModelSpec, ClassificationModel, ClassificationInput, ClassificationOutput
 )
-from cv_pipeliner.utils.files import copy_files_to_temp_folder
+from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 
 
 @dataclass(frozen=True)
@@ -65,9 +65,8 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         if model_spec.saved_model_type in ["tf.keras", "tf.saved_model", "tflite"]:
             fs = fsspec.filesystem(Pathy(model_spec.model_path).scheme)
             if fs.isdir(model_spec.model_path):
-                temp_folder = copy_files_to_temp_folder(
-                    directory=model_spec.model_path,
-                    pattern='**'
+                temp_folder = copy_files_from_directory_to_temp_directory(
+                    directory=model_spec.model_path
                 )
                 model_path = Pathy(temp_folder.name)
                 temp_files_cleanup = temp_folder.cleanup

@@ -69,11 +69,11 @@ description_to_classiticaion_model_definition = {
 current_model_definition_response = requests.get(urljoin(cfg.backend.url, 'get_current_models/'))
 if current_model_definition_response.ok:
     current_models_definitions = json.loads(current_model_definition_response.text)
-    detection_model_definition = from_dict(
+    current_detection_model_definition = from_dict(
         data_class=DetectionModelDefinition,
         data=current_models_definitions['detection_model_definition']
     )
-    classification_model_definition = from_dict(
+    current_classification_model_definition = from_dict(
         data_class=ClassificationDefinition,
         data=current_models_definitions['classification_model_definition']
     )
@@ -88,17 +88,23 @@ detection_descriptions = [description for description in description_to_detectio
 detection_model_description = st.sidebar.selectbox(
     label='Model:',
     options=detection_descriptions,
-    index=detection_descriptions.index(detection_model_definition.description)
+    index=detection_descriptions.index(current_detection_model_definition.description)
 )
 st.sidebar.header('Classification')
 classification_descriptions = [description for description in description_to_classiticaion_model_definition]
 classification_model_description = st.sidebar.selectbox(
     label='Model:',
     options=classification_descriptions,
-    index=classification_descriptions.index(classification_model_definition.description)
+    index=classification_descriptions.index(current_classification_model_definition.description)
 )
 detection_model_definition = description_to_detection_model_definition[detection_model_description]
 classification_model_definition = description_to_classiticaion_model_definition[classification_model_description]
+
+if detection_model_definition.model_index != current_detection_model_definition.model_index:
+    requests.post(urljoin(cfg.backend.url, f'set_detection_model/{detection_model_definition.model_index}'))
+if classification_model_definition.model_index != current_classification_model_definition.model_index:
+    requests.post(urljoin(cfg.backend.url, f'set_classification_model/{classification_model_definition.model_index}'))
+
 st.sidebar.subheader('Detection score threshold')
 detection_score_threshold = st.sidebar.slider(
     label='Threshold',
@@ -172,25 +178,21 @@ if input_type == 'Image':
     image_dir_to_annotation_filepaths = {
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
     }
-    images_dirname_to_image_dir_paths = {
-        f"../{Path(image_dir).parent.name}/{Path(image_dir).name}": image_dir for image_dir in images_dirs
-    }
 
     images_from = st.selectbox(
         'Image from',
-        options=['Upload'] + list(images_dirname_to_image_dir_paths)
+        options=['Upload'] + list(images_dirs)
     )
 
     if images_from == 'Upload':
         st.header('Image')
         image_bytes = st.file_uploader("Upload image", type=["png", "jpeg", "jpg"])
         if image_bytes is not None:
-            image_data = ImageData(image_bytes=image_bytes.getvalue())
+            image_data = ImageData(image_path=image_bytes.getvalue())
         else:
             image_data = None
         show_annotation = False
     else:
-        images_from = images_dirname_to_image_dir_paths[images_from]
         annotation_filepath = st.selectbox(
             'Annotation filename',
             options=image_dir_to_annotation_filepaths[images_from]
@@ -202,12 +204,12 @@ if input_type == 'Image':
         )
         if annotation_success:
             images_data_captions = [
-                f"[{i}] {image_data.image_path.name} [{len(image_data.bboxes_data)} bboxes]"
+                f"[{i}] {image_data.image_name} [{len(image_data.bboxes_data)} bboxes]"
                 for i, image_data in enumerate(images_data)
             ]
         else:
             images_data_captions = [
-                f"[{i}] {image_data.image_path.name}"
+                f"[{i}] {image_data.image_name}"
                 for i, image_data in enumerate(images_data)
             ]
         images_data_selected_caption = st.selectbox(
@@ -262,7 +264,6 @@ def inference_one_image(
         pred_image_data = ImageData()
         pred_image_data.from_dict(json.loads(response.text))  # returns empty images
         pred_image_data.image_path = image_data.image_path
-        pred_image_data.image_bytes = image_data.image_bytes
     else:
         raise ValueError(
             f'Something wrong with backend. Response: {response.text}'
@@ -276,9 +277,8 @@ def cached_visualize_image_data(**kwargs) -> np.ndarray:
     return visualize_image_data(**kwargs)
 
 
-run = st.checkbox('RUN PIPELINE')
-
 if input_type == 'Image':
+    run = st.checkbox('RUN PIPELINE')
     if run and image_data is not None:
         with st.spinner("Working on your image..."):
             pred_image_data = inference_one_image(

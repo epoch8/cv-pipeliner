@@ -54,11 +54,11 @@ class ClassificationVisualizer(Visualizer):
                 ]
 
                 images_names = [
-                    f"{bboxes_data[0].image_path.name} [TP: {TP}, FP: {FP}]"
+                    f"{bboxes_data[0].image_name} [TP: {TP}, FP: {FP}]"
                     for bboxes_data, TP, FP in zip(n_bboxes_data, n_TP, n_FP)
                 ]
             else:
-                images_names = [bboxes_data[0].image_path.name for bboxes_data in n_bboxes_data]
+                images_names = [bboxes_data[0].image_name for bboxes_data in n_bboxes_data]
 
         self.i = None
 

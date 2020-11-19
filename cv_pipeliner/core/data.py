@@ -1,13 +1,14 @@
 import io
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Union, List, Dict, Tuple
 
-import imageio
 import numpy as np
 import cv2
+import fsspec
 from pathy import Pathy
 
-from cv_pipeliner.utils.images import rotate_point, open_image_with_fsspec
+from cv_pipeliner.utils.images import rotate_point, open_image
 
 
 def open_image_for_object(
@@ -20,16 +21,9 @@ def open_image_for_object(
         else:
             image = obj.image.copy()
     elif obj.image_path is not None:
-        image = open_image_with_fsspec(obj.image_path)
-    elif obj.image_bytes is not None:
-        image = np.array(imageio.imread(obj.image_bytes))
+        image = open_image(image=obj.image_path, open_as_rgb=True)
     else:
         raise ValueError("Object doesn't have any image.")
-
-    if image.shape[-1] == 4:
-        image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
-    if len(image.shape) == 2 or image.shape[-1] == 1:
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
     if inplace:
         obj.image = image
@@ -39,8 +33,8 @@ def open_image_for_object(
 
 @dataclass
 class BboxData:
-    image_path: Pathy = None
-    image_bytes: io.BytesIO = None
+    image_path: [str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
+    image_name: str = None
     image: np.ndarray = None
     cropped_image: np.ndarray = None
     xmin: int = None
@@ -59,8 +53,13 @@ class BboxData:
     additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
-        if self.image_path is not None:
+        if isinstance(self.image_path, str) or isinstance(self.image_path, Path):
             self.image_path = Pathy(self.image_path)
+            self.image_name = self.image_path.name
+        elif isinstance(self.image_path, fsspec.core.OpenFile):
+            self.image_name = Pathy(self.image_path.path).name
+        elif isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):
+            self.image_name = 'bytes'
 
     def open_cropped_image(
         self,
@@ -203,15 +202,20 @@ class BboxData:
 
 @dataclass
 class ImageData:
-    image_path: Pathy = None
-    image_bytes: io.BytesIO = None
+    image_path: [str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
+    image_name: str = None
     image: np.ndarray = None
     bboxes_data: List[BboxData] = field(default_factory=list)
     additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
-        if self.image_path is not None:
+        if isinstance(self.image_path, str) or isinstance(self.image_path, Path):
             self.image_path = Pathy(self.image_path)
+            self.image_name = self.image_path.name
+        elif isinstance(self.image_path, fsspec.core.OpenFile):
+            self.image_name = Pathy(self.image_path.path).name
+        elif isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):
+            self.image_name = 'bytes'
 
     def open_image(
         self,

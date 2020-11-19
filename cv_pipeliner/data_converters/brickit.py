@@ -2,6 +2,7 @@ import json
 
 from typing import Union, Dict, List
 from pathlib import Path
+from pathy import Pathy
 
 import fsspec
 
@@ -25,17 +26,23 @@ class BrickitDataConverter(DataConverter):
     @DataConverter.assert_image_data
     def get_image_data_from_annot(
         self,
-        image_path: Union[str, Path],
-        annot: Union[Path, str, Dict]
+        image_path: Union[str, Path, fsspec.core.OpenFile],
+        annot: Union[Path, str, Dict, fsspec.core.OpenFile]
     ) -> ImageData:
+        if isinstance(image_path, fsspec.core.OpenFile):
+            image_name = Pathy(image_path.path).name
+        else:
+            image_name = Pathy(image_path).name
+
         if isinstance(annot, str) or isinstance(annot, Path):
             with fsspec.open(annot, 'r', encoding='utf8') as f:
                 annot = json.load(f)
-
-        image_path = Path(image_path)
+        if isinstance(annot, fsspec.core.OpenFile):
+            with annot as f:
+                annot = json.load(f)
         image_idx = None
         for i, image_annot in enumerate(annot):
-            if image_annot['filename'] == image_path.name:
+            if image_annot['filename'] == image_name:
                 image_idx = i
                 break
         if image_idx is None:
@@ -90,7 +97,7 @@ class BrickitDataConverter(DataConverter):
         image_data: ImageData
     ) -> Dict:
         annot = {
-            'filename': image_data.image_path.name,
+            'filename': image_data.image_name,
             'objects': [{
                 'bbox': [int(bbox_data.xmin), int(bbox_data.ymin), int(bbox_data.xmax), int(bbox_data.ymax)],
                 'label': bbox_data.label,
