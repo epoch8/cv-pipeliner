@@ -72,7 +72,7 @@ def cached_get_label_to_base_label_image(**kwargs) -> Callable[[str], np.ndarray
     return get_label_to_base_label_image(**kwargs)
 
 
-label_to_base_label_image = cached_get_label_to_base_label_image(base_labels_images_dir=cfg.data.base_labels_images_dir)
+label_to_base_label_image = cached_get_label_to_base_label_image(base_labels_images=cfg.data.base_labels_images)
 label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
 
 if view == 'detection':

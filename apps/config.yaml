@@ -47,7 +47,7 @@ backend:
           model_index: 'classification_model2' 
 
 data:  
-  base_labels_images_dir: 'renders/'
+  base_labels_images: 'renders/*.png'
   labels_decriptions: 'label_to_description.json'
 
   images_dirs:
