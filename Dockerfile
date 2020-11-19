@@ -11,6 +11,8 @@ RUN apt-get install -y \
     gcc \
     protobuf-compiler
 
+
+# Install conda
 RUN wget \
     https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
     && mkdir /root/.conda \
@@ -28,18 +30,23 @@ RUN cd models/research/ && \
     pip3 install --use-feature=2020-resolver . && \
     cd ../.. && rm -rf models/
 
+# Install Arial fonts
+RUN apt-get install -y fontconfig
+RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections
+RUN apt-get install -y ttf-mscorefonts-installer
+RUN fc-cache
+
 # Install cv_pipeliner
 ADD requirements.txt /app/requirements.txt
 RUN pip3 install -r /app/requirements.txt
-
 ADD cv_pipeliner /app/cv_pipeliner/
 ADD setup.py /app/setup.py
 RUN pip3 install -e /app/
+RUN python3 -c 'import matplotlib.font_manager'
 
+
+# Add apps/
 ADD apps /apps/apps/
 WORKDIR /apps/
 ENV PATH=$PATH:/apps/
 ENV PYTHONPATH /apps/
-
-# RUN python3 -c 'import matplotlib.font_manager'
-# CMD ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]
