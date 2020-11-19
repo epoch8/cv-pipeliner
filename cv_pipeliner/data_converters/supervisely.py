@@ -4,7 +4,6 @@ from typing import Union, Dict, List
 from pathlib import Path
 
 import fsspec
-from pathy import Pathy
 
 from cv_pipeliner.core.data_converter import DataConverter
 from cv_pipeliner.core.data import BboxData, ImageData
@@ -30,8 +29,7 @@ class SuperviselyDataConverter(DataConverter):
         annot: Union[Path, str, Dict]
     ) -> ImageData:
         if isinstance(annot, str) or isinstance(annot, Path):
-            fs = fsspec.filesystem(Pathy(annot).scheme)
-            with fs.open(annot, 'r', encoding='utf8') as f:
+            with fsspec.open(annot, 'r', encoding='utf8') as f:
                 annot = json.load(f)
         image_data = ImageData(
             image_path=image_path,

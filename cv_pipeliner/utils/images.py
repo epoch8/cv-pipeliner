@@ -16,7 +16,6 @@ from pathy import Pathy
 from tqdm import tqdm
 
 from cv_pipeliner.logging import logger
-from cv_pipeliner.utils.files import fixed_fsspec_glob
 
 
 def denormalize_bboxes(bboxes: List[Tuple[float, float, float, float]],
@@ -70,8 +69,7 @@ def open_image_with_fsspec(
     open_as_rgb: bool = False
 ) -> np.ndarray:
     image_path = Pathy(image_path)
-    fs = fsspec.filesystem(image_path.scheme)
-    with fs.open(str(image_path), 'rb') as src:
+    with fsspec.open(str(image_path), 'rb') as src:
         image_bytes = src.read()
     image = np.array(imageio.imread(image_bytes))
     if open_as_rgb:
@@ -88,8 +86,6 @@ def get_label_to_base_label_image(
 ) -> Callable[[str], np.ndarray]:
     base_labels_images_dir = Pathy(base_labels_images_dir)
 
-    fs = fsspec.filesystem(Pathy(base_labels_images_dir).scheme)
-
     if base_labels_images_dir.suffix == '.zip':  # loading one-by-one from GCS is very slow
         logger.info('Zip file detected. Extracting to temp folder...')
         temp_dir = tempfile.TemporaryDirectory()
@@ -97,37 +93,36 @@ def get_label_to_base_label_image(
 
         temp_zip_file = temp_dir_path / base_labels_images_dir.name
         with open(temp_zip_file, 'wb') as out:
-            with fs.open(str(base_labels_images_dir), 'rb') as src:
+            with fsspec.open(str(base_labels_images_dir), 'rb') as src:
                 out.write(src.read())
         with zipfile.ZipFile(temp_zip_file, 'r') as zip_ref:
             zip_ref.extractall(temp_dir_path)
         temp_zip_file.unlink()
         base_labels_images_dir = temp_dir_path
-        fs = fsspec.filesystem('file')
     else:
         temp_dir = None
 
-    base_labels_images_paths = (
-        list(fixed_fsspec_glob(fs, str(base_labels_images_dir / '*.png'))) +
-        list(fixed_fsspec_glob(fs, str(base_labels_images_dir / '*.jp*g')))
+    base_labels_images_files = (
+        fsspec.open_files(base_labels_images_dir / '*.png') +
+        fsspec.open_files(base_labels_images_dir / '*.jp*g')
     )
-    ann_class_names = [Pathy(base_label_image_path).stem for base_label_image_path in base_labels_images_paths]
-    unknown_image_candidates = list(fixed_fsspec_glob(fs, str(base_labels_images_dir / 'unknown.*')))
+    ann_class_names = [Pathy(base_label_image_file.path).stem for base_label_image_file in base_labels_images_files]
+    unknown_image_candidates = fsspec.open_files(str(base_labels_images_dir / 'unknown.*'), 'rb')
     if len(unknown_image_candidates) == 0:
         raise ValueError(
             f'Folder "{base_labels_images_dir}" must have image with name "unknown.*"'
         )
     else:
         unknown_image_filepath = unknown_image_candidates[0]
-    with fs.open(unknown_image_filepath, 'rb') as src:
+    with unknown_image_filepath as src:
         unknown_image = np.array(imageio.imread(src.read()))
     label_to_base_label_image_dict = {}
     logger.info(f"Loading base labels images from {base_labels_images_dir}...")
     for label in tqdm(ann_class_names + ['unknown']):
-        filepath_candidates = list(fixed_fsspec_glob(fs, str(base_labels_images_dir / f"{label}.*")))
+        filepath_candidates = fsspec.open_files(str(base_labels_images_dir / f"{label}.*"), 'rb')
         if len(filepath_candidates) > 0:
             filepath = filepath_candidates[0]
-            with fs.open(filepath, 'rb') as src:
+            with filepath as src:
                 render = np.array(imageio.imread(src.read()))
         else:
             render = unknown_image

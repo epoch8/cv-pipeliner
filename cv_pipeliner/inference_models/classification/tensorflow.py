@@ -36,8 +36,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         self,
         script_file: Union[str, Pathy]
     ) -> Callable[[List[np.ndarray]], np.ndarray]:
-        fs = fsspec.filesystem(Pathy(script_file).scheme)
-        with fs.open(script_file, 'r') as src:
+        with fsspec.open(script_file, 'r') as src:
             script_code = src.read()
         with tempfile.TemporaryDirectory() as tmpdirname:
             module_folder = Path(tmpdirname) / 'module'
@@ -58,8 +57,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         super().__init__(model_spec)
 
         if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
-            fs = fsspec.filesystem(Pathy(model_spec.class_names).scheme)
-            with fs.open(model_spec.class_names, 'r', encoding='utf-8') as out:
+            with fsspec.open(model_spec.class_names, 'r', encoding='utf-8') as out:
                 self._class_names = json.load(out)
         else:
             self._class_names = model_spec.class_names
@@ -69,7 +67,6 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             if fs.isdir(model_spec.model_path):
                 temp_folder = copy_files_to_temp_folder(
                     directory=model_spec.model_path,
-                    fs=fs,
                     pattern='**'
                 )
                 model_path = Pathy(temp_folder.name)

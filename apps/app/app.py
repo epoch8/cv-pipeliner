@@ -9,7 +9,6 @@ import requests
 import numpy as np
 import fsspec
 
-from pathy import Pathy
 from dacite import from_dict
 from PIL import Image
 
@@ -113,8 +112,7 @@ if (
     or
     isinstance(classification_model_definition.model_spec.class_names, Path)
 ):
-    fs = fsspec.filesystem(Pathy(classification_model_definition.model_spec.class_names).scheme)
-    with fs.open(classification_model_definition.model_spec.class_names, 'r') as src:
+    with fsspec.open(classification_model_definition.model_spec.class_names, 'r') as src:
         class_names = json.load(src)
 else:
     class_names = classification_model_definition.model_spec.class_names

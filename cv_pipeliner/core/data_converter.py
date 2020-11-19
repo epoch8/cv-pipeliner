@@ -6,7 +6,6 @@ from typing import Union, List, Dict, Literal
 from pathlib import Path
 
 import fsspec
-from pathy import Pathy
 
 from cv_pipeliner.logging import logger
 from cv_pipeliner.core.data import BboxData, ImageData
@@ -113,8 +112,7 @@ class DataConverter(abc.ABC):
         annots: Literal[List[Union[Path, str, Dict]], Union[Path, str, Dict]]
     ) -> List[ImageData]:
         if isinstance(annots, str) or isinstance(annots, Path):
-            fs = fsspec.filesystem(Pathy(annots).scheme)
-            with fs.open(annots, 'r', encoding='utf8') as f:
+            with fsspec.open(annots, 'r', encoding='utf8') as f:
                 annots = json.load(f)
             images_data = [
                 self.get_image_data_from_annot(
