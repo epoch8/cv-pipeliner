@@ -20,8 +20,8 @@ from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 
 @dataclass(frozen=True)
 class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
-    config_path: Union[str, Pathy]
-    checkpoint_path: Union[str, Pathy]
+    config_path: Union[str, Path]
+    checkpoint_path: Union[str, Path]
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -31,7 +31,7 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
 
 @dataclass(frozen=True)
 class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
-    saved_model_dir: Union[str, Pathy]
+    saved_model_dir: Union[str, Path]
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
 
     @property
@@ -42,7 +42,7 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
 
 @dataclass(frozen=True)
 class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
-    model_path: Union[str, Pathy]
+    model_path: Union[str, Path]
     bboxes_output_index: int
     scores_output_index: int
 

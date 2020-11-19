@@ -34,7 +34,7 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
 class Tensorflow_ClassificationModel(ClassificationModel):
     def _get_preprocess_input_from_script_file(
         self,
-        script_file: Union[str, Pathy]
+        script_file: Union[str, Path]
     ) -> Callable[[List[np.ndarray]], np.ndarray]:
         with fsspec.open(script_file, 'r') as src:
             script_code = src.read()
