@@ -2,7 +2,19 @@
 Expand the name of the chart.
 */}}
 {{- define "helm-chart.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- .Release.Name }}
+{{- end }}
+
+{{- define "helm-chart.backend-name" -}}
+{{- .Release.Name }}-backend
+{{- end }}
+
+{{- define "helm-chart.app-name" -}}
+{{- .Release.Name }}-app
+{{- end }}
+
+{{- define "helm-chart.frontend-name" -}}
+{{- .Release.Name }}-frontend
 {{- end }}
 
 {{/*

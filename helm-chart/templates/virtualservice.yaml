@@ -18,7 +18,7 @@ spec:
         uri: /
       route:
         - destination:
-            host: {{ .Values.virtualService.destinationHost }}
+            host: "{{ include "helm-chart.app-name" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}"
             port:
               number: 80
       timeout: 300s
