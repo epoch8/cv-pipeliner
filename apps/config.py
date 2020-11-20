@@ -1,4 +1,7 @@
-from typing import Dict, List
+from pathlib import Path
+from typing import Dict, List, Union
+
+import fsspec
 from yacs.config import CfgNode
 
 cfg = CfgNode()
@@ -70,6 +73,22 @@ cfg.data.minimum_iou = 0.5
 
 def get_cfg_defaults():
     return cfg.clone()
+
+
+def merge_cfg_from_file_fsspec(
+    cfg: CfgNode,
+    cfg_filename: Union[str, Path],
+) -> CfgNode:
+    with fsspec.open(cfg_filename, "r") as src:
+        load_cfg = cfg.load_cfg(src.read())
+    cfg.merge_from_other_cfg(load_cfg)
+
+def merge_cfg_from_string(
+    cfg: CfgNode,
+    cfg_str: str,
+) -> CfgNode:
+    load_cfg = cfg.load_cfg(cfg_str)
+    cfg.merge_from_other_cfg(load_cfg)
 
 
 def get_list_cfg_from_dict(d: Dict):

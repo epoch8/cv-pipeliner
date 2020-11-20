@@ -7,6 +7,7 @@ import tensorflow as tf
 from dataclasses import dataclass, asdict
 from typing import Dict
 
+import fsspec
 from flask import Flask, request, jsonify
 from traceback_with_variables import iter_tb_lines, ColorSchemes
 
@@ -16,7 +17,7 @@ from cv_pipeliner.inference_models.pipeline import PipelineModel
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
-from apps.config import get_cfg_defaults
+from apps.config import get_cfg_defaults, merge_cfg_from_string
 from apps.backend.src.realtime_inferencer import RealTimeInferencer
 from apps.backend.src.model import (
     get_detection_models_definitions_from_config,
@@ -27,10 +28,10 @@ from apps.backend.src.model import (
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 CONFIG_FILE = os.environ['CV_PIPELINER_APP_CONFIG']
-CURRENT_CONFIG_FILE_ST_MTIME = os.stat(CONFIG_FILE).st_mtime
+with fsspec.open(CONFIG_FILE, 'r') as src:
+    CONFIG_STR = src.read()
 CONFIG = get_cfg_defaults()
-CONFIG.merge_from_file(CONFIG_FILE)
-
+merge_cfg_from_string(CONFIG, CONFIG_STR)
 
 def set_gpu():
     if CONFIG.backend.system.use_gpu:
@@ -238,9 +239,7 @@ def realtime_end(guid: str) -> Dict:
 
 @app.before_request
 def before_request():
-    config_file_st_mtime = os.stat(CONFIG_FILE).st_mtime
-    global CURRENT_CONFIG_FILE_ST_MTIME
-    global GUID_TO_REALTIME_INFERENCER_DATA
+    global GUID_TO_REALTIME_INFERENCER_DATA, CONFIG, CONFIG_STR
 
     current_time = time.time()
     for guid in GUID_TO_REALTIME_INFERENCER_DATA:
@@ -249,12 +248,16 @@ def before_request():
             del GUID_TO_REALTIME_INFERENCER_DATA[guid].realtime_inferencer
             del GUID_TO_REALTIME_INFERENCER_DATA[guid]
 
-    if CURRENT_CONFIG_FILE_ST_MTIME != config_file_st_mtime:
+    with fsspec.open(CONFIG_FILE, 'r') as src:
+        current_config_str = src.read()
+
+    if CONFIG_STR != current_config_str:
         app.logger.info(
             "Config change detected. Reloading everything..."
         )
-        CURRENT_CONFIG_FILE_ST_MTIME = config_file_st_mtime
-        CONFIG.merge_from_file(CONFIG_FILE)
+        CONFIG_STR = current_config_str
+        CONFIG = get_cfg_defaults()
+        merge_cfg_from_string(CONFIG, CONFIG_STR)
         set_gpu()
         load_from_config()
 

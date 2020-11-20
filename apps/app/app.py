@@ -24,7 +24,7 @@ from cv_pipeliner.utils.streamlit.data import (
 from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data
 from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
-from apps.config import get_cfg_defaults
+from apps.config import get_cfg_defaults, merge_cfg_from_file_fsspec
 
 
 st.set_option('deprecation.showfileUploaderEncoding', False)
@@ -32,7 +32,7 @@ st.set_option('deprecation.showfileUploaderEncoding', False)
 config_file = os.environ['CV_PIPELINER_APP_CONFIG']
 
 cfg = get_cfg_defaults()
-cfg.merge_from_file(config_file)
+merge_cfg_from_file_fsspec(cfg, config_file)
 cfg.freeze()
 
 
