@@ -13,14 +13,14 @@ from cv_pipeliner.utils.images import get_label_to_base_label_image
 from cv_pipeliner.utils.streamlit.data import get_images_data_from_dir, get_label_to_description
 from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data, illustrate_n_bboxes_data
 
-from apps.config import get_cfg_defaults
+from apps.config import get_cfg_defaults, merge_cfg_from_file_fsspec
 
 st.set_option('deprecation.showfileUploaderEncoding', False)
 
 
 config_file = os.environ['CV_PIPELINER_APP_CONFIG']
 cfg = get_cfg_defaults()
-cfg.merge_from_file(config_file)
+merge_cfg_from_file_fsspec(cfg, config_file)
 cfg.freeze()
 
 images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
