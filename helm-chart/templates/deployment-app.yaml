@@ -56,8 +56,12 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.app.resources | nindent 12 }}
-          {{- with .Values.env }}
           env:
+            - name: CV_PIPELINER_BACKEND_URL
+              value: "http://{{ include "helm-chart.backend-name" . }}/"
+            - name: CV_PIPELINER_FRONTEND_URL
+              value: "{{ .Values.frontend.virtualService.uri }}"
+          {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
           command: ["streamlit", "run", "apps/app/app.py", "--server.port", "80"]

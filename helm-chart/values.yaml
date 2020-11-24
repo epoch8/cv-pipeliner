@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: eu.gcr.io/e8-gke/cv-pipeliner-app
   pullPolicy: IfNotPresent
-  tag: 0.2.0
+  # tag: 0.2.1
 
 imagePullSecrets:
   - name: regcred
@@ -48,14 +48,22 @@ app:
   # - name: ceph-data
   #   mountPath: /notebooks/ceph-data
 
+  virtualService:
+    enabled: false
+    uri: 'DISABLED'
+
 frontend:
   image:
     repository: eu.gcr.io/e8-gke/cv-pipeliner-frontend
     pullPolicy: IfNotPresent
-    version: 0.1.0
+    # tag: 0.2.1
 
   resources: {}
   volumeMounts: []
+
+  virtualService:
+    enabled: false
+    uri: 'DISABLED'
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -110,6 +118,3 @@ tolerations: []
 affinity: {}
 
 env: {}
-
-virtualService:
-  enabled: false

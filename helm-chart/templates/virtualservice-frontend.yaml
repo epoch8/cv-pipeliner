@@ -1,8 +1,8 @@
-{{- if .Values.virtualService.enabled }}
+{{- if .Values.frontend.virtualService.enabled }}
 kind: VirtualService
 apiVersion: networking.istio.io/v1alpha3
 metadata:
-  name: {{ include "helm-chart.fullname" . }}
+  name: {{ include "helm-chart.frontend-name" . }}
   labels:
     {{- include "helm-chart.labels" . | nindent 4 }}
 spec:
@@ -13,12 +13,12 @@ spec:
   http:
     - match:
         - uri:
-            prefix: {{ .Values.virtualService.uri }}
+            prefix: {{ .Values.frontend.virtualService.uri }}
       rewrite:
         uri: /
       route:
         - destination:
-            host: "{{ include "helm-chart.app-name" . }}.{{ .Release.Namespace }}.svc.cluster.local"
+            host: "{{ include "helm-chart.frontend-name" . }}.{{ .Release.Namespace }}.svc.cluster.local"
             port:
               number: {{ .Values.service.port }}
       timeout: 300s

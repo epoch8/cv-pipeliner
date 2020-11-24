@@ -56,10 +56,10 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
-          {{- with .Values.env }}
           env:
             - name: FLASK_APP
               value: apps/backend/app.py
+          {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
           command: ["flask", "run", "--host", "0.0.0.0", "--port", "80", "--without-threads"]
