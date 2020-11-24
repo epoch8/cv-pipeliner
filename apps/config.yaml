@@ -1,9 +1,4 @@
-frontend:
-  url: http://localhost:5001/
-
 backend:
-  url: http://localhost:5000/
-
   system:
     use_gpu: false
 

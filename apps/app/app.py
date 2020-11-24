@@ -30,6 +30,8 @@ from apps.config import get_cfg_defaults, merge_cfg_from_file_fsspec
 st.set_option('deprecation.showfileUploaderEncoding', False)
 
 config_file = os.environ['CV_PIPELINER_APP_CONFIG']
+backend_url = os.environ['CV_PIPELINER_BACKEND_URL']
+frontend_url = os.environ['CV_PIPELINER_FRONTEND_URL']
 
 cfg = get_cfg_defaults()
 merge_cfg_from_file_fsspec(cfg, config_file)
@@ -43,7 +45,7 @@ def cached_get_label_to_base_label_image(**kwargs) -> Callable[[str], np.ndarray
 
 label_to_base_label_image = cached_get_label_to_base_label_image(base_labels_images=cfg.data.base_labels_images)
 label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
-models_definitions_response = requests.get(urljoin(cfg.backend.url, 'get_available_models/'))
+models_definitions_response = requests.get(urljoin(backend_url, 'get_available_models/'))
 if models_definitions_response.ok:
     models_definitions = json.loads(models_definitions_response.text)
     detection_models_definitions = [
@@ -66,7 +68,7 @@ description_to_classiticaion_model_definition = {
     classification_model_definition.description: classification_model_definition
     for classification_model_definition in classification_models_definitions
 }
-current_model_definition_response = requests.get(urljoin(cfg.backend.url, 'get_current_models/'))
+current_model_definition_response = requests.get(urljoin(backend_url, 'get_current_models/'))
 if current_model_definition_response.ok:
     current_models_definitions = json.loads(current_model_definition_response.text)
     current_detection_model_definition = from_dict(
@@ -101,9 +103,9 @@ detection_model_definition = description_to_detection_model_definition[detection
 classification_model_definition = description_to_classiticaion_model_definition[classification_model_description]
 
 if detection_model_definition.model_index != current_detection_model_definition.model_index:
-    requests.post(urljoin(cfg.backend.url, f'set_detection_model/{detection_model_definition.model_index}'))
+    requests.post(urljoin(backend_url, f'set_detection_model/{detection_model_definition.model_index}'))
 if classification_model_definition.model_index != current_classification_model_definition.model_index:
-    requests.post(urljoin(cfg.backend.url, f'set_classification_model/{classification_model_definition.model_index}'))
+    requests.post(urljoin(backend_url, f'set_classification_model/{classification_model_definition.model_index}'))
 
 st.sidebar.subheader('Detection score threshold')
 detection_score_threshold = st.sidebar.slider(
@@ -234,7 +236,7 @@ if input_type == 'Image':
     )
 elif input_type == "Camera":
     st.markdown(
-        f"# Check your model settings and go to the next url: {cfg.frontend.url}"
+        f"# Check your model settings and go to the next url: {frontend_url}"
     )
 
 
@@ -282,7 +284,7 @@ if input_type == 'Image':
     if run and image_data is not None:
         with st.spinner("Working on your image..."):
             pred_image_data = inference_one_image(
-                backend_url=cfg.backend.url,
+                backend_url=backend_url,
                 detection_model_index=detection_model_definition.model_index,
                 classification_model_index=classification_model_definition.model_index,
                 image_data=image_data,

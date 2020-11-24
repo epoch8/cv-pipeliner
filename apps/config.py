@@ -6,11 +6,7 @@ from yacs.config import CfgNode
 
 cfg = CfgNode()
 
-cfg.frontend = CfgNode()
-cfg.frontend.url = 'http://localhost:5001/'
-
 cfg.backend = CfgNode()
-cfg.backend.url = 'http://localhost:5000/'
 
 cfg.backend.system = CfgNode()
 cfg.backend.system.use_gpu = False
