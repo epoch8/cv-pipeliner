@@ -72,6 +72,11 @@ class RealTimeInferencerData:
 GUID_TO_REALTIME_INFERENCER_DATA = {}  # noqa: E305
 
 
+@app.route('/', methods=['GET'])
+def default():
+    return jsonify(success=True)
+
+
 @app.route('/get_available_models/', methods=['GET'])
 def get_available_models():
     detection_models_definitions = [
