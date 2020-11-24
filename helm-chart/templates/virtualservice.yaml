@@ -18,8 +18,8 @@ spec:
         uri: /
       route:
         - destination:
-            host: "{{ include "helm-chart.app-name" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}"
+            host: "{{ include "helm-chart.app-name" . }}.{{ .Release.Namespace }}.svc.cluster.local"
             port:
-              number: 80
+              number: {{ .Values.service.port }}
       timeout: 300s
 {{- end }}

@@ -49,6 +49,11 @@ app:
   #   mountPath: /notebooks/ceph-data
 
 frontend:
+  image:
+    repository: eu.gcr.io/e8-gke/cv-pipeliner-frontend
+    pullPolicy: IfNotPresent
+    version: 0.1.0
+
   resources: {}
   volumeMounts: []
 
