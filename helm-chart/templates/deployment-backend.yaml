@@ -33,12 +33,12 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: backend
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- with .Values.backend.volumeMounts }}
+          {{- with .Values.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -58,8 +58,11 @@ spec:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           {{- with .Values.env }}
           env:
+            - name: FLASK_APP
+              value: apps/backend/app.py
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          command: ["flask", "run", "--host", "0.0.0.0", "--port", "80", "--without-threads"]
       volumes:
         - name: ceph-data
           persistentVolumeClaim:
