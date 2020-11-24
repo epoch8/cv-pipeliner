@@ -33,7 +33,7 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: app
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -60,6 +60,7 @@ spec:
           env:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          command: ["streamlit", "run", "apps/app/app.py", "--server.port", "80"]
       {{- with .Values.volumes }}
       volumes:
         {{- toYaml . | nindent 8 }}
