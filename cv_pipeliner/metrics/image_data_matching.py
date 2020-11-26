@@ -98,7 +98,7 @@ class BboxDataMatching:
                 (true_label not in filter_by_labels and pred_label not in filter_by_labels):
             return None
 
-        if filter_by_labels is not None and filter_only_true_label and true_label not in filter_by_labels:
+        if filter_by_labels is not None and filter_only_true_labels and true_label not in filter_by_labels:
             return None
 
         # true_bbox is found:
@@ -244,12 +244,12 @@ class ImageDataMatching:
     def get_pipeline_errors_types(
         self,
         filter_by_labels: List[str] = None,
-        filter_only_true_label: bool = False
+        filter_only_true_labels: bool = False
     ) -> List[Literal["TP", "FP", "FN",  "TP (extra bbox)", "FP (extra bbox)"]]:
         pipeline_errors_types = [
             bbox_data_matching.get_pipeline_error_type(
                 filter_by_labels=filter_by_labels,
-                filter_only_true_label=filter_only_true_label
+                filter_only_true_labels=filter_only_true_labels
             )
             for bbox_data_matching in self.bboxes_data_matchings
         ]
@@ -299,13 +299,13 @@ class ImageDataMatching:
         self,
         filter_by_labels: List[str]
     ) -> int:
-        return self.get_pipeline_errors_types(filter_by_labels, filter_only_true_label=True).count("TP")
+        return self.get_pipeline_errors_types(filter_by_labels, filter_only_true_labels=True).count("TP")
 
     def get_classification_errors_count_on_true_bboxes(
         self,
         filter_by_labels: List[str] = None
     ) -> int:
-        return self.get_pipeline_errors_types(filter_by_labels, filter_only_true_label=True).count("FP")
+        return self.get_pipeline_errors_types(filter_by_labels, filter_only_true_labels=True).count("FP")
 
     def find_bbox_data_matching(
         self,
