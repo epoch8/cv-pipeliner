@@ -28,12 +28,12 @@ class BatchGeneratorBboxData(BatchGenerator):
             if bbox_data.image_path is not None
         ], return_index=True)
         unique_image_idx_to_image = {
-            unique_image_idx: batch[unique_image_idx].open_image()
-            for unique_image_idx in unique_image_idxs
+            unique_image_path: batch[unique_image_idx].open_image()
+            for unique_image_path, unique_image_idx in zip(unique_image_paths, unique_image_idxs)
         }
         for bbox_data in batch:
             source_image = (
-                unique_image_idx_to_image[unique_image_paths.index(bbox_data.image_path)]
+                unique_image_idx_to_image[bbox_data.image_path]
                 if bbox_data.image_path is not None
                 else None
             )
