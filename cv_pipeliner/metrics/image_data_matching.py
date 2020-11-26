@@ -37,48 +37,34 @@ class BboxDataMatching:
             The matching is False Positive.
 
     For Pipeline:
-        There are 2 ways to get error type: strict and soft.
-
         Classification model can know only part of all possible labels.
-        We use List[str] of these labels and call it known_labels (argument 'use_soft_metrics_with_known_labels').
-        Soft error type shows how pipeline works with using only it's known_labels.
-        The only difference between Strict and Soft is an additional condition
-            in "true_bbox_data is matched to the pred_bbox_data".
+        We use List[str] of these labels and call it known_class_names.
 
         If classifier should make right predictions on extra bboxes by some class
-        (for example, "trash"), then the argument extra_bbox_label should be annotated by this class.
+        (for example, "trash"), then the argument extra_bbox_label should be given as this class.
 
 
         (detection) If true_bbox_data is matched to the pred_bbox_data:
-            Strict:
                 (classification) If true_bbox_data.label == pred_bbox_data.label, then matching is True Positive.
                 (classification) If true_bbox_data.label != pred_bbox_data.label, then matching is False Positive.
-
-            Soft:
-                If true_bbox_data.label in known_labels:
-                    (classification) If true_bbox_data.label == pred_bbox_data.label, then matching is True Positive.
-                    (classification) If true_bbox_data.label != pred_bbox_data.label, then matching is False Positive.
-                If true_bbox_data.label not in known_labels and pred_bbox_data.label in known_labels:
-                    Then matching is True Positive
 
         (detection) If true_bbox_data not matched to the pred_bbox_data (true_bbox_data isn't found):
             The matching is False Negative.
 
         (detection) If pred_bbox_data isn't matched to any true_bbox_data (extra bbox):
             If extra_bbox_label is given:
-                (classification) If pred_bbox_data.label == extra_bbox_label, then matching is True Positive.
-                (classification) If pred_bbox_data.label != extra_bbox_label, then matching is False Positive.
+                (classification) If pred_bbox_data.label == extra_bbox_label, then matching is True Positive (extra bbox).
+                (classification) If pred_bbox_data.label != extra_bbox_label, then matching is False Positive (extra bbox).
             If extra_bbox_label is not given:
-                The matching is False Positive
+                The matching is False Positive (extra bbox)
     '''
     true_bbox_data: BboxData = None
     pred_bbox_data: BboxData = None
     extra_bbox_label: str = None
-    use_soft_metrics_with_known_labels: List[str] = None
 
     def get_detection_error_type(
         self,
-        filter_by_labels: str = None
+        filter_by_labels: List[str] = None
     ) -> Literal[None, "TP", "FP", "FN"]:
         if filter_by_labels is not None and self.true_bbox_data is not None and \
                 self.true_bbox_data.label != filter_by_labels:
@@ -95,8 +81,8 @@ class BboxDataMatching:
 
     def get_pipeline_error_type(
         self,
-        filter_by_labels: str = None,
-        filter_only_true_label: bool = False
+        filter_by_labels: List[str] = None,
+        filter_only_true_labels: bool = False
     ) -> Literal[None, "TP", "FP", "FN", "TP (extra bbox)", "FP (extra bbox)"]:
 
         for bbox_data in [self.true_bbox_data, self.pred_bbox_data]:
@@ -109,32 +95,22 @@ class BboxDataMatching:
         assert true_label is not None or pred_label is not None
 
         if filter_by_labels is not None and \
-                (true_label != filter_by_labels and pred_label != filter_by_labels):
+                (true_label not in filter_by_labels and pred_label not in filter_by_labels):
             return None
 
-        if filter_by_labels is not None and filter_only_true_label and true_label != filter_by_labels:
+        if filter_by_labels is not None and filter_only_true_label and true_label not in filter_by_labels:
             return None
 
-        # true_bbox is found and labels are equal:
+        # true_bbox is found:
         if self.true_bbox_data is not None and self.pred_bbox_data is not None:
-            if self.use_soft_metrics_with_known_labels is None:  # Strict
-                if true_label == pred_label:
-                    return "TP"
-                else:
-                    return "FP"
-            else:  # Soft
-                if true_label in self.use_soft_metrics_with_known_labels:
-                    if true_label == pred_label:
-                        return "TP"
-                    else:
-                        return "FP"
-                else:
-                    return "TP"
-
+            # if labels are equal
+            if true_label == pred_label:
+                return "TP"
+            else:
+                return "FP"
         # true_bbox is not found:
         elif self.true_bbox_data is not None and self.pred_bbox_data is None:
             return "FN"
-
         # pred_bbox is an extra
         elif self.true_bbox_data is None and self.pred_bbox_data is not None:
             # should be equal to extra_bbox_label if given, else it's FP
@@ -142,6 +118,7 @@ class BboxDataMatching:
                 return "TP (extra bbox)"
             else:
                 return "FP (extra bbox)"
+
 
     @property
     def iou(self):
@@ -162,8 +139,7 @@ class ImageDataMatching:
     true_image_data: ImageData
     pred_image_data: ImageData
     minimum_iou: float
-    extra_bbox_label: str = None
-    use_soft_metrics_with_known_labels: List[str] = None
+    extra_bbox_label: str
     bboxes_data_matchings: List[BboxDataMatching]
 
     def __init__(
@@ -171,8 +147,7 @@ class ImageDataMatching:
         true_image_data: ImageData,
         pred_image_data: ImageData,
         minimum_iou: float,
-        extra_bbox_label: str = None,
-        use_soft_metrics_with_known_labels: List[str] = None
+        extra_bbox_label: str = None
     ):
         self.true_image_data = true_image_data
         self.pred_image_data = pred_image_data
@@ -181,8 +156,7 @@ class ImageDataMatching:
             true_image_data=true_image_data,
             pred_image_data=pred_image_data,
             minimum_iou=minimum_iou,
-            extra_bbox_label=extra_bbox_label,
-            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+            extra_bbox_label=extra_bbox_label
         )
 
     def _get_bboxes_data_matchings(
@@ -190,8 +164,7 @@ class ImageDataMatching:
         true_image_data: ImageData,
         pred_image_data: ImageData,
         minimum_iou: float,
-        extra_bbox_label: str,
-        use_soft_metrics_with_known_labels: List[str]
+        extra_bbox_label: str = None
     ) -> List[BboxDataMatching]:
 
         true_bboxes_data = true_image_data.bboxes_data
@@ -239,22 +212,19 @@ class ImageDataMatching:
                 bboxes_data_matchings.append(BboxDataMatching(
                     true_bbox_data=true_bbox_data,
                     pred_bbox_data=best_pred_bbox_data,
-                    extra_bbox_label=extra_bbox_label,
-                    use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+                    extra_bbox_label=extra_bbox_label
                 ))
             else:
                 bboxes_data_matchings.append(BboxDataMatching(
                     true_bbox_data=true_bbox_data,
                     pred_bbox_data=None,
-                    extra_bbox_label=extra_bbox_label,
-                    use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+                    extra_bbox_label=extra_bbox_label
                 ))
         for pred_bbox_data in remained_pred_bboxes_data:
             bboxes_data_matchings.append(BboxDataMatching(
                 true_bbox_data=None,
                 pred_bbox_data=pred_bbox_data,
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+                extra_bbox_label=extra_bbox_label
             ))
         return bboxes_data_matchings
 
@@ -273,7 +243,7 @@ class ImageDataMatching:
 
     def get_pipeline_errors_types(
         self,
-        filter_by_labels: str = None,
+        filter_by_labels: List[str] = None,
         filter_only_true_label: bool = False
     ) -> List[Literal["TP", "FP", "FN",  "TP (extra bbox)", "FP (extra bbox)"]]:
         pipeline_errors_types = [
@@ -297,43 +267,43 @@ class ImageDataMatching:
 
     def get_pipeline_TP(
         self,
-        filter_by_labels: str = None
+        filter_by_labels: List[str] = None
     ) -> int:
         return self.get_pipeline_errors_types(filter_by_labels).count("TP")
 
     def get_pipeline_FP(
         self,
-        filter_by_labels: str = None
+        filter_by_labels: List[str] = None
     ) -> int:
         return self.get_pipeline_errors_types(filter_by_labels).count("FP")
 
     def get_pipeline_FN(
         self,
-        filter_by_labels: str = None
+        filter_by_labels: List[str] = None
     ) -> int:
         return self.get_pipeline_errors_types(filter_by_labels).count("FN")
 
     def get_pipeline_TP_extra_bbox(
         self,
-        filter_by_labels: str = None
+        filter_by_labels: List[str] = None
     ) -> int:
         return self.get_pipeline_errors_types(filter_by_labels).count("TP (extra bbox)")
 
     def get_pipeline_FP_extra_bbox(
         self,
-        filter_by_labels: str = None
+        filter_by_labels: List[str] = None
     ) -> int:
         return self.get_pipeline_errors_types(filter_by_labels).count("FP (extra bbox)")
 
     def get_classification_correct_count_on_true_bboxes(
         self,
-        filter_by_labels: str
+        filter_by_labels: List[str]
     ) -> int:
         return self.get_pipeline_errors_types(filter_by_labels, filter_only_true_label=True).count("TP")
 
     def get_classification_errors_count_on_true_bboxes(
         self,
-        filter_by_labels: str = None
+        filter_by_labels: List[str] = None
     ) -> int:
         return self.get_pipeline_errors_types(filter_by_labels, filter_only_true_label=True).count("FP")
 

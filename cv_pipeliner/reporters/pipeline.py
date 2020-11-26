@@ -53,8 +53,7 @@ def pipeline_interactive_work(
 @dataclass
 class PipelineReportData:
     df_detection_metrics: pd.DataFrame = None
-    df_pipeline_metrics_strict: pd.DataFrame = None
-    df_pipeline_metrics_soft: pd.DataFrame = None
+    df_pipeline_metrics: pd.DataFrame = None
     df_detection_metrics_short: pd.DataFrame = None
     df_pipeline_metrics_short: pd.DataFrame = None
     df_correct_preds: pd.DataFrame = None
@@ -65,31 +64,27 @@ class PipelineReportData:
     def __init__(
         self,
         df_detection_metrics: pd.DataFrame = None,
-        df_pipeline_metrics_strict: pd.DataFrame = None,
-        df_pipeline_metrics_soft: pd.DataFrame = None,
+        df_pipeline_metrics: pd.DataFrame = None,
         tag: str = None,
         collect_the_rest: bool = True
     ):
         self.df_detection_metrics = df_detection_metrics.copy()
-        self.df_pipeline_metrics_strict = df_pipeline_metrics_strict.copy()
-        self.df_pipeline_metrics_soft = df_pipeline_metrics_soft.copy()
+        self.df_pipeline_metrics = df_pipeline_metrics.copy()
 
         if not collect_the_rest:
             return
 
         self.df_detection_metrics_short = df_detection_metrics.loc[['precision', 'recall']].copy()
         self.df_pipeline_metrics_short = self._get_df_pipeline_metrics_short(
-            df_pipeline_metrics_strict=df_pipeline_metrics_strict,
-            df_pipeline_metrics_soft=df_pipeline_metrics_soft
+            df_pipeline_metrics=df_pipeline_metrics
         )
         self.df_correct_preds = pd.DataFrame({
             'TP (detector)': [df_detection_metrics.loc['TP', 'value']],
-            'TP (pipeline)': [df_pipeline_metrics_strict.loc['micro_average', 'TP']]
+            'TP (pipeline)': [df_pipeline_metrics.loc['micro_average', 'TP']]
         }, index=['value'], dtype=int).T
         self.df_incorrect_preds = self._get_df_incorrect_preds(
             df_detection_metrics=df_detection_metrics,
-            df_pipeline_metrics_strict=df_pipeline_metrics_strict,
-            df_pipeline_metrics_soft=df_pipeline_metrics_soft
+            df_pipeline_metrics=df_pipeline_metrics
         )
         self.df_incorrect_preds_percentage = (
             self.df_incorrect_preds[['value']] / self.df_incorrect_preds['value'].sum() * 100
@@ -105,39 +100,32 @@ class PipelineReportData:
 
     def _get_df_pipeline_metrics_short(
         self,
-        df_pipeline_metrics_strict: pd.DataFrame,
-        df_pipeline_metrics_soft: pd.DataFrame
+        df_pipeline_metrics: pd.DataFrame
     ) -> pd.DataFrame:
-        df_strict = df_pipeline_metrics_strict.loc[['weighted_average'], ['precision', 'recall']]
-        df_soft = df_pipeline_metrics_soft.loc[['weighted_average'], ['precision', 'recall']]
-        df_pipeline_metrics_short = pd.concat([df_strict, df_soft], axis=1).T
-        df_pipeline_metrics_short.index = [
-            'precision (strict)', 'recall (strict)', 'precision (soft)', 'recall (soft)'
-        ]
-        df_pipeline_metrics_short.columns = ['value']
+        df_pipeline_metrics_short = df_pipeline_metrics.loc[
+            ['weighted_average'], ['precision', 'recall']
+        ].T
         return df_pipeline_metrics_short
 
     def _get_df_incorrect_preds(
         self,
         df_detection_metrics: pd.DataFrame,
-        df_pipeline_metrics_strict: pd.DataFrame,
-        df_pipeline_metrics_soft: pd.DataFrame
+        df_pipeline_metrics: pd.DataFrame,
     ) -> pd.DataFrame:
-        df_all_class_names = df_pipeline_metrics_soft[df_pipeline_metrics_soft['is known by classifier'].notna()]
+        df_all_class_names = df_pipeline_metrics[df_pipeline_metrics['is known by classifier'].notna()]
         uknown_classes = df_all_class_names[~df_all_class_names['is known by classifier'].astype(bool)].index
         df_incorrect_preds = pd.DataFrame({
             'FP (detector)': [df_detection_metrics.loc['FP', 'value']],
             'FN (detector)': [df_detection_metrics.loc['FN', 'value']],
-            'FP (classifier, known classes)': [df_pipeline_metrics_soft.loc['micro_average', 'FP']],
-            'FP (classifier, unknown classes)': [df_pipeline_metrics_strict.loc[uknown_classes, 'FP'].sum()]
+            'FP (classifier, known classes)': [df_pipeline_metrics.loc['known_micro_average', 'FP']],
+            'FP (classifier, unknown classes)': [df_pipeline_metrics.loc[uknown_classes, 'FP'].sum()]
         }, index=['value'], dtype=int).T
         return df_incorrect_preds
 
     def get_all_dfs(self) -> List[pd.DataFrame]:
         return [
             self.df_detection_metrics,
-            self.df_pipeline_metrics_strict,
-            self.df_pipeline_metrics_soft,
+            self.df_pipeline_metrics,
             self.df_detection_metrics_short,
             self.df_pipeline_metrics_short,
             self.df_correct_preds,
@@ -164,23 +152,10 @@ def concat_pipelines_reports_datas(
         tags=tags,
         compare_tag=compare_tag
     )
-    df_pipeline_metrics_strict = transpose_columns_and_write_diffs_to_df_with_tags(
+    df_pipeline_metrics = transpose_columns_and_write_diffs_to_df_with_tags(
         df_with_tags=pd.concat(
             [
-                tag_pipeline_report_data.df_pipeline_metrics_strict
-                for tag_pipeline_report_data in pipelines_reports_datas
-            ],
-            axis=1,
-            join='outer'
-        ).sort_values(by=f'support [{compare_tag}]', ascending=False),
-        columns=df_pipeline_metrics_columns,
-        tags=tags,
-        compare_tag=compare_tag
-    )
-    df_pipeline_metrics_soft = transpose_columns_and_write_diffs_to_df_with_tags(
-        df_with_tags=pd.concat(
-            [
-                tag_pipeline_report_data.df_pipeline_metrics_soft
+                tag_pipeline_report_data.df_pipeline_metrics
                 for tag_pipeline_report_data in pipelines_reports_datas
             ],
             axis=1,
@@ -192,8 +167,7 @@ def concat_pipelines_reports_datas(
     )
     pipeline_report_data = PipelineReportData(
         df_detection_metrics=df_detection_metrics,
-        df_pipeline_metrics_strict=df_pipeline_metrics_strict,
-        df_pipeline_metrics_soft=df_pipeline_metrics_soft,
+        df_pipeline_metrics=df_pipeline_metrics,
         collect_the_rest=False
     )
     pipeline_report_data.df_detection_metrics_short = transpose_columns_and_write_diffs_to_df_with_tags(
@@ -301,11 +275,7 @@ class PipelineReporter(Reporter):
         )
         markdowns.append(
             f'## Pipeline metrics (strict)''\n'
-            f'{pipeline_report_data.df_pipeline_metrics_strict.to_markdown(stralign="center")}''\n'
-        )
-        markdowns.append(
-            f'## Pipeline metrics (soft)''\n'
-            f'{pipeline_report_data.df_pipeline_metrics_soft.to_markdown(stralign="center")}''\n'
+            f'{pipeline_report_data.df_pipeline_metrics.to_markdown(stralign="center")}''\n'
         )
         markdowns.append(
             '---'
@@ -355,8 +325,9 @@ pipeline_interactive_work(
         true_images_data: List[ImageData],
         detection_score_threshold: float,
         minimum_iou: float,
-        extra_bbox_label: str = None,
-        batch_size: int = 16
+        extra_bbox_label: str,
+        batch_size: int,
+        pseudo_class_names: List[str]
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         model = model_spec.load()
         inferencer = PipelineInferencer(model)
@@ -367,16 +338,11 @@ pipeline_interactive_work(
             true_images_data=true_images_data,
             pred_images_data=pred_images_data,
             minimum_iou=minimum_iou,
-            extra_bbox_label=extra_bbox_label
-        )
-        df_pipeline_metrics_soft = get_df_pipeline_metrics(
-            true_images_data=true_images_data,
-            pred_images_data=pred_images_data,
-            minimum_iou=minimum_iou,
             extra_bbox_label=extra_bbox_label,
-            use_soft_metrics_with_known_labels=model.class_names
+            pseudo_class_names=pseudo_class_names,
+            known_class_names=model.class_names
         )
-        return df_pipeline_metrics, df_pipeline_metrics_soft
+        return df_pipeline_metrics
 
     def _inference_detection_and_get_metrics(
         self,
@@ -442,7 +408,8 @@ pipeline_interactive_work(
         output_directory: Union[str, Path],
         true_images_data: List[ImageData],
         minimum_iou: float,
-        batch_size: int = 16
+        batch_size: int = 16,
+        pseudo_class_names: List[str] = ['trash', 'not_part', 'other']
     ):
         assert len(models_specs) == len(tags)
         assert len(tags) == len(detection_scores_thresholds)
@@ -461,19 +428,19 @@ pipeline_interactive_work(
                 minimum_iou=minimum_iou,
                 batch_size=batch_size
             )
-            tag_df_pipeline_metrics_strict, tag_df_pipeline_metrics_soft = self._inference_pipeline_and_get_metrics(
+            tag_df_pipeline_metrics = self._inference_pipeline_and_get_metrics(
                 model_spec=model_spec,
                 true_images_data=true_images_data,
                 detection_score_threshold=detection_score_threshold,
                 minimum_iou=minimum_iou,
                 extra_bbox_label=extra_bbox_label,
-                batch_size=batch_size
+                batch_size=batch_size,
+                pseudo_class_names=pseudo_class_names
             )
 
             pipelines_reports_datas.append(PipelineReportData(
                 df_detection_metrics=tag_df_detection_metrics,
-                df_pipeline_metrics_strict=tag_df_pipeline_metrics_strict,
-                df_pipeline_metrics_soft=tag_df_pipeline_metrics_soft,
+                df_pipeline_metrics=tag_df_pipeline_metrics,
                 tag=tag
             ))
 
