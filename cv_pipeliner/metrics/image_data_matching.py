@@ -115,17 +115,20 @@ class ImageDataMatching:
         true_image_data: ImageData,
         pred_image_data: ImageData,
         minimum_iou: float,
-        extra_bbox_label: str = None
+        extra_bbox_label: str = None,
+        bboxes_data_matchings: List[BboxDataMatching] = None
     ):
         self.true_image_data = true_image_data
         self.pred_image_data = pred_image_data
         self.minimum_iou = minimum_iou
-        self.bboxes_data_matchings = self._get_bboxes_data_matchings(
-            true_image_data=true_image_data,
-            pred_image_data=pred_image_data,
-            minimum_iou=minimum_iou,
-            extra_bbox_label=extra_bbox_label
-        )
+        self.extra_bbox_label = extra_bbox_label
+        if self.bboxes_data_matchings is None:
+            self.bboxes_data_matchings = self._get_bboxes_data_matchings(
+                true_image_data=true_image_data,
+                pred_image_data=pred_image_data,
+                minimum_iou=minimum_iou,
+                extra_bbox_label=extra_bbox_label
+            )
 
     def _get_bboxes_data_matchings(
         self,

@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 from cv_pipeliner.core.data import ImageData
-from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
+from cv_pipeliner.metrics.image_data_matching import BboxDataMatching, ImageDataMatching
 
 
 def _count_errors_types_and_get_pipeline_metrics_per_class(
@@ -16,9 +16,25 @@ def _count_errors_types_and_get_pipeline_metrics_per_class(
     pipeline_metrics_per_class = {}
     if filter_by_true_labels:
         images_data_matchings = [
-            image_data_matching
+            ImageDataMatching(
+                true_image_data=image_data_matching.true_image_data,
+                pred_image_data=image_data_matching.pred_image_data,
+                minimum_iou=image_data_matching.minimum_iou,
+                extra_bbox_label=image_data_matching.extra_bbox_label,
+                bboxes_data_matchings=[
+                    BboxDataMatching(
+                        true_bbox_data=bbox_data_matching.true_bbox_data,
+                        pred_bbox_data=bbox_data_matching.pred_bbox_data,
+                        extra_bbox_label=bbox_data_matching.extra_bbox_label
+                    )
+                    for bbox_data_matching in image_data_matching.bboxes_data_matchings
+                    if (
+                        bbox_data_matching.true_bbox_data is not None
+                        and bbox_data_matching.true_bbox_data.label in labels
+                    )
+                ]
+            )
             for image_data_matching in images_data_matchings
-            if image_data_matching.true_bbox_data is not None and image_data_matching.true_bbox_data.label in labels
         ]
     true_labels = np.array([
         image_data_matching.true_bbox_data.label
