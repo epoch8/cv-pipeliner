@@ -134,9 +134,9 @@ class PipelineVisualizer(Visualizer):
             choices_description='GT',
             choices2=(
                 [
-                    'TP+TP (extra bbox)+FP+FP (extra bbox)',
-                    'FP+FP (extra bbox)',
-                    'TP', 'TP (extra bbox)', 'FP', 'FP (extra bbox)'
+                    'TP+TP (extra bbox)+FP+FP (extra bbox)+FN (extra bbox)',
+                    'FP+FP (extra bbox)+FN (extra bbox)',
+                    'TP', 'TP (extra bbox)', 'FP', 'FP (extra bbox)', 'FN (extra bbox)'
                 ]
                 if self.inferencer is not None and show_TP_FP_FN_with_minimum_iou is not None else []
             ),

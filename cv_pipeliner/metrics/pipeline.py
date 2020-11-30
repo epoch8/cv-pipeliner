@@ -45,24 +45,24 @@ def _count_errors_types_and_get_pipeline_metrics_per_class(
     for class_name in labels:
         support_by_class_name = np.sum(true_labels == class_name)
         TP_by_class_name = np.sum([
-            image_data_matching.get_pipeline_TP(filter_by_label=class_name)
+            image_data_matching.get_pipeline_TP(label=class_name)
             for image_data_matching in images_data_matchings
         ])
-        FP_by_class_name = np.sum(
-            image_data_matching.get_pipeline_FP(filter_by_label=class_name)
+        FP_by_class_name = np.sum([
+            image_data_matching.get_pipeline_FP(label=class_name)
             for image_data_matching in images_data_matchings
-        )
+        ])
         if class_name != extra_bbox_label:
             TP_extra_bbox_by_class_name = np.sum([
-                image_data_matching.get_pipeline_TP_extra_bbox(filter_by_label=class_name)
+                image_data_matching.get_pipeline_TP_extra_bbox(label=class_name)
                 for image_data_matching in images_data_matchings
             ])
             FP_extra_bbox_by_class_name = np.sum([
-                image_data_matching.get_pipeline_FP_extra_bbox(filter_by_label=class_name)
+                image_data_matching.get_pipeline_FP_extra_bbox(label=class_name)
                 for image_data_matching in images_data_matchings
             ])
             FN_extra_bbox_by_class_name = np.sum([
-                image_data_matching.get_pipeline_FN_extra_bbox(filter_by_label=class_name)
+                image_data_matching.get_pipeline_FN_extra_bbox(label=class_name)
                 for image_data_matching in images_data_matchings
             ])
         else:
@@ -70,7 +70,7 @@ def _count_errors_types_and_get_pipeline_metrics_per_class(
             FP_extra_bbox_by_class_name = None
             FN_extra_bbox_by_class_name = None
         FN_by_class_name = np.sum([
-            image_data_matching.get_pipeline_FN(filter_by_label=class_name)
+            image_data_matching.get_pipeline_FN(label=class_name)
             for image_data_matching in images_data_matchings
         ])
         TP_extra_bbox_in_precision_numerator = (
@@ -253,15 +253,15 @@ def get_df_pipeline_metrics(
         class_name_caption = f"{class_name} (pseudo-class)" if class_name in pseudo_class_names else class_name
         pipeline_metrics[class_name_caption] = pipeline_metrics_per_class_all_class_names[class_name]
     TP_extra_bbox = np.sum([
-        image_data_matching.get_pipeline_TP_extra_bbox(filter_by_label=extra_bbox_label)
+        image_data_matching.get_pipeline_TP_extra_bbox(label=extra_bbox_label)
         for image_data_matching in images_data_matchings
     ])
     FP_extra_bbox = np.sum([
-        image_data_matching.get_pipeline_FP_extra_bbox(filter_by_label=extra_bbox_label)
+        image_data_matching.get_pipeline_FP_extra_bbox(label=extra_bbox_label)
         for image_data_matching in images_data_matchings
     ])
     FN_extra_bbox = np.sum([
-        image_data_matching.get_pipeline_FN_extra_bbox(filter_by_label=extra_bbox_label)
+        image_data_matching.get_pipeline_FN_extra_bbox(label=extra_bbox_label)
         for image_data_matching in images_data_matchings
     ])
     precision_extra_bbox = TP_extra_bbox / max(TP_extra_bbox + FP_extra_bbox, 1e-6)

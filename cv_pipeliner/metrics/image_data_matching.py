@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Literal, List
 
 import numpy as np
+import dataframe_image as dfi
 
 from cv_pipeliner.core.data import BboxData, ImageData
 
@@ -28,18 +29,19 @@ class BboxDataMatching:
     '''
     true_bbox_data: BboxData = None
     pred_bbox_data: BboxData = None
-    extra_bbox_label: str = "trash"
-
+    extra_bbox_label: str = None
 
     def __post_init__(self):
+        if self.extra_bbox_label is None:
+            self.extra_bbox_label = "trash"
         self._iou = intersection_over_union(self.true_bbox_data, self.pred_bbox_data)
 
     def get_detection_error_type(
         self,
-        filter_by_label: str = None
+        label: str = None
     ) -> Literal["TP", "TN", "FP", "FN"]:
-        if filter_by_label is not None and self.true_bbox_data is not None and \
-                self.true_bbox_data.label != filter_by_label:
+        if label is not None and self.true_bbox_data is not None and \
+                self.true_bbox_data.label != label:
             return "TN"
         # true_bbox is found:
         if self.true_bbox_data is not None and self.pred_bbox_data is not None:
@@ -53,7 +55,7 @@ class BboxDataMatching:
 
     def get_pipeline_error_type(
         self,
-        filter_by_label: str = None
+        label: str = None
     ) -> Literal["TP", "TN", "FP", "FN", "TP (extra bbox)", "TN (extra bbox)", "FP (extra bbox)", "FN (extra bbox)"]:
 
         for bbox_data in [self.true_bbox_data, self.pred_bbox_data]:
@@ -64,34 +66,48 @@ class BboxDataMatching:
         pred_label = self.pred_bbox_data.label if self.pred_bbox_data is not None else None
 
         assert true_label is not None or pred_label is not None
-        assert isinstance(filter_by_label, str)
 
         # true_bbox is found:
         if self.true_bbox_data is not None and self.pred_bbox_data is not None:
-            if true_label != filter_by_label and pred_label != filter_by_label:
-                return "TN"
-            elif true_label == filter_by_label and pred_label == filter_by_label:
-                return "TP"
-            elif true_label != filter_by_label and pred_label == filter_by_label:
-                return "FP"
+            if label is None:
+                if true_label != pred_label:
+                    return "FP"
+                else:
+                    return "TP"
             else:
-                return "FN"
+                if true_label != label and pred_label != label:
+                    return "TN"
+                elif true_label == label and pred_label == label:
+                    return "TP"
+                elif true_label != label and pred_label == label:
+                    return "FP"
+                else:
+                    return "FN"
         # true_bbox is not found:
         elif self.true_bbox_data is not None and self.pred_bbox_data is None:
-            if true_label == filter_by_label:
+            if label is None:
                 return "FN"
             else:
-                return "TN"
+                if true_label == label:
+                    return "FN"
+                else:
+                    return "TN"
         # pred_bbox is an extra
         elif self.true_bbox_data is None and self.pred_bbox_data is not None:
-            if filter_by_label != self.extra_bbox_label and pred_label != filter_by_label:
-                return "TN (extra bbox)"
-            elif filter_by_label == self.extra_bbox_label and pred_label == filter_by_label:
-                return "TP (extra bbox)"
-            elif filter_by_label != self.extra_bbox_label and pred_label == filter_by_label:
-                return "FP (extra bbox)"
+            if label is None:
+                if pred_label != self.extra_bbox_label:
+                    return "FP (extra bbox)"
+                else:
+                    return "TP (extra bbox)"
             else:
-                return "FN (extra bbox)"
+                if label != self.extra_bbox_label and pred_label != label:
+                    return "TN (extra bbox)"
+                elif label == self.extra_bbox_label and pred_label == label:
+                    return "TP (extra bbox)"
+                elif label != self.extra_bbox_label and pred_label == label:
+                    return "FP (extra bbox)"
+                else:
+                    return "FN (extra bbox)"
 
     @property
     def iou(self):
@@ -208,11 +224,11 @@ class ImageDataMatching:
 
     def get_detection_errors_types(
         self,
-        filter_by_label: str
+        label: str = None
     ) -> List[Literal["TP", "FP", "FN"]]:
         detection_errors_types = [
             bbox_data_matching.get_detection_error_type(
-                filter_by_label=filter_by_label
+                label=label
             )
             for bbox_data_matching in self.bboxes_data_matchings
         ]
@@ -221,61 +237,61 @@ class ImageDataMatching:
 
     def get_pipeline_errors_types(
         self,
-        filter_by_label: str
+        label: str = None
     ) -> List[Literal["TP", "FP", "FN", "TP (extra bbox)", "FP (extra bbox)"]]:
         pipeline_errors_types = [
             bbox_data_matching.get_pipeline_error_type(
-                filter_by_label=filter_by_label
+                label=label
             )
             for bbox_data_matching in self.bboxes_data_matchings
         ]
         pipeline_errors_types = [error_type for error_type in pipeline_errors_types if error_type is not None]
         return pipeline_errors_types
 
-    def get_detection_TP(self, filter_by_label: str) -> int:
-        return self.get_detection_errors_types(filter_by_label).count("TP")
+    def get_detection_TP(self, label: str = None) -> int:
+        return self.get_detection_errors_types(label).count("TP")
 
     def get_detection_FP(self) -> int:
         return self.get_detection_errors_types().count("FP")
 
-    def get_detection_FN(self, filter_by_label: str) -> int:
-        return self.get_detection_errors_types(filter_by_label).count("FN")
+    def get_detection_FN(self, label: str = None) -> int:
+        return self.get_detection_errors_types(label).count("FN")
 
     def get_pipeline_TP(
         self,
-        filter_by_label: str
+        label: str = None
     ) -> int:
-        return self.get_pipeline_errors_types(filter_by_label).count("TP")
+        return self.get_pipeline_errors_types(label).count("TP")
 
     def get_pipeline_FP(
         self,
-        filter_by_label: str
+        label: str = None
     ) -> int:
-        return self.get_pipeline_errors_types(filter_by_label).count("FP")
+        return self.get_pipeline_errors_types(label).count("FP")
 
     def get_pipeline_FN(
         self,
-        filter_by_label: str
+        label: str = None
     ) -> int:
-        return self.get_pipeline_errors_types(filter_by_label).count("FN")
+        return self.get_pipeline_errors_types(label).count("FN")
 
     def get_pipeline_TP_extra_bbox(
         self,
-        filter_by_label: str
+        label: str = None
     ) -> int:
-        return self.get_pipeline_errors_types(filter_by_label).count("TP (extra bbox)")
+        return self.get_pipeline_errors_types(label).count("TP (extra bbox)")
 
     def get_pipeline_FP_extra_bbox(
         self,
-        filter_by_label: str
+        label: str = None
     ) -> int:
-        return self.get_pipeline_errors_types(filter_by_label).count("FP (extra bbox)")
-    
+        return self.get_pipeline_errors_types(label).count("FP (extra bbox)")
+
     def get_pipeline_FN_extra_bbox(
         self,
-        filter_by_label: str
+        label: str = None
     ) -> int:
-        return self.get_pipeline_errors_types(filter_by_label).count("FN (extra bbox)")
+        return self.get_pipeline_errors_types(label).count("FN (extra bbox)")
 
     def find_bbox_data_matching(
         self,
