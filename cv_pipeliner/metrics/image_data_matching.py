@@ -28,7 +28,11 @@ class BboxDataMatching:
     '''
     true_bbox_data: BboxData = None
     pred_bbox_data: BboxData = None
-    extra_bbox_label: str = None
+    extra_bbox_label: str = "trash"
+
+
+    def __post_init__(self):
+        self._iou = intersection_over_union(self.true_bbox_data, self.pred_bbox_data)
 
     def get_detection_error_type(
         self,
@@ -49,7 +53,7 @@ class BboxDataMatching:
 
     def get_pipeline_error_type(
         self,
-        filter_by_label: str
+        filter_by_label: str = None
     ) -> Literal["TP", "TN", "FP", "FN", "TP (extra bbox)", "TN (extra bbox)", "FP (extra bbox)", "FN (extra bbox)"]:
 
         for bbox_data in [self.true_bbox_data, self.pred_bbox_data]:
@@ -60,6 +64,7 @@ class BboxDataMatching:
         pred_label = self.pred_bbox_data.label if self.pred_bbox_data is not None else None
 
         assert true_label is not None or pred_label is not None
+        assert isinstance(filter_by_label, str)
 
         # true_bbox is found:
         if self.true_bbox_data is not None and self.pred_bbox_data is not None:
@@ -90,7 +95,7 @@ class BboxDataMatching:
 
     @property
     def iou(self):
-        return intersection_over_union(self.true_bbox_data, self.pred_bbox_data)
+        return self._iou
 
 
 @dataclass(init=False)
@@ -122,20 +127,22 @@ class ImageDataMatching:
         self.pred_image_data = pred_image_data
         self.minimum_iou = minimum_iou
         self.extra_bbox_label = extra_bbox_label
-        if self.bboxes_data_matchings is None:
+        if bboxes_data_matchings is None:
             self.bboxes_data_matchings = self._get_bboxes_data_matchings(
                 true_image_data=true_image_data,
                 pred_image_data=pred_image_data,
                 minimum_iou=minimum_iou,
                 extra_bbox_label=extra_bbox_label
             )
+        else:
+            self.bboxes_data_matchings = bboxes_data_matchings
 
     def _get_bboxes_data_matchings(
         self,
         true_image_data: ImageData,
         pred_image_data: ImageData,
         minimum_iou: float,
-        extra_bbox_label: str = None
+        extra_bbox_label: str
     ) -> List[BboxDataMatching]:
 
         true_bboxes_data = true_image_data.bboxes_data
@@ -201,7 +208,7 @@ class ImageDataMatching:
 
     def get_detection_errors_types(
         self,
-        filter_by_label=None
+        filter_by_label: str
     ) -> List[Literal["TP", "FP", "FN"]]:
         detection_errors_types = [
             bbox_data_matching.get_detection_error_type(
@@ -214,7 +221,7 @@ class ImageDataMatching:
 
     def get_pipeline_errors_types(
         self,
-        filter_by_label: List[str]
+        filter_by_label: str
     ) -> List[Literal["TP", "FP", "FN", "TP (extra bbox)", "FP (extra bbox)"]]:
         pipeline_errors_types = [
             bbox_data_matching.get_pipeline_error_type(
@@ -263,6 +270,12 @@ class ImageDataMatching:
         filter_by_label: str
     ) -> int:
         return self.get_pipeline_errors_types(filter_by_label).count("FP (extra bbox)")
+    
+    def get_pipeline_FN_extra_bbox(
+        self,
+        filter_by_label: str
+    ) -> int:
+        return self.get_pipeline_errors_types(filter_by_label).count("FN (extra bbox)")
 
     def find_bbox_data_matching(
         self,

@@ -37,9 +37,10 @@ def _count_errors_types_and_get_pipeline_metrics_per_class(
             for image_data_matching in images_data_matchings
         ]
     true_labels = np.array([
-        image_data_matching.true_bbox_data.label
+        bbox_data_matching.true_bbox_data.label
         for image_data_matching in images_data_matchings
-        if image_data_matching.true_bbox_data is not None
+        for bbox_data_matching in image_data_matching.bboxes_data_matchings
+        if bbox_data_matching.true_bbox_data is not None
     ])
     for class_name in labels:
         support_by_class_name = np.sum(true_labels == class_name)
@@ -60,9 +61,14 @@ def _count_errors_types_and_get_pipeline_metrics_per_class(
                 image_data_matching.get_pipeline_FP_extra_bbox(filter_by_label=class_name)
                 for image_data_matching in images_data_matchings
             ])
+            FN_extra_bbox_by_class_name = np.sum([
+                image_data_matching.get_pipeline_FN_extra_bbox(filter_by_label=class_name)
+                for image_data_matching in images_data_matchings
+            ])
         else:
             TP_extra_bbox_by_class_name = None
             FP_extra_bbox_by_class_name = None
+            FN_extra_bbox_by_class_name = None
         FN_by_class_name = np.sum([
             image_data_matching.get_pipeline_FN(filter_by_label=class_name)
             for image_data_matching in images_data_matchings
@@ -73,20 +79,26 @@ def _count_errors_types_and_get_pipeline_metrics_per_class(
         FP_extra_bbox_in_precision_denominator = (
             0 if FP_extra_bbox_by_class_name is None else FP_extra_bbox_by_class_name
         )
+        FN_extra_bbox_in_precision_denominator = (
+            0 if FN_extra_bbox_by_class_name is None else FN_extra_bbox_by_class_name
+        )
         precision_by_class_name = (TP_by_class_name + TP_extra_bbox_in_precision_numerator) / max(
             TP_by_class_name + FP_by_class_name + FP_extra_bbox_in_precision_denominator, 1e-6
         )
-        recall_by_class_name = TP_by_class_name / max(TP_by_class_name + FN_by_class_name, 1e-6)
+        recall_by_class_name = (TP_by_class_name + TP_extra_bbox_in_precision_numerator) / max(
+            TP_by_class_name + FN_by_class_name + FN_extra_bbox_in_precision_denominator, 1e-6
+        )
         f1_score_by_class_name = 2 * precision_by_class_name * recall_by_class_name / (
             max(precision_by_class_name + recall_by_class_name, 1e-6)
         )
-        iou_mean = np.mean([
+        ious = [
             bbox_data_matching.iou
             for image_data_matching in images_data_matchings
             for bbox_data_matching in image_data_matching.bboxes_data_matchings
             if bbox_data_matching.iou is not None and bbox_data_matching.true_bbox_data is not None and
             bbox_data_matching.true_bbox_data.label == class_name
-        ])
+        ]
+        iou_mean = np.mean(ious) if len(ious) > 0 else 0
         pipeline_metrics_per_class[class_name] = {
             'support': support_by_class_name,
             'TP': TP_by_class_name,
@@ -94,6 +106,7 @@ def _count_errors_types_and_get_pipeline_metrics_per_class(
             'FN': FN_by_class_name,
             'TP (extra bbox)': TP_extra_bbox_by_class_name,
             'FP (extra bbox)': FP_extra_bbox_by_class_name,
+            'FN (extra bbox)': FN_extra_bbox_by_class_name,
             'iou_mean': iou_mean,
             'precision': precision_by_class_name,
             'recall': recall_by_class_name,
@@ -114,9 +127,22 @@ def _add_metrics_to_dict(
     TP = np.sum([pipeline_metrics_per_class[class_name]['TP'] for class_name in labels])
     FP = np.sum([pipeline_metrics_per_class[class_name]['FP'] for class_name in labels])
     FN = np.sum([pipeline_metrics_per_class[class_name]['FN'] for class_name in labels])
-    TP_extra_bbox = np.sum([pipeline_metrics_per_class[class_name]['TP (extra bbox)'] for class_name in labels])
-    FP_extra_bbox = np.sum([pipeline_metrics_per_class[class_name]['FP (extra bbox)'] for class_name in labels])
-    iou_mean = np.mean([pipeline_metrics_per_class[class_name]['iou_mean'] for class_name in labels])
+    TP_extra_bbox = np.sum([
+        pipeline_metrics_per_class[class_name]['TP (extra bbox)'] for class_name in labels
+        if pipeline_metrics_per_class[class_name]['TP (extra bbox)'] is not None
+    ])
+    FP_extra_bbox = np.sum([
+        pipeline_metrics_per_class[class_name]['FP (extra bbox)'] for class_name in labels
+        if pipeline_metrics_per_class[class_name]['FP (extra bbox)'] is not None
+    ])
+    FN_extra_bbox = np.sum([
+        pipeline_metrics_per_class[class_name]['FN (extra bbox)'] for class_name in labels
+        if pipeline_metrics_per_class[class_name]['FN (extra bbox)'] is not None
+    ])
+    iou_mean = np.mean([
+        pipeline_metrics_per_class[class_name]['iou_mean'] for class_name in labels
+        if pipeline_metrics_per_class[class_name]['iou_mean'] is not None
+    ])
     accuracy = (TP + TP_extra_bbox) / max(TP + FN + FN + TP_extra_bbox + FP_extra_bbox, 1e-6)
     micro_average_precision = (TP + TP_extra_bbox) / max(TP + FP + FP_extra_bbox, 1e-6)
     micro_average_recall = TP / max(TP + FN, 1e-6)
@@ -140,6 +166,7 @@ def _add_metrics_to_dict(
         'FN': FN,
         'TP (extra bbox)': TP_extra_bbox,
         'FP (extra bbox)': FP_extra_bbox,
+        'FN (extra bbox)': FN_extra_bbox,
         'value': accuracy
     }
     pipeline_metrics[f'{prefix_caption}iou_mean{postfix_caption}'] = {
@@ -153,33 +180,42 @@ def _add_metrics_to_dict(
         'FN': FN,
         'TP (extra bbox)': TP_extra_bbox,
         'FP (extra bbox)': FP_extra_bbox,
+        'FN (extra bbox)': FN_extra_bbox,
         'precision': micro_average_precision,
         'recall': micro_average_recall,
         'f1_score': micro_average_f1_score
     }
     pipeline_metrics[f'{prefix_caption}macro_average{postfix_caption}'] = {
         'support': sum_support,
+        'TP': TP,
+        'FP': FP,
+        'FN': FN,
         'TP (extra bbox)': TP_extra_bbox,
         'FP (extra bbox)': FP_extra_bbox,
+        'FN (extra bbox)': FN_extra_bbox,
         'precision': macro_average_precision,
         'recall': macro_average_recall,
         'f1_score': macro_average_f1_score
     }
     pipeline_metrics[f'{prefix_caption}weighted_average{postfix_caption}'] = {
         'support': sum_support,
+        'TP': TP,
+        'FP': FP,
+        'FN': FN,
         'TP (extra bbox)': TP_extra_bbox,
         'FP (extra bbox)': FP_extra_bbox,
+        'FN (extra bbox)': FN_extra_bbox,
         'precision': weighted_average_precision,
         'recall': weighted_average_recall,
         'f1_score': weighted_average_f1_score
     }
 
-
+from tqdm import tqdm
 def get_df_pipeline_metrics(
     true_images_data: List[ImageData],
     pred_images_data: List[ImageData],
     minimum_iou: float,
-    extra_bbox_label: str = None,
+    extra_bbox_label: str,
     pseudo_class_names: List[str] = ['trash', 'not_part', 'other'],
     known_class_names: List[str] = None
 ) -> pd.DataFrame:
@@ -193,7 +229,7 @@ def get_df_pipeline_metrics(
             minimum_iou=minimum_iou,
             extra_bbox_label=extra_bbox_label,
         )
-        for true_image_data, pred_image_data in zip(true_images_data, pred_images_data)
+        for true_image_data, pred_image_data in tqdm(list(zip(true_images_data, pred_images_data)))
     ]
     true_labels = np.array([
         bbox_data.label
@@ -224,18 +260,27 @@ def get_df_pipeline_metrics(
         image_data_matching.get_pipeline_FP_extra_bbox(filter_by_label=extra_bbox_label)
         for image_data_matching in images_data_matchings
     ])
+    FN_extra_bbox = np.sum([
+        image_data_matching.get_pipeline_FN_extra_bbox(filter_by_label=extra_bbox_label)
+        for image_data_matching in images_data_matchings
+    ])
     precision_extra_bbox = TP_extra_bbox / max(TP_extra_bbox + FP_extra_bbox, 1e-6)
+    recall_extra_bbox = TP_extra_bbox / max(TP_extra_bbox + FN_extra_bbox, 1e-6)
+    f1_score_extra_bbox = 2 * precision_extra_bbox * recall_extra_bbox / (
+        max(precision_extra_bbox + recall_extra_bbox, 1e-6)
+    )
     extra_bbox_label_caption = f'{extra_bbox_label} (extra bbox)' if extra_bbox_label is not None else 'extra bbox'
     pipeline_metrics[extra_bbox_label_caption] = {
-        'support': TP_extra_bbox + FP_extra_bbox,
+        'support': TP_extra_bbox + FP_extra_bbox + FN_extra_bbox,
         'TP': 0,
         'FP': 0,
         'FN': 0,
         'TP (extra bbox)': TP_extra_bbox,
         'FP (extra bbox)': FP_extra_bbox,
+        'FN (extra bbox)': FN_extra_bbox,
         'precision': precision_extra_bbox,
-        'recall': None,
-        'f1_score': None
+        'recall': recall_extra_bbox,
+        'f1_score': f1_score_extra_bbox
     }
 
     class_names_without_pseudo_classes = list(set(all_class_names) - set(pseudo_class_names))
@@ -281,8 +326,7 @@ def get_df_pipeline_metrics(
 
     df_pipeline_metrics = pd.DataFrame(pipeline_metrics, dtype=object).T
     df_pipeline_metrics = df_pipeline_metrics[
-        ['support', 'value', 'TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)',
-         'classification errors on true bboxes', 'precision', 'recall', 'f1_score']
+        ['support', 'value', 'TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)', 'FN (extra bbox)', 'precision', 'recall', 'f1_score']
     ]
     df_pipeline_metrics.sort_values(by='support', ascending=False, inplace=True)
     if known_class_names is not None:
