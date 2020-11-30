@@ -5,6 +5,7 @@ import imageio
 
 from cv_pipeliner.core.data import BboxData
 from cv_pipeliner.core.batch_generator import BatchGenerator
+from cv_pipeliner.utils.images import open_image
 
 
 class BatchGeneratorBboxData(BatchGenerator):
@@ -22,17 +23,17 @@ class BatchGeneratorBboxData(BatchGenerator):
 
     def __getitem__(self, index: int) -> List[BboxData]:
         batch = super().__getitem__(index)
-        unique_image_paths = set([
+        unique_image_paths, unique_image_idxs = np.unique([
             bbox_data.image_path for bbox_data in batch
             if bbox_data.image_path is not None
-        ])
-        image_path_to_source_image = {
-            image_path: np.array(imageio.imread(image_path, pilmode="RGB"))
-            for image_path in unique_image_paths
+        ], return_index=True)
+        unique_image_idx_to_image = {
+            unique_image_path: batch[unique_image_idx].open_image()
+            for unique_image_path, unique_image_idx in zip(unique_image_paths, unique_image_idxs)
         }
         for bbox_data in batch:
             source_image = (
-                image_path_to_source_image[bbox_data.image_path]
+                unique_image_idx_to_image[bbox_data.image_path]
                 if bbox_data.image_path is not None
                 else None
             )

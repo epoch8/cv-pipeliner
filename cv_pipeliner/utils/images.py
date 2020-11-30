@@ -9,6 +9,13 @@ from PIL import Image, ImageFont, ImageDraw
 
 import cv2
 import numpy as np
+import fsspec
+import zipfile
+import tempfile
+from pathy import Pathy
+from tqdm import tqdm
+
+from cv_pipeliner.logging import logger
 
 
 def denormalize_bboxes(bboxes: List[Tuple[float, float, float, float]],
@@ -57,31 +64,51 @@ def rotate_point(
     return xnew, ynew
 
 
-def get_label_to_base_label_image(
-    base_labels_images_dir: Union[str, Path]
-) -> Callable[[str], np.ndarray]:
-    base_labels_images_dir = Path(base_labels_images_dir)
-    base_labels_images_paths = list(base_labels_images_dir.glob('*.png')) + list(base_labels_images_dir.glob('*.jp*g'))
-    ann_class_names = [base_label_image_path.stem for base_label_image_path in base_labels_images_paths]
-    unknown_image_candidates = list(base_labels_images_dir.glob("unknown.*"))
-    if len(unknown_image_candidates) == 0:
-        raise ValueError(
-            f'Folder "{base_labels_images_dir}" with base labels images must have unknown.png, unknown.jpg '
-            'or unknown.jpeg.'
-        )
+def open_image(
+    image: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO],
+    open_as_rgb: bool = False
+) -> np.ndarray:
+    if isinstance(image, str) or isinstance(image, Path):
+        with fsspec.open(str(image), 'rb') as src:
+            image_bytes = src.read()
+    elif isinstance(image, fsspec.core.OpenFile):
+        with image as src:
+            image_bytes = src.read()
+    elif isinstance(image, bytes):
+        image_bytes = image
+    elif isinstance(image, io.BytesIO):
+        image_bytes = image.getvalue()
     else:
-        unknown_image_filepath = unknown_image_candidates[0]
+        raise ValueError(f'Got unknown type: {type(image)}.')
+    image = np.array(imageio.imread(image_bytes))
+    if open_as_rgb:
+        if image.shape[-1] == 4:
+            image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+        if len(image.shape) == 2 or image.shape[-1] == 1:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
-    unknown_image = np.array(imageio.imread(unknown_image_filepath))
-    label_to_base_label_image_dict = {}
-    for label in ann_class_names + ['unknown']:
-        filepath_candidates = list(base_labels_images_dir.glob(f"{label}.*"))
-        if len(filepath_candidates) > 0:
-            filepath = filepath_candidates[0]
-            render = np.array(imageio.imread(filepath))
-        else:
-            render = unknown_image
-        label_to_base_label_image_dict[label] = render
+    return image
+
+
+def get_label_to_base_label_image(
+    base_labels_images: Union[str, Path]
+) -> Callable[[str], np.ndarray]:
+    base_labels_images_files = fsspec.open_files(str(base_labels_images))
+    ann_class_names_files = [
+        Pathy(base_label_image_file.path).stem for base_label_image_file in base_labels_images_files
+    ]
+    unique_ann_class_names = set(ann_class_names_files)
+    if 'unknown' not in unique_ann_class_names:
+        raise ValueError(
+            f'"{base_labels_images}" must have image with name "unknown.*"'
+        )
+    unknown_image = open_image(base_labels_images_files[ann_class_names_files.index('unknown')])
+    label_to_base_label_image_dict = {
+        'unknown': unknown_image
+    }
+    logger.info(f"Loading base labels images from {base_labels_images}...")
+    for label in tqdm(unique_ann_class_names):
+        label_to_base_label_image_dict[label] = open_image(base_labels_images_files[ann_class_names_files.index(label)])
 
     def label_to_base_label_image(label: str) -> np.ndarray:
         if label in label_to_base_label_image_dict:

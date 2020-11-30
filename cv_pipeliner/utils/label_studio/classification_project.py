@@ -291,7 +291,7 @@ class LabelStudioProject_Classification:
 
         for pred_bboxes_data in pred_n_bboxes_data:
             for pred_bbox_data in pred_bboxes_data:
-                pred_bbox_data.apply_str_func_to_label_inplace(func_label)
+                pred_bbox_data.label = func_label(pred_bbox_data.label)
         return pred_n_bboxes_data
 
     def initialize_backend(
@@ -447,9 +447,11 @@ class LabelStudioProject_Classification:
                 cropped_image = bbox_data_as_cropped_image.open_image()
                 cropped_image_path = self.main_project_directory / 'upload' / filename
                 Image.fromarray(cropped_image).save(cropped_image_path)
-                bbox_data.apply_str_func_to_label_inplace(self._class_name_with_special_character)
-                bbox_data_as_cropped_image.apply_str_func_to_label_inplace(self._class_name_with_special_character)
-                bbox_data_as_cropped_image.set_image(image_path=cropped_image_path)
+                bbox_data.label = self._class_name_with_special_character(bbox_data.label)
+                bbox_data_as_cropped_image.label = self._class_name_with_special_character(
+                    bbox_data_as_cropped_image.label
+                )
+                bbox_data_as_cropped_image.image_path = cropped_image_path
                 tasks_json[str(id)] = {
                     'id': id,
                     'data': {

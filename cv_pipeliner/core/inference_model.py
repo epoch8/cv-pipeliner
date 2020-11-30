@@ -7,8 +7,11 @@ class ModelSpec(abc.ABC):
     def inference_model_cls(self) -> Type['InferenceModel']:
         pass
 
-    def load(self) -> 'InferenceModel':
-        inference_model = self.inference_model_cls(self)
+    def load(self, **kwargs) -> 'InferenceModel':
+        inference_model = self.inference_model_cls(
+            model_spec=self,
+            **kwargs
+        )
         return inference_model
 
 

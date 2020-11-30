@@ -1,15 +1,15 @@
-import sys
-from pathlib import Path
-
 import os
 import logging
+import time
 
 import tensorflow as tf
 
 from dataclasses import dataclass, asdict
 from typing import Dict
 
+import fsspec
 from flask import Flask, request, jsonify
+from traceback_with_variables import iter_tb_lines, ColorSchemes
 
 from cv_pipeliner.inference_models.detection.core import DetectionModel
 from cv_pipeliner.inference_models.classification.core import ClassificationModel
@@ -17,10 +17,9 @@ from cv_pipeliner.inference_models.pipeline import PipelineModel
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
-sys.path.insert(0, str(Path(__file__).absolute().parent.parent.parent))
-from apps.backend.src.config import get_cfg_defaults  # noqa: E402
-from apps.backend.src.realtime_inferencer import RealTimeInferencer  # noqa: E402
-from apps.backend.src.model import (  # noqa: E402
+from apps.config import get_cfg_defaults, merge_cfg_from_string
+from apps.backend.src.realtime_inferencer import RealTimeInferencer
+from apps.backend.src.model import (
     get_detection_models_definitions_from_config,
     get_classification_models_definitions_from_config,
     inference, realtime_inference
@@ -28,20 +27,14 @@ from apps.backend.src.model import (  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
-if 'CV_PIPELINER_BACKEND_MODEL_CONFIG' in os.environ:
-    CONFIG_FILE = os.environ['CV_PIPELINER_BACKEND_MODEL_CONFIG']
-else:
-    app.logger.warning(
-        "Environment variable 'CV_PIPELINER_BACKEND_MODEL_CONFIG' was not found. Loading default config instead."
-    )
-    CONFIG_FILE = 'config.yaml'
-CURRENT_CONFIG_FILE_ST_MTIME = os.stat(CONFIG_FILE).st_mtime
+CONFIG_FILE = os.environ['CV_PIPELINER_APP_CONFIG']
+with fsspec.open(CONFIG_FILE, 'r') as src:
+    CONFIG_STR = src.read()
 CONFIG = get_cfg_defaults()
-CONFIG.merge_from_file(CONFIG_FILE)
-
+merge_cfg_from_string(CONFIG, CONFIG_STR)
 
 def set_gpu():
-    if CONFIG.system.use_gpu:
+    if CONFIG.backend.system.use_gpu:
         gpus = tf.config.experimental.list_physical_devices('GPU')
         if gpus:
             for gpu in gpus:
@@ -75,7 +68,13 @@ CURRENT_PIPELINE_DEFINITION = CurrentPipelineDefinition()  # noqa: E305
 class RealTimeInferencerData:
     guid: str
     realtime_inferencer: RealTimeInferencer
+    last_time: float
 GUID_TO_REALTIME_INFERENCER_DATA = {}  # noqa: E305
+
+
+@app.route('/', methods=['GET'])
+def default():
+    return jsonify(success=True)
 
 
 @app.route('/get_available_models/', methods=['GET'])
@@ -104,6 +103,7 @@ def get_current_models():
     }
 
 
+@app.route('/set_detection_model/<detection_model_index>', methods=['POST'])
 def set_detection_model(detection_model_index: str = None):
     detection_models_definitions = get_detection_models_definitions_from_config(CONFIG)
     index_to_detection_model_definition = {
@@ -206,8 +206,10 @@ def realtime_start(guid: str) -> Dict:
                     detection_model_spec=CURRENT_PIPELINE_DEFINITION.detection_model_definition.model_spec,
                     classification_model_spec=CURRENT_PIPELINE_DEFINITION.classification_model_definition.model_spec,  # noqa: E501
                     fps=float(request.form['fps']),
-                    detection_delay=int(request.form['detection_delay'])
-                )
+                    detection_delay=int(request.form['detection_delay']),
+                    logger=app.logger
+                ),
+                last_time=time.time()
             )
             return jsonify(
                 success=True,
@@ -219,6 +221,7 @@ def realtime_start(guid: str) -> Dict:
 @app.route('/realtime_predict/<guid>', methods=['POST'])
 def realtime_predict(guid: str) -> Dict:
     if request.method == 'POST' and request.files.get('image', '') and guid in GUID_TO_REALTIME_INFERENCER_DATA:
+        GUID_TO_REALTIME_INFERENCER_DATA[guid].last_time = time.time()
         json_res = realtime_inference(
             realtime_inferencer=GUID_TO_REALTIME_INFERENCER_DATA[guid].realtime_inferencer,
             image_bytes=request.files.get('image', ''),
@@ -234,20 +237,33 @@ def realtime_end(guid: str) -> Dict:
         if guid not in GUID_TO_REALTIME_INFERENCER_DATA:
             return jsonify(success=False, message='Realtime process with given guid is not started.'), 400
         else:
+            del GUID_TO_REALTIME_INFERENCER_DATA[guid].realtime_inferencer
             del GUID_TO_REALTIME_INFERENCER_DATA[guid]
             return jsonify(success=True)
 
 
 @app.before_request
 def before_request():
-    config_file_st_mtime = os.stat(CONFIG_FILE).st_mtime
-    global CURRENT_CONFIG_FILE_ST_MTIME
-    if CURRENT_CONFIG_FILE_ST_MTIME != config_file_st_mtime and len(GUID_TO_REALTIME_INFERENCER_DATA) == 0:
+    global GUID_TO_REALTIME_INFERENCER_DATA, CONFIG, CONFIG_STR
+
+    current_time = time.time()
+    for guid in GUID_TO_REALTIME_INFERENCER_DATA:
+        if current_time - GUID_TO_REALTIME_INFERENCER_DATA[guid].last_time >= 3:
+            app.logger.info(f'Silent real time inferencer with {guid=} detected. Deleting...')
+            del GUID_TO_REALTIME_INFERENCER_DATA[guid].realtime_inferencer
+            del GUID_TO_REALTIME_INFERENCER_DATA[guid]
+
+    with fsspec.open(CONFIG_FILE, 'r') as src:
+        current_config_str = src.read()
+
+    if CONFIG_STR != current_config_str:
         app.logger.info(
             "Config change detected. Reloading everything..."
         )
-        CURRENT_CONFIG_FILE_ST_MTIME = config_file_st_mtime
-        CONFIG.merge_from_file(CONFIG_FILE)
+        CONFIG_STR = current_config_str
+        CONFIG = get_cfg_defaults()
+        merge_cfg_from_string(CONFIG, CONFIG_STR)
+        set_gpu()
         load_from_config()
 
 
@@ -257,3 +273,11 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
+
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    for line in iter_tb_lines(e=e, color_scheme=ColorSchemes.synthwave):
+        app.logger.error(line)
+
+    return 'Bad request', 500

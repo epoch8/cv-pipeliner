@@ -2,59 +2,52 @@ version: '3'
 
 services:
   cv_pipeliner_backend:
-    build:
-      context: .
-      dockerfile: ./apps/backend/Dockerfile
-    container_name: "cv_pipeliner_backend"
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.1.0
     expose: 
       - 5000
     ports:
       - "5000:5000"
     env_file: sample.env
+    environment:
+      CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
+      FLASK_APP: apps/backend/app.py
     volumes:
-        - type: bind
-          source: /mnt/c/
-          target: /mnt/c/
+      - ./configs/:/configs/
+      - ~/.config/gcloud:/root/.config/gcloud
+
+    command: ["flask", "run", "--host", "0.0.0.0", "--port", "5000", "--without-threads"]
 
   cv_pipeliner_frontend:
-    build: ./apps/frontend/
-    container_name: "cv_pipeliner_frontend"
-    depends_on:
-      - cv_pipeliner_backend
+    image: eu.gcr.io/e8-gke/cv-pipeliner-frontend:0.1.0
     expose: 
       - 5001
     ports:
       - "5001:80"
-    volumes:
-        - type: bind
-          source: /mnt/c/
-          target: /mnt/c/
 
   cv_pipeliner_app:
-    build:
-      context: .
-      dockerfile: ./apps/app/Dockerfile
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.1.0
     depends_on:
       - cv_pipeliner_backend
       - cv_pipeliner_frontend
     container_name: "cv_pipeliner_app"
     ports:
       - "80:80"
-    env_file: sample.env
+    environment:
+      CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
     volumes:
-        - type: bind
-          source: /mnt/c/
-          target: /mnt/c/
+      - ./configs/:/configs/
+      - ~/.config/gcloud:/root/.config/gcloud
 
-  cv_pipeliner_dataset_browser:
-    build:
-      context: .
-      dockerfile: ./apps/dataset_browser/Dockerfile
-    container_name: "dataset_browser"
-    ports:
-      - "81:81"
-    env_file: sample.env
-    volumes:
-        - type: bind
-          source: /mnt/c/
-          target: /mnt/c/
+    command: ["streamlit", "run", "apps/app/app.py", "--server.port", "80"]
+
+  # cv_pipeliner_dataset_browser:
+  #   image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.1.0
+  #   container_name: "dataset_browser"
+  #   ports:
+  #     - "81:81"
+  #   environment:
+  #     CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
+  #   volumes:
+  #     - ./configs/:/configs/
+  #     - ~/.config/gcloud:/root/.config/gcloud
+  #   command: ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]

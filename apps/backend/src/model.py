@@ -1,6 +1,6 @@
 import imageio
 
-from typing import List, Dict
+from typing import Dict
 
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
@@ -14,8 +14,8 @@ from cv_pipeliner.inference_models.classification.dummy import Dummy_Classificat
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
-from yacs.config import CfgNode
-from apps.backend.src.config import (
+from apps.config import (
+    get_cfg_from_dict, CfgNode,
     object_detection_api,
     object_detection_api_pb,
     object_detection_api_tflite,
@@ -25,30 +25,12 @@ from apps.backend.src.config import (
 from apps.backend.src.realtime_inferencer import RealTimeInferencer
 
 
-def get_list_cfg_from_dict(d: Dict):
-    return [item for sublist in [(str(k), str(v)) for k, v in d.items()] for item in sublist]
-
-
-def get_cfg_from_dict(d: Dict, possible_cfgs: List[CfgNode]):
-    assert len(d) == 1
-    key = list(d)[0]
-    cfg = None
-    for possible_cfg in possible_cfgs:
-        if set(dict(d[key])) == set(dict(possible_cfg)):
-            cfg = possible_cfg.clone()
-            cfg.merge_from_list(get_list_cfg_from_dict(d[key]))
-
-    if cfg is None:
-        raise ValueError(f'Got unknown config: {d}')
-    return cfg, key
-
-
 def get_detection_models_definitions_from_config(
     cfg: CfgNode
 ) -> DetectionModelDefinition:
     detection_models_definitions = []
     detection_models_indexes = []
-    for detection_cfg in cfg.models.detection:
+    for detection_cfg in cfg.backend.models.detection:
         detection_cfg, key = get_cfg_from_dict(
             d=detection_cfg,
             possible_cfgs=[object_detection_api, object_detection_api_pb, object_detection_api_tflite]
@@ -89,7 +71,7 @@ def get_classification_models_definitions_from_config(
 ) -> ClassificationDefinition:
     classification_models_definitions = []
     classification_model_indexes = []
-    for classification_cfg in cfg.models.classification:
+    for classification_cfg in cfg.backend.models.classification:
         classification_cfg, key = get_cfg_from_dict(
             d=classification_cfg,
             possible_cfgs=[tensorflow_cls_model, dummy_cls_model]

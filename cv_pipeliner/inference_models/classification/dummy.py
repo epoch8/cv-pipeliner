@@ -1,12 +1,6 @@
-import json
-import sys
-import importlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple, Callable, Union, Type, Literal
-
-import numpy as np
-import tensorflow as tf
+from typing import List, Tuple, Union, Type
 
 from cv_pipeliner.inference_models.classification.core import (
     ClassificationModelSpec, ClassificationModel, ClassificationInput, ClassificationOutput
@@ -29,7 +23,8 @@ class Dummy_ClassificationModelSpec(ClassificationModelSpec):
 class Dummy_ClassificationModel(ClassificationModel):
     def __init__(
         self,
-        model_spec: Dummy_ClassificationModelSpec
+        model_spec: Dummy_ClassificationModelSpec,
+        **kwargs
     ):
         assert isinstance(model_spec, Dummy_ClassificationModelSpec)
         super().__init__(model_spec)

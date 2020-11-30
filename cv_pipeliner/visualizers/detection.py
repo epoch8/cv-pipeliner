@@ -37,7 +37,7 @@ class DetectionVisualizer(Visualizer):
             for image_data, pred_image_data in zip(images_data, pred_images_data)
         ]
         images_names = [
-            f"{image_data_matching.true_image_data.image_path.name} "
+            f"{image_data_matching.true_image_data.image_name} "
             f"[TP: {image_data_matching.get_detection_TP()}, "
             f"FP: {image_data_matching.get_detection_FP()}, "
             f"FN: {image_data_matching.get_detection_FN()}]"
@@ -61,7 +61,7 @@ class DetectionVisualizer(Visualizer):
                 batch_size=batch_size
             )
         else:
-            images_names = [image_data.image_path.name for image_data in images_data]
+            images_names = [image_data.image_name for image_data in images_data]
 
         images_data_gen = BatchGeneratorImageData(images_data, batch_size=1,
                                                   use_not_caught_elements_as_last_batch=True)
