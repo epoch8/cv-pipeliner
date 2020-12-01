@@ -1,7 +1,7 @@
 import os
 import json
 from pathlib import Path
-from typing import Callable
+from typing import Dict
 from io import BytesIO
 from urllib.parse import urljoin
 
@@ -38,7 +38,7 @@ cfg.freeze()
 
 
 @st.cache(show_spinner=False, allow_output_mutation=True)
-def cached_get_label_to_base_label_image(**kwargs) -> Callable[[str], np.ndarray]:
+def cached_get_label_to_base_label_image(**kwargs) -> Dict[str, str]:
     return get_label_to_base_label_image(**kwargs)
 
 
@@ -130,7 +130,7 @@ class_names = sorted(
 add_description_to_class_names = st.sidebar.checkbox('Add description in classes list')
 if add_description_to_class_names:
     classes_to_find_captions = [
-        f"{class_name} [{label_to_description(class_name)}]"
+        f"{class_name} [{label_to_description[class_name]}]"
         for class_name in class_names
     ]
 else:

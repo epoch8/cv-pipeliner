@@ -125,8 +125,8 @@ class TaskData:
         additional_info = bbox_data.additional_info
 
         if len(completions_json['completions']) > 1:
-            raise ValueError(
-                f'Find a task with two or more completions. Task_id: {self.id}'
+            logger.warning(
+                f'Find a task with two or more completions, fix it. Task_id: {self.id}'
             )
         completion = completions_json['completions'][0]
         if 'skipped' in completion and completion['skipped']:
@@ -329,6 +329,8 @@ class LabelStudioProject_Classification:
         url: str = 'http://localhost:8080/',
         classification_model_spec: ClassificationModelSpec = None,
         backend_port: int = 9080,
+        use_renders: Union[str, Path] = None,
+        top_n: int = 1
     ):
         if self.directory.exists():
             raise ValueError(

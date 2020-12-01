@@ -116,8 +116,8 @@ class TaskData:
     ):
         self.is_done = True
         if len(completions_json['completions']) > 1:
-            raise ValueError(
-                f'Find a task with two or more completions. Task_id: {self.id}'
+            logger.warning(
+                f'Find a task with two or more completions, fix it. Task_id: {self.id}'
             )
         completion = completions_json['completions'][0]
         image_path = Path(completions_json['data']['src_image_path'])
@@ -433,7 +433,7 @@ class LabelStudioProject_Detection:
         with open(self.main_project_directory/'tasks.json', 'r') as src:
             tasks_json = json.load(src)
         tasks_ids = [tasks_json[key]['id'] for key in tasks_json]
-        start = max(tasks_ids) if len(tasks_ids) > 0 else 0
+        start = max(tasks_ids)+1 if len(tasks_ids) > 0 else 0
         logger.info('Adding tasks...')
 
         if all([isinstance(image, ImageData) for image in images]):

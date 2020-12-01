@@ -1,7 +1,8 @@
 import io
 import math
 from pathlib import Path
-from typing import List, Tuple, Union, Callable, Literal
+from typing import List, Tuple, Union, Literal, Dict
+from collections import defaultdict
 
 import imageio
 from matplotlib.figure import Figure
@@ -87,35 +88,6 @@ def open_image(
             image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
     return image
-
-
-def get_label_to_base_label_image(
-    base_labels_images: Union[str, Path]
-) -> Callable[[str], np.ndarray]:
-    base_labels_images_files = fsspec.open_files(str(base_labels_images))
-    ann_class_names_files = [
-        Pathy(base_label_image_file.path).stem for base_label_image_file in base_labels_images_files
-    ]
-    unique_ann_class_names = set(ann_class_names_files)
-    if 'unknown' not in unique_ann_class_names:
-        raise ValueError(
-            f'"{base_labels_images}" must have image with name "unknown.*"'
-        )
-    unknown_image = open_image(base_labels_images_files[ann_class_names_files.index('unknown')])
-    label_to_base_label_image_dict = {
-        'unknown': unknown_image
-    }
-    logger.info(f"Loading base labels images from {base_labels_images}...")
-    for label in tqdm(unique_ann_class_names):
-        label_to_base_label_image_dict[label] = open_image(base_labels_images_files[ann_class_names_files.index(label)])
-
-    def label_to_base_label_image(label: str) -> np.ndarray:
-        if label in label_to_base_label_image_dict:
-            return label_to_base_label_image_dict[label].copy()
-        else:
-            return label_to_base_label_image_dict['unknown'].copy()
-
-    return label_to_base_label_image
 
 
 def concat_images(
@@ -271,78 +243,96 @@ def draw_rectangle(
 
 
 # TODO: Remove 4D padding as it's very slow.
-def get_base_labels_images_with_description(
-    label_to_base_label_image: Callable[[str], np.ndarray],
-    label_to_description: Callable[[str], str],
-    labels: List[str],
+def get_base_label_image_with_description(
+    base_label_image: np.ndarray,
+    label: str,
+    description: str,
     pad_color: Tuple[int, int, int, int] = (255, 255, 255, 255),
     pad_resize: int = 90,
     pad_width: int = 5,
     base_resize: int = 150,
     maximum_text_width: int = 20
 ) -> np.ndarray:
-    total_image = None
+    if len(base_label_image.shape) == 2 or base_label_image.shape[-1] == 1:
+        base_label_image = cv2.cvtColor(base_label_image, cv2.COLOR_GRAY2RGBA)
+    elif base_label_image.shape[-1] == 3:
+        base_label_image = cv2.cvtColor(base_label_image, cv2.COLOR_RGB2RGBA)
+    base_label_image = imutils.resize(base_label_image, width=base_resize, height=base_resize)
+    height, width, _ = base_label_image.shape
+    base_label_image = np.pad(
+        base_label_image,
+        pad_width=(
+            (max(0, pad_resize-height//2), max(0, pad_resize-height//2)),
+            (max(0, pad_resize-width//2), max(0, pad_resize-width//2)),
+            (0, 0)
+        ),
+        constant_values=((pad_color, pad_color), (pad_color, pad_color), (0, 0)),
+        mode='constant'
+    )
+    how_many = 30 * len(description) // maximum_text_width
+    base_label_image = np.pad(
+        base_label_image,
+        pad_width=((how_many, 0), (0, 0), (0, 0)),
+        constant_values=((pad_color, 0), (0, 0), (0, 0)),
+        mode='constant'
+    )
+    base_label_image = np.pad(
+        base_label_image,
+        pad_width=((pad_width, pad_width), (pad_width, pad_width), (0, 0)),
+        constant_values=((0, 0), (0, 0), (0, 0)),
+        mode='constant'
+    )
+    base_label_image = np.pad(
+        base_label_image,
+        pad_width=((60, 0), (0, 0), (0, 0)),
+        constant_values=(((255, 255, 255, 255), 0), (0, 0), (0, 0)),
+        mode='constant'
+    )
+    fontsize1, fontsize2 = 30, 17
+    ymax1, ymax2 = 25, 10
+    base_label_image = put_text_on_image(
+        image=base_label_image,
+        text=label,
+        fontsize=fontsize1,
+        ymax=ymax1,
+        maximum_width=maximum_text_width
+    )
+    base_label_image = put_text_on_image(
+        image=base_label_image,
+        text=description,
+        fontsize=fontsize2,
+        ymax=fontsize1+ymax1+ymax2,
+        maximum_width=maximum_text_width
+    )
 
-    for label in labels:
-        base_label_image = label_to_base_label_image(label).copy()
-        if len(base_label_image.shape) == 2 or base_label_image.shape[-1] == 1:
-            base_label_image = cv2.cvtColor(base_label_image, cv2.COLOR_GRAY2RGBA)
-        elif base_label_image.shape[-1] == 3:
-            base_label_image = cv2.cvtColor(base_label_image, cv2.COLOR_RGB2RGBA)
-        base_label_image = imutils.resize(base_label_image, width=base_resize, height=base_resize)
-        height, width, _ = base_label_image.shape
-        base_label_image = np.pad(
-            base_label_image,
-            pad_width=(
-                (max(0, pad_resize-height//2), max(0, pad_resize-height//2)),
-                (max(0, pad_resize-width//2), max(0, pad_resize-width//2)),
-                (0, 0)
-            ),
-            constant_values=((pad_color, pad_color), (pad_color, pad_color), (0, 0)),
-            mode='constant'
+    return base_label_image
+
+
+def get_label_to_base_label_image(
+    base_labels_images: Union[str, Path],
+    label_to_description: Dict[str, str] = None,
+) -> Dict[str, np.ndarray]:
+    base_labels_images_files = fsspec.open_files(str(base_labels_images))
+    ann_class_names_files = [
+        Pathy(base_label_image_file.path).stem for base_label_image_file in base_labels_images_files
+    ]
+    unique_ann_class_names = set(ann_class_names_files)
+    if 'unknown' not in unique_ann_class_names:
+        raise ValueError(
+            f'"{base_labels_images}" must have image with name "unknown.*"'
         )
-        description = label_to_description(label)
-        how_many = 30 * len(description) // maximum_text_width
-        base_label_image = np.pad(
-            base_label_image,
-            pad_width=((how_many, 0), (0, 0), (0, 0)),
-            constant_values=((pad_color, 0), (0, 0), (0, 0)),
-            mode='constant'
-        )
-        base_label_image = np.pad(
-            base_label_image,
-            pad_width=((pad_width, pad_width), (pad_width, pad_width), (0, 0)),
-            constant_values=((0, 0), (0, 0), (0, 0)),
-            mode='constant'
-        )
-        base_label_image = np.pad(
-            base_label_image,
-            pad_width=((60, 0), (0, 0), (0, 0)),
-            constant_values=(((255, 255, 255, 255), 0), (0, 0), (0, 0)),
-            mode='constant'
-        )
-        fontsize1, fontsize2 = 30, 17
-        ymax1, ymax2 = 25, 10
-        base_label_image = put_text_on_image(
-            image=base_label_image,
-            text=label,
-            fontsize=fontsize1,
-            ymax=ymax1,
-            maximum_width=maximum_text_width
-        )
-        base_label_image = put_text_on_image(
-            image=base_label_image,
-            text=description,
-            fontsize=fontsize2,
-            ymax=fontsize1+ymax1+ymax2,
-            maximum_width=maximum_text_width
-        )
-        if total_image is None:
-            total_image = base_label_image
-        else:
-            total_image = concat_images(
-                image_a=total_image,
-                image_b=base_label_image
+    unknown_image = open_image(base_labels_images_files[ann_class_names_files.index('unknown')])
+    label_to_base_label_image = defaultdict(lambda: unknown_image)
+    label_to_base_label_image['unknown'] = unknown_image
+    logger.info(f"Loading base labels images from {base_labels_images}...")
+    for label in tqdm(unique_ann_class_names):
+        base_label_image = open_image(base_labels_images_files[ann_class_names_files.index(label)])
+        if label_to_description is not None:
+            base_label_image = get_base_label_image_with_description(
+                base_label_image=base_label_image,
+                label=label,
+                description=label_to_description[label]
             )
+        label_to_base_label_image[label] = base_label_image
 
-    return total_image
+    return label_to_base_label_image

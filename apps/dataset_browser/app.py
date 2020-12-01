@@ -1,5 +1,5 @@
 import os
-from typing import Callable
+from typing import Dict
 from collections import Counter
 from pathlib import Path
 
@@ -69,7 +69,7 @@ images_data_captions = [
 
 
 @st.cache(show_spinner=False, allow_output_mutation=True)
-def cached_get_label_to_base_label_image(**kwargs) -> Callable[[str], np.ndarray]:
+def cached_get_label_to_base_label_image(**kwargs) -> Dict[str, np.ndarray]:
     return get_label_to_base_label_image(**kwargs)
 
 
@@ -120,7 +120,7 @@ if labels is not None:
     class_names_counter = Counter(labels)
     class_names = sorted(set(labels), key=class_names_counter.get, reverse=True)
     classes_to_find_captions = [
-        f"[{class_names_counter[class_name]} items] {class_name} [{label_to_description(class_name)}]"
+        f"[{class_names_counter[class_name]} items] {class_name} [{label_to_description[class_name]}]"
         for class_name in class_names
     ]
     filter_by_labels = st.multiselect(

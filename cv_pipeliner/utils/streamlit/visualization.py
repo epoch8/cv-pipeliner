@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Literal, List
+from typing import Tuple, Callable, Literal, List, Dict
 
 import numpy as np
 import imutils
@@ -136,7 +136,7 @@ def get_image_data_matching(
 def illustrate_bboxes_data(
     true_image_data: ImageData,
     label_to_base_label_image: Callable[[str], np.ndarray],
-    label_to_description: Callable[[str], str],
+    label_to_description: Dict[str, str],
     mode: Literal['many', 'one-by-one'],
     pred_image_data: ImageData = None,
     minimum_iou: float = None,
@@ -224,19 +224,19 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
             st.image(image=cropped_image_and_render)
             if isinstance(bbox_data, BboxData):
                 st.markdown(f"'{label}'")
-                st.markdown(label_to_description(label))
+                st.markdown(label_to_description[label])
                 st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
             elif isinstance(bbox_data, BboxDataMatching):
                 true_bbox_data = bbox_data.true_bbox_data
                 pred_bbox_data = bbox_data.pred_bbox_data
                 if pred_bbox_data is not None:
                     st.markdown(f"Prediction: '{pred_bbox_data.label}'")
-                    st.markdown(label_to_description(pred_bbox_data.label))
+                    st.markdown(label_to_description[pred_bbox_data.label])
                     st.text(f'Bbox: {[pred_bbox_data.xmin, pred_bbox_data.ymin,pred_bbox_data.xmax, pred_bbox_data.ymax]}')
                     st.markdown('--')
                 if true_bbox_data is not None:
                     st.markdown(f"Ground Truth: '{true_bbox_data.label}'")
-                    st.markdown(label_to_description(true_bbox_data.label))
+                    st.markdown(label_to_description[true_bbox_data.label])
                     st.text(f'Bbox: {[true_bbox_data.xmin, true_bbox_data.ymin, true_bbox_data.xmax, true_bbox_data.ymax]}')
                     st.markdown('--')
                 st.markdown(f'Pipeline error type: {bbox_data.get_pipeline_error_type()}')
