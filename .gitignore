@@ -17,3 +17,4 @@ my_exports*.sh
 my_env*.env
 examples/
 models/
+cv_pipeliner/tests/metrics/images/

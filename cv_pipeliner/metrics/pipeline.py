@@ -143,7 +143,7 @@ def _add_metrics_to_dict(
         pipeline_metrics_per_class[class_name]['iou_mean'] for class_name in labels
         if pipeline_metrics_per_class[class_name]['iou_mean'] is not None
     ])
-    accuracy = (TP + TP_extra_bbox) / max(TP + FN + FN + TP_extra_bbox + FP_extra_bbox, 1e-6)
+    accuracy = (TP + TP_extra_bbox) / max(TP + FP + FN + TP_extra_bbox + FP_extra_bbox, 1e-6)
     micro_average_precision = (TP + TP_extra_bbox) / max(TP + FP + FP_extra_bbox, 1e-6)
     micro_average_recall = TP / max(TP + FN, 1e-6)
     micro_average_f1_score = 2 * micro_average_precision * micro_average_recall / (
@@ -210,7 +210,7 @@ def _add_metrics_to_dict(
         'f1_score': weighted_average_f1_score
     }
 
-from tqdm import tqdm
+
 def get_df_pipeline_metrics(
     true_images_data: List[ImageData],
     pred_images_data: List[ImageData],
@@ -229,7 +229,7 @@ def get_df_pipeline_metrics(
             minimum_iou=minimum_iou,
             extra_bbox_label=extra_bbox_label,
         )
-        for true_image_data, pred_image_data in tqdm(list(zip(true_images_data, pred_images_data)))
+        for true_image_data, pred_image_data in list(zip(true_images_data, pred_images_data))
     ]
     true_labels = np.array([
         bbox_data.label
@@ -250,8 +250,7 @@ def get_df_pipeline_metrics(
     )
     pipeline_metrics = {}
     for class_name in all_class_names:
-        class_name_caption = f"{class_name} (pseudo-class)" if class_name in pseudo_class_names else class_name
-        pipeline_metrics[class_name_caption] = pipeline_metrics_per_class_all_class_names[class_name]
+        pipeline_metrics[class_name] = pipeline_metrics_per_class_all_class_names[class_name]
     TP_extra_bbox = np.sum([
         image_data_matching.get_pipeline_TP_extra_bbox(label=extra_bbox_label)
         for image_data_matching in images_data_matchings
@@ -294,30 +293,19 @@ def get_df_pipeline_metrics(
         pipeline_metrics_per_class=pipeline_metrics_per_class_all_class_names,
         pipeline_metrics=pipeline_metrics,
         labels=class_names_without_pseudo_classes,
+        prefix_caption='all_',
         postfix_caption='_without_pseudo_classes'
     )
     if known_class_names is not None:
         known_class_names_without_pseudo_classes = list(set(known_class_names) - set(pseudo_class_names))
-        pipeline_metrics_per_known_class = _count_errors_types_and_get_pipeline_metrics_per_class(
-            images_data_matchings=images_data_matchings,
-            labels=known_class_names,
-            extra_bbox_label=extra_bbox_label,
-            filter_by_true_labels=True
-        )
-        pipeline_metrics_per_known_class_without_pseudo_classes = _count_errors_types_and_get_pipeline_metrics_per_class(  # noqa: E501
-            images_data_matchings=images_data_matchings,
-            labels=known_class_names_without_pseudo_classes,
-            extra_bbox_label=extra_bbox_label,
-            filter_by_true_labels=True
-        )
         _add_metrics_to_dict(
-            pipeline_metrics_per_class=pipeline_metrics_per_known_class,
+            pipeline_metrics_per_class=pipeline_metrics_per_class_all_class_names,
             pipeline_metrics=pipeline_metrics,
             labels=known_class_names,
             prefix_caption='known_'
         )
         _add_metrics_to_dict(
-            pipeline_metrics_per_class=pipeline_metrics_per_known_class_without_pseudo_classes,
+            pipeline_metrics_per_class=pipeline_metrics_per_class_all_class_names,
             pipeline_metrics=pipeline_metrics,
             labels=known_class_names_without_pseudo_classes,
             prefix_caption='known_',
@@ -326,23 +314,16 @@ def get_df_pipeline_metrics(
 
     df_pipeline_metrics = pd.DataFrame(pipeline_metrics, dtype=object).T
     df_pipeline_metrics = df_pipeline_metrics[
-        ['support', 'value', 'TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)', 'FN (extra bbox)', 'precision', 'recall', 'f1_score']
+        ['support', 'value', 'TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)', 
+        'FN (extra bbox)', 'precision', 'recall', 'f1_score']
     ]
     df_pipeline_metrics.sort_values(by='support', ascending=False, inplace=True)
     if known_class_names is not None:
-        df_pipeline_metrics.loc[class_names_without_pseudo_classes, 'is known by classifier'] = (
-            df_pipeline_metrics.loc[class_names_without_pseudo_classes].index.isin(known_class_names)
+        df_pipeline_metrics.loc[all_class_names, 'known'] = (
+            df_pipeline_metrics.loc[all_class_names].index.isin(known_class_names)
         )
-        pseudo_class_names_exists = [
-            class_name
-            for class_name in pseudo_class_names
-            if f"{class_name} (pseudo-class)" in pipeline_metrics
-        ]
-        pseudo_class_names_captions = [
-            f"{class_name} (pseudo-class)" for class_name in pseudo_class_names_exists
-        ]
-        df_pipeline_metrics.loc[pseudo_class_names_captions, 'is known by classifier'] = [
-            class_name in known_class_names for class_name in pseudo_class_names_exists
-        ]
+        df_pipeline_metrics.loc[all_class_names, 'pseudo'] = (
+            df_pipeline_metrics.loc[all_class_names].index.isin(pseudo_class_names)
+        )
 
     return df_pipeline_metrics

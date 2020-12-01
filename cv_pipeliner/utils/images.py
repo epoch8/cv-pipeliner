@@ -10,8 +10,7 @@ from PIL import Image, ImageFont, ImageDraw
 import cv2
 import numpy as np
 import fsspec
-import zipfile
-import tempfile
+import imutils
 from pathy import Pathy
 from tqdm import tqdm
 
@@ -126,7 +125,8 @@ def concat_images(
     background_color_b: Tuple[int, int, int, int] = None,
     thumbnail_size_a: Tuple[int, int] = None,
     thumbnail_size_b: Tuple[int, int] = None,
-    how: Literal['horizontally', 'vertically'] = 'horizontally'
+    how: Literal['horizontally', 'vertically'] = 'horizontally',
+    mode: Literal['L', 'RGB', 'RGBA'] = 'RGBA'
 ) -> np.ndarray:
     if len(image_a.shape) == 2 or image_a.shape[-1] == 1:
         image_a = cv2.cvtColor(image_a, cv2.COLOR_GRAY2RGBA)
@@ -199,6 +199,17 @@ def concat_images(
             "Parametr how must be 'horizontally' or 'vertically'"
         )
 
+    if mode == 'RGBA':
+        pass
+    elif mode == 'RGB':
+        new_image = cv2.cvtColor(new_image, cv2.COLOR_RGBA2RGB)
+    elif mode == 'L':
+        new_image = cv2.cvtColor(new_image, cv2.COLOR_RGBA2GRAY)
+    else:
+        raise ValueError(
+            "Parametr mode must be 'RGBA' or 'RGB' or 'L'"
+        )
+
     return new_image
 
 
@@ -257,3 +268,81 @@ def draw_rectangle(
         (1-alpha) * image_original[max(0, ymin-thickness):ymax+thickness, max(0, xmin-thickness):xmin, :] + alpha * np.array(color)  # noqa: E501
     )
     return image
+
+
+# TODO: Remove 4D padding as it's very slow.
+def get_base_labels_images_with_description(
+    label_to_base_label_image: Callable[[str], np.ndarray],
+    label_to_description: Callable[[str], str],
+    labels: List[str],
+    pad_color: Tuple[int, int, int, int] = (255, 255, 255, 255),
+    pad_resize: int = 90,
+    pad_width: int = 5,
+    base_resize: int = 150,
+    maximum_text_width: int = 20
+) -> np.ndarray:
+    total_image = None
+
+    for label in labels:
+        base_label_image = label_to_base_label_image(label).copy()
+        if len(base_label_image.shape) == 2 or base_label_image.shape[-1] == 1:
+            base_label_image = cv2.cvtColor(base_label_image, cv2.COLOR_GRAY2RGBA)
+        elif base_label_image.shape[-1] == 3:
+            base_label_image = cv2.cvtColor(base_label_image, cv2.COLOR_RGB2RGBA)
+        base_label_image = imutils.resize(base_label_image, width=base_resize, height=base_resize)
+        height, width, _ = base_label_image.shape
+        base_label_image = np.pad(
+            base_label_image,
+            pad_width=(
+                (max(0, pad_resize-height//2), max(0, pad_resize-height//2)),
+                (max(0, pad_resize-width//2), max(0, pad_resize-width//2)),
+                (0, 0)
+            ),
+            constant_values=((pad_color, pad_color), (pad_color, pad_color), (0, 0)),
+            mode='constant'
+        )
+        description = label_to_description(label)
+        how_many = 30 * len(description) // maximum_text_width
+        base_label_image = np.pad(
+            base_label_image,
+            pad_width=((how_many, 0), (0, 0), (0, 0)),
+            constant_values=((pad_color, 0), (0, 0), (0, 0)),
+            mode='constant'
+        )
+        base_label_image = np.pad(
+            base_label_image,
+            pad_width=((pad_width, pad_width), (pad_width, pad_width), (0, 0)),
+            constant_values=((0, 0), (0, 0), (0, 0)),
+            mode='constant'
+        )
+        base_label_image = np.pad(
+            base_label_image,
+            pad_width=((60, 0), (0, 0), (0, 0)),
+            constant_values=(((255, 255, 255, 255), 0), (0, 0), (0, 0)),
+            mode='constant'
+        )
+        fontsize1, fontsize2 = 30, 17
+        ymax1, ymax2 = 25, 10
+        base_label_image = put_text_on_image(
+            image=base_label_image,
+            text=label,
+            fontsize=fontsize1,
+            ymax=ymax1,
+            maximum_width=maximum_text_width
+        )
+        base_label_image = put_text_on_image(
+            image=base_label_image,
+            text=description,
+            fontsize=fontsize2,
+            ymax=fontsize1+ymax1+ymax2,
+            maximum_width=maximum_text_width
+        )
+        if total_image is None:
+            total_image = base_label_image
+        else:
+            total_image = concat_images(
+                image_a=total_image,
+                image_b=base_label_image
+            )
+
+    return total_image

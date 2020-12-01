@@ -18,9 +18,8 @@ from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
 from cv_pipeliner.utils.images import get_label_to_base_label_image
 
 import streamlit as st
-from cv_pipeliner.utils.streamlit.data import (
-    get_images_data_from_dir, get_label_to_description
-)
+from cv_pipeliner.utils.data import get_label_to_description
+from cv_pipeliner.utils.streamlit.data import get_images_data_from_dir
 from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data
 from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 

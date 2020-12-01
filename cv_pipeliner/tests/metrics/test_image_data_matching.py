@@ -7,10 +7,10 @@ from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
 from cv_pipeliner.visualizers.core.image_data import visualize_images_data_side_by_side
 from cv_pipeliner.visualizers.core.image_data_matching import visualize_image_data_matching_side_by_side
 
-from cv_pipeliner.metrics.classification import get_df_classification_metrics
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics
 
 test_dir = Path(__file__).parent / 'images'
+test_dir.mkdir(exist_ok=True, parents=True)
 image_path = Path(__file__).parent / 'original.jpg'
 
 # Banana
@@ -226,7 +226,6 @@ def test_image_data_matching_detection():
 
 
 def test_image_data_matching_pipeline():
-
     minimum_iou = 0.5
     tag_default = 'all'
     tag_with_extra_bbox_label_other = 'all_with_extra_bbox_label_other'
@@ -405,7 +404,7 @@ def test_image_data_matching_pipeline():
                     pred_use_labels=True,
                     label=label
                 )
-            ).save(test_dir / f'pipeline_{tag=}_{label=}.jpg')
+            ).save(test_dir / f'df_metrics_pipeline_{tag=}_{label=}.jpg')
         dfi.export(
             obj=df_pipeline_metrics,
             filename=str(test_dir / f"df_metrics_pipeline_{tag=}.png"),

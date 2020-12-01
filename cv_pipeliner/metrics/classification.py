@@ -2,39 +2,71 @@ from typing import List, Dict
 
 import pandas as pd
 import numpy as np
-from sklearn.metrics import precision_recall_fscore_support, multilabel_confusion_matrix
+from sklearn.metrics import multilabel_confusion_matrix
 
 from cv_pipeliner.core.data import BboxData
 
 
 def _add_metrics_to_dict(
     classification_metrics: Dict,
-    y_true: List[str],
-    y_pred: List[str],
     labels: List[str],
     prefix_caption: str = '',
     postfix_caption: str = '',
 ):
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
-    support = len(y_true)
-    for average in ['micro', 'macro', 'weighted']:
-        average_precision, average_recall, average_f1_score, _ = precision_recall_fscore_support(
-            y_true=y_true,
-            y_pred=y_pred,
-            average=average,
-            labels=labels,
-            zero_division=0
-        )
-        classification_metrics[f'{prefix_caption}{average}_average{postfix_caption}'] = {
-            'support': support,
-            'precision': average_precision,
-            'recall': average_recall,
-            'f1_score': average_f1_score
-        }
+    supports = [classification_metrics[class_name]['support'] for class_name in labels]
+    support = np.sum(supports)
+    TP = np.sum([classification_metrics[class_name]['TP'] for class_name in labels])
+    FP = np.sum([classification_metrics[class_name]['FP'] for class_name in labels])
+    FN = np.sum([classification_metrics[class_name]['FN'] for class_name in labels])
+    accuracy = TP / max(TP + FP + FN, 1e-6)
+    micro_average_precision = TP / max(TP + FP, 1e-6)
+    micro_average_recall = TP / max(TP + FN, 1e-6)
+    micro_average_f1_score = 2 * micro_average_precision * micro_average_recall / (
+        max(micro_average_precision + micro_average_recall, 1e-6)
+    )
+    precisions = [classification_metrics[class_name]['precision'] for class_name in labels]
+    recalls = [classification_metrics[class_name]['recall'] for class_name in labels]
+    f1_scores = [classification_metrics[class_name]['f1_score'] for class_name in labels]
+    macro_average_precision = np.average(precisions)
+    weighted_average_precision = np.average(precisions, weights=supports)
+    macro_average_recall = np.average(recalls)
+    weighted_average_recall = np.average(recalls, weights=supports)
+    macro_average_f1_score = np.average(f1_scores)
+    weighted_average_f1_score = np.average(f1_scores, weights=supports)
+    sum_support = np.sum(supports)
     classification_metrics[f'{prefix_caption}accuracy{postfix_caption}'] = {
         'support': support,
-        'value': np.sum(y_true != y_pred) / support
+        'TP': TP,
+        'FP': FP,
+        'FN': FN,
+        'value': accuracy
+    }
+    classification_metrics[f'{prefix_caption}micro_average{postfix_caption}'] = {
+        'support': sum_support,
+        'TP': TP,
+        'FP': FP,
+        'FN': FN,
+        'precision': micro_average_precision,
+        'recall': micro_average_recall,
+        'f1_score': micro_average_f1_score
+    }
+    classification_metrics[f'{prefix_caption}macro_average{postfix_caption}'] = {
+        'support': sum_support,
+        'TP': TP,
+        'FP': FP,
+        'FN': FN,
+        'precision': macro_average_precision,
+        'recall': macro_average_recall,
+        'f1_score': macro_average_f1_score
+    }
+    classification_metrics[f'{prefix_caption}weighted_average{postfix_caption}'] = {
+        'support': sum_support,
+        'TP': TP,
+        'FP': FP,
+        'FN': FN,
+        'precision': weighted_average_precision,
+        'recall': weighted_average_recall,
+        'f1_score': weighted_average_f1_score
     }
 
 
@@ -71,8 +103,7 @@ def get_df_classification_metrics(
         f1_score_by_class_name = 2 * precision_by_class_name * recall_by_class_name / (
             max(precision_by_class_name + recall_by_class_name, 1e-6)
         )
-        class_name_caption = f"{class_name} (pseudo-class)" if class_name in pseudo_class_names else class_name
-        classification_metrics[class_name_caption] = {
+        classification_metrics[class_name] = {
             'support': support_by_class_name,
             'TP': TP_by_class_name,
             'FP': FP_by_class_name,
@@ -83,37 +114,24 @@ def get_df_classification_metrics(
         }
     _add_metrics_to_dict(
         classification_metrics=classification_metrics,
-        y_true=true_labels,
-        y_pred=pred_labels,
         labels=all_class_names,
         prefix_caption='all_'
     )
     _add_metrics_to_dict(
         classification_metrics=classification_metrics,
-        y_true=true_labels,
-        y_pred=pred_labels,
         labels=class_names_without_pseudo_classes,
+        prefix_caption='all_',
         postfix_caption='_without_pseudo_classes'
     )
     if known_class_names is not None:
         known_class_names_without_pseudo_classes = list(set(known_class_names) - set(pseudo_class_names))
-        known_true_labels_idxs = [label in known_class_names for label in true_labels]
-        known_true_labels = true_labels[known_true_labels_idxs]
-        known_pred_labels = pred_labels[known_true_labels_idxs]
-        known_true_labels_without_pseudo_classes_idxs = [label in known_class_names for label in true_labels]
-        known_true_labels_without_pseudo_classes = true_labels[known_true_labels_without_pseudo_classes_idxs]
-        known_pred_labels_without_pseudo_classes = pred_labels[known_true_labels_without_pseudo_classes_idxs]
         _add_metrics_to_dict(
             classification_metrics=classification_metrics,
-            y_true=known_true_labels,
-            y_pred=known_pred_labels,
             labels=known_class_names,
             prefix_caption='known_'
         )
         _add_metrics_to_dict(
             classification_metrics=classification_metrics,
-            y_true=known_true_labels_without_pseudo_classes,
-            y_pred=known_pred_labels_without_pseudo_classes,
             labels=known_class_names_without_pseudo_classes,
             prefix_caption='known_',
             postfix_caption='_without_pseudo_classes'
@@ -126,19 +144,11 @@ def get_df_classification_metrics(
     ]
 
     if known_class_names is not None:
-        df_classification_metrics.loc[class_names_without_pseudo_classes, 'is known by classifier'] = (
-            df_classification_metrics.loc[class_names_without_pseudo_classes].index.isin(known_class_names)
+        df_classification_metrics.loc[all_class_names, 'known'] = (
+            df_classification_metrics.loc[all_class_names].index.isin(known_class_names)
         )
-        pseudo_class_names_exists = [
-            class_name
-            for class_name in pseudo_class_names
-            if f"{class_name} (pseudo-class)" in classification_metrics
-        ]
-        pseudo_class_names_captions = [
-            f"{class_name} (pseudo-class)" for class_name in pseudo_class_names_exists
-        ]
-        df_classification_metrics.loc[pseudo_class_names_captions, 'is known by classifier'] = [
-            class_name in known_class_names for class_name in pseudo_class_names_exists
-        ]
+        df_classification_metrics.loc[all_class_names, 'pseudo'] = (
+            df_classification_metrics.loc[all_class_names].index.isin(pseudo_class_names)
+        )
 
     return df_classification_metrics
