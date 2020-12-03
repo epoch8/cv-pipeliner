@@ -1,14 +1,18 @@
 import os
-from typing import Dict
+import json
+import fsspec
+from typing import Dict, List, Literal, Tuple
 from collections import Counter
 from pathlib import Path
 
 import numpy as np
 import streamlit as st
 
+from cv_pipeliner.core.data import BboxData
+from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels, get_n_bboxes_data_filtered_by_labels
-from cv_pipeliner.utils.images import get_label_to_base_label_image
+from cv_pipeliner.utils.images import get_label_to_base_label_image, open_image
 
 from cv_pipeliner.utils.data import get_label_to_description
 from cv_pipeliner.utils.streamlit.data import get_images_data_from_dir
@@ -42,11 +46,18 @@ annotation_filepath = st.sidebar.selectbox(
     'Annotation filepath',
     options=image_dir_to_annotation_filepaths[images_from]
 )
+annotation_openfile = fsspec.open(annotation_filepath, 'r')
 images_data, annotation_success = get_images_data_from_dir(
     images_annotation_type=cfg.data.images_annotation_type,
     images_dir=images_from,
-    annotation_filepath=annotation_filepath
+    annotation_filepath=annotation_filepath,
+    annotation_filepath_st_mode=annotation_openfile.fs.checksum(annotation_openfile.path)  # for annotation changes
 )
+bbox_data_to_image_data_index_and_bboxes_data_subindex = {
+    f'{bbox_data.image_path}_{(bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)}': (index, subindex)
+    for index, image_data in enumerate(images_data)
+    for subindex, bbox_data in enumerate(image_data.bboxes_data)
+}
 
 if not annotation_success:
     st.warning("Annotations for given folder weren't found!")
@@ -123,6 +134,10 @@ if labels is not None:
         f"[{class_names_counter[class_name]} items] {class_name} [{label_to_description[class_name]}]"
         for class_name in class_names
     ]
+    classes_to_find_captions_no_items = [
+        f"{class_name} [{label_to_description[class_name]}]"
+        for class_name in class_names
+    ]
     filter_by_labels = st.multiselect(
         label="Classes to find",
         options=classes_to_find_captions,
@@ -137,6 +152,32 @@ if labels is not None:
 @st.cache(show_spinner=False, allow_output_mutation=True)
 def cached_visualize_image_data(**kwargs) -> np.ndarray:
     return visualize_image_data(**kwargs)
+
+
+def change_annotation(
+    bbox_data: BboxData
+):
+    bbox_key = f'{bbox_data.image_path}_{(bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)}'
+    change_annotation = st.checkbox(
+        f'Change annotation',
+        key=bbox_key
+    ) if cfg.data.images_annotation_type == 'brickit' else False
+    if change_annotation:
+        new_label_caption = st.selectbox(
+            label="Classes",
+            options=classes_to_find_captions_no_items,
+            index=class_names.index(bbox_data.label)
+        )
+        new_label = class_names[classes_to_find_captions_no_items.index(new_label_caption)]
+        st.image(image=label_to_base_label_image[new_label])
+        save_button = st.button('Save annotation', key=bbox_key)
+        if save_button:
+            index, subindex = bbox_data_to_image_data_index_and_bboxes_data_subindex[bbox_key]
+            images_data[index].bboxes_data[subindex].label = new_label
+            new_annotation = BrickitDataConverter().get_annot_from_images_data(images_data)
+            with open(annotation_filepath, 'w') as out:
+                json.dump(new_annotation, out, indent=4)
+            st.text('Success! Annotation is updated. Rerun to see changes.')
 
 
 if view == 'detection' and image_data is not None:
@@ -173,5 +214,6 @@ elif view == 'classification' and bboxes_data is not None:
         background_color_a=[0, 0, 0, 255],
         true_background_color_b=[0, 255, 0, 255],
         bbox_offset=100,
-        draw_rectangle_with_color=[0, 255, 0]
+        draw_rectangle_with_color=[0, 255, 0],
+        change_annotation=change_annotation
     )

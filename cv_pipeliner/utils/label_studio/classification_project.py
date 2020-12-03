@@ -276,6 +276,7 @@ class LabelStudioProject_Classification:
         label_to_base_label_image = get_label_to_base_label_image(
             base_labels_images=self.cv_pipeliner_settings['base_labels_images'],
             label_to_description=self.cv_pipeliner_settings['label_to_description'],
+            add_label_to_image=True,
             make_labels_for_these_class_names_too=list(map(self._class_name_without_special_character, class_names))
         ) if self.cv_pipeliner_settings['base_labels_images'] is not None else None
         if label_to_base_label_image is None:
@@ -665,6 +666,7 @@ class LabelStudioProject_Classification:
             label_to_base_label_image = get_label_to_base_label_image(
                 base_labels_images=self.cv_pipeliner_settings['base_labels_images'],
                 label_to_description=self.cv_pipeliner_settings['label_to_description'],
+                add_label_to_image=True,
                 make_labels_for_these_class_names_too=list(
                     map(self._class_name_without_special_character, self.class_names)
                 )

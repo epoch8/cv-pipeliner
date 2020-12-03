@@ -16,7 +16,8 @@ import fsspec
 def get_images_data_from_dir(
     images_annotation_type: Literal['brickit', 'supervisely'],
     images_dir: Union[str, Path],
-    annotation_filepath: Union[str, Path] = None
+    annotation_filepath: Union[str, Path] = None,
+    annotation_filepath_st_mode: int = None
 ) -> List[ImageData]:
     images_dir = Pathy(images_dir)
     image_paths = sorted(

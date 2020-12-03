@@ -315,6 +315,7 @@ def get_base_label_image_with_description(
 def get_label_to_base_label_image(
     base_labels_images: Union[str, Path],
     label_to_description: Union[str, Path, Dict[str, str]] = None,
+    add_label_to_image: bool = False,
     make_labels_for_these_class_names_too: List[str] = []  # add known description to classes without base images
 ) -> Dict[str, np.ndarray]:
     base_labels_images_files = fsspec.open_files(str(base_labels_images))
@@ -343,7 +344,7 @@ def get_label_to_base_label_image(
                 label=label,
                 description=label_to_description[label]
             )
-        else:
+        elif add_label_to_image:
             base_label_image = get_base_label_image_with_description(
                 base_label_image=base_label_image,
                 label=label,

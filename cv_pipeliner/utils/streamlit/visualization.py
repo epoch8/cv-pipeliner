@@ -14,7 +14,7 @@ import streamlit as st
 def get_illustrated_bboxes_data(
     source_image: np.ndarray,
     bboxes_data: List[BboxData],
-    label_to_base_label_image: Callable[[str], np.ndarray],
+    label_to_base_label_image: Dict[str, np.ndarray],
     background_color_a: Tuple[int, int, int, int] = None,
     true_background_color_b: Tuple[int, int, int, int] = None,
     max_images_size: int = None,
@@ -34,7 +34,7 @@ def get_illustrated_bboxes_data(
         for bbox_data in bboxes_data
     ]
     labels = [bbox_data.label for bbox_data in bboxes_data]
-    renders = [label_to_base_label_image(label) for label in labels]
+    renders = [label_to_base_label_image[label] for label in labels]
     for cropped_image, render in zip(cropped_images, renders):
         height, width, _ = cropped_image.shape
         size = max(height, width, 50)
@@ -63,7 +63,7 @@ def get_illustrated_bboxes_data(
 def get_illustrated_bboxes_data_matchings(
     source_image: np.ndarray,
     bboxes_data_matchings: List[BboxDataMatching],
-    label_to_base_label_image: Callable[[str], np.ndarray],
+    label_to_base_label_image: Dict[str, np.ndarray],
     background_color_a: Tuple[int, int, int, int] = None,
     true_background_color_b: Tuple[int, int, int, int] = None,
     pred_background_color_b: Tuple[int, int, int, int] = None,
@@ -85,8 +85,8 @@ def get_illustrated_bboxes_data_matchings(
     ) for bbox_data in pred_bboxes_data]
     true_labels = [bbox_data.label if bbox_data is not None else "unknown" for bbox_data in true_bboxes_data]
     pred_labels = [bbox_data.label for bbox_data in pred_bboxes_data]
-    true_renders = [label_to_base_label_image(true_label) for true_label in true_labels]
-    pred_renders = [label_to_base_label_image(pred_label) for pred_label in pred_labels]
+    true_renders = [label_to_base_label_image[true_label] for true_label in true_labels]
+    pred_renders = [label_to_base_label_image[pred_label] for pred_label in pred_labels]
     labels = [f"{pred_label}/{true_label}" for pred_label, true_label in zip(pred_labels, true_labels)]
     for cropped_image, true_render, pred_render in zip(pred_cropped_images, true_renders, pred_renders):
         height, width, _ = cropped_image.shape
@@ -135,7 +135,7 @@ def get_image_data_matching(
 
 def illustrate_bboxes_data(
     true_image_data: ImageData,
-    label_to_base_label_image: Callable[[str], np.ndarray],
+    label_to_base_label_image: Dict[str, np.ndarray],
     label_to_description: Dict[str, str],
     mode: Literal['many', 'one-by-one'],
     pred_image_data: ImageData = None,
@@ -232,7 +232,7 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
                 if pred_bbox_data is not None:
                     st.markdown(f"Prediction: '{pred_bbox_data.label}'")
                     st.markdown(label_to_description[pred_bbox_data.label])
-                    st.text(f'Bbox: {[pred_bbox_data.xmin, pred_bbox_data.ymin,pred_bbox_data.xmax, pred_bbox_data.ymax]}')
+                    st.text(f'Bbox: {[pred_bbox_data.xmin, pred_bbox_data.ymin, pred_bbox_data.xmax, pred_bbox_data.ymax]}')
                     st.markdown('--')
                 if true_bbox_data is not None:
                     st.markdown(f"Ground Truth: '{true_bbox_data.label}'")
@@ -248,8 +248,8 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
 
 def illustrate_n_bboxes_data(
     n_bboxes_data: List[List[BboxData]],
-    label_to_base_label_image: Callable[[str], np.ndarray],
-    label_to_description: Callable[[str], str],
+    label_to_base_label_image: Dict[str, np.ndarray],
+    label_to_description: Dict[str, str],
     mode: Literal['many', 'one-by-one'],
     minimum_iou: float = None,
     background_color_a: Tuple[int, int, int, int] = None,
@@ -257,7 +257,8 @@ def illustrate_n_bboxes_data(
     average_maximum_images_per_page: int = 50,
     max_images_size: int = 400,
     bbox_offset: int = 0,
-    draw_rectangle_with_color: Tuple[int, int, int] = None
+    draw_rectangle_with_color: Tuple[int, int, int] = None,
+    change_annotation: Callable[[BboxData], None] = None
 ):
     bboxes_data = [bbox_data for bboxes_data in n_bboxes_data for bbox_data in bboxes_data]
 
@@ -314,9 +315,11 @@ def illustrate_n_bboxes_data(
         for cropped_image_and_render, label, bbox_data in zip(cropped_images_and_renders, labels, page_bboxes_data):
             st.image(image=cropped_image_and_render)
             st.markdown(label)
-            st.markdown(label_to_description(label))
+            st.markdown(label_to_description[label])
             st.text(f"From image '{bbox_data.image_name}'")
             st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
+            if change_annotation is not None:
+                change_annotation(bbox_data)
             st.markdown('----')
     elif mode == "many":
         st.image(image=cropped_images_and_renders, caption=labels)
