@@ -332,8 +332,8 @@ pipeline_interactive_work(
         batch_size: int,
         pseudo_class_names: List[str]
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        model = model_spec.load()
-        inferencer = PipelineInferencer(model)
+        pipeline_model = model_spec.load()
+        inferencer = PipelineInferencer(pipeline_model)
         images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=batch_size,
                                                   use_not_caught_elements_as_last_batch=True)
         pred_images_data = inferencer.predict(images_data_gen, detection_score_threshold=detection_score_threshold)
@@ -343,7 +343,7 @@ pipeline_interactive_work(
             minimum_iou=minimum_iou,
             extra_bbox_label=extra_bbox_label,
             pseudo_class_names=pseudo_class_names,
-            known_class_names=model.class_names
+            known_class_names=pipeline_model.class_names
         )
         return df_pipeline_metrics
 
@@ -411,8 +411,8 @@ pipeline_interactive_work(
         output_directory: Union[str, Path],
         true_images_data: List[ImageData],
         minimum_iou: float,
+        pseudo_class_names: List[str],
         batch_size: int = 16,
-        pseudo_class_names: List[str] = ['trash', 'not_part', 'other']
     ):
         assert len(models_specs) == len(tags)
         assert len(tags) == len(detection_scores_thresholds)
@@ -437,8 +437,8 @@ pipeline_interactive_work(
                 detection_score_threshold=detection_score_threshold,
                 minimum_iou=minimum_iou,
                 extra_bbox_label=extra_bbox_label,
-                batch_size=batch_size,
-                pseudo_class_names=pseudo_class_names
+                pseudo_class_names=pseudo_class_names,
+                batch_size=batch_size
             )
 
             pipelines_reports_datas.append(PipelineReportData(

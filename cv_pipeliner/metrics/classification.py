@@ -76,7 +76,7 @@ df_classification_metrics_columns = ['support', 'value', 'TP', 'FP', 'FN', 'prec
 def get_df_classification_metrics(
     n_true_bboxes_data: List[List[BboxData]],
     n_pred_bboxes_data: List[List[BboxData]],
-    pseudo_class_names: List[str] = ['trash', 'not_part', 'other'],
+    pseudo_class_names: List[str],
     known_class_names: List[str] = None
 ) -> pd.DataFrame:
     # We use pipeline metrics for it:
