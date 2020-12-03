@@ -70,6 +70,9 @@ def _add_metrics_to_dict(
     }
 
 
+df_classification_metrics_columns = ['support', 'value', 'TP', 'FP', 'FN', 'precision', 'recall', 'f1_score']
+
+
 def get_df_classification_metrics(
     n_true_bboxes_data: List[List[BboxData]],
     n_pred_bboxes_data: List[List[BboxData]],
@@ -139,9 +142,7 @@ def get_df_classification_metrics(
 
     df_classification_metrics = pd.DataFrame(classification_metrics, dtype=object).T
     df_classification_metrics.sort_values(by='support', ascending=False, inplace=True)
-    df_classification_metrics = df_classification_metrics[
-        ['support', 'value', 'TP', 'FP', 'FN', 'precision', 'recall', 'f1_score']
-    ]
+    df_classification_metrics = df_classification_metrics[df_classification_metrics_columns]
 
     if known_class_names is not None:
         df_classification_metrics.loc[all_class_names, 'known'] = (

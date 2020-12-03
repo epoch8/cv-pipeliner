@@ -80,7 +80,7 @@ class PipelineReportData:
         )
         self.df_correct_preds = pd.DataFrame({
             'TP (detector)': [df_detection_metrics.loc['TP', 'value']],
-            'TP (pipeline)': [df_pipeline_metrics.loc['micro_average', 'TP']]
+            'TP (pipeline)': [df_pipeline_metrics.loc['all_accuracy', 'TP']]
         }, index=['value'], dtype=int).T
         self.df_incorrect_preds = self._get_df_incorrect_preds(
             df_detection_metrics=df_detection_metrics,
@@ -103,7 +103,10 @@ class PipelineReportData:
         df_pipeline_metrics: pd.DataFrame
     ) -> pd.DataFrame:
         df_pipeline_metrics_short = df_pipeline_metrics.loc[
-            ['weighted_average'], ['precision', 'recall']
+            [
+                'all_weighted_average', 'all_weighted_average_without_pseudo_classes',
+                'known_weighted_average', 'known_weighted_average_without_pseudo_classes',
+            ], ['precision', 'recall']
         ].T
         return df_pipeline_metrics_short
 
@@ -112,13 +115,13 @@ class PipelineReportData:
         df_detection_metrics: pd.DataFrame,
         df_pipeline_metrics: pd.DataFrame,
     ) -> pd.DataFrame:
-        df_all_class_names = df_pipeline_metrics[df_pipeline_metrics['is known by classifier'].notna()]
-        uknown_classes = df_all_class_names[~df_all_class_names['is known by classifier'].astype(bool)].index
+        df_all_class_names = df_pipeline_metrics[df_pipeline_metrics['known'].notna()]
+        unknown_classes = df_all_class_names[~df_all_class_names['known'].astype(bool)].index
         df_incorrect_preds = pd.DataFrame({
             'FP (detector)': [df_detection_metrics.loc['FP', 'value']],
             'FN (detector)': [df_detection_metrics.loc['FN', 'value']],
-            'FP (classifier, known classes)': [df_pipeline_metrics.loc['known_micro_average', 'FP']],
-            'FP (classifier, unknown classes)': [df_pipeline_metrics.loc[uknown_classes, 'FP'].sum()]
+            'FP (classifier, known classes)': [df_pipeline_metrics.loc['known_accuracy', 'FP']],
+            'FP (classifier, unknown classes)': [df_pipeline_metrics.loc[unknown_classes, 'FP'].sum()]
         }, index=['value'], dtype=int).T
         return df_incorrect_preds
 
@@ -274,7 +277,7 @@ class PipelineReporter(Reporter):
             f'{pipeline_report_data.df_detection_metrics.to_markdown(stralign="center")}''\n'
         )
         markdowns.append(
-            f'## Pipeline metrics (strict)''\n'
+            f'## Pipeline metrics''\n'
             f'{pipeline_report_data.df_pipeline_metrics.to_markdown(stralign="center")}''\n'
         )
         markdowns.append(

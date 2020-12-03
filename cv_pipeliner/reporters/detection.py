@@ -94,7 +94,7 @@ def concat_detections_reports_datas(
             ],
             axis=1
         ),
-        columns=df_detection_metrics_columns,
+        columns=['value'],
         tags=tags,
         compare_tag=compare_tag
     )

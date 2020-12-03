@@ -61,7 +61,10 @@ class ClassificationReportData:
             return
 
         self.df_classification_metrics_short = df_classification_metrics.loc[
-            ['accuracy', 'macro avg', 'weighted avg']
+            [
+                'all_weighted_average', 'all_weighted_average_without_pseudo_classes',
+                'known_weighted_average', 'known_weighted_average_without_pseudo_classes',
+            ], ['precision', 'recall']
         ].copy()
 
         self.tag = tag

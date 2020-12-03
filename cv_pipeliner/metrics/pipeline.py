@@ -211,6 +211,12 @@ def _add_metrics_to_dict(
     }
 
 
+df_pipeline_metrics_columns = [
+    'support', 'value', 'TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)',
+    'FN (extra bbox)', 'precision', 'recall', 'f1_score'
+]
+
+
 def get_df_pipeline_metrics(
     true_images_data: List[ImageData],
     pred_images_data: List[ImageData],
@@ -313,10 +319,7 @@ def get_df_pipeline_metrics(
         )
 
     df_pipeline_metrics = pd.DataFrame(pipeline_metrics, dtype=object).T
-    df_pipeline_metrics = df_pipeline_metrics[
-        ['support', 'value', 'TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)', 
-        'FN (extra bbox)', 'precision', 'recall', 'f1_score']
-    ]
+    df_pipeline_metrics = df_pipeline_metrics[df_pipeline_metrics_columns]
     df_pipeline_metrics.sort_values(by='support', ascending=False, inplace=True)
     if known_class_names is not None:
         df_pipeline_metrics.loc[all_class_names, 'known'] = (
