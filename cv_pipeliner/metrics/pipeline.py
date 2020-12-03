@@ -303,6 +303,7 @@ def get_df_pipeline_metrics(
         postfix_caption='_without_pseudo_classes'
     )
     if known_class_names is not None:
+        known_class_names = list(set(all_class_names).intersection(set(known_class_names)))
         known_class_names_without_pseudo_classes = list(set(known_class_names) - set(pseudo_class_names))
         _add_metrics_to_dict(
             pipeline_metrics_per_class=pipeline_metrics_per_class_all_class_names,
