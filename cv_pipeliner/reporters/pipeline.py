@@ -107,7 +107,7 @@ class PipelineReportData:
                 'all_weighted_average', 'all_weighted_average_without_pseudo_classes',
                 'known_weighted_average', 'known_weighted_average_without_pseudo_classes',
             ], ['precision', 'recall']
-        ].T
+        ]
         return df_pipeline_metrics_short
 
     def _get_df_incorrect_preds(
@@ -193,7 +193,7 @@ def concat_pipelines_reports_datas(
             ],
             axis=1
         ),
-        columns=['value'],
+        columns=['precision', 'recall'],
         tags=tags,
         compare_tag=compare_tag
     )
