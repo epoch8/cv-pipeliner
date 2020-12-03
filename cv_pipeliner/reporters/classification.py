@@ -195,7 +195,7 @@ classification_interactive_work(
             n_true_bboxes_data=n_true_bboxes_data,
             n_pred_bboxes_data=n_pred_bboxes_data,
             pseudo_class_names=pseudo_class_names,
-            known_class_names=classification_model.known_class_names
+            known_class_names=classification_model.class_names
         )
 
         return df_classification_metrics
@@ -257,8 +257,8 @@ classification_interactive_work(
             tag_df_classification_metrics = self._inference_classification_and_get_metrics(
                 model_spec=model_spec,
                 n_true_bboxes_data=n_true_bboxes_data,
-                batch_size=batch_size,
-                pseudo_class_names=pseudo_class_names
+                pseudo_class_names=pseudo_class_names,
+                batch_size=batch_size
             )
             classifications_reports_datas.append(ClassificationReportData(
                 df_classification_metrics=tag_df_classification_metrics,
