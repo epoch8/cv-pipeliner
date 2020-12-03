@@ -108,7 +108,7 @@ def concat_classifications_reports_datas(
             ],
             axis=1
         ),
-        columns=df_classification_metrics_columns,
+        columns=['precision', 'recall'],
         tags=tags,
         compare_tag=compare_tag
     )
