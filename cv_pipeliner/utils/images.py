@@ -15,6 +15,7 @@ import imutils
 from pathy import Pathy
 from tqdm import tqdm
 
+from cv_pipeliner.utils.data import get_label_to_description
 from cv_pipeliner.logging import logger
 
 
@@ -197,7 +198,10 @@ def put_text_on_image(
     texts = [text[i:i+maximum_width] for i in range(0, len(text), maximum_width)]
     image_pil = Image.fromarray(image)
     draw = ImageDraw.Draw(image_pil)
-    font = ImageFont.truetype(font, fontsize)
+    try:
+        font = ImageFont.truetype(font, fontsize)
+    except IOError:
+        font = ImageFont.load_default()
     width, height = image_pil.size
     for i, subtext in enumerate(texts):
         text_width, text_height = font.getsize(subtext)
@@ -310,7 +314,8 @@ def get_base_label_image_with_description(
 
 def get_label_to_base_label_image(
     base_labels_images: Union[str, Path],
-    label_to_description: Dict[str, str] = None,
+    label_to_description: Union[str, Path, Dict[str, str]] = None,
+    make_labels_for_these_class_names_too: List[str] = []  # add known description to classes without base images
 ) -> Dict[str, np.ndarray]:
     base_labels_images_files = fsspec.open_files(str(base_labels_images))
     ann_class_names_files = [
@@ -325,13 +330,24 @@ def get_label_to_base_label_image(
     label_to_base_label_image = defaultdict(lambda: unknown_image)
     label_to_base_label_image['unknown'] = unknown_image
     logger.info(f"Loading base labels images from {base_labels_images}...")
-    for label in tqdm(unique_ann_class_names):
-        base_label_image = open_image(base_labels_images_files[ann_class_names_files.index(label)])
+    for label in tqdm(list(unique_ann_class_names) + list(set(make_labels_for_these_class_names_too))):
+        if label in unique_ann_class_names:
+            base_label_image = open_image(base_labels_images_files[ann_class_names_files.index(label)])
+        else:
+            base_label_image = unknown_image
         if label_to_description is not None:
+            if isinstance(label_to_description, str) or isinstance(label_to_description, Path):
+                label_to_description = get_label_to_description(label_to_description_dict=label_to_description)
             base_label_image = get_base_label_image_with_description(
                 base_label_image=base_label_image,
                 label=label,
                 description=label_to_description[label]
+            )
+        else:
+            base_label_image = get_base_label_image_with_description(
+                base_label_image=base_label_image,
+                label=label,
+                description=''
             )
         label_to_base_label_image[label] = base_label_image
 

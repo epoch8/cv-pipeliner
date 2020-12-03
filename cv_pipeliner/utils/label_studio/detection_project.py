@@ -1,4 +1,3 @@
-
 import os
 import time
 import stat
@@ -6,6 +5,7 @@ import json
 import subprocess
 import shutil
 import pickle
+from urllib.parse import urljoin
 
 from pathlib import Path
 from typing import List, Union, Dict
@@ -201,12 +201,12 @@ class LabelStudioProject_Detection:
             return f"{class_name}{SPECIAL_CHARACTER}" if class_name.isdigit() else class_name
 
     def _class_name_without_special_character(self, class_name: str) -> str:
-        return class_name.replace(SPECIAL_CHARACTER, '')
+        return class_name.split(SPECIAL_CHARACTER)[0]
 
-    def generate_config_xml(
+    def _generate_config_xml(
         self,
         class_names: List[str],
-        can_rotate: bool = False
+        can_rotate: bool
     ):
         labels = '\n'.join(
             [f'    <Label value="{class_name}"/>' for class_name in class_names]
@@ -215,6 +215,9 @@ class LabelStudioProject_Detection:
         config_xml = f'''
 <View>
   <Image name="image" value="$image"/>
+  <Filter name="filter" toName="bbox"
+    hotkey="shift+f" minlength="0"
+    placeholder="Type object name here..." />
   <RectangleLabels name="bbox" toName="image" canRotate="{can_rotate}">
 {labels}
   </RectangleLabels>
@@ -242,7 +245,7 @@ class LabelStudioProject_Detection:
         ]
         with open(self.main_project_directory/'class_names.json', 'w') as out:
             json.dump(self.class_names, out, indent=4)
-        self.generate_config_xml(class_names=self.class_names, can_rotate=can_rotate)
+        self._generate_config_xml(class_names=self.class_names, can_rotate=can_rotate)
 
     def inference_and_make_predictions_for_backend(
         self,
@@ -379,27 +382,27 @@ class LabelStudioProject_Detection:
             f'label-studio-ml start {self.backend_project_directory} -p {backend_port} & '
             f'label-studio start {self.main_project_directory} -p {port}'
         )
-        with open(self.directory / 'run.sh', 'w') as out:
-            out.write(run_command)
-        st = os.stat(self.directory / 'run.sh')  # chmod +x
-        os.chmod(self.directory / 'run.sh', st.st_mode | stat.S_IEXEC)
 
-        self.running_project_process = None
+    def run_backend(self):
+        os.system(f"label-studio-ml start {self.backend_project_directory} -p {self.cv_pipeliner_settings['backend_port']}")
+
+    def run_app(self):
+        os.system(f"label-studio start {self.main_project_directory} -p {self.cv_pipeliner_settings['port']}")
 
     def run_project(self):
-        if self.running_project_process is None:
+        try:
             logger.info(
-                f'Start project "{self.directory.name}" '
-                f'(port {self.cv_pipeliner_settings["port"]} and '
-                f'backend port port {self.cv_pipeliner_settings["backend_port"]})...'
+                f'Start project "{self.directory.name}": {self.cv_pipeliner_settings["url"]}'
             )
-            self.running_project_process = subprocess.Popen(
-                ["./run.sh"],
-                stdout=subprocess.PIPE,
-                cwd=str(self.directory)
-            )
-        else:
-            raise ValueError('The project is already running.')
+            processes = [
+                Process(target=self.run_backend),
+                Process(target=self.run_app)
+            ]
+            for p in processes:
+                p.start()
+        finally:
+            for p in processes:
+                p.join()
 
     def load(self):
         if (self.main_project_directory / 'cv_pipeliner_settings.json').exists():
@@ -433,7 +436,7 @@ class LabelStudioProject_Detection:
         with open(self.main_project_directory/'tasks.json', 'r') as src:
             tasks_json = json.load(src)
         tasks_ids = [tasks_json[key]['id'] for key in tasks_json]
-        start = max(tasks_ids)+1 if len(tasks_ids) > 0 else 0
+        start = max(tasks_ids) + 1 if len(tasks_ids) > 0 else 0
         logger.info('Adding tasks...')
 
         if all([isinstance(image, ImageData) for image in images]):
@@ -462,7 +465,7 @@ class LabelStudioProject_Detection:
         for id, image_data in tqdm(list(enumerate(images_data, start=start))):
             image_path = image_data.image_path
             image = (
-                f"{self.cv_pipeliner_settings['url']}/data/upload/{image_path.name}"  # noqa: E501
+                urljoin(self.cv_pipeliner_settings['url'], f"data/upload/{image_path.name}")
             )
             filepath = self.main_project_directory / 'upload' / f'{image_path.name}'
             if filepath.exists():
@@ -477,8 +480,8 @@ class LabelStudioProject_Detection:
                 }
             }
 
-        with open(self.main_project_directory/'tasks.json', 'w') as out:
-            json.dump(tasks_json, out, indent=4)
+            with open(self.main_project_directory/'tasks.json', 'w') as out:
+                json.dump(tasks_json, out, indent=4)
 
         self.tasks_data = load_tasks(self.main_project_directory)
         if all([isinstance(image, ImageData) for image in images]):  # already annotated
