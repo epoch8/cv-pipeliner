@@ -175,7 +175,7 @@ def change_annotation(
             index, subindex = bbox_data_to_image_data_index_and_bboxes_data_subindex[bbox_key]
             images_data[index].bboxes_data[subindex].label = new_label
             new_annotation = BrickitDataConverter().get_annot_from_images_data(images_data)
-            with open(annotation_filepath, 'w') as out:
+            with fsspec.open(annotation_filepath, 'w') as out:
                 json.dump(new_annotation, out, indent=4)
             st.text('Success! Annotation is updated. Rerun to see changes.')
 
