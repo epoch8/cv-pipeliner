@@ -1,4 +1,4 @@
-from typing import List, Literal, Callable
+from typing import Dict, List, Literal
 
 import numpy as np
 
@@ -9,7 +9,8 @@ from cv_pipeliner.visualizers.core.image_data import visualize_images_data_side_
 
 def get_true_and_pred_images_data_with_visualized_labels(
     image_data_matching: ImageDataMatching,
-    error_type: Literal['detection', 'pipeline']
+    error_type: Literal['detection', 'pipeline'],
+    label: str = None
 ) -> ImageData:
     """
     Create true and pred ImageData with changed label for visualization
@@ -32,10 +33,13 @@ def get_true_and_pred_images_data_with_visualized_labels(
                 continue
 
             if error_type == 'detection':
-                label = f"[{tag_bbox_data_matching.get_detection_error_type()}]"
+                label_caption = f"[{tag_bbox_data_matching.get_detection_error_type(label=label)}]"
             elif error_type == 'pipeline':
-                pipeline_error_type = tag_bbox_data_matching.get_pipeline_error_type()
-                label = f"{tag_bbox_data.label} [{pipeline_error_type}]"
+                pipeline_error_type = tag_bbox_data_matching.get_pipeline_error_type(label=label)
+                if label is None:
+                    label_caption = f"{tag_bbox_data.label} [{pipeline_error_type}]"
+                else:
+                    label_caption = f"{tag_bbox_data.label} [{pipeline_error_type}, cls. '{label}']"
 
             tag_bbox_data_with_visualized_label = BboxData(
                 image_path=tag_bbox_data.image_path,
@@ -45,7 +49,7 @@ def get_true_and_pred_images_data_with_visualized_labels(
                 xmax=tag_bbox_data.xmax,
                 ymax=tag_bbox_data.ymax,
                 detection_score=tag_bbox_data.detection_score,
-                label=label,
+                label=label_caption,
                 classification_score=tag_bbox_data.classification_score
             )
             tag_bboxes_data_with_visualized_label.append(tag_bbox_data_with_visualized_label)
@@ -75,14 +79,16 @@ def visualize_image_data_matching_side_by_side(
     pred_score_type: Literal['detection', 'classification'] = None,
     true_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
     pred_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
-    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    known_labels: List[str] = None
+    draw_base_labels_with_given_label_to_base_label_image: Dict[str, np.ndarray] = None,
+    known_labels: List[str] = None,
+    label: str = None
 ) -> np.ndarray:
 
     (true_image_data_with_visualized_labels,
      pred_image_data_with_visualized_labels) = get_true_and_pred_images_data_with_visualized_labels(
         image_data_matching=image_data_matching,
-        error_type=error_type
+        error_type=error_type,
+        label=label
     )
 
     true_visualized_labels = [bbox_data.label for bbox_data in true_image_data_with_visualized_labels.bboxes_data]

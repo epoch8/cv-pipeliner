@@ -1,5 +1,6 @@
 import collections
-from typing import Literal, List, Callable, Tuple
+import copy
+from typing import Literal, List, Tuple, Dict
 
 import numpy as np
 import imutils
@@ -252,7 +253,7 @@ def visualize_image_data(
     score_type: Literal['detection', 'classification'] = None,
     filter_by_labels: List[str] = None,
     known_labels: List[str] = None,
-    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
+    draw_base_labels_with_given_label_to_base_label_image: Dict[str, np.ndarray] = None,
 ) -> np.ndarray:
     image_data = get_image_data_filtered_by_labels(
         image_data=image_data,
@@ -290,7 +291,7 @@ def visualize_image_data(
     )
     if draw_base_labels_with_given_label_to_base_label_image is not None:
         for bbox_data in image_data.bboxes_data:
-            base_label_image = draw_base_labels_with_given_label_to_base_label_image(bbox_data.label)
+            base_label_image = draw_base_labels_with_given_label_to_base_label_image[bbox_data.label]
             draw_label_image(
                 image=image,
                 base_label_image=base_label_image,
@@ -311,8 +312,16 @@ def visualize_images_data_side_by_side(
     filter_by_labels1: List[str] = None,
     filter_by_labels2: List[str] = None,
     known_labels: List[str] = None,
-    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None
+    draw_base_labels_with_given_label_to_base_label_image: Dict[str, np.ndarray] = None,
+    overlay: bool = False
 ) -> np.ndarray:
+
+    if overlay:
+        image_data1 = copy.deepcopy(image_data1)
+        image_data2 = copy.deepcopy(image_data2)
+        for image_data, tag in [(image_data1, 'true'), (image_data2, 'pred')]:
+            for bbox_data in image_data.bboxes_data:
+                bbox_data.label = f"{bbox_data.label} [{tag}]"
 
     true_ann_image = visualize_image_data(
         image_data=image_data1,
@@ -331,6 +340,9 @@ def visualize_images_data_side_by_side(
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
     )
 
-    image = cv2.hconcat([true_ann_image, pred_ann_image])
+    if overlay:
+        image = cv2.addWeighted(src1=true_ann_image, alpha=1., src2=pred_ann_image, beta=1., gamma=0.)
+    else:
+        image = cv2.hconcat([true_ann_image, pred_ann_image])
 
     return image

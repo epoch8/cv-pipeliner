@@ -38,10 +38,11 @@ class ClassificationBackend(LabelStudioMLBase):
             task_data = id_to_task_data[int(task['id'])]
             predictions.append(
                 {
-                    'result': [task_data.convert_to_rectangle_label()],
+                    'result': [task_data.convert_to_rectangle_label(), task_data.convert_to_choice()],
                     'score': 1.0
                 }
             )
+        print(f"{predictions=}")
         return predictions
 
     def fit(self, completions, workdir=None, **kwargs):

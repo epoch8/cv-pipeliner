@@ -61,7 +61,10 @@ class ClassificationReportData:
             return
 
         self.df_classification_metrics_short = df_classification_metrics.loc[
-            ['accuracy', 'macro avg', 'weighted avg']
+            [
+                'all_weighted_average', 'all_weighted_average_without_pseudo_classes',
+                'known_weighted_average', 'known_weighted_average_without_pseudo_classes',
+            ], ['precision', 'recall']
         ].copy()
 
         self.tag = tag
@@ -105,7 +108,7 @@ def concat_classifications_reports_datas(
             ],
             axis=1
         ),
-        columns=df_classification_metrics_columns,
+        columns=['precision', 'recall'],
         tags=tags,
         compare_tag=compare_tag
     )
@@ -179,7 +182,8 @@ classification_interactive_work(
         self,
         model_spec: ClassificationModelSpec,
         n_true_bboxes_data: List[List[BboxData]],
-        batch_size: int = 16
+        batch_size: int,
+        pseudo_class_names: List[str]
     ) -> pd.DataFrame:
         classification_model = model_spec.load()
         inferencer = ClassificationInferencer(classification_model)
@@ -187,7 +191,12 @@ classification_interactive_work(
                                                  batch_size=batch_size,
                                                  use_not_caught_elements_as_last_batch=True)
         n_pred_bboxes_data = inferencer.predict(bboxes_data_gen)
-        df_classification_metrics = get_df_classification_metrics(n_true_bboxes_data, n_pred_bboxes_data)
+        df_classification_metrics = get_df_classification_metrics(
+            n_true_bboxes_data=n_true_bboxes_data,
+            n_pred_bboxes_data=n_pred_bboxes_data,
+            pseudo_class_names=pseudo_class_names,
+            known_class_names=classification_model.class_names
+        )
 
         return df_classification_metrics
 
@@ -229,7 +238,8 @@ classification_interactive_work(
         compare_tag: str,
         output_directory: Union[str, Path],
         n_true_bboxes_data: List[List[BboxData]],
-        batch_size: int = 16
+        pseudo_class_names: List[str],
+        batch_size: int = 16,
     ):
         for model_spec in models_specs:
             if hasattr(model_spec, 'preprocess_input'):
@@ -247,6 +257,7 @@ classification_interactive_work(
             tag_df_classification_metrics = self._inference_classification_and_get_metrics(
                 model_spec=model_spec,
                 n_true_bboxes_data=n_true_bboxes_data,
+                pseudo_class_names=pseudo_class_names,
                 batch_size=batch_size
             )
             classifications_reports_datas.append(ClassificationReportData(

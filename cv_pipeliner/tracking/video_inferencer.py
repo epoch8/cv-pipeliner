@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 from io import BytesIO
-from typing import Union, List, Tuple, Literal, Callable
+from typing import Union, List, Tuple, Dict
 
 import numpy as np
 import tempfile
@@ -32,7 +32,7 @@ class VideoInferencer:
     def __init__(
         self,
         pipeline_inferencer: PipelineInferencer,
-        draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray],
+        draw_base_labels_with_given_label_to_base_label_image: Dict[str, np.ndarray],
         write_labels: bool = True,
         frame_width: int = 640,
         frame_height: int = 1152,

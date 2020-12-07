@@ -27,7 +27,6 @@ class PipelineVisualizer(Visualizer):
         detection_score_threshold: float,
         minimum_iou: float,
         extra_bbox_label: str,
-        use_soft_metrics_with_known_labels: List[str],
         batch_size: int
     ) -> List[str]:
         images_data_gen = BatchGeneratorImageData(images_data,
@@ -39,8 +38,7 @@ class PipelineVisualizer(Visualizer):
                 true_image_data=image_data,
                 pred_image_data=pred_image_data,
                 minimum_iou=minimum_iou,
-                extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+                extra_bbox_label=extra_bbox_label
             )
             for image_data, pred_image_data in zip(images_data, pred_images_data)
         ]
@@ -60,7 +58,6 @@ class PipelineVisualizer(Visualizer):
                   detection_score_threshold: float = None,
                   show_TP_FP_FN_with_minimum_iou: float = None,
                   extra_bbox_label: str = None,
-                  use_soft_metrics_with_known_labels: List[str] = None,
                   batch_size: int = 16):
 
         images_data = copy.deepcopy(images_data)
@@ -71,7 +68,6 @@ class PipelineVisualizer(Visualizer):
                 detection_score_threshold=detection_score_threshold,
                 minimum_iou=show_TP_FP_FN_with_minimum_iou,
                 extra_bbox_label=extra_bbox_label,
-                use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels,
                 batch_size=batch_size
             )
         else:
@@ -103,8 +99,7 @@ class PipelineVisualizer(Visualizer):
                             true_image_data=self.true_image_data,
                             pred_image_data=self.pred_image_data,
                             minimum_iou=show_TP_FP_FN_with_minimum_iou,
-                            extra_bbox_label=extra_bbox_label,
-                            use_soft_metrics_with_known_labels=use_soft_metrics_with_known_labels
+                            extra_bbox_label=extra_bbox_label
                         ),
                         error_type='pipeline',
                         true_use_labels=True, pred_use_labels=True,
@@ -134,9 +129,9 @@ class PipelineVisualizer(Visualizer):
             choices_description='GT',
             choices2=(
                 [
-                    'TP+TP (extra bbox)+FP+FP (extra bbox)',
-                    'FP+FP (extra bbox)',
-                    'TP', 'TP (extra bbox)', 'FP', 'FP (extra bbox)'
+                    'TP+TP (extra bbox)+FP+FP (extra bbox)+FN (extra bbox)',
+                    'FP+FP (extra bbox)+FN (extra bbox)',
+                    'TP', 'TP (extra bbox)', 'FP', 'FP (extra bbox)', 'FN (extra bbox)'
                 ]
                 if self.inferencer is not None and show_TP_FP_FN_with_minimum_iou is not None else []
             ),

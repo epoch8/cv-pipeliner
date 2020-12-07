@@ -58,7 +58,7 @@ class DataConverter(abc.ABC):
                     )
                     continue
 
-                if data_converter.class_names is not None and data_converter.class_mapper is not None:
+                if data_converter.class_names is not None or data_converter.class_mapper is not None:
                     bbox_data.label = data_converter._filter_label_by_class_mapper(
                         bbox_data.label,
                         data_converter.class_names,
@@ -66,9 +66,11 @@ class DataConverter(abc.ABC):
                         data_converter.default_value
                     )
                 if (
-                    data_converter.class_names and
-                    bbox_data.label not in data_converter.class_names and
-                    data_converter.skip_nonexists
+                    data_converter.class_names is not None and
+                    (
+                        bbox_data.label not in data_converter.class_names and
+                        data_converter.skip_nonexists
+                    )
                 ):
                     continue
 
@@ -88,10 +90,10 @@ class DataConverter(abc.ABC):
         self,
         label: str,
         class_names: List[str],
-        class_mapper: Dict[str, str] = None,
-        default_value: str = ""
+        class_mapper: Dict[str, str],
+        default_value: str
     ) -> str:
-        if label in class_names:
+        if class_names is not None and label in class_names:
             return label
         if class_mapper is None:
             return default_value
