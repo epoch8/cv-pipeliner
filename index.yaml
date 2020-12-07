@@ -2,6 +2,16 @@ apiVersion: v1
 entries:
   cv-pipeliner:
   - apiVersion: v2
+    appVersion: 0.3.0
+    created: "2020-12-07T12:35:38.401095667Z"
+    description: A Helm chart for Kubernetes
+    digest: 1b1f309d8196dc208f9f196fc73c29bf6a764782c2da99b84ff1997ddb4b766b
+    name: cv-pipeliner
+    type: application
+    urls:
+    - https://github.com/epoch8/cv-pipeliner/releases/download/cv-pipeliner-0.3.0/cv-pipeliner-0.3.0.tgz
+    version: 0.3.0
+  - apiVersion: v2
     appVersion: 0.2.1
     created: "2020-11-30T14:40:35.674583536Z"
     description: A Helm chart for Kubernetes
