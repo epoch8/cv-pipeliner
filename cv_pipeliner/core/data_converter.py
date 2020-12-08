@@ -58,11 +58,12 @@ class DataConverter(abc.ABC):
                     )
                     continue
 
-                bbox_data.label = data_converter._filter_label_by_class_mapper(
-                    label=bbox_data.label,
-                    class_mapper=data_converter.class_mapper,
-                    default_value=data_converter.default_value
-                )
+                if data_converter.class_mapper is not None:
+                    bbox_data.label = data_converter._filter_label_by_class_mapper(
+                        label=bbox_data.label,
+                        class_mapper=data_converter.class_mapper,
+                        default_value=data_converter.default_value
+                    )
                 if (
                     data_converter.class_names is not None and
                     (
