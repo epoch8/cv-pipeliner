@@ -15,7 +15,7 @@ class DataConverter(abc.ABC):
     def __init__(self,
                  class_names: List[str] = None,
                  class_mapper: Dict[str, str] = None,
-                 default_value: str = "",
+                 default_value: str = None,
                  skip_nonexists: bool = False):
         self.class_names = class_names
         self.class_mapper = class_mapper
@@ -58,13 +58,11 @@ class DataConverter(abc.ABC):
                     )
                     continue
 
-                if data_converter.class_names is not None or data_converter.class_mapper is not None:
-                    bbox_data.label = data_converter._filter_label_by_class_mapper(
-                        bbox_data.label,
-                        data_converter.class_names,
-                        data_converter.class_mapper,
-                        data_converter.default_value
-                    )
+                bbox_data.label = data_converter._filter_label_by_class_mapper(
+                    label=bbox_data.label,
+                    class_mapper=data_converter.class_mapper,
+                    default_value=data_converter.default_value
+                )
                 if (
                     data_converter.class_names is not None and
                     (
@@ -89,16 +87,12 @@ class DataConverter(abc.ABC):
     def _filter_label_by_class_mapper(
         self,
         label: str,
-        class_names: List[str],
         class_mapper: Dict[str, str],
-        default_value: str
+        default_value: str = None
     ) -> str:
-        if class_names is not None and label in class_names:
-            return label
-        if class_mapper is None:
-            return default_value
-        else:
-            return class_mapper.get(label, default_value)
+        if default_value is None:
+            default_value = label
+        return class_mapper.get(label, default_value)
 
     @abc.abstractmethod
     @assert_image_data
