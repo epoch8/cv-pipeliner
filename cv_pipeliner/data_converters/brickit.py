@@ -14,12 +14,10 @@ class BrickitDataConverter(DataConverter):
     def __init__(self,
                  class_names: List[str] = None,
                  class_mapper: Dict[str, str] = None,
-                 default_value: str = "",
                  skip_nonexists: bool = False):
         super().__init__(
             class_names=class_names,
             class_mapper=class_mapper,
-            default_value=default_value,
             skip_nonexists=skip_nonexists
         )
 
