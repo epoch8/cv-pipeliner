@@ -40,7 +40,7 @@ def cut_images_data_by_bboxes(
     images_data: List[ImageData],
     bboxes: List[Tuple[int, int, int, int]] = None
 ) -> List[ImageData]:
-    if bbox is None:
+    if bboxes is None:
         return images_data
 
     images_data = copy.deepcopy(images_data)
