@@ -18,6 +18,7 @@ from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics, df_pipeline_m
 from cv_pipeliner.visualizers.pipeline import PipelineVisualizer
 from cv_pipeliner.logging import logger
 from cv_pipeliner.utils.dataframes import transpose_columns_and_write_diffs_to_df_with_tags
+from cv_pipeliner.utils.images_datas import cut_images_data_by_bbox
 
 PIPELINE_MODEL_SPEC_PREFIX = "pipeline_model_spec"
 IMAGES_DATA_FILENAME = "images_data.pkl"
@@ -330,13 +331,16 @@ pipeline_interactive_work(
         minimum_iou: float,
         extra_bbox_label: str,
         batch_size: int,
-        pseudo_class_names: List[str]
+        pseudo_class_names: List[str],
+        cut_by_bbox: Tuple[int, int, int, int] = None
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         pipeline_model = model_spec.load()
         inferencer = PipelineInferencer(pipeline_model)
         images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=batch_size,
                                                   use_not_caught_elements_as_last_batch=True)
         pred_images_data = inferencer.predict(images_data_gen, detection_score_threshold=detection_score_threshold)
+        true_images_data = cut_images_data_by_bbox(true_images_data, cut_by_bbox)
+        pred_images_data = cut_images_data_by_bbox(pred_images_data, cut_by_bbox)
         df_pipeline_metrics = get_df_pipeline_metrics(
             true_images_data=true_images_data,
             pred_images_data=pred_images_data,
@@ -354,7 +358,8 @@ pipeline_interactive_work(
         score_threshold: float,
         minimum_iou: float,
         extra_bbox_label: str = None,
-        batch_size: int = 16
+        batch_size: int = 16,
+        cut_by_bbox: Tuple[int, int, int, int] = None
     ) -> pd.DataFrame:
         detection_model = model_spec.load()
         inferencer = DetectionInferencer(detection_model)
@@ -362,6 +367,9 @@ pipeline_interactive_work(
                                                   use_not_caught_elements_as_last_batch=True)
         pred_images_data = inferencer.predict(images_data_gen, score_threshold=score_threshold)
         raw_pred_images_data = inferencer.predict(images_data_gen, score_threshold=0.)
+        true_images_data = cut_images_data_by_bbox(true_images_data, cut_by_bbox)
+        pred_images_data = cut_images_data_by_bbox(pred_images_data, cut_by_bbox)
+        raw_pred_images_data = cut_images_data_by_bbox(raw_pred_images_data, cut_by_bbox)
         df_detection_metrics = get_df_detection_metrics(
             true_images_data=true_images_data,
             pred_images_data=pred_images_data,
@@ -413,6 +421,7 @@ pipeline_interactive_work(
         minimum_iou: float,
         pseudo_class_names: List[str],
         batch_size: int = 16,
+        cut_by_bbox: Tuple[int, int, int, int] = None
     ):
         assert len(models_specs) == len(tags)
         assert len(tags) == len(detection_scores_thresholds)
@@ -429,7 +438,8 @@ pipeline_interactive_work(
                 true_images_data=true_images_data,
                 score_threshold=detection_score_threshold,
                 minimum_iou=minimum_iou,
-                batch_size=batch_size
+                batch_size=batch_size,
+                cut_by_bbox=cut_by_bbox
             )
             tag_df_pipeline_metrics = self._inference_pipeline_and_get_metrics(
                 model_spec=model_spec,
@@ -438,7 +448,8 @@ pipeline_interactive_work(
                 minimum_iou=minimum_iou,
                 extra_bbox_label=extra_bbox_label,
                 pseudo_class_names=pseudo_class_names,
-                batch_size=batch_size
+                batch_size=batch_size,
+                cut_by_bbox=cut_by_bbox
             )
 
             pipelines_reports_datas.append(PipelineReportData(
