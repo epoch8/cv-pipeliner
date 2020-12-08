@@ -36,16 +36,16 @@ def get_n_bboxes_data_filtered_by_labels(
     return n_bboxes_data
 
 
-def cut_images_data_by_bbox(
+def cut_images_data_by_bboxes(
     images_data: List[ImageData],
-    bbox: Tuple[int, int, int, int] = None
+    bboxes: List[Tuple[int, int, int, int]] = None
 ) -> List[ImageData]:
     if bbox is None:
         return images_data
 
-    xmin, ymin, xmax, ymax = bbox
     images_data = copy.deepcopy(images_data)
-    for image_data in images_data:
+    for image_data, bbox in zip(images_data, bboxes):
+        xmin, ymin, xmax, ymax = bbox
         image_data.bboxes_data = [
             bbox_data
             for bbox_data in image_data.bboxes_data
