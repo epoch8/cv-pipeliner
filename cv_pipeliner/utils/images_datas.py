@@ -1,6 +1,6 @@
 import copy
 
-from typing import List
+from typing import List, Tuple
 
 from cv_pipeliner.core.data import ImageData, BboxData
 
