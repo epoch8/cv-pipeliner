@@ -367,9 +367,9 @@ pipeline_interactive_work(
                                                   use_not_caught_elements_as_last_batch=True)
         pred_images_data = inferencer.predict(images_data_gen, score_threshold=score_threshold)
         raw_pred_images_data = inferencer.predict(images_data_gen, score_threshold=0.)
-        true_images_data = cut_images_data_by_bbox(true_images_data, cut_by_bboxes)
-        pred_images_data = cut_images_data_by_bbox(pred_images_data, cut_by_bboxes)
-        raw_pred_images_data = cut_images_data_by_bbox(raw_pred_images_data, cut_by_bboxes)
+        true_images_data = cut_images_data_by_bboxes(true_images_data, cut_by_bboxes)
+        pred_images_data = cut_images_data_by_bboxes(pred_images_data, cut_by_bboxes)
+        raw_pred_images_data = cut_images_data_by_bboxes(raw_pred_images_data, cut_by_bboxes)
         df_detection_metrics = get_df_detection_metrics(
             true_images_data=true_images_data,
             pred_images_data=pred_images_data,
