@@ -421,7 +421,7 @@ pipeline_interactive_work(
         minimum_iou: float,
         pseudo_class_names: List[str],
         batch_size: int = 16,
-            cut_by_bboxes: List[Tuple[int, int, int, int]] = None
+        cut_by_bboxes: List[Tuple[int, int, int, int]] = None
     ):
         assert len(models_specs) == len(tags)
         assert len(tags) == len(detection_scores_thresholds)
