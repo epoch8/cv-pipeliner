@@ -51,7 +51,7 @@ def cut_images_data_by_bboxes(
             for bbox_data in image_data.bboxes_data
             if (
                 bbox_data.xmin - xmin >= 0 and bbox_data.ymin - ymin >= 0 and
-                bbox_data.xmax-xmin <= xmax and bbox_data.ymax-ymin <= ymax
+                bbox_data.xmax - xmin <= xmax and bbox_data.ymax - ymin <= ymax
             )
         ]
     return images_data
