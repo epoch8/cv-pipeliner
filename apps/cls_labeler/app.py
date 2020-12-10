@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import streamlit as st
 
-from cv_pipeliner.core.data import BboxData
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels, get_n_bboxes_data_filtered_by_labels

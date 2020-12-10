@@ -6,6 +6,7 @@ import imutils
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.metrics.image_data_matching import BboxDataMatching, ImageDataMatching
 from cv_pipeliner.utils.images import concat_images, open_image
+from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 
 import streamlit as st
 
@@ -292,6 +293,14 @@ def illustrate_n_bboxes_data(
         indexes_by_image_path = np.where(page_image_paths == image_path)[0]
         bboxes_data_by_image_path = page_bboxes_data[indexes_by_image_path]
         source_image = open_image(image=image_path, open_as_rgb=True)
+        if '2020_12_08_validation_v3_mini' in str(image_path):
+            xmin, ymin, xmax, ymax = eval(str(image_path).split('crop_')[1].split('.jp')[0])
+            image_data_with_crop = ImageData(
+                image_path=image_path,
+                bboxes_data=[BboxData(image_path=image_path, xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)]
+            )
+            source_image = visualize_image_data(image_data=image_data_with_crop)
+
         cropped_images_and_renders_by_image_path, labels_by_image_path = get_illustrated_bboxes_data(
             source_image=source_image,
             bboxes_data=bboxes_data_by_image_path,
