@@ -7,7 +7,6 @@ services:
       - 5000
     ports:
       - "5000:5000"
-    env_file: sample.env
     environment:
       CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
       FLASK_APP: apps/backend/app.py

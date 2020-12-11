@@ -1,23 +1,34 @@
 import os
 import json
 import fsspec
+import copy
 from typing import Dict, List, Literal, Tuple
 from collections import Counter
 from pathlib import Path
 
 import numpy as np
 import streamlit as st
+import pandas as pd
+from PIL import Image
+from pathy import Pathy
 
-from cv_pipeliner.core.data import BboxData
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels, get_n_bboxes_data_filtered_by_labels
-from cv_pipeliner.utils.images import get_label_to_base_label_image, open_image
-
+from cv_pipeliner.utils.images import (
+    get_label_to_base_label_image, open_image,
+    draw_n_base_labels_images
+)
 from cv_pipeliner.utils.data import get_label_to_description
 from cv_pipeliner.utils.streamlit.data import get_images_data_from_dir
-from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data, illustrate_n_bboxes_data
+from cv_pipeliner.utils.streamlit.visualization import (
+    get_illustrated_bboxes_data,
+    illustrate_bboxes_data, illustrate_n_bboxes_data, fetch_page_session
+)
 
+import sys
+sys.path.insert(0, str(Path(__file__).absolute().parent.parent.parent))
 from apps.config import get_cfg_defaults, merge_cfg_from_file_fsspec
 
 st.set_option('deprecation.showfileUploaderEncoding', False)
@@ -27,6 +38,10 @@ config_file = os.environ['CV_PIPELINER_APP_CONFIG']
 cfg = get_cfg_defaults()
 merge_cfg_from_file_fsspec(cfg, config_file)
 cfg.freeze()
+
+ann_class_names = os.environ['CV_PIPELINER_ANN_CLASS_NAMES']
+with fsspec.open(ann_class_names, 'r') as src:
+    ann_class_names = json.load(src)
 
 images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
 image_dir_to_annotation_filepaths = {
@@ -67,11 +82,10 @@ view = st.sidebar.radio(
     options=["detection", "classification"]
 )
 
-mode = st.sidebar.radio(
-    label='Output bboxes',
-    options=["many", "one-by-one"],
-    index=1
-)
+annotation_mode = st.sidebar.checkbox(
+    label='Annotation mode',
+    value=False
+) if cfg.data.images_annotation_type == 'brickit' else None
 
 images_data_captions = [
     f"[{i}] {image_data.image_name} [{len(image_data.bboxes_data)} bboxes]"
@@ -86,6 +100,10 @@ def cached_get_label_to_base_label_image(**kwargs) -> Dict[str, np.ndarray]:
 
 label_to_base_label_image = cached_get_label_to_base_label_image(base_labels_images=cfg.data.base_labels_images)
 label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
+label_to_category = get_label_to_description(
+    label_to_description_dict=os.environ['CV_PIPELINER_LABEL_TO_CATEGORY'],
+    default_description='No category'
+)
 
 if view == 'detection':
     st.markdown("Choose an image:")
@@ -106,12 +124,20 @@ if view == 'detection':
 elif view == 'classification':
     bboxes_data = [bbox_data for image_data in images_data for bbox_data in image_data.bboxes_data]
     labels = [bbox_data.label for bbox_data in bboxes_data]
-    randomize = st.sidebar.checkbox('Shuffle bboxes')
-    if randomize:
-        np.random.shuffle(bboxes_data)
 else:
     image_data = None
     bboxes_data = None
+
+st.sidebar.markdown('---')
+if not annotation_mode:
+    average_maximum_images_per_page = st.sidebar.slider(
+        label='Maximum images per page',
+        min_value=1,
+        max_value=100,
+        value=50
+    )
+else:
+    average_maximum_images_per_page = 1
 
 if view == 'detection':
     st.sidebar.title("Visualization")
@@ -129,24 +155,41 @@ if view == 'detection':
 
 if labels is not None:
     class_names_counter = Counter(labels)
-    class_names = sorted(set(labels), key=class_names_counter.get, reverse=True)
-    classes_to_find_captions = [
-        f"[{class_names_counter[class_name]} items] {class_name} [{label_to_description[class_name]}]"
-        for class_name in class_names
-    ]
-    classes_to_find_captions_no_items = [
-        f"{class_name} [{label_to_description[class_name]}]"
-        for class_name in class_names
-    ]
+    class_names = sorted(ann_class_names)
+else:
+    class_names_counter = {}
+    class_names = sorted(ann_class_names)
+
+classes_col1, classes_col2 = st.beta_columns(2)
+with classes_col1:
     filter_by_labels = st.multiselect(
         label="Classes to find",
-        options=classes_to_find_captions,
-        default=[]
+        options=class_names,
+        default=[],
+        format_func=lambda class_name: (
+            f"{class_name} [{label_to_description[class_name]}]"
+        )
     )
-    filter_by_labels = [
-        class_names[classes_to_find_captions.index(chosen_class_name)]
-        for chosen_class_name in filter_by_labels
-    ]
+with classes_col2:
+    sorted_class_names = sorted(
+        class_names, key=lambda class_name: class_names_counter.get(class_name, 0), reverse=True
+    )
+    df = pd.DataFrame({
+        'class_name': sorted_class_names,
+        'count': list(map(lambda class_name: class_names_counter.get(class_name, 0), sorted_class_names))
+    })
+    st.dataframe(data=df, width=1000)
+filter_by_labels = [
+    chosen_class_name
+    for chosen_class_name in filter_by_labels
+]
+categories_by_class_names = [label_to_category[class_name] for class_name in class_names]
+categories_counter = Counter(categories_by_class_names)
+categories = sorted([
+    category
+    for category in set(label_to_category.values())
+    if categories_counter[category] > 0
+])
 
 
 @st.cache(show_spinner=False, allow_output_mutation=True)
@@ -154,30 +197,122 @@ def cached_visualize_image_data(**kwargs) -> np.ndarray:
     return visualize_image_data(**kwargs)
 
 
+if '2020_12_08_validation_v3_mini' in images_from:
+    for image_data in images_data:
+        xmin, ymin, xmax, ymax = eval(str(image_data.image_path).split('crop_')[1].split('.jp')[0])
+        image_data_with_crop = ImageData(
+            image_path=image_data.image_path,
+            bboxes_data=[BboxData(image_path=image_data.image_path, xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)]
+        )
+        image_data.image = cached_visualize_image_data(image_data=image_data_with_crop)
+
+
 def change_annotation(
-    bbox_data: BboxData
+    bbox_data: BboxData,
+    max_page: int
 ):
     bbox_key = f'{bbox_data.image_path}_{(bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)}'
-    change_annotation = st.checkbox(
-        f'Change annotation',
-        key=bbox_key
-    ) if cfg.data.images_annotation_type == 'brickit' else False
+    if annotation_mode:
+        change_annotation = True
+        col1, col2 = st.beta_columns(2)
+        with col1:
+            prev_button = st.button('Previous')
+        with col2:
+            next_button = st.button('Next')
+        if prev_button:
+            page_session = fetch_page_session()
+            page_session.counter -= 1
+            page_session.counter = max_page if page_session.counter == 0 else page_session.counter
+            st.experimental_rerun()
+        if next_button:
+            page_session = fetch_page_session()
+            page_session.counter += 1
+            page_session.counter = 1 if page_session.counter > max_page else page_session.counter
+            st.experimental_rerun()
+        st.markdown('---')
+    else:
+        change_annotation = st.checkbox(
+            f'Change annotation',
+            value=annotation_mode,
+            key=bbox_key
+        ) if cfg.data.images_annotation_type == 'brickit' else False
     if change_annotation:
-        new_label_caption = st.selectbox(
-            label="Classes",
-            options=classes_to_find_captions_no_items,
-            index=class_names.index(bbox_data.label)
+        bbox_input = st.text_input(
+            label='Bbox',
+            value=f"{[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}"
         )
-        new_label = class_names[classes_to_find_captions_no_items.index(new_label_caption)]
-        st.image(image=label_to_base_label_image[new_label])
-        save_button = st.button('Save annotation', key=bbox_key)
-        if save_button:
+        col1, col2 = st.beta_columns(2)
+        _, col3, _ = st.beta_columns(3)
+        xmin, ymin, xmax, ymax = eval(bbox_input)
+        if bbox_data.top_n is not None and bbox_data.top_n > 1:
+            top_n_hint_image = draw_n_base_labels_images(
+                labels=bbox_data.labels_top_n,
+                label_to_base_label_image=label_to_base_label_image,
+                label_to_description=label_to_description
+            )
+            st.image(top_n_hint_image, use_column_width=True)
+        with col1:
+            chosen_category = st.selectbox(
+                label="Categories",
+                options=categories,
+                index=categories.index(label_to_category[bbox_data.label]),
+                key=f'category_{bbox_key}'
+            )
+            class_names_by_category = [
+                class_name
+                for class_name in class_names
+                if label_to_category[class_name] == chosen_category
+            ]
+            new_label = st.selectbox(
+                label="Classes",
+                options=class_names_by_category,
+                index=class_names_by_category.index(bbox_data.label) if (
+                    bbox_data.label in class_names_by_category
+                ) else 0,
+                key=f'classes_{bbox_key}',
+                format_func=lambda class_name: f"{class_name} [{label_to_description[class_name]}]"
+            )
+        with col2:
+            new_bbox_data = copy.deepcopy(bbox_data)
+            new_bbox_data.xmin = xmin
+            new_bbox_data.ymin = ymin
+            new_bbox_data.xmax = xmax
+            new_bbox_data.ymax = ymax
+            new_bbox_data.label = new_label
+            cropped_images_and_renders, _ = get_illustrated_bboxes_data(
+                source_image=bbox_data.open_image(),
+                bboxes_data=[new_bbox_data],
+                label_to_base_label_image=label_to_base_label_image,
+                background_color_a=[0, 0, 0, 255],
+                true_background_color_b=[0, 255, 0, 255],
+                bbox_offset=50,
+                draw_rectangle_with_color=[0, 255, 0]
+            )
+            st.image(image=cropped_images_and_renders[0], use_column_width=True)
+        with col3:
+            update_button = st.button('Update', key=bbox_key)
+        if update_button:
             index, subindex = bbox_data_to_image_data_index_and_bboxes_data_subindex[bbox_key]
+            images_data[index].bboxes_data[subindex].xmin = xmin
+            images_data[index].bboxes_data[subindex].ymin = ymin
+            images_data[index].bboxes_data[subindex].xmax = xmax
+            images_data[index].bboxes_data[subindex].ymax = ymax
             images_data[index].bboxes_data[subindex].label = new_label
             new_annotation = BrickitDataConverter().get_annot_from_images_data(images_data)
+
+            # create backup
+            annotation_fileopen = fsspec.open(annotation_filepath, 'r')
+            backup_filepath = Pathy(annotation_filepath).parent / f'{Pathy(annotation_filepath).name}.backup'
+            if not annotation_fileopen.fs.exists(str(backup_filepath)):
+                with fsspec.open(str(backup_filepath), 'w') as out:
+                    json.dump(new_annotation, out, indent=4)
+
+            # update annotation file
             with fsspec.open(annotation_filepath, 'w') as out:
                 json.dump(new_annotation, out, indent=4)
-            st.text('Success! Annotation is updated. Rerun to see changes.')
+
+            # rerun
+            st.experimental_rerun()
 
 
 if view == 'detection' and image_data is not None:
@@ -195,13 +330,32 @@ if view == 'detection' and image_data is not None:
         true_image_data=image_data,
         label_to_base_label_image=label_to_base_label_image,
         label_to_description=label_to_description,
-        mode=mode,
+        mode='one-by-one',
         background_color_a=[0, 0, 0, 255],
         true_background_color_b=[0, 255, 0, 255],
         bbox_offset=100,
-        draw_rectangle_with_color=[0, 255, 0]
+        draw_rectangle_with_color=[0, 255, 0],
+        change_annotation=change_annotation,
+        average_maximum_images_per_page=average_maximum_images_per_page
     )
 elif view == 'classification' and bboxes_data is not None:
+    n_bboxes_data = get_n_bboxes_data_filtered_by_labels(
+        n_bboxes_data=[bboxes_data],
+        filter_by_labels=filter_by_labels
+    )
+    illustrate_n_bboxes_data(
+        n_bboxes_data=n_bboxes_data,
+        label_to_base_label_image=label_to_base_label_image,
+        label_to_description=label_to_description,
+        mode='one-by-one',
+        background_color_a=[0, 0, 0, 255],
+        true_background_color_b=[0, 255, 0, 255],
+        bbox_offset=100,
+        draw_rectangle_with_color=[0, 255, 0],
+        change_annotation=change_annotation,
+        average_maximum_images_per_page=average_maximum_images_per_page
+    )
+elif view == 'annotation':
     n_bboxes_data = get_n_bboxes_data_filtered_by_labels(
         n_bboxes_data=[bboxes_data],
         filter_by_labels=filter_by_labels
@@ -215,5 +369,6 @@ elif view == 'classification' and bboxes_data is not None:
         true_background_color_b=[0, 255, 0, 255],
         bbox_offset=100,
         draw_rectangle_with_color=[0, 255, 0],
-        change_annotation=change_annotation
+        change_annotation=change_annotation,
+        average_maximum_images_per_page=average_maximum_images_per_page
     )

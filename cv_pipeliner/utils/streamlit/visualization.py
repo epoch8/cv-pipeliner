@@ -20,7 +20,8 @@ def get_illustrated_bboxes_data(
     true_background_color_b: Tuple[int, int, int, int] = None,
     max_images_size: int = None,
     bbox_offset: int = 0,
-    draw_rectangle_with_color: Tuple[int, int, int, int] = None
+    draw_rectangle_with_color: Tuple[int, int, int, int] = None,
+    alpha: float = 0.3
 ) -> Tuple[List[np.ndarray], List[str]]:
     cropped_images_and_renders = []
     cropped_images = [
@@ -30,7 +31,8 @@ def get_illustrated_bboxes_data(
             ymin_offset=bbox_offset,
             xmax_offset=bbox_offset,
             ymax_offset=bbox_offset,
-            draw_rectangle_with_color=draw_rectangle_with_color
+            draw_rectangle_with_color=draw_rectangle_with_color,
+            alpha=alpha
         )
         for bbox_data in bboxes_data
     ]
@@ -134,6 +136,17 @@ def get_image_data_matching(
     return image_data_matching
 
 
+class PageSession:
+    pass
+
+
+@st.cache(allow_output_mutation=True)
+def fetch_page_session():
+    page_session = PageSession()
+    page_session.counter = 1
+    return page_session
+
+
 def illustrate_bboxes_data(
     true_image_data: ImageData,
     label_to_base_label_image: Dict[str, np.ndarray],
@@ -147,7 +160,8 @@ def illustrate_bboxes_data(
     average_maximum_images_per_page: int = 50,
     max_images_size: int = 400,
     bbox_offset: int = 0,
-    draw_rectangle_with_color: Tuple[int, int, int] = None
+    draw_rectangle_with_color: Tuple[int, int, int] = None,
+    change_annotation: Callable[[BboxData], None] = None
 ):
     source_image = true_image_data.open_image()
 
@@ -186,15 +200,26 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
     n_split = int(np.ceil(len(bboxes_data) / average_maximum_images_per_page))
     splitted_bboxes_data = np.array_split(bboxes_data, n_split)
 
+    if change_annotation is not None:
+        page_session = fetch_page_session()
+        current_page = page_session.counter
+    else:
+        current_page = 1
+
     if n_split >= 2:
         page = st.slider(
             label="",
             min_value=1,
-            max_value=n_split
+            max_value=n_split,
+            value=current_page
         )
         page_bboxes_data = splitted_bboxes_data[page-1]
     else:
+        page = 1
         page_bboxes_data = splitted_bboxes_data[0]
+
+    if change_annotation is not None and page != current_page:
+        page_session.counter = page
 
     if pred_image_data is None:
         cropped_images_and_renders, labels = get_illustrated_bboxes_data(
@@ -241,6 +266,11 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
                     st.text(f'Bbox: {[true_bbox_data.xmin, true_bbox_data.ymin, true_bbox_data.xmax, true_bbox_data.ymax]}')
                     st.markdown('--')
                 st.markdown(f'Pipeline error type: {bbox_data.get_pipeline_error_type()}')
+            if change_annotation is not None:
+                change_annotation(
+                    bbox_data=bbox_data,
+                    max_page=n_split
+                )
             st.markdown('----')
     elif mode == "many":
         st.image(image=cropped_images_and_renders, caption=labels)
@@ -259,7 +289,8 @@ def illustrate_n_bboxes_data(
     max_images_size: int = 400,
     bbox_offset: int = 0,
     draw_rectangle_with_color: Tuple[int, int, int] = None,
-    change_annotation: Callable[[BboxData], None] = None
+    change_annotation: Callable[[BboxData], None] = None,
+    page_: st.empty = None
 ):
     bboxes_data = [bbox_data for bboxes_data in n_bboxes_data for bbox_data in bboxes_data]
 
@@ -271,15 +302,26 @@ def illustrate_n_bboxes_data(
     n_split = int(np.ceil(len(bboxes_data) / average_maximum_images_per_page))
     splitted_bboxes_data = np.array_split(bboxes_data, n_split)
 
+    if change_annotation is not None:
+        page_session = fetch_page_session()
+        current_page = page_session.counter
+    else:
+        current_page = 1
+
     if n_split >= 2:
         page = st.slider(
             label="",
             min_value=1,
-            max_value=n_split
+            max_value=n_split,
+            value=current_page
         )
         page_bboxes_data = splitted_bboxes_data[page-1]
     else:
+        page = 1
         page_bboxes_data = splitted_bboxes_data[0]
+
+    if change_annotation is not None and page != current_page:
+        page_session.counter = page
 
     page_bboxes_data = np.array(page_bboxes_data)
     page_image_paths = np.array([
@@ -293,14 +335,6 @@ def illustrate_n_bboxes_data(
         indexes_by_image_path = np.where(page_image_paths == image_path)[0]
         bboxes_data_by_image_path = page_bboxes_data[indexes_by_image_path]
         source_image = open_image(image=image_path, open_as_rgb=True)
-        if '2020_12_08_validation_v3_mini' in str(image_path):
-            xmin, ymin, xmax, ymax = eval(str(image_path).split('crop_')[1].split('.jp')[0])
-            image_data_with_crop = ImageData(
-                image_path=image_path,
-                bboxes_data=[BboxData(image_path=image_path, xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)]
-            )
-            source_image = visualize_image_data(image_data=image_data_with_crop)
-
         cropped_images_and_renders_by_image_path, labels_by_image_path = get_illustrated_bboxes_data(
             source_image=source_image,
             bboxes_data=bboxes_data_by_image_path,
@@ -328,7 +362,10 @@ def illustrate_n_bboxes_data(
             st.text(f"From image '{bbox_data.image_name}'")
             st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
             if change_annotation is not None:
-                change_annotation(bbox_data)
+                change_annotation(
+                    bbox_data=bbox_data,
+                    max_page=n_split
+                )
             st.markdown('----')
     elif mode == "many":
         st.image(image=cropped_images_and_renders, caption=labels)

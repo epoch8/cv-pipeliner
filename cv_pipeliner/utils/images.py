@@ -353,3 +353,59 @@ def get_label_to_base_label_image(
         label_to_base_label_image[label] = base_label_image
 
     return label_to_base_label_image
+
+
+def draw_n_base_labels_images(
+    labels: List[str],
+    label_to_base_label_image: Dict[str, np.ndarray],
+    label_to_description: Union[str, Path, Dict[str, str]] = None,
+    images_per_row: int = 7
+) -> np.ndarray:
+    rows = np.array_split(labels, max(1, len(labels) // images_per_row))
+    total_image = None
+    i = 0
+    for row in rows:
+        total_image_row = None
+        for j, label in enumerate(row):
+            image_b = label_to_base_label_image[label]
+            if label_to_description is not None:
+                image_b = get_base_label_image_with_description(
+                    base_label_image=image_b,
+                    label=label,
+                    description=label_to_description[label]
+                )
+            image_b = np.pad(
+                image_b,
+                pad_width=((60, 0), (0, 0), (0, 0)),
+                constant_values=((0, 0), (0, 0), (0, 0)),
+                mode='constant'
+            )
+            image_b = put_text_on_image(
+                image=image_b,
+                text=str(i + 1),
+                fontsize=60,
+                ymax=5,
+                maximum_width=14
+            )
+            if total_image_row is None:
+                total_image_row = image_b
+            else:
+                total_image_row = concat_images(
+                    image_a=total_image_row,
+                    image_b=image_b,
+                    how='horizontally',
+                    background_color_a=[0, 0, 0, 255] if j == 1 else None,
+                    background_color_b=[0, 0, 0, 255],
+                    thumbnail_size_a=(300, 300) if j == 1 else None,
+                    thumbnail_size_b=(300, 300)
+                )
+            i += 1
+        if total_image is None:
+            total_image = total_image_row
+        else:
+            total_image = concat_images(
+                image_a=total_image,
+                image_b=total_image_row,
+                how='vertically'
+            )
+    return total_image
