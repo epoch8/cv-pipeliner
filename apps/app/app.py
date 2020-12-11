@@ -9,6 +9,7 @@ import requests
 import numpy as np
 import fsspec
 
+from pathy import Pathy
 from dacite import from_dict
 from PIL import Image
 
@@ -195,8 +196,9 @@ if input_type == 'Image':
         show_annotation = False
     else:
         annotation_filepath = st.selectbox(
-            'Annotation filename',
-            options=image_dir_to_annotation_filepaths[images_from]
+            'Annotation filepath',
+            options=image_dir_to_annotation_filepaths[images_from],
+            format_func=lambda filepath: f"../{Pathy(filepath).name}"
         )
         images_data, annotation_success = get_images_data_from_dir(
             images_annotation_type=cfg.data.images_annotation_type,

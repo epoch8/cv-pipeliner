@@ -59,7 +59,8 @@ images_from = st.sidebar.selectbox(
 images_from = images_dirname_to_image_dir_paths[images_from]
 annotation_filepath = st.sidebar.selectbox(
     'Annotation filepath',
-    options=image_dir_to_annotation_filepaths[images_from]
+    options=image_dir_to_annotation_filepaths[images_from],
+    format_func=lambda filepath: f"../{Pathy(filepath).name}"
 )
 annotation_openfile = fsspec.open(annotation_filepath, 'r')
 images_data, annotation_success = get_images_data_from_dir(
