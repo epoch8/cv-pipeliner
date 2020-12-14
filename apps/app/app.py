@@ -183,7 +183,8 @@ if input_type == 'Image':
 
     images_from = st.selectbox(
         'Image from',
-        options=['Upload'] + list(images_dirs)
+        options=['Upload'] + list(images_dirs),
+        format_func=lambda image_dir: f"../{Pathy(image_dir).name}"
     )
 
     if images_from == 'Upload':

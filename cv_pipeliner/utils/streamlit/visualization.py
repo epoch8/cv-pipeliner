@@ -203,6 +203,9 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
     if change_annotation is not None:
         page_session = fetch_page_session()
         current_page = page_session.counter
+        if current_page > n_split:
+            current_page = 1
+            page_session.counter = 1
     else:
         current_page = 1
 
@@ -305,6 +308,9 @@ def illustrate_n_bboxes_data(
     if change_annotation is not None:
         page_session = fetch_page_session()
         current_page = page_session.counter
+        if current_page > n_split:
+            current_page = 1
+            page_session.counter = 1
     else:
         current_page = 1
 
@@ -335,6 +341,13 @@ def illustrate_n_bboxes_data(
         indexes_by_image_path = np.where(page_image_paths == image_path)[0]
         bboxes_data_by_image_path = page_bboxes_data[indexes_by_image_path]
         source_image = open_image(image=image_path, open_as_rgb=True)
+        if '2020_12_08_validation_v3_mini' in str(image_path):
+            xmin, ymin, xmax, ymax = eval(str(image_path).split('crop_')[1].split('.jp')[0])
+            image_data_with_crop = ImageData(
+                image_path=image_path,
+                bboxes_data=[BboxData(image_path=image_path, xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)]
+            )
+            source_image = visualize_image_data(image_data=image_data_with_crop)
         cropped_images_and_renders_by_image_path, labels_by_image_path = get_illustrated_bboxes_data(
             source_image=source_image,
             bboxes_data=bboxes_data_by_image_path,

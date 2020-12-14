@@ -94,16 +94,22 @@ class BrickitDataConverter(DataConverter):
     ) -> Dict:
         annot = {
             'filename': image_data.image_name,
-            'objects': [{
+            'objects': []
+        }
+        for bbox_data in image_data.bboxes_data:
+            obj = {
                 'bbox': [int(bbox_data.xmin), int(bbox_data.ymin), int(bbox_data.xmax), int(bbox_data.ymax)],
                 'label': str(bbox_data.label),
-                'angle': int(bbox_data.angle),
-                'labels_top_n': list(bbox_data.labels_top_n) if bbox_data.labels_top_n is not None else None,
                 **{
                     key: bbox_data.additional_info[key] for key in bbox_data.additional_info
                 }
-            } for bbox_data in image_data.bboxes_data]
-        }
+            }
+            if int(bbox_data.angle) != 0:
+                obj['angle'] = int(bbox_data.angle)
+            if bbox_data.labels_top_n is not None:
+                obj['labels_top_n'] = list(bbox_data.labels_top_n)
+
+            annot['objects'].append(obj)
         if len(image_data.additional_info) > 0:
             for key in image_data.additional_info:
                 annot[key] = image_data.additional_info[key]
