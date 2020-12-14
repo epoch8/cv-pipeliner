@@ -92,6 +92,7 @@ detection_model_description = st.sidebar.selectbox(
     options=detection_descriptions,
     index=detection_descriptions.index(current_detection_model_definition.description)
 )
+st.sidebar.markdown(f'Chosen detection model: {detection_model_description}')
 st.sidebar.header('Classification')
 classification_descriptions = [description for description in description_to_classiticaion_model_definition]
 classification_model_description = st.sidebar.selectbox(
@@ -99,6 +100,7 @@ classification_model_description = st.sidebar.selectbox(
     options=classification_descriptions,
     index=classification_descriptions.index(current_classification_model_definition.description)
 )
+st.sidebar.markdown(f'Chosen classification model: {classification_model_description}')
 detection_model_definition = description_to_detection_model_definition[detection_model_description]
 classification_model_definition = description_to_classiticaion_model_definition[classification_model_description]
 
@@ -236,6 +238,19 @@ if input_type == 'Image':
         options=["many", "one-by-one"],
         index=1
     )
+    show_top_n = st.sidebar.checkbox(
+        label="Show classification's top-n labels",
+        value=False
+    )
+    if show_top_n:
+        classification_top_n = st.sidebar.slider(
+            label='Top-n',
+            min_value=1,
+            max_value=20,
+            value=5
+        )
+    else:
+        classification_top_n = 1
 elif input_type == "Camera":
     st.markdown(
         f"# Check your model settings and go to the next url: {frontend_url}"
@@ -248,7 +263,8 @@ def inference_one_image(
     detection_model_index: str,
     classification_model_index: str,
     image_data: ImageData,
-    detection_score_threshold: float
+    detection_score_threshold: float,
+    classification_top_n: int
 ) -> ImageData:
     url_post = urljoin(
         backend_url,
@@ -256,7 +272,8 @@ def inference_one_image(
             'predict'
             f'?detection_model_index={detection_model_index}&'
             f'classification_model_index={classification_model_index}&'
-            f'detection_score_threshold={detection_score_threshold}'
+            f'detection_score_threshold={detection_score_threshold}&'
+            f'classification_top_n={classification_top_n}'
         )
     )
     image = Image.fromarray(image_data.open_image())
@@ -290,7 +307,8 @@ if input_type == 'Image':
                 detection_model_index=detection_model_definition.model_index,
                 classification_model_index=classification_model_definition.model_index,
                 image_data=image_data,
-                detection_score_threshold=detection_score_threshold
+                detection_score_threshold=detection_score_threshold,
+                classification_top_n=classification_top_n
             )
         image_data = get_image_data_filtered_by_labels(
             image_data=image_data,
@@ -319,6 +337,7 @@ if input_type == 'Image':
                 pred_background_color_b=[255, 255, 0, 255],
                 bbox_offset=100,
                 draw_rectangle_with_color=[0, 255, 0],
+                show_top_n=show_top_n
             )
         else:
             illustrate_bboxes_data(
@@ -330,6 +349,7 @@ if input_type == 'Image':
                 true_background_color_b=[255, 255, 0, 255],
                 bbox_offset=100,
                 draw_rectangle_with_color=[0, 255, 0],
+                show_top_n=show_top_n
             )
     else:
         if image_data is not None:
@@ -353,6 +373,7 @@ if input_type == 'Image':
                     true_background_color_b=[0, 255, 0, 255],
                     bbox_offset=100,
                     draw_rectangle_with_color=[0, 255, 0],
+                    show_top_n=show_top_n
                 )
             else:
                 image = image_data.open_image()

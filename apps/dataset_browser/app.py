@@ -27,9 +27,6 @@ from cv_pipeliner.utils.streamlit.visualization import (
     get_illustrated_bboxes_data,
     illustrate_bboxes_data, illustrate_n_bboxes_data, fetch_page_session
 )
-
-import sys
-sys.path.insert(0, str(Path(__file__).absolute().parent.parent.parent))
 from apps.config import get_cfg_defaults, merge_cfg_from_file_fsspec
 
 st.set_option('deprecation.showfileUploaderEncoding', False)
@@ -40,8 +37,7 @@ cfg = get_cfg_defaults()
 merge_cfg_from_file_fsspec(cfg, config_file)
 cfg.freeze()
 
-ann_class_names = os.environ['CV_PIPELINER_ANN_CLASS_NAMES']
-with fsspec.open(ann_class_names, 'r') as src:
+with fsspec.open(cfg.data.ann_class_names, 'r') as src:
     ann_class_names = json.load(src)
 
 images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
@@ -55,13 +51,13 @@ images_from = st.sidebar.selectbox(
     options=list(images_dirs),
     format_func=lambda image_dir: f"../{Pathy(image_dir).name}"
 )
-st.sidebar.text(f'Images from: {images_from}')
+st.sidebar.markdown(f'Images from: {images_from}')
 annotation_filepath = st.sidebar.selectbox(
     'Annotation filepath',
     options=image_dir_to_annotation_filepaths[images_from],
     format_func=lambda filepath: f"../{Pathy(filepath).name}"
 )
-st.sidebar.text(f'Annotation: {annotation_filepath}')
+st.sidebar.markdown(f'Annotation: {annotation_filepath}')
 annotation_openfile = fsspec.open(annotation_filepath, 'r')
 images_data, annotation_success = get_images_data_from_dir(
     images_annotation_type=cfg.data.images_annotation_type,
@@ -115,7 +111,7 @@ if '2020_12_08_validation_v3_mini' in images_from:
 label_to_base_label_image = cached_get_label_to_base_label_image(base_labels_images=cfg.data.base_labels_images)
 label_to_description = get_label_to_description(label_to_description_dict=cfg.data.labels_decriptions)
 label_to_category = get_label_to_description(
-    label_to_description_dict=os.environ['CV_PIPELINER_LABEL_TO_CATEGORY'],
+    label_to_description_dict=cfg.data.label_to_category,
     default_description='No category'
 )
 

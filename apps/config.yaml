@@ -44,6 +44,8 @@ backend:
 data:  
   base_labels_images: 'renders/*.png'
   labels_decriptions: 'label_to_description.json'
+  ann_class_names: 'ann_class_names.json'
+  label_to_category: 'label_to_category.json'
 
   images_dirs:
       - 'images_dir_with_annotation/':

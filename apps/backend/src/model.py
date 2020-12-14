@@ -105,7 +105,8 @@ def get_classification_models_definitions_from_config(
 def inference(
     pipeline_inferencer: PipelineInferencer,
     image_bytes: bytes,
-    detection_score_threshold: float
+    detection_score_threshold: float,
+    classification_top_n: int
 ) -> Dict:
     image = imageio.imread(image_bytes, pilmode='RGB')
     image_data = ImageData(
@@ -117,7 +118,8 @@ def inference(
         image_data_gen,
         detection_score_threshold=detection_score_threshold,
         open_images_in_images_data=False,
-        open_cropped_images_in_bboxes_data=False
+        open_cropped_images_in_bboxes_data=False,
+        classification_top_n=classification_top_n
     )[0]
     json_res = pred_image_data.asdict()
 

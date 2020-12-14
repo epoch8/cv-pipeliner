@@ -161,7 +161,8 @@ def illustrate_bboxes_data(
     max_images_size: int = 400,
     bbox_offset: int = 0,
     draw_rectangle_with_color: Tuple[int, int, int] = None,
-    change_annotation: Callable[[BboxData], None] = None
+    change_annotation: Callable[[BboxData], None] = None,
+    show_top_n: bool = False
 ):
     source_image = true_image_data.open_image()
 
@@ -255,6 +256,13 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
                 st.markdown(f"'{label}'")
                 st.markdown(label_to_description[label])
                 st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
+                if bbox_data.detection_score is not None:
+                    st.text(f'Detection score: {bbox_data.detection_score}')
+                if bbox_data.classification_score is not None:
+                    st.text(f'Classification score: {bbox_data.classification_score}')
+                if show_top_n:
+                    st.text(f'Top-n labels: {bbox_data.labels_top_n}')
+                    st.text(f'Top-n scores: {bbox_data.classification_scores_top_n}')
             elif isinstance(bbox_data, BboxDataMatching):
                 true_bbox_data = bbox_data.true_bbox_data
                 pred_bbox_data = bbox_data.pred_bbox_data
@@ -262,6 +270,13 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
                     st.markdown(f"Prediction: '{pred_bbox_data.label}'")
                     st.markdown(label_to_description[pred_bbox_data.label])
                     st.text(f'Bbox: {[pred_bbox_data.xmin, pred_bbox_data.ymin, pred_bbox_data.xmax, pred_bbox_data.ymax]}')
+                    if pred_bbox_data.detection_score is not None:
+                        st.text(f'Detection score: {pred_bbox_data.detection_score}')
+                    if pred_bbox_data.classification_score is not None:
+                        st.text(f'Classification score: {pred_bbox_data.classification_score}')
+                    if show_top_n:
+                        st.text(f'Top-n labels: {pred_bbox_data.labels_top_n}')
+                        st.text(f'Top-n scores: {pred_bbox_data.classification_scores_top_n}')
                     st.markdown('--')
                 if true_bbox_data is not None:
                     st.markdown(f"Ground Truth: '{true_bbox_data.label}'")
