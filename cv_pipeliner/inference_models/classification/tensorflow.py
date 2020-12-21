@@ -63,8 +63,8 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self._class_names = model_spec.class_names
 
         if model_spec.saved_model_type in ["tf.keras", "tf.saved_model", "tflite"]:
-            fs = fsspec.filesystem(Pathy(model_spec.model_path).scheme)
-            if fs.isdir(model_spec.model_path):
+            model_openfile = fsspec.open(model_spec.model_path, 'rb')
+            if model_openfile.fs.isdir(model_openfile.path):
                 temp_folder = copy_files_from_directory_to_temp_directory(
                     directory=model_spec.model_path
                 )
@@ -72,7 +72,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 temp_files_cleanup = temp_folder.cleanup
             else:
                 temp_file = tempfile.NamedTemporaryFile()
-                with fs.open(model_spec.model_path, 'rb') as src:
+                with model_openfile as src:
                     temp_file.write(src.read())
                 model_path = Pathy(temp_file.name)
                 temp_files_cleanup = temp_file.close

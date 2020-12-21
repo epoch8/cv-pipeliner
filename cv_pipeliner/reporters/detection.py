@@ -18,6 +18,7 @@ from cv_pipeliner.metrics.detection import (
 from cv_pipeliner.visualizers.detection import DetectionVisualizer
 from cv_pipeliner.logging import logger
 from cv_pipeliner.utils.dataframes import transpose_columns_and_write_diffs_to_df_with_tags
+from cv_pipeliner.utils.images_datas import cut_images_data_by_bboxes
 
 DETECTION_MODEL_SPEC_PREFIX = "detection_model_spec"
 IMAGES_DATA_FILENAME = "images_data.pkl"
@@ -209,7 +210,8 @@ detection_interactive_work(
         score_threshold: float,
         minimum_iou: float,
         extra_bbox_label: str = None,
-        batch_size: int = 16
+        batch_size: int = 16,
+        cut_by_bboxes: List[Tuple[int, int, int, int]] = None
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         detection_model = model_spec.load()
         inferencer = DetectionInferencer(detection_model)
@@ -217,6 +219,9 @@ detection_interactive_work(
                                                   use_not_caught_elements_as_last_batch=True)
         pred_images_data = inferencer.predict(images_data_gen, score_threshold=score_threshold)
         raw_pred_images_data = inferencer.predict(images_data_gen, score_threshold=0.)
+        true_images_data = cut_images_data_by_bboxes(true_images_data, cut_by_bboxes)
+        pred_images_data = cut_images_data_by_bboxes(pred_images_data, cut_by_bboxes)
+        raw_pred_images_data = cut_images_data_by_bboxes(raw_pred_images_data, cut_by_bboxes)
         df_detection_metrics = get_df_detection_metrics(
             true_images_data=true_images_data,
             pred_images_data=pred_images_data,
@@ -270,7 +275,8 @@ detection_interactive_work(
         output_directory: Union[str, Path],
         true_images_data: List[ImageData],
         minimum_iou: float,
-        batch_size: int = 16
+        batch_size: int = 16,
+        cut_by_bboxes: List[Tuple[int, int, int, int]] = None
     ):
         assert len(models_specs) == len(tags)
         assert len(tags) == len(scores_thresholds)
@@ -284,7 +290,8 @@ detection_interactive_work(
                 true_images_data=true_images_data,
                 score_threshold=score_threshold,
                 minimum_iou=minimum_iou,
-                batch_size=batch_size
+                batch_size=batch_size,
+                cut_by_bboxes=cut_by_bboxes
             )
 
             detections_reports_datas.append(DetectionReportData(
