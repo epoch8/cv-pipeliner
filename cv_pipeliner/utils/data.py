@@ -7,14 +7,15 @@ import fsspec
 
 
 def get_label_to_description(
-    label_to_description_dict: Union[str, Path, Dict]
+    label_to_description_dict: Union[str, Path, Dict],
+    default_description: str = 'No description.'
 ) -> Dict[str, str]:
     if isinstance(label_to_description_dict, str) or isinstance(label_to_description_dict, Path):
         with fsspec.open(label_to_description_dict, 'r') as src:
             label_to_description_dict = json.load(src)
 
-    label_to_description = defaultdict(lambda: 'No description.')
-    label_to_description['unknown'] = 'No description.'
+    label_to_description = defaultdict(lambda: default_description)
+    label_to_description['unknown'] = default_description
     for k in label_to_description_dict:
         label_to_description[k] = label_to_description_dict[k]
 

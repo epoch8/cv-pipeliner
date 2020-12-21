@@ -120,7 +120,7 @@ class TaskData:
             logger.warning(
                 f'Find a task with two or more completions, fix it. Task_id: {self.id}'
             )
-        completion = completions_json['completions'][0]
+        completion = completions_json['completions'][-1]
         image_path = Path(completions_json['data']['src_image_path'])
         additional_info = completions_json['data']['src_image_data']['additional_info']
         if 'skipped' in completion and completion['skipped']:

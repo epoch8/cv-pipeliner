@@ -12,7 +12,7 @@ import streamlit as st
 import fsspec
 
 
-@st.cache(show_spinner=False)
+@st.cache(show_spinner=False, allow_output_mutation=True)
 def get_images_data_from_dir(
     images_annotation_type: Literal['brickit', 'supervisely'],
     images_dir: Union[str, Path],

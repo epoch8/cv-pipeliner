@@ -46,6 +46,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 out.write(script_code)
             sys.path.append(str(script_file.parent.absolute()))
             module = importlib.import_module(script_file.stem)
+            importlib.reload(module)
             sys.path.pop()
         return module.preprocess_input
 

@@ -53,3 +53,46 @@ class SuperviselyDataConverter(DataConverter):
         )
 
         return image_data
+
+    def get_annot_from_image_data(
+        self,
+        image_data: ImageData
+    ) -> Dict:
+        image = image_data.open_image()
+        height, width, _ = image.shape
+        annot = {
+            "description": "",
+            "tags": [],
+            "size": {
+                "height": height,
+                "width": width
+            },
+            "objects": [
+                {
+                    "description": "",
+                    "geometryType": "rectangle",
+                    "tags": [
+                        {
+                            "name": str(bbox_data.label),
+                            "value": None,
+                        }
+                    ],
+                    "classTitle": "bbox",
+                    "points": {
+                        "exterior": [
+                            [
+                                int(bbox_data.xmin),
+                                int(bbox_data.ymin)
+                            ],
+                            [
+                                int(bbox_data.xmax),
+                                int(bbox_data.ymax)
+                            ]
+                        ],
+                        "interior": []
+                    }
+                }
+                for bbox_data in image_data.bboxes_data
+            ]
+        }
+        return annot

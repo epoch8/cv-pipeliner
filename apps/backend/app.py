@@ -182,10 +182,12 @@ def predict() -> Dict:
         detection_score_threshold = float(request.args.get(
             'detection_score_threshold', CURRENT_PIPELINE_DEFINITION.detection_model_definition.score_threshold
         ))
+        classification_top_n = int(request.args.get('classification_top_n', 10))
         res_json = inference(
             pipeline_inferencer=CURRENT_PIPELINE_DEFINITION.pipeline_inferencer,
             image_bytes=request.files.get('image', ''),
-            detection_score_threshold=detection_score_threshold
+            detection_score_threshold=detection_score_threshold,
+            classification_top_n=classification_top_n
         )
         return res_json
     return jsonify(success=False)

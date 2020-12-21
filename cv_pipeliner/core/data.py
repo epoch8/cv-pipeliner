@@ -187,13 +187,22 @@ class BboxData:
             'label': str(self.label),
             'top_n': int(self.top_n) if self.top_n is not None else None,
             'labels_top_n': [str(label) for label in self.labels_top_n] if self.labels_top_n is not None else None,
+            'classification_scores_top_n': [
+                str(round(score, 3)) for score in self.classification_scores_top_n
+            ] if self.classification_scores_top_n is not None else None,
+            'detection_score': str(round(self.detection_score, 3)) if self.detection_score is not None else None,
+            'classification_score': str(
+                round(self.classification_score, 3
+            )) if self.classification_score is not None else None,
             'additional_info': self.additional_info
         }
 
     def from_dict(self, d):
         for key in [
             'image_path', 'xmin', 'ymin', 'xmax', 'ymax',
-            'angle', 'label', 'top_n', 'labels_top_n', 'additional_info'
+            'angle', 'label', 'top_n', 'labels_top_n', 'classification_scores_top_n',
+            'detection_score', 'classification_score',
+            'additional_info',
         ]:
             if key in d:
                 super().__setattr__(key, d[key])

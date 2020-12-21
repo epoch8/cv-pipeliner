@@ -6,6 +6,7 @@ import imutils
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.metrics.image_data_matching import BboxDataMatching, ImageDataMatching
 from cv_pipeliner.utils.images import concat_images, open_image
+from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 
 import streamlit as st
 
@@ -14,12 +15,13 @@ import streamlit as st
 def get_illustrated_bboxes_data(
     source_image: np.ndarray,
     bboxes_data: List[BboxData],
-    label_to_base_label_image: Dict[str, np.ndarray],
+    label_to_base_label_image: Callable[[str], np.ndarray],
     background_color_a: Tuple[int, int, int, int] = None,
     true_background_color_b: Tuple[int, int, int, int] = None,
     max_images_size: int = None,
     bbox_offset: int = 0,
-    draw_rectangle_with_color: Tuple[int, int, int, int] = None
+    draw_rectangle_with_color: Tuple[int, int, int, int] = None,
+    alpha: float = 0.3
 ) -> Tuple[List[np.ndarray], List[str]]:
     cropped_images_and_renders = []
     cropped_images = [
@@ -29,12 +31,13 @@ def get_illustrated_bboxes_data(
             ymin_offset=bbox_offset,
             xmax_offset=bbox_offset,
             ymax_offset=bbox_offset,
-            draw_rectangle_with_color=draw_rectangle_with_color
+            draw_rectangle_with_color=draw_rectangle_with_color,
+            alpha=alpha
         )
         for bbox_data in bboxes_data
     ]
     labels = [bbox_data.label for bbox_data in bboxes_data]
-    renders = [label_to_base_label_image[label] for label in labels]
+    renders = [label_to_base_label_image(label) for label in labels]
     for cropped_image, render in zip(cropped_images, renders):
         height, width, _ = cropped_image.shape
         size = max(height, width, 50)
@@ -63,7 +66,7 @@ def get_illustrated_bboxes_data(
 def get_illustrated_bboxes_data_matchings(
     source_image: np.ndarray,
     bboxes_data_matchings: List[BboxDataMatching],
-    label_to_base_label_image: Dict[str, np.ndarray],
+    label_to_base_label_image: Callable[[str], np.ndarray],
     background_color_a: Tuple[int, int, int, int] = None,
     true_background_color_b: Tuple[int, int, int, int] = None,
     pred_background_color_b: Tuple[int, int, int, int] = None,
@@ -85,8 +88,8 @@ def get_illustrated_bboxes_data_matchings(
     ) for bbox_data in pred_bboxes_data]
     true_labels = [bbox_data.label if bbox_data is not None else "unknown" for bbox_data in true_bboxes_data]
     pred_labels = [bbox_data.label for bbox_data in pred_bboxes_data]
-    true_renders = [label_to_base_label_image[true_label] for true_label in true_labels]
-    pred_renders = [label_to_base_label_image[pred_label] for pred_label in pred_labels]
+    true_renders = [label_to_base_label_image(true_label) for true_label in true_labels]
+    pred_renders = [label_to_base_label_image(pred_label) for pred_label in pred_labels]
     labels = [f"{pred_label}/{true_label}" for pred_label, true_label in zip(pred_labels, true_labels)]
     for cropped_image, true_render, pred_render in zip(pred_cropped_images, true_renders, pred_renders):
         height, width, _ = cropped_image.shape
@@ -133,9 +136,20 @@ def get_image_data_matching(
     return image_data_matching
 
 
+class PageSession:
+    pass
+
+
+@st.cache(allow_output_mutation=True)
+def fetch_page_session():
+    page_session = PageSession()
+    page_session.counter = 1
+    return page_session
+
+
 def illustrate_bboxes_data(
     true_image_data: ImageData,
-    label_to_base_label_image: Dict[str, np.ndarray],
+    label_to_base_label_image: Callable[[str], np.ndarray],
     label_to_description: Dict[str, str],
     mode: Literal['many', 'one-by-one'],
     pred_image_data: ImageData = None,
@@ -146,7 +160,9 @@ def illustrate_bboxes_data(
     average_maximum_images_per_page: int = 50,
     max_images_size: int = 400,
     bbox_offset: int = 0,
-    draw_rectangle_with_color: Tuple[int, int, int] = None
+    draw_rectangle_with_color: Tuple[int, int, int] = None,
+    change_annotation: Callable[[BboxData], None] = None,
+    show_top_n: bool = False
 ):
     source_image = true_image_data.open_image()
 
@@ -185,15 +201,29 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
     n_split = int(np.ceil(len(bboxes_data) / average_maximum_images_per_page))
     splitted_bboxes_data = np.array_split(bboxes_data, n_split)
 
+    if change_annotation is not None:
+        page_session = fetch_page_session()
+        current_page = page_session.counter
+        if current_page > n_split:
+            current_page = 1
+            page_session.counter = 1
+    else:
+        current_page = 1
+
     if n_split >= 2:
         page = st.slider(
             label="",
             min_value=1,
-            max_value=n_split
+            max_value=n_split,
+            value=current_page
         )
         page_bboxes_data = splitted_bboxes_data[page-1]
     else:
+        page = 1
         page_bboxes_data = splitted_bboxes_data[0]
+
+    if change_annotation is not None and page != current_page:
+        page_session.counter = page
 
     if pred_image_data is None:
         cropped_images_and_renders, labels = get_illustrated_bboxes_data(
@@ -226,6 +256,13 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
                 st.markdown(f"'{label}'")
                 st.markdown(label_to_description[label])
                 st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
+                if bbox_data.detection_score is not None:
+                    st.text(f'Detection score: {bbox_data.detection_score}')
+                if bbox_data.classification_score is not None:
+                    st.text(f'Classification score: {bbox_data.classification_score}')
+                if show_top_n:
+                    st.text(f'Top-n labels: {bbox_data.labels_top_n}')
+                    st.text(f'Top-n scores: {bbox_data.classification_scores_top_n}')
             elif isinstance(bbox_data, BboxDataMatching):
                 true_bbox_data = bbox_data.true_bbox_data
                 pred_bbox_data = bbox_data.pred_bbox_data
@@ -233,6 +270,13 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
                     st.markdown(f"Prediction: '{pred_bbox_data.label}'")
                     st.markdown(label_to_description[pred_bbox_data.label])
                     st.text(f'Bbox: {[pred_bbox_data.xmin, pred_bbox_data.ymin, pred_bbox_data.xmax, pred_bbox_data.ymax]}')
+                    if pred_bbox_data.detection_score is not None:
+                        st.text(f'Detection score: {pred_bbox_data.detection_score}')
+                    if pred_bbox_data.classification_score is not None:
+                        st.text(f'Classification score: {pred_bbox_data.classification_score}')
+                    if show_top_n:
+                        st.text(f'Top-n labels: {pred_bbox_data.labels_top_n}')
+                        st.text(f'Top-n scores: {pred_bbox_data.classification_scores_top_n}')
                     st.markdown('--')
                 if true_bbox_data is not None:
                     st.markdown(f"Ground Truth: '{true_bbox_data.label}'")
@@ -240,6 +284,11 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
                     st.text(f'Bbox: {[true_bbox_data.xmin, true_bbox_data.ymin, true_bbox_data.xmax, true_bbox_data.ymax]}')
                     st.markdown('--')
                 st.markdown(f'Pipeline error type: {bbox_data.get_pipeline_error_type()}')
+            if change_annotation is not None:
+                change_annotation(
+                    bbox_data=bbox_data,
+                    max_page=n_split
+                )
             st.markdown('----')
     elif mode == "many":
         st.image(image=cropped_images_and_renders, caption=labels)
@@ -248,7 +297,7 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
 
 def illustrate_n_bboxes_data(
     n_bboxes_data: List[List[BboxData]],
-    label_to_base_label_image: Dict[str, np.ndarray],
+    label_to_base_label_image: Callable[[str], np.ndarray],
     label_to_description: Dict[str, str],
     mode: Literal['many', 'one-by-one'],
     minimum_iou: float = None,
@@ -258,7 +307,8 @@ def illustrate_n_bboxes_data(
     max_images_size: int = 400,
     bbox_offset: int = 0,
     draw_rectangle_with_color: Tuple[int, int, int] = None,
-    change_annotation: Callable[[BboxData], None] = None
+    change_annotation: Callable[[BboxData], None] = None,
+    page_: st.empty = None
 ):
     bboxes_data = [bbox_data for bboxes_data in n_bboxes_data for bbox_data in bboxes_data]
 
@@ -270,15 +320,29 @@ def illustrate_n_bboxes_data(
     n_split = int(np.ceil(len(bboxes_data) / average_maximum_images_per_page))
     splitted_bboxes_data = np.array_split(bboxes_data, n_split)
 
+    if change_annotation is not None:
+        page_session = fetch_page_session()
+        current_page = page_session.counter
+        if current_page > n_split:
+            current_page = 1
+            page_session.counter = 1
+    else:
+        current_page = 1
+
     if n_split >= 2:
         page = st.slider(
             label="",
             min_value=1,
-            max_value=n_split
+            max_value=n_split,
+            value=current_page
         )
         page_bboxes_data = splitted_bboxes_data[page-1]
     else:
+        page = 1
         page_bboxes_data = splitted_bboxes_data[0]
+
+    if change_annotation is not None and page != current_page:
+        page_session.counter = page
 
     page_bboxes_data = np.array(page_bboxes_data)
     page_image_paths = np.array([
@@ -292,6 +356,13 @@ def illustrate_n_bboxes_data(
         indexes_by_image_path = np.where(page_image_paths == image_path)[0]
         bboxes_data_by_image_path = page_bboxes_data[indexes_by_image_path]
         source_image = open_image(image=image_path, open_as_rgb=True)
+        if '2020_12_08_validation_v3_mini' in str(image_path):
+            xmin, ymin, xmax, ymax = eval(str(image_path).split('crop_')[1].split('.jp')[0])
+            image_data_with_crop = ImageData(
+                image_path=image_path,
+                bboxes_data=[BboxData(image_path=image_path, xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)]
+            )
+            source_image = visualize_image_data(image_data=image_data_with_crop)
         cropped_images_and_renders_by_image_path, labels_by_image_path = get_illustrated_bboxes_data(
             source_image=source_image,
             bboxes_data=bboxes_data_by_image_path,
@@ -319,7 +390,10 @@ def illustrate_n_bboxes_data(
             st.text(f"From image '{bbox_data.image_name}'")
             st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
             if change_annotation is not None:
-                change_annotation(bbox_data)
+                change_annotation(
+                    bbox_data=bbox_data,
+                    max_page=n_split
+                )
             st.markdown('----')
     elif mode == "many":
         st.image(image=cropped_images_and_renders, caption=labels)

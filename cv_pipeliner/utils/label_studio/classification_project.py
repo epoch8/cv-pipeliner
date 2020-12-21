@@ -9,7 +9,7 @@ from multiprocessing import Process
 import copy
 from PIL import Image
 from pathlib import Path
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -21,7 +21,10 @@ from cv_pipeliner.logging import logger
 from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
 from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
-from cv_pipeliner.utils.images import get_label_to_base_label_image, put_text_on_image, concat_images
+from cv_pipeliner.utils.images import (
+    get_label_to_base_label_image, put_text_on_image, concat_images,
+    draw_n_base_labels_images
+)
 from cv_pipeliner.utils.data import get_label_to_description
 
 
@@ -165,7 +168,7 @@ class TaskData:
             logger.warning(
                 f'Find a task with two or more completions, fix it. Task_id: {self.id}'
             )
-        completion = completions_json['completions'][0]
+        completion = completions_json['completions'][-1]
         if 'skipped' in completion and completion['skipped']:
             self.is_skipped = True
         else:
@@ -289,7 +292,7 @@ class LabelStudioProject_Classification:
         for class_name in tqdm(class_names):
             label = self._class_name_without_special_character(class_name)
             image_path = self.main_project_directory / 'upload' / 'base_label_images' / f'{label}.png'
-            Image.fromarray(label_to_base_label_image[label]).save(image_path)
+            Image.fromarray(label_to_base_label_image(label)).save(image_path)
             base_label_image_url = (
                 urljoin(self.cv_pipeliner_settings['url'], f"data/upload/base_label_images/{label}.png")
             )
@@ -551,10 +554,10 @@ class LabelStudioProject_Classification:
     def _append_GT_to_bbox_data_as_cropped_image(
         self,
         bbox_data_as_cropped_image: np.ndarray,
-        label_to_base_label_image: Dict[str, np.ndarray]
+        label_to_base_label_image: Callable[[str], np.ndarray]
     ) -> BboxData:
         bbox_data_as_cropped_image = copy.deepcopy(bbox_data_as_cropped_image)
-        image_GT = label_to_base_label_image[bbox_data_as_cropped_image.label]
+        image_GT = label_to_base_label_image(bbox_data_as_cropped_image.label)
         image_GT = np.pad(
             image_GT,
             pad_width=((60, 0), (0, 0), (0, 0)),
@@ -587,50 +590,13 @@ class LabelStudioProject_Classification:
     def _append_top_n_labels_to_bbox_data_as_cropped_image(
         self,
         bbox_data_as_cropped_image: np.ndarray,
-        label_to_base_label_image: Dict[str, np.ndarray]
+        label_to_base_label_image: Callable[[str], np.ndarray]
     ) -> BboxData:
         bbox_data_as_cropped_image = copy.deepcopy(bbox_data_as_cropped_image)
-        rows = np.array_split(bbox_data_as_cropped_image.labels_top_n, max(1, bbox_data_as_cropped_image.top_n // 7))
-        total_image = None
-        i = 0
-        for row in rows:
-            total_image_row = None
-            for j, label in enumerate(row):
-                image_b = label_to_base_label_image[label]
-                image_b = np.pad(
-                    image_b,
-                    pad_width=((60, 0), (0, 0), (0, 0)),
-                    constant_values=((0, 0), (0, 0), (0, 0)),
-                    mode='constant'
-                )
-                image_b = put_text_on_image(
-                    image=image_b,
-                    text=str(i + 1),
-                    fontsize=60,
-                    ymax=5,
-                    maximum_width=14
-                )
-                if total_image_row is None:
-                    total_image_row = image_b
-                else:
-                    total_image_row = concat_images(
-                        image_a=total_image_row,
-                        image_b=image_b,
-                        how='horizontally',
-                        background_color_a=[0, 0, 0, 255] if j == 1 else None,
-                        background_color_b=[0, 0, 0, 255],
-                        thumbnail_size_a=(300, 300) if j == 1 else None,
-                        thumbnail_size_b=(300, 300)
-                    )
-                i += 1
-            if total_image is None:
-                total_image = total_image_row
-            else:
-                total_image = concat_images(
-                    image_a=total_image,
-                    image_b=total_image_row,
-                    how='vertically'
-                )
+        total_image = draw_n_base_labels_images(
+            labels=bbox_data_as_cropped_image.labels_top_n,
+            label_to_base_label_image=label_to_base_label_image
+        )
         cropped_image = bbox_data_as_cropped_image.open_image()
         ha, wa = cropped_image.shape[:2]
         hb, wb = total_image.shape[:2]
