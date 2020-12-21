@@ -15,7 +15,7 @@ import streamlit as st
 def get_illustrated_bboxes_data(
     source_image: np.ndarray,
     bboxes_data: List[BboxData],
-    label_to_base_label_image: Dict[str, np.ndarray],
+    label_to_base_label_image: Callable[[str], np.ndarray],
     background_color_a: Tuple[int, int, int, int] = None,
     true_background_color_b: Tuple[int, int, int, int] = None,
     max_images_size: int = None,
@@ -37,7 +37,7 @@ def get_illustrated_bboxes_data(
         for bbox_data in bboxes_data
     ]
     labels = [bbox_data.label for bbox_data in bboxes_data]
-    renders = [label_to_base_label_image[label] for label in labels]
+    renders = [label_to_base_label_image(label) for label in labels]
     for cropped_image, render in zip(cropped_images, renders):
         height, width, _ = cropped_image.shape
         size = max(height, width, 50)
@@ -66,7 +66,7 @@ def get_illustrated_bboxes_data(
 def get_illustrated_bboxes_data_matchings(
     source_image: np.ndarray,
     bboxes_data_matchings: List[BboxDataMatching],
-    label_to_base_label_image: Dict[str, np.ndarray],
+    label_to_base_label_image: Callable[[str], np.ndarray],
     background_color_a: Tuple[int, int, int, int] = None,
     true_background_color_b: Tuple[int, int, int, int] = None,
     pred_background_color_b: Tuple[int, int, int, int] = None,
@@ -88,8 +88,8 @@ def get_illustrated_bboxes_data_matchings(
     ) for bbox_data in pred_bboxes_data]
     true_labels = [bbox_data.label if bbox_data is not None else "unknown" for bbox_data in true_bboxes_data]
     pred_labels = [bbox_data.label for bbox_data in pred_bboxes_data]
-    true_renders = [label_to_base_label_image[true_label] for true_label in true_labels]
-    pred_renders = [label_to_base_label_image[pred_label] for pred_label in pred_labels]
+    true_renders = [label_to_base_label_image(true_label) for true_label in true_labels]
+    pred_renders = [label_to_base_label_image(pred_label) for pred_label in pred_labels]
     labels = [f"{pred_label}/{true_label}" for pred_label, true_label in zip(pred_labels, true_labels)]
     for cropped_image, true_render, pred_render in zip(pred_cropped_images, true_renders, pred_renders):
         height, width, _ = cropped_image.shape
@@ -149,7 +149,7 @@ def fetch_page_session():
 
 def illustrate_bboxes_data(
     true_image_data: ImageData,
-    label_to_base_label_image: Dict[str, np.ndarray],
+    label_to_base_label_image: Callable[[str], np.ndarray],
     label_to_description: Dict[str, str],
     mode: Literal['many', 'one-by-one'],
     pred_image_data: ImageData = None,
@@ -297,7 +297,7 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
 
 def illustrate_n_bboxes_data(
     n_bboxes_data: List[List[BboxData]],
-    label_to_base_label_image: Dict[str, np.ndarray],
+    label_to_base_label_image: Callable[[str], np.ndarray],
     label_to_description: Dict[str, str],
     mode: Literal['many', 'one-by-one'],
     minimum_iou: float = None,

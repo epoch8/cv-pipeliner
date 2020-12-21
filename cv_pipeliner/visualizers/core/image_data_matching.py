@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Callable
 
 import numpy as np
 
@@ -79,7 +79,7 @@ def visualize_image_data_matching_side_by_side(
     pred_score_type: Literal['detection', 'classification'] = None,
     true_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
     pred_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
-    draw_base_labels_with_given_label_to_base_label_image: Dict[str, np.ndarray] = None,
+    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     known_labels: List[str] = None,
     label: str = None
 ) -> np.ndarray:

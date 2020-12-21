@@ -81,6 +81,7 @@ def merge_cfg_from_file_fsspec(
         load_cfg = cfg.load_cfg(src.read())
     cfg.merge_from_other_cfg(load_cfg)
 
+
 def merge_cfg_from_string(
     cfg: CfgNode,
     cfg_str: str,

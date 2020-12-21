@@ -9,7 +9,7 @@ from multiprocessing import Process
 import copy
 from PIL import Image
 from pathlib import Path
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -292,7 +292,7 @@ class LabelStudioProject_Classification:
         for class_name in tqdm(class_names):
             label = self._class_name_without_special_character(class_name)
             image_path = self.main_project_directory / 'upload' / 'base_label_images' / f'{label}.png'
-            Image.fromarray(label_to_base_label_image[label]).save(image_path)
+            Image.fromarray(label_to_base_label_image(label)).save(image_path)
             base_label_image_url = (
                 urljoin(self.cv_pipeliner_settings['url'], f"data/upload/base_label_images/{label}.png")
             )
@@ -554,10 +554,10 @@ class LabelStudioProject_Classification:
     def _append_GT_to_bbox_data_as_cropped_image(
         self,
         bbox_data_as_cropped_image: np.ndarray,
-        label_to_base_label_image: Dict[str, np.ndarray]
+        label_to_base_label_image: Callable[[str], np.ndarray]
     ) -> BboxData:
         bbox_data_as_cropped_image = copy.deepcopy(bbox_data_as_cropped_image)
-        image_GT = label_to_base_label_image[bbox_data_as_cropped_image.label]
+        image_GT = label_to_base_label_image(bbox_data_as_cropped_image.label)
         image_GT = np.pad(
             image_GT,
             pad_width=((60, 0), (0, 0), (0, 0)),
@@ -590,7 +590,7 @@ class LabelStudioProject_Classification:
     def _append_top_n_labels_to_bbox_data_as_cropped_image(
         self,
         bbox_data_as_cropped_image: np.ndarray,
-        label_to_base_label_image: Dict[str, np.ndarray]
+        label_to_base_label_image: Callable[[str], np.ndarray]
     ) -> BboxData:
         bbox_data_as_cropped_image = copy.deepcopy(bbox_data_as_cropped_image)
         total_image = draw_n_base_labels_images(

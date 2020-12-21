@@ -327,15 +327,23 @@ def get_label_to_base_label_image(
         raise ValueError(
             f'"{base_labels_images}" must have image with name "unknown.*"'
         )
-    unknown_image = open_image(base_labels_images_files[ann_class_names_files.index('unknown')])
-    label_to_base_label_image = defaultdict(lambda: unknown_image)
-    label_to_base_label_image['unknown'] = unknown_image
+    unknown_image_path = base_labels_images_files[ann_class_names_files.index('unknown')]
+    label_to_base_label_image = defaultdict(lambda: unknown_image_path)
+    label_to_base_label_image['unknown'] = unknown_image_path
     logger.info(f"Loading base labels images from {base_labels_images}...")
     for label in tqdm(list(unique_ann_class_names) + list(set(make_labels_for_these_class_names_too))):
         if label in unique_ann_class_names:
-            base_label_image = open_image(base_labels_images_files[ann_class_names_files.index(label)])
+            base_label_image = base_labels_images_files[ann_class_names_files.index(label)]
         else:
-            base_label_image = unknown_image
+            base_label_image = label_to_base_label_image['unknown']
+        label_to_base_label_image[label] = base_label_image
+
+    def label_to_base_label_image_func(
+        label: str,
+        label_to_description: Union[str, Path, Dict[str, str]] = label_to_description,
+        add_label_to_image: bool = add_label_to_image
+    ):
+        base_label_image = open_image(label_to_base_label_image[label])
         if label_to_description is not None:
             if isinstance(label_to_description, str) or isinstance(label_to_description, Path):
                 label_to_description = get_label_to_description(label_to_description_dict=label_to_description)
@@ -350,9 +358,9 @@ def get_label_to_base_label_image(
                 label=label,
                 description=''
             )
-        label_to_base_label_image[label] = base_label_image
+        return base_label_image
 
-    return label_to_base_label_image
+    return label_to_base_label_image_func
 
 
 def draw_n_base_labels_images(
@@ -367,7 +375,7 @@ def draw_n_base_labels_images(
     for row in rows:
         total_image_row = None
         for j, label in enumerate(row):
-            image_b = label_to_base_label_image[label]
+            image_b = label_to_base_label_image(label)
             if label_to_description is not None:
                 image_b = get_base_label_image_with_description(
                     base_label_image=image_b,
