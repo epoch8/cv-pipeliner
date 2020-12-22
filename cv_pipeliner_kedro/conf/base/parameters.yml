@@ -1,0 +1,10 @@
+minimum_iou: 0.5
+
+evaluate_batch_size: 16
+use_not_caught_elements_as_last_batch: True
+
+pseudo_class_names: ['not_part', 'unclear_part', 'other_part']
+extra_bbox_label: 'not_part'
+
+pipeline_report_train_dir: 'data/08_reporting/train/'
+pipeline_report_val_dir: 'data/08_reporting/val/'

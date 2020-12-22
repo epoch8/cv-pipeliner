@@ -1,0 +1,6 @@
+context_path: cv_pipeliner_kedro.run.ProjectContext
+project_name: "cv_pipeliner_kedro"
+project_version: "0.16.6"
+package_name: "cv_pipeliner_kedro"
+hooks:
+  - cv_pipeliner_kedro.hooks.project_hooks
