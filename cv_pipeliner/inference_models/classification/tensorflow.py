@@ -17,7 +17,7 @@ from cv_pipeliner.inference_models.classification.core import (
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 
 
-@dataclass(frozen=True)
+@dataclass
 class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path]

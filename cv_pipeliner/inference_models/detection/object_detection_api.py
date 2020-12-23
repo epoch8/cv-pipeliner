@@ -18,7 +18,7 @@ from cv_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from_image
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 
 
-@dataclass(frozen=True)
+@dataclass
 class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
     config_path: Union[str, Path]
     checkpoint_path: Union[str, Path]
@@ -29,7 +29,7 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
         return ObjectDetectionAPI_DetectionModel
 
 
-@dataclass(frozen=True)
+@dataclass
 class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
     saved_model_dir: Union[str, Path]
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
@@ -40,7 +40,7 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
         return ObjectDetectionAPI_DetectionModel
 
 
-@dataclass(frozen=True)
+@dataclass
 class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     model_path: Union[str, Path]
     bboxes_output_index: int
