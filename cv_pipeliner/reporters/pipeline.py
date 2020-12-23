@@ -390,6 +390,8 @@ pipeline_interactive_work(
         output_directory = Path(output_directory)
         output_directory.mkdir(exist_ok=True, parents=True)
         for model_spec, tag in zip(models_specs, tags):
+            if model_spec is None:
+                continue
             pipeline_model_spec_filepath = output_directory / f"{PIPELINE_MODEL_SPEC_PREFIX}_{tag}.pkl"
             with open(pipeline_model_spec_filepath, 'wb') as out:
                 pickle.dump(model_spec, out)
@@ -479,4 +481,57 @@ pipeline_interactive_work(
             true_images_data=true_images_data,
             markdowns=markdowns,
             codes=codes
+        )
+
+    def report_on_predictions(
+        self,
+        true_images_data: List[ImageData],
+        pred_images_data_detection: List[ImageData],
+        raw_pred_images_data_detection: List[ImageData],
+        pred_images_data_pipeline: List[ImageData],
+        tag: str,
+        known_class_names: List[str],
+        extra_bbox_label: List[str],
+        output_directory: Union[str, Path],
+        minimum_iou: float,
+        pseudo_class_names: List[str],
+    ):
+        pipelines_reports_datas = []
+        logger.info(f"Counting metrics for '{tag}'...")
+        tag_df_detection_metrics = get_df_detection_metrics(
+            true_images_data=true_images_data,
+            pred_images_data=pred_images_data_detection,
+            minimum_iou=minimum_iou,
+            raw_pred_images_data=raw_pred_images_data_detection
+        )
+        tag_df_pipeline_metrics = get_df_pipeline_metrics(
+            true_images_data=true_images_data,
+            pred_images_data=pred_images_data_pipeline,
+            minimum_iou=minimum_iou,
+            extra_bbox_label=extra_bbox_label,
+            pseudo_class_names=pseudo_class_names,
+            known_class_names=known_class_names
+        )
+
+        pipelines_reports_datas = [PipelineReportData(
+            df_detection_metrics=tag_df_detection_metrics,
+            df_pipeline_metrics=tag_df_pipeline_metrics,
+            tag=tag
+        )]
+
+        pipeline_report_data = concat_pipelines_reports_datas(
+            pipelines_reports_datas=pipelines_reports_datas,
+            compare_tag=tag
+        )
+        markdowns = self._get_markdowns(
+            pipeline_report_data=pipeline_report_data,
+            tags=[tag]
+        )
+        self._save_report(
+            models_specs=[None],
+            tags=[tag],
+            output_directory=output_directory,
+            true_images_data=true_images_data,
+            markdowns=markdowns,
+            codes=[]
         )
