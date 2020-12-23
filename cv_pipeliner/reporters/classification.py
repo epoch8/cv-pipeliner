@@ -212,6 +212,8 @@ classification_interactive_work(
         output_directory = Path(output_directory)
         output_directory.mkdir(exist_ok=True, parents=True)
         for model_spec, tag in zip(models_specs, tags):
+            if model_spec is None:
+                continue
             classification_model_spec_filepath = output_directory / f"{CLASSIFICATION_MODEL_SPEC_PREFIX}_{tag}.pkl"
             with open(classification_model_spec_filepath, 'wb') as out:
                 pickle.dump(model_spec, out)
@@ -229,7 +231,7 @@ classification_interactive_work(
             for code in codes
         ])
         nbf.write(nb, str(output_directory / 'report.ipynb'))
-        logger.info(f"Pipeline report saved to '{output_directory}'.")
+        logger.info(f"Classification report saved to '{output_directory}'.")
 
     def report(
         self,
@@ -280,4 +282,44 @@ classification_interactive_work(
             n_true_bboxes_data=n_true_bboxes_data,
             markdowns=markdowns,
             codes=codes
+        )
+
+    def report_on_predictions(
+        self,
+        n_true_bboxes_data: List[List[BboxData]],
+        n_pred_bboxes_data: List[List[BboxData]],
+        tag: str,
+        known_class_names: List[str],
+        compare_tag: str,
+        output_directory: Union[str, Path],
+        pseudo_class_names: List[str],
+    ):
+
+        logger.info(f"Cunting metrics for '{tag}'...")
+        tag_df_classification_metrics = get_df_classification_metrics(
+            n_true_bboxes_data=n_true_bboxes_data,
+            n_pred_bboxes_data=n_pred_bboxes_data,
+            pseudo_class_names=pseudo_class_names,
+            known_class_names=known_class_names
+        )
+
+        classifications_reports_datas = [ClassificationReportData(
+            df_classification_metrics=tag_df_classification_metrics,
+            tag=tag
+        )]
+
+        classification_report_data = concat_classifications_reports_datas(
+            classifications_reports_datas=classifications_reports_datas,
+            compare_tag=tag
+        )
+        markdowns = self._get_markdowns(
+            classification_report_data=classification_report_data,
+        )
+        self._save_report(
+            models_specs=[None],
+            tags=[tag],
+            output_directory=output_directory,
+            n_true_bboxes_data=n_true_bboxes_data,
+            markdowns=markdowns,
+            codes=[]
         )

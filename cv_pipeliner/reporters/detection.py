@@ -247,6 +247,8 @@ detection_interactive_work(
         output_directory = Path(output_directory)
         output_directory.mkdir(exist_ok=True, parents=True)
         for model_spec, tag in zip(models_specs, tags):
+            if model_spec is None:
+                continue
             detection_model_spec_filepath = output_directory / f"{DETECTION_MODEL_SPEC_PREFIX}_{tag}.pkl"
             with open(detection_model_spec_filepath, 'wb') as out:
                 pickle.dump(model_spec, out)
@@ -264,7 +266,7 @@ detection_interactive_work(
             for code in codes
         ])
         nbf.write(nb, str(output_directory / 'report.ipynb'))
-        logger.info(f"Pipeline report saved to '{output_directory}'.")
+        logger.info(f"Detection report saved to '{output_directory}'.")
 
     def report(
         self,
@@ -319,4 +321,48 @@ detection_interactive_work(
             true_images_data=true_images_data,
             markdowns=markdowns,
             codes=codes
+        )
+
+    def report_on_predictions(
+        self,
+        true_images_data: List[ImageData],
+        pred_images_data: List[ImageData],
+        raw_pred_images_data: List[ImageData],
+        tag: str,
+        output_directory: Union[str, Path],
+        minimum_iou: float,
+    ):
+
+        logger.info(f"Counting metrics for '{tag}'...")
+        tag_df_detection_metrics = get_df_detection_metrics(
+            true_images_data=true_images_data,
+            pred_images_data=pred_images_data,
+            minimum_iou=minimum_iou,
+            raw_pred_images_data=raw_pred_images_data
+        )
+        tag_df_detection_recall_per_class = get_df_detection_recall_per_class(
+            true_images_data=true_images_data,
+            pred_images_data=pred_images_data,
+            minimum_iou=minimum_iou,
+        )
+        detections_reports_datas = [DetectionReportData(
+            df_detection_metrics=tag_df_detection_metrics,
+            df_detection_recall_per_class=tag_df_detection_recall_per_class,
+            tag=tag
+        )]
+
+        detection_report_data = concat_detections_reports_datas(
+            detections_reports_datas=detections_reports_datas,
+            compare_tag=tag
+        )
+        markdowns = self._get_markdowns(
+            detection_report_data=detection_report_data,
+        )
+        self._save_report(
+            models_specs=[None],
+            tags=[tag],
+            output_directory=output_directory,
+            true_images_data=true_images_data,
+            markdowns=markdowns,
+            codes=[]
         )
