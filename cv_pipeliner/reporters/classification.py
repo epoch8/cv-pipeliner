@@ -231,7 +231,7 @@ classification_interactive_work(
             for code in codes
         ])
         nbf.write(nb, str(output_directory / 'report.ipynb'))
-        logger.info(f"Pipeline report saved to '{output_directory}'.")
+        logger.info(f"Classification report saved to '{output_directory}'.")
 
     def report(
         self,
