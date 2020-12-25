@@ -1,10 +1,13 @@
 from typing import List, Tuple, Type
 from dataclasses import dataclass
 import numpy as np
+from tqdm import tqdm
 
 from cv_pipeliner.core.inference_model import InferenceModel, ModelSpec
 from cv_pipeliner.inference_models.detection.core import DetectionModelSpec, DetectionModel
 from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec, ClassificationModel
+
+from cv_pipeliner.utils.images import cut_bboxes_from_image
 
 from cv_pipeliner.logging import logger
 
@@ -24,7 +27,6 @@ Bbox = Tuple[int, int, int, int]  # (ymin, xmin, ymax, xmax)
 Score = float
 Label = str
 
-CroppedImages = List[np.ndarray]
 Bboxes = List[Bbox]
 DetectionScores = List[Score]
 Labels = List[Label]
@@ -33,7 +35,6 @@ ClassificationScores = List[Score]
 PipelineInput = List[np.ndarray]
 PipelineOutput = List[
     Tuple[
-        List[CroppedImages],
         List[Bboxes],
         List[DetectionScores],
         List[Labels],
@@ -78,12 +79,12 @@ class PipelineModel(InferenceModel):
         self,
         input: PipelineInput,
         detection_score_threshold: float,
-        classification_top_n: int = 1
+        classification_top_n: int = 1,
+        classification_batch_size: int = 16
     ) -> PipelineOutput:
         logger.info("Running detection...")
         detection_input = self.detection_model.preprocess_input(input)
-        (n_pred_cropped_images, n_pred_bboxes,
-         n_pred_detection_scores) = self.detection_model.predict(
+        n_pred_bboxes, n_pred_detection_scores = self.detection_model.predict(
             detection_input,
             score_threshold=detection_score_threshold
         )
@@ -92,21 +93,28 @@ class PipelineModel(InferenceModel):
         )
 
         logger.info("Running classification...")
-        shapes = [len(pred_cropped_images) for pred_cropped_images in n_pred_cropped_images]
-        classification_input = self.classification_model.preprocess_input([
-            cropped_image
-            for pred_cropped_images in n_pred_cropped_images
-            for cropped_image in pred_cropped_images
-        ])
-        pred_labels_top_n, pred_classification_scores_top_n = self.classification_model.predict(
-            input=classification_input,
-            top_n=classification_top_n
-        )
+        shapes = [len(pred_bboxes) for pred_bboxes in n_pred_bboxes]
+        pred_labels_top_n, pred_classification_scores_top_n = [], []
+        with tqdm(total=np.sum(shapes)) as pbar:
+            for image, pred_bboxes in zip(input, n_pred_bboxes):
+                pred_bboxes_batches = np.array_split(pred_bboxes, max(1, len(pred_bboxes) // classification_batch_size))
+                for pred_bboxes_batch in pred_bboxes_batches:
+                    pred_cropped_images_batch = cut_bboxes_from_image(image, pred_bboxes)
+                    classification_input_batch = self.classification_model.preprocess_input([
+                        cropped_image
+                        for cropped_image in pred_cropped_images_batch
+                    ])
+                    pred_labels_top_n_batch, pred_classification_scores_top_n_batch = self.classification_model.predict(
+                        input=classification_input_batch,
+                        top_n=classification_top_n
+                    )
+                    pred_labels_top_n.extend(pred_labels_top_n_batch)
+                    pred_classification_scores_top_n.extend(pred_classification_scores_top_n_batch)
+                    pbar.update(len(pred_bboxes_batch))
         n_pred_labels_top_n = self._split_chunks(pred_labels_top_n, shapes)
         n_pred_classification_scores_top_n = self._split_chunks(pred_classification_scores_top_n, shapes)
         logger.info("Classification end!")
         return (
-            n_pred_cropped_images,
             n_pred_bboxes,
             n_pred_detection_scores,
             n_pred_labels_top_n,

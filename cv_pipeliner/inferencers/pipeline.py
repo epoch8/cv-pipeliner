@@ -17,7 +17,6 @@ class PipelineInferencer(Inferencer):
     def _postprocess_predictions(
         self,
         images_data: List[ImageData],
-        n_pred_cropped_images: List[List[np.ndarray]],
         n_pred_bboxes: List[List[Tuple[int, int, int, int]]],
         n_pred_detection_scores: List[List[float]],
         n_pred_labels_top_n: List[List[List[str]]],
@@ -26,25 +25,23 @@ class PipelineInferencer(Inferencer):
         open_cropped_images_in_bboxes_data: bool
     ) -> List[ImageData]:
         pred_images_data = []
-        for (image_data, pred_cropped_images, pred_bboxes,
+        for (image_data, pred_bboxes,
              pred_detection_scores, pred_labels_top_n, pred_classification_scores_top_n) in zip(
-            images_data, n_pred_cropped_images, n_pred_bboxes,
+            images_data, n_pred_bboxes,
             n_pred_detection_scores, n_pred_labels_top_n,
             n_pred_classification_scores_top_n
         ):
             bboxes_data = []
             for (
-                pred_cropped_image, pred_bbox, pred_detection_score,
+                pred_bbox, pred_detection_score,
                 pred_label_top_n, pred_classification_score_top_n
             ) in zip(
-                pred_cropped_images, pred_bboxes, pred_detection_scores,
+                pred_bboxes, pred_detection_scores,
                 pred_labels_top_n, pred_classification_scores_top_n
             ):
                 xmin, ymin, xmax, ymax = pred_bbox
-                pred_cropped_image = pred_cropped_image if open_cropped_images_in_bboxes_data else None
                 bboxes_data.append(BboxData(
                     image_path=image_data.image_path,
-                    cropped_image=pred_cropped_image,
                     xmin=xmin,
                     ymin=ymin,
                     xmax=xmax,
@@ -56,6 +53,9 @@ class PipelineInferencer(Inferencer):
                     labels_top_n=pred_label_top_n,
                     classification_scores_top_n=pred_classification_score_top_n
                 ))
+            if open_cropped_images_in_bboxes_data:
+                for bbox_data in bboxes_data:
+                    bbox_data.open_cropped_image(source_image=image_data.image, inplace=True)
             image = image_data.image if open_images_in_images_data else None
             pred_images_data.append(ImageData(
                 image_path=image_data.image_path,
@@ -71,7 +71,8 @@ class PipelineInferencer(Inferencer):
         classification_top_n: int = 1,
         open_images_in_images_data: bool = False,  # Warning: hard memory use
         open_cropped_images_in_bboxes_data: bool = False,
-        disable_tqdm: bool = False
+        disable_tqdm: bool = False,
+        classification_batch_size: int = 16
     ) -> List[ImageData]:
         assert isinstance(images_data_gen, BatchGeneratorImageData)
         pred_images_data = []
@@ -80,7 +81,6 @@ class PipelineInferencer(Inferencer):
                 input = [image_data.image for image_data in images_data]
                 input = self.model.preprocess_input(input)
                 (
-                    n_pred_cropped_images,
                     n_pred_bboxes,
                     n_pred_detection_scores,
                     n_pred_labels_top_n,
@@ -88,11 +88,11 @@ class PipelineInferencer(Inferencer):
                 ) = self.model.predict(
                     input=input,
                     detection_score_threshold=detection_score_threshold,
-                    classification_top_n=classification_top_n
+                    classification_top_n=classification_top_n,
+                    classification_batch_size=classification_batch_size
                 )
                 pred_images_data_batch = self._postprocess_predictions(
                     images_data=images_data,
-                    n_pred_cropped_images=n_pred_cropped_images,
                     n_pred_bboxes=n_pred_bboxes,
                     n_pred_detection_scores=n_pred_detection_scores,
                     n_pred_labels_top_n=n_pred_labels_top_n,

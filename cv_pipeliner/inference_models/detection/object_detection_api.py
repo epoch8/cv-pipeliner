@@ -14,7 +14,7 @@ from object_detection.builders import model_builder
 from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
 )
-from cv_pipeliner.utils.images import denormalize_bboxes, cut_bboxes_from_image
+from cv_pipeliner.utils.images import denormalize_bboxes
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 
 
@@ -215,7 +215,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         score_threshold: float,
         crop_detections_from_image: bool = True
     ) -> DetectionOutput:
-        n_pred_cropped_images, n_pred_bboxes, n_pred_scores = [], [], []
+        n_pred_bboxes, n_pred_scores = [], []
 
         for image in input:
             height, width, _ = image.shape
@@ -231,13 +231,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             n_pred_bboxes.append(bboxes)
             n_pred_scores.append(scores)
 
-            if crop_detections_from_image:
-                img_boxes = cut_bboxes_from_image(image, bboxes)
-                n_pred_cropped_images += [img_boxes]
-            else:
-                n_pred_cropped_images += [[None] * len(bboxes)]
-
-        return n_pred_cropped_images, n_pred_bboxes, n_pred_scores
+        return n_pred_bboxes, n_pred_scores
 
     def preprocess_input(self, input: DetectionInput):
         return input

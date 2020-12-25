@@ -8,13 +8,11 @@ from cv_pipeliner.core.inference_model import ModelSpec, InferenceModel
 Bbox = Tuple[int, int, int, int]  # (xmin, ymin, xmax, ymax)
 Score = float
 
-CroppedImages = List[np.ndarray]
 Bboxes = List[Bbox]
 Scores = List[Score]
 
 DetectionInput = List[np.ndarray]
 DetectionOutput = Tuple[
-    List[CroppedImages],
     List[Bboxes],
     List[Scores]
 ]
