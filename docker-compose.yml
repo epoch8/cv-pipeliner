@@ -2,7 +2,7 @@ version: '3'
 
 services:
   cv_pipeliner_backend:
-    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.4.0
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.4.1
     expose: 
       - 5000
     ports:
@@ -17,14 +17,14 @@ services:
     command: ["flask", "run", "--host", "0.0.0.0", "--port", "5000", "--without-threads"]
 
   cv_pipeliner_frontend:
-    image: eu.gcr.io/e8-gke/cv-pipeliner-frontend:0.4.0
+    image: eu.gcr.io/e8-gke/cv-pipeliner-frontend:0.4.1
     expose: 
       - 5001
     ports:
       - "5001:80"
 
   cv_pipeliner_app:
-    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.4.0
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.4.1
     depends_on:
       - cv_pipeliner_backend
       - cv_pipeliner_frontend
@@ -42,7 +42,7 @@ services:
     command: ["streamlit", "run", "apps/app/app.py", "--server.port", "80"]
 
   cv_pipeliner_dataset_browser:
-    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.4.0
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.4.1
     container_name: "dataset_browser"
     ports:
       - "81:81"
