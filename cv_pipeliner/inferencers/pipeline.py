@@ -17,7 +17,6 @@ class PipelineInferencer(Inferencer):
     def _postprocess_predictions(
         self,
         images_data: List[ImageData],
-        n_pred_cropped_images: List[List[np.ndarray]],
         n_pred_bboxes: List[List[Tuple[int, int, int, int]]],
         n_pred_detection_scores: List[List[float]],
         n_pred_labels_top_n: List[List[List[str]]],
