@@ -99,11 +99,8 @@ class PipelineModel(InferenceModel):
             for image, pred_bboxes in zip(input, n_pred_bboxes):
                 pred_bboxes_batches = np.array_split(pred_bboxes, max(1, len(pred_bboxes) // classification_batch_size))
                 for pred_bboxes_batch in pred_bboxes_batches:
-                    pred_cropped_images_batch = cut_bboxes_from_image(image, pred_bboxes)
-                    classification_input_batch = self.classification_model.preprocess_input([
-                        cropped_image
-                        for cropped_image in pred_cropped_images_batch
-                    ])
+                    pred_cropped_images_batch = cut_bboxes_from_image(image, pred_bboxes_batch)
+                    classification_input_batch = self.classification_model.preprocess_input(pred_cropped_images_batch)
                     pred_labels_top_n_batch, pred_classification_scores_top_n_batch = self.classification_model.predict(
                         input=classification_input_batch,
                         top_n=classification_top_n
