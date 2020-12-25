@@ -1,6 +1,5 @@
 from typing import List, Tuple
 
-import numpy as np
 from tqdm import tqdm
 
 from cv_pipeliner.core.data import BboxData, ImageData
@@ -17,7 +16,6 @@ class DetectionInferencer(Inferencer):
     def _postprocess_predictions(
         self,
         images_data: List[ImageData],
-        n_pred_cropped_images: List[List[np.ndarray]],
         n_pred_bboxes: List[List[Tuple[int, int, int, int]]],
         n_pred_scores: List[List[float]],
         open_images_in_images_data: bool,
@@ -25,22 +23,23 @@ class DetectionInferencer(Inferencer):
     ) -> List[ImageData]:
 
         pred_images_data = []
-        for image_data, img_boxes, pred_bboxes, pred_scores in zip(
-            images_data, n_pred_cropped_images, n_pred_bboxes, n_pred_scores
+        for image_data, pred_bboxes, pred_scores in zip(
+            images_data, n_pred_bboxes, n_pred_scores
         ):
             bboxes_data = []
-            for (pred_cropped_image, pred_bbox, pred_detection_score) in zip(img_boxes, pred_bboxes, pred_scores):
+            for (pred_bbox, pred_detection_score) in zip(pred_bboxes, pred_scores):
                 xmin, ymin, xmax, ymax = pred_bbox
-                pred_cropped_image = pred_cropped_image if open_cropped_images_in_bboxes_data else None
                 bboxes_data.append(BboxData(
                     image_path=image_data.image_path,
-                    cropped_image=pred_cropped_image,
                     xmin=xmin,
                     ymin=ymin,
                     xmax=xmax,
                     ymax=ymax,
                     detection_score=pred_detection_score
                 ))
+            if open_cropped_images_in_bboxes_data:
+                for bbox_data in bboxes_data:
+                    bbox_data.open_cropped_image(source_image=image_data.image, inplace=True)
             image = image_data.image if open_images_in_images_data else None
             pred_images_data.append(ImageData(
                 image_path=image_data.image_path,
@@ -64,13 +63,12 @@ class DetectionInferencer(Inferencer):
             for images_data in images_data_gen:
                 input = [image_data.image for image_data in images_data]
                 input = self.model.preprocess_input(input)
-                n_pred_cropped_images, n_pred_bboxes, n_pred_scores = self.model.predict(
+                n_pred_bboxes, n_pred_scores = self.model.predict(
                     input=input,
                     score_threshold=score_threshold
                 )
                 pred_images_data_batch = self._postprocess_predictions(
                     images_data=images_data,
-                    n_pred_cropped_images=n_pred_cropped_images,
                     n_pred_bboxes=n_pred_bboxes,
                     n_pred_scores=n_pred_scores,
                     open_images_in_images_data=open_images_in_images_data,

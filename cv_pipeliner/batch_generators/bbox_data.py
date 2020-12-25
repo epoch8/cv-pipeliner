@@ -1,11 +1,9 @@
 from typing import List
 
 import numpy as np
-import imageio
 
 from cv_pipeliner.core.data import BboxData
 from cv_pipeliner.core.batch_generator import BatchGenerator
-from cv_pipeliner.utils.images import open_image
 
 
 class BatchGeneratorBboxData(BatchGenerator):
