@@ -1,5 +1,6 @@
 import os
 import json
+from collections import Counter
 from pathlib import Path
 from typing import Dict
 from io import BytesIO
@@ -7,6 +8,7 @@ from urllib.parse import urljoin
 
 import requests
 import numpy as np
+import pandas as pd
 import fsspec
 
 from pathy import Pathy
@@ -21,7 +23,7 @@ from cv_pipeliner.utils.images import get_label_to_base_label_image
 import streamlit as st
 from cv_pipeliner.utils.data import get_label_to_description
 from cv_pipeliner.utils.streamlit.data import get_images_data_from_dir
-from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data
+from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data, fetch_image_data
 from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
 
 from apps.config import get_cfg_defaults, merge_cfg_from_file_fsspec
@@ -242,6 +244,12 @@ if input_type == 'Image':
         label="Show classification's top-n labels",
         value=False
     )
+    average_maximum_images_per_page = st.sidebar.slider(
+        label='Maximum images per page',
+        min_value=1,
+        max_value=100,
+        value=50
+    )
     if show_top_n:
         classification_top_n = st.sidebar.slider(
             label='Top-n',
@@ -337,9 +345,20 @@ if input_type == 'Image':
                 pred_background_color_b=[255, 255, 0, 255],
                 bbox_offset=100,
                 draw_rectangle_with_color=[0, 255, 0],
-                show_top_n=show_top_n
+                show_top_n=show_top_n,
+                average_maximum_images_per_page=average_maximum_images_per_page
             )
         else:
+            fast_annotation_mode = st.checkbox(
+                label="Annotate Correct/Incorrect bboxes",
+                value=False
+            ) if run and mode == "one-by-one" and not show_annotation else False
+            if fast_annotation_mode:
+                col1, col2 = st.beta_columns((3, 2))
+                with col1:
+                    df_errors_placeholder = st.empty()
+                with col2:
+                    df_accuracy_placeholder = st.empty()
             illustrate_bboxes_data(
                 true_image_data=pred_image_data,
                 label_to_base_label_image=label_to_base_label_image,
@@ -349,8 +368,28 @@ if input_type == 'Image':
                 true_background_color_b=[255, 255, 0, 255],
                 bbox_offset=100,
                 draw_rectangle_with_color=[0, 255, 0],
-                show_top_n=show_top_n
+                show_top_n=show_top_n,
+                fast_annotation_mode=fast_annotation_mode,
+                average_maximum_images_per_page=average_maximum_images_per_page
             )
+            if fast_annotation_mode:
+                page_session = fetch_image_data(image_data=pred_image_data)
+                errors_counter = Counter(
+                    [value for value in page_session.bboxes_data_fast_annotations.values() if value is not None]
+                )
+                total = sum(errors_counter.values())
+                df_errors = pd.DataFrame({
+                    'Annotated total': [sum(errors_counter.values())],
+                    'OK': [errors_counter['OK']],
+                    'Detection error': [errors_counter['Detection error']],
+                    'Classification error': [errors_counter['Classification error']],
+                }, index=['count']).T
+                df_errors['Percentage'] = df_errors['count'] / total
+                df_accuracy = pd.DataFrame({
+                    'accuracy': [df_errors.loc['OK', 'count'] / total if total != 0 else 0]
+                }, index=['value']).T
+                df_errors_placeholder.dataframe(data=df_errors)
+                df_accuracy_placeholder.dataframe(data=df_accuracy)
     else:
         if image_data is not None:
             image_data = get_image_data_filtered_by_labels(
@@ -373,7 +412,8 @@ if input_type == 'Image':
                     true_background_color_b=[0, 255, 0, 255],
                     bbox_offset=100,
                     draw_rectangle_with_color=[0, 255, 0],
-                    show_top_n=show_top_n
+                    show_top_n=show_top_n,
+                    average_maximum_images_per_page=average_maximum_images_per_page
                 )
             else:
                 image = image_data.open_image()

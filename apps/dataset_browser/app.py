@@ -217,7 +217,7 @@ def change_annotation(
     max_page: int
 ):
     global bbox_data_to_image_data_index_and_bboxes_data_subindex, images_data, annotation_success
-    
+
     bbox_key = f'{bbox_data.image_path}_{(bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)}'
     _, del_col, _, _ = st.beta_columns(4)
     if annotation_mode:
@@ -309,7 +309,7 @@ def change_annotation(
         with col3:
             update_button = st.button('Update', key=bbox_key)
         if update_button or delete_button:
-            
+
             # Scenary when 2 people are in: create the lock file of annotation
             locker_filepath = f"{annotation_filepath}.lock"
             temp_file_lock_r = fsspec.open(locker_filepath, 'r')
@@ -357,7 +357,7 @@ def change_annotation(
             # update annotation file
             with fsspec.open(annotation_filepath, 'w') as out:
                 json.dump(new_annotation, out)
-                
+
             # delete lock file
             temp_file_lock.fs.rm(locker_filepath)
 
@@ -414,7 +414,7 @@ elif view == 'annotation':
         n_bboxes_data=n_bboxes_data,
         label_to_base_label_image=label_to_base_label_image,
         label_to_description=label_to_description,
-        mode=mode,
+        mode='one-by-one',
         background_color_a=[0, 0, 0, 255],
         true_background_color_b=[0, 255, 0, 255],
         bbox_offset=100,
