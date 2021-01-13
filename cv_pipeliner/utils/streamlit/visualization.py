@@ -147,6 +147,16 @@ def fetch_page_session():
     return page_session
 
 
+@st.cache(allow_output_mutation=True)
+def fetch_image_data(image_data: ImageData):
+    page_session = PageSession()
+    page_session.bboxes_data_fast_annotations = {
+        (bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax): None
+        for bbox_data in image_data.bboxes_data
+    }
+    return page_session
+
+
 def illustrate_bboxes_data(
     true_image_data: ImageData,
     label_to_base_label_image: Callable[[str], np.ndarray],
@@ -162,7 +172,8 @@ def illustrate_bboxes_data(
     bbox_offset: int = 0,
     draw_rectangle_with_color: Tuple[int, int, int] = None,
     change_annotation: Callable[[BboxData], None] = None,
-    show_top_n: bool = False
+    show_top_n: bool = False,
+    fast_annotation_mode: bool = False
 ):
     source_image = true_image_data.open_image()
 
@@ -253,16 +264,34 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
         for cropped_image_and_render, label, bbox_data in zip(cropped_images_and_renders, labels, page_bboxes_data):
             st.image(image=cropped_image_and_render)
             if isinstance(bbox_data, BboxData):
-                st.markdown(f"'{label}'")
-                st.markdown(label_to_description[label])
-                st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
-                if bbox_data.detection_score is not None:
-                    st.text(f'Detection score: {bbox_data.detection_score}')
-                if bbox_data.classification_score is not None:
-                    st.text(f'Classification score: {bbox_data.classification_score}')
-                if show_top_n:
-                    st.text(f'Top-n labels: {bbox_data.labels_top_n}')
-                    st.text(f'Top-n scores: {bbox_data.classification_scores_top_n}')
+                if fast_annotation_mode:
+                    col1, col2 = st.beta_columns(2)
+                else:
+                    col1 = st.beta_columns(1)
+                with col1:
+                    st.markdown(f"'{label}'")
+                    st.markdown(label_to_description[label])
+                    st.text(f'Bbox: {[bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]}')
+                    if bbox_data.detection_score is not None:
+                        st.text(f'Detection score: {bbox_data.detection_score}')
+                    if bbox_data.classification_score is not None:
+                        st.text(f'Classification score: {bbox_data.classification_score}')
+                    if show_top_n:
+                        st.text(f'Top-n labels: {bbox_data.labels_top_n}')
+                        st.text(f'Top-n scores: {bbox_data.classification_scores_top_n}')
+                if fast_annotation_mode:
+                    with col2:
+                        fast_annotation = st.radio(
+                            label='Annotate:',
+                            options=[None, 'OK', 'Detection error', 'Classification error'],
+                            index=0,
+                            key=f"{(bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)}"
+                        )
+                    page_session = fetch_image_data(image_data=true_image_data)
+                    page_session.bboxes_data_fast_annotations[
+                        (bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)
+                    ] = fast_annotation
+
             elif isinstance(bbox_data, BboxDataMatching):
                 true_bbox_data = bbox_data.true_bbox_data
                 pred_bbox_data = bbox_data.pred_bbox_data
@@ -356,7 +385,7 @@ def illustrate_n_bboxes_data(
         indexes_by_image_path = np.where(page_image_paths == image_path)[0]
         bboxes_data_by_image_path = page_bboxes_data[indexes_by_image_path]
         source_image = open_image(image=image_path, open_as_rgb=True)
-        if '2020_12_08_validation_v3_mini' in str(image_path):
+        if '2020_12_08_validation_v3_mini' in str(image_path):  # DELETE ME LATER
             xmin, ymin, xmax, ymax = eval(str(image_path).split('crop_')[1].split('.jp')[0])
             image_data_with_crop = ImageData(
                 image_path=image_path,
