@@ -267,7 +267,7 @@ False Positives on extra bboxes: {image_data_matching.get_pipeline_FP_extra_bbox
                 if fast_annotation_mode:
                     col1, col2 = st.beta_columns(2)
                 else:
-                    col1 = st.beta_columns(1)
+                    col1, _ = st.beta_columns([1000, 1])
                 with col1:
                     st.markdown(f"'{label}'")
                     st.markdown(label_to_description[label])

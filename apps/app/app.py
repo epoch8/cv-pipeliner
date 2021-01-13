@@ -244,6 +244,12 @@ if input_type == 'Image':
         label="Show classification's top-n labels",
         value=False
     )
+    average_maximum_images_per_page = st.sidebar.slider(
+        label='Maximum images per page',
+        min_value=1,
+        max_value=100,
+        value=50
+    )
     if show_top_n:
         classification_top_n = st.sidebar.slider(
             label='Top-n',
@@ -339,7 +345,8 @@ if input_type == 'Image':
                 pred_background_color_b=[255, 255, 0, 255],
                 bbox_offset=100,
                 draw_rectangle_with_color=[0, 255, 0],
-                show_top_n=show_top_n
+                show_top_n=show_top_n,
+                average_maximum_images_per_page=average_maximum_images_per_page
             )
         else:
             fast_annotation_mode = st.checkbox(
@@ -362,7 +369,8 @@ if input_type == 'Image':
                 bbox_offset=100,
                 draw_rectangle_with_color=[0, 255, 0],
                 show_top_n=show_top_n,
-                fast_annotation_mode=fast_annotation_mode
+                fast_annotation_mode=fast_annotation_mode,
+                average_maximum_images_per_page=average_maximum_images_per_page
             )
             if fast_annotation_mode:
                 page_session = fetch_image_data(image_data=pred_image_data)
@@ -374,7 +382,7 @@ if input_type == 'Image':
                     'Annotated total': [sum(errors_counter.values())],
                     'OK': [errors_counter['OK']],
                     'Detection error': [errors_counter['Detection error']],
-                    'Classification error': [errors_counter['Detection error']],
+                    'Classification error': [errors_counter['Classification error']],
                 }, index=['count']).T
                 df_errors['Percentage'] = df_errors['count'] / total
                 df_accuracy = pd.DataFrame({
@@ -404,7 +412,8 @@ if input_type == 'Image':
                     true_background_color_b=[0, 255, 0, 255],
                     bbox_offset=100,
                     draw_rectangle_with_color=[0, 255, 0],
-                    show_top_n=show_top_n
+                    show_top_n=show_top_n,
+                    average_maximum_images_per_page=average_maximum_images_per_page
                 )
             else:
                 image = image_data.open_image()
