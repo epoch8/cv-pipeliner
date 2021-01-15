@@ -61,4 +61,15 @@ entries:
     urls:
     - https://github.com/epoch8/cv-pipeliner/releases/download/cv-pipeliner-0.2.0/cv-pipeliner-0.2.0.tgz
     version: 0.2.0
+  cv-pipeliner-databrowser:
+  - apiVersion: v2
+    appVersion: 0.4.3
+    created: "2021-01-15T14:19:34.092104367Z"
+    description: A Helm chart for Kubernetes
+    digest: f5a52e97590275d431eee43faeb756e14eeb9b3053efc5c19852934eba727855
+    name: cv-pipeliner-databrowser
+    type: application
+    urls:
+    - https://github.com/epoch8/cv-pipeliner/releases/download/cv-pipeliner-databrowser-0.4.3/cv-pipeliner-databrowser-0.4.3.tgz
+    version: 0.4.3
 generated: "2020-11-30T14:40:35.536718426Z"
