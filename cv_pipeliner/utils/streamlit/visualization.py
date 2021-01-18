@@ -11,7 +11,6 @@ from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 import streamlit as st
 
 
-@st.cache(show_spinner=False)
 def get_illustrated_bboxes_data(
     source_image: np.ndarray,
     bboxes_data: List[BboxData],
@@ -62,7 +61,6 @@ def get_illustrated_bboxes_data(
     return cropped_images_and_renders, labels
 
 
-@st.cache(show_spinner=False)
 def get_illustrated_bboxes_data_matchings(
     source_image: np.ndarray,
     bboxes_data_matchings: List[BboxDataMatching],
