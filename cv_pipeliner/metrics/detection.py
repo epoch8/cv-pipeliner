@@ -5,11 +5,6 @@ from typing import List, Dict
 import pandas as pd
 import numpy as np
 
-from object_detection.metrics import coco_evaluation
-from object_detection.core.standard_fields import (
-    InputDataFields, DetectionResultFields
-)
-
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
 
@@ -18,6 +13,10 @@ def count_coco_metrics(
     true_images_data: List[ImageData],
     raw_pred_images_data: List[ImageData] = None
 ) -> Dict:
+    from object_detection.metrics import coco_evaluation
+    from object_detection.core.standard_fields import (
+        InputDataFields, DetectionResultFields
+    )
     cocoevaluator = coco_evaluation.CocoDetectionEvaluator(
         categories=[{
             'id': 1,
@@ -105,10 +104,12 @@ def get_df_detection_metrics(
     precision = TP / max(TP + FP, 1e-6)
     recall = TP / max(TP + FN, 1e-6)
     f1_score = 2 * precision * recall / max(precision + recall, 1e-6)
+    coco_metrics = {}
     if raw_pred_images_data is not None:
-        coco_metrics = count_coco_metrics(true_images_data, raw_pred_images_data)
-    else:
-        coco_metrics = {}
+        try:
+            coco_metrics = count_coco_metrics(true_images_data, raw_pred_images_data)
+        except ModuleNotFoundError:
+            pass
 
     df_detection_metrics = pd.DataFrame({
         'TP': [TP],
