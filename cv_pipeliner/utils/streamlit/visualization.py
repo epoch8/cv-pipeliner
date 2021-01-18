@@ -138,14 +138,14 @@ class PageSession:
     pass
 
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, show_spinner=False)
 def fetch_page_session():
     page_session = PageSession()
     page_session.counter = 1
     return page_session
 
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, show_spinner=False)
 def fetch_image_data(image_data: ImageData):
     page_session = PageSession()
     page_session.bboxes_data_fast_annotations = {
