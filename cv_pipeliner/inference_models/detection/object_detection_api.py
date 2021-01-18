@@ -8,9 +8,6 @@ import numpy as np
 import fsspec
 from pathy import Pathy
 
-from object_detection.utils import config_util
-from object_detection.builders import model_builder
-
 from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
 )
@@ -54,6 +51,8 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
 
 class ObjectDetectionAPI_DetectionModel(DetectionModel):
     def _load_object_detection_api(self, model_spec: ObjectDetectionAPI_ModelSpec):
+        from object_detection.utils import config_util
+        from object_detection.builders import model_builder
         temp_dir = tempfile.TemporaryDirectory()
         temp_dir_path = Path(temp_dir.name)
         model_config_path = temp_dir_path / Pathy(model_spec.config_path).name
