@@ -1,4 +1,5 @@
 import os
+import datetime
 import json
 import fsspec
 import copy
@@ -358,7 +359,8 @@ def change_annotation(
 
             # create backup
             annotation_fileopen = fsspec.open(annotation_filepath, 'r')
-            backup_filepath = Pathy(annotation_filepath).parent / f'{Pathy(annotation_filepath).name}.backup'
+            now = datetime.datetime.now().strftime('%Y_%m_%d_%Hh')
+            backup_filepath = Pathy(annotation_filepath).parent / f'{Pathy(annotation_filepath).name}.{now}_backup'
             if not annotation_fileopen.fs.exists(str(backup_filepath)):
                 with fsspec.open(annotation_filepath, 'r') as src:
                     with fsspec.open(str(backup_filepath), 'w') as out:
