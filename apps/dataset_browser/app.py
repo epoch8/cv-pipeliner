@@ -1,8 +1,10 @@
 import os
+import datetime
 import json
 import fsspec
 import copy
 import time
+import re
 from typing import Dict, List, Literal, Tuple
 from collections import Counter
 from pathlib import Path
@@ -163,12 +165,11 @@ if view == 'detection':
         label_to_base_label_image if draw_label_images else None
     )
 
-if labels is not None:
-    class_names_counter = Counter(labels)
-    class_names = ann_class_names
-else:
-    class_names_counter = {}
-    class_names = ann_class_names
+class_names_counter = Counter(labels) if labels is not None else {}
+class_names = sorted(
+    ann_class_names,
+    key=lambda x: int(re.sub('\D', '', x)) if re.sub('\D', '', x).isdigit() else 0
+)
 
 classes_col1, classes_col2 = st.beta_columns(2)
 with classes_col1:
@@ -256,6 +257,8 @@ def change_annotation(
         _, col3, _ = st.beta_columns(3)
         xmin, ymin, xmax, ymax = eval(bbox_input)
         if bbox_data.top_n is not None and bbox_data.top_n > 1:
+            for i in range(14):
+                st.text('\n')
             top_n_hint_image = draw_n_base_labels_images(
                 labels=bbox_data.labels_top_n,
                 label_to_base_label_image=label_to_base_label_image,
@@ -266,7 +269,7 @@ def change_annotation(
             chosen_category = st.selectbox(
                 label="Categories",
                 options=['All', 'Custom'] + categories,
-                index=2+categories.index(label_to_category[bbox_data.label]),
+                index=2+categories.index(label_to_category[bbox_data.label]) if not annotation_mode else 0,
                 key=f'category_{bbox_key}'
             )
             if chosen_category != 'Custom':
@@ -275,6 +278,14 @@ def change_annotation(
                     for class_name in class_names
                     if label_to_category[class_name] == chosen_category or chosen_category == 'All'
                 ]
+                if bbox_data.top_n is not None and bbox_data.top_n > 1:
+                    class_names_by_category = bbox_data.labels_top_n + class_names_by_category
+                def format_func(class_name):
+                    if bbox_data.top_n is not None and bbox_data.top_n > 1 and class_name in bbox_data.labels_top_n:
+                        index = bbox_data.labels_top_n.index(class_name)
+                        return f"[{index+1}] {class_name} [{label_to_description[class_name]}]"
+                    else:
+                        return f"{class_name} [{label_to_description[class_name]}]"
                 new_label = st.selectbox(
                     label="Classes",
                     options=class_names_by_category,
@@ -282,7 +293,7 @@ def change_annotation(
                         bbox_data.label in class_names_by_category
                     ) else 0,
                     key=f'classes_{bbox_key}',
-                    format_func=lambda class_name: f"{class_name} [{label_to_description[class_name]}]"
+                    format_func=format_func
                 )
             else:
                 new_label = st.text_input(
@@ -348,7 +359,8 @@ def change_annotation(
 
             # create backup
             annotation_fileopen = fsspec.open(annotation_filepath, 'r')
-            backup_filepath = Pathy(annotation_filepath).parent / f'{Pathy(annotation_filepath).name}.backup'
+            now = datetime.datetime.now().strftime('%Y_%m_%d_%Hh')
+            backup_filepath = Pathy(annotation_filepath).parent / f'{Pathy(annotation_filepath).name}.{now}_backup'
             if not annotation_fileopen.fs.exists(str(backup_filepath)):
                 with fsspec.open(annotation_filepath, 'r') as src:
                     with fsspec.open(str(backup_filepath), 'w') as out:

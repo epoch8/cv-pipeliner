@@ -1,4 +1,4 @@
-VERSION=0.4.3
+VERSION=0.4.4
 
 APP_IMAGE=eu.gcr.io/e8-gke/cv-pipeliner-app:${VERSION}
 FRONTEND_IMAGE=eu.gcr.io/e8-gke/cv-pipeliner-frontend:${VERSION}

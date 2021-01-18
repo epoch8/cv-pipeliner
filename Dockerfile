@@ -46,6 +46,8 @@ ADD cv_pipeliner /app/cv_pipeliner/
 ADD setup.py /app/setup.py
 RUN pip3 install -e /app/
 
+# Fix "Illegal instruction (core dumped)" (on our cluster)
+RUN pip install tensorflow==2.3.1 tensorflow-gpu==2.3.1
 
 # Add apps/
 ADD apps /apps/apps/

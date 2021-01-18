@@ -3,11 +3,10 @@
 - Classification
 
 # App
-How to build and run:
+How to build and run locally:
 
-- Set the configs `apps/app/config.yaml`, `apps/backend/config.yaml`, `apps/dataset_browser/config.yaml`
-- Set them in `sample.env`
+- Set the config `apps/config.yaml`, then note it in `docker-compose.yaml`
 ```
-docker-compose build
+make build
 docker-compose run
 ```

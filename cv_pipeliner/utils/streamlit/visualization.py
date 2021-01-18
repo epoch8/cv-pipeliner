@@ -11,7 +11,6 @@ from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 import streamlit as st
 
 
-@st.cache(show_spinner=False)
 def get_illustrated_bboxes_data(
     source_image: np.ndarray,
     bboxes_data: List[BboxData],
@@ -62,7 +61,6 @@ def get_illustrated_bboxes_data(
     return cropped_images_and_renders, labels
 
 
-@st.cache(show_spinner=False)
 def get_illustrated_bboxes_data_matchings(
     source_image: np.ndarray,
     bboxes_data_matchings: List[BboxDataMatching],
@@ -140,14 +138,14 @@ class PageSession:
     pass
 
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, show_spinner=False)
 def fetch_page_session():
     page_session = PageSession()
     page_session.counter = 1
     return page_session
 
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, show_spinner=False)
 def fetch_image_data(image_data: ImageData):
     page_session = PageSession()
     page_session.bboxes_data_fast_annotations = {
