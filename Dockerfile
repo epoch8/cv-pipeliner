@@ -36,6 +36,9 @@ RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula sele
 RUN apt-get install -y ttf-mscorefonts-installer
 RUN fc-cache
 
+# Fix "Illegal instruction (core dumped)" (on our cluster)
+RUN pip install tensorflow==2.3.1 tensorflow-gpu==2.3.1
+
 # Install cv_pipeliner
 ADD requirements.txt /app/requirements.txt
 RUN pip3 install -r /app/requirements.txt
@@ -45,9 +48,6 @@ RUN python3 -c 'import matplotlib.font_manager'
 ADD cv_pipeliner /app/cv_pipeliner/
 ADD setup.py /app/setup.py
 RUN pip3 install -e /app/
-
-# Fix "Illegal instruction (core dumped)" (on our cluster)
-RUN pip install tensorflow==2.3.1 tensorflow-gpu==2.3.1
 
 # Add apps/
 ADD apps /apps/apps/
