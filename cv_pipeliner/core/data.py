@@ -33,7 +33,7 @@ def open_image_for_object(
 
 @dataclass
 class BboxData:
-    image_path: [str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
+    image_path: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
     image_name: str = None
     image: np.ndarray = None
     cropped_image: np.ndarray = None
@@ -197,7 +197,7 @@ class BboxData:
             'additional_info': self.additional_info
         }
 
-    def from_dict(self, d):
+    def _from_dict(self, d):
         for key in [
             'image_path', 'xmin', 'ymin', 'xmax', 'ymax',
             'angle', 'label', 'top_n', 'labels_top_n', 'classification_scores_top_n',
@@ -208,10 +208,16 @@ class BboxData:
                 super().__setattr__(key, d[key])
         self.__post_init__()
 
+        return self
+
+    @staticmethod
+    def from_dict(d):
+        return BboxData()._from_dict(d)
+
 
 @dataclass
 class ImageData:
-    image_path: [str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
+    image_path: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
     image_name: str = None
     image: np.ndarray = None
     bboxes_data: List[BboxData] = field(default_factory=list)
@@ -239,13 +245,19 @@ class ImageData:
             'additional_info': self.additional_info
         }
 
-    def from_dict(self, d):
+    def _from_dict(self, d):
         for key in ['image_path', 'additional_info']:
             if key in d:
                 super().__setattr__(key, d[key])
         if 'bboxes_data' in d:
             bboxes_data = [BboxData() for i in range(len(d['bboxes_data']))]
             for bbox_data, d_i in zip(bboxes_data, d['bboxes_data']):
-                bbox_data.from_dict(d_i)
+                bbox_data._from_dict(d_i)
             self.bboxes_data = bboxes_data
         self.__post_init__()
+
+        return self
+
+    @staticmethod
+    def from_dict(d):
+        return ImageData()._from_dict(d)

@@ -290,8 +290,7 @@ def inference_one_image(
     image_bytes = image_bytes.getvalue()
     response = requests.post(url_post, files={'image': image_bytes})
     if response.ok:
-        pred_image_data = ImageData()
-        pred_image_data.from_dict(json.loads(response.text))  # returns empty images
+        pred_image_data = ImageData.from_dict(json.loads(response.text))
         pred_image_data.image_path = image_data.image_path
     else:
         raise ValueError(

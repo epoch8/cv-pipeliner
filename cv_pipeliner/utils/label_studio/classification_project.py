@@ -61,8 +61,7 @@ class TaskData:
     def convert_to_rectangle_label(
         self
     ) -> Dict:
-        bbox_data_as_cropped_image = BboxData()
-        bbox_data_as_cropped_image.from_dict(self.task_json['data']['bbox_data_as_cropped_image'])
+        bbox_data_as_cropped_image = BboxData.from_dict(self.task_json['data']['bbox_data_as_cropped_image'])
         image = bbox_data_as_cropped_image.open_image()
         original_width, original_height = image.shape[1], image.shape[0]
         ymin, xmin, ymax, xmax = (
@@ -97,8 +96,7 @@ class TaskData:
     def convert_to_choice(
         self
     ) -> Dict:
-        bbox_data_as_cropped_image = BboxData()
-        bbox_data_as_cropped_image.from_dict(self.task_json['data']['bbox_data_as_cropped_image'])
+        bbox_data_as_cropped_image = BboxData.from_dict(self.task_json['data']['bbox_data_as_cropped_image'])
         choice = {
             "value": {
                 "choices": [
@@ -158,10 +156,8 @@ class TaskData:
         self.is_done = True
         src_labels_from_top_n = completions_json['data']['src_bbox_data']['labels_top_n']
         src_image_path = completions_json['data']['src_image_path']
-        bbox_data = BboxData()
-        bbox_data.from_dict(completions_json['data']['src_bbox_data'])
-        bbox_data_as_cropped_image = BboxData()
-        bbox_data_as_cropped_image.from_dict(completions_json['data']['bbox_data_as_cropped_image'])
+        bbox_data = BboxData.from_dict(completions_json['data']['src_bbox_data'])
+        bbox_data_as_cropped_image = BboxData.from_dict(completions_json['data']['bbox_data_as_cropped_image'])
         additional_info = bbox_data.additional_info
 
         if len(completions_json['completions']) > 1:
@@ -223,8 +219,7 @@ class TaskData:
                 completions_json=completions_json
             )
         else:
-            self.bbox_data = BboxData()
-            self.bbox_data.from_dict(task_json['data']['src_bbox_data'])
+            self.bbox_data = BboxData.from_dict(task_json['data']['src_bbox_data'])
 
 
 def load_tasks(main_project_directory) -> List[TaskData]:

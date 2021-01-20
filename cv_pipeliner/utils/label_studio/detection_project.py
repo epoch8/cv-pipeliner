@@ -126,8 +126,7 @@ class TaskData:
         if 'skipped' in completion and completion['skipped']:
             logger.warning(f"Task {completions_json['id']} was skipped.")
             self.is_skipped = True
-            image_data = ImageData()
-            image_data.from_dict(completions_json['data']['src_image_data'])
+            image_data = ImageData.from_dict(completions_json['data']['src_image_data'])
         else:
             bboxes_data = []
             for result in completion['result']:
@@ -165,8 +164,7 @@ class TaskData:
                 completions_json=completions_json
             )
         else:
-            self.image_data = ImageData()
-            self.image_data.from_dict(task_json['data']['src_image_data'])
+            self.image_data = ImageData.from_dict(task_json['data']['src_image_data'])
 
 
 def load_tasks(main_project_directory) -> List[TaskData]:
