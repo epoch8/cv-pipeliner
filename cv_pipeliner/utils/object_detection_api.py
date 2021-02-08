@@ -185,7 +185,7 @@ def set_config(
     label_map: Dict[str, int],
     label_map_filepath: Union[str, Path],
     batch_size: int,
-    fine_tune_checkpoint_type: str = 'detection',
+    fine_tune_checkpoint_type: str = 'fine_tune',
     augment_path: str = None
 ):
     logger.info(f"Set configs {config_path}...")
