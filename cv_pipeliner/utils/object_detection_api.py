@@ -185,7 +185,6 @@ def set_config(
     label_map: Dict[str, int],
     label_map_filepath: Union[str, Path],
     batch_size: int,
-    fine_tune_checkpoint_type: str = 'fine_tune',
     augment_path: str = None
 ):
     logger.info(f"Set configs {config_path}...")
@@ -198,7 +197,6 @@ def set_config(
     _, config_model = configs['model'].ListFields()[0]
     config_model.num_classes = num_classes
 
-    configs['train_config'].fine_tune_checkpoint_type = fine_tune_checkpoint_type
     configs['train_config'].fine_tune_checkpoint = str(checkpoint_path)
     configs['train_config'].batch_size = batch_size
     if augment_path is not None:
