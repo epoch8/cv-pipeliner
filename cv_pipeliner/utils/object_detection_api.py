@@ -71,13 +71,13 @@ def tf_record_from_image_data(
     true_bboxes = np.array([
         [bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]
         for bbox_data in image_data.bboxes_data
-    ])
+    ], dtype=np.float)
     image = image_data.open_image()
     height, width, _ = image.shape
-    normalized_true_bboxes = true_bboxes.copy()
-    normalized_true_bboxes[:, [0, 2]] /= width
-    normalized_true_bboxes[:, [1, 3]] /= height
-    if len(normalized_true_bboxes) > 0:
+    if len(true_bboxes) > 0:
+        normalized_true_bboxes = true_bboxes.copy()
+        normalized_true_bboxes[:, [0, 2]] /= width
+        normalized_true_bboxes[:, [1, 3]] /= height
         xmins = normalized_true_bboxes[:, 0]
         ymins = normalized_true_bboxes[:, 1]
         xmaxs = normalized_true_bboxes[:, 2]
@@ -142,7 +142,7 @@ def convert_to_tf_records(
     )
 
 
-def label_map_to_text(
+def label_map_to_file(
     label_map: Dict[str, int],
     filepath: Union[str, Path]
 ):
@@ -163,7 +163,10 @@ def label_map_to_text(
     logger.info(f'label_map saved to {filepath}')
 
 
-def count_tfrecord_examples(filepath):
+def count_tfrecord_examples(
+    filepath: Union[str, Path]
+):
+    filepath = Path(filepath)
     if filepath.exists():
         count = sum(1 for _ in tf.data.TFRecordDataset(str(filepath)))
     else:
@@ -175,17 +178,12 @@ def count_tfrecord_examples(filepath):
     return count
 
 
-def clear_repeated_proto(proto):
-    for _ in proto:
-        proto.pop()
-
-
 def set_config(
     config_path: Union[str, Path],
-    label_map_filepath: Union[str, Path],
     checkpoint_path: Union[str, Path],
     tf_records_train_path: Union[str, Path],
     label_map: Dict[str, int],
+    label_map_filepath: Union[str, Path],
     batch_size: int,
     augment_path: str = None
 ):
@@ -193,13 +191,13 @@ def set_config(
 
     configs = get_configs_from_pipeline_file(str(config_path))
 
-    train_len = count_tfrecord_examples(tf_records_train_path)
+    train_len = count_tfrecord_examples(str(tf_records_train_path))
     logger.info(f"Train has {train_len} tf_records.")
     num_classes = len(set(label_map.values()))
     _, config_model = configs['model'].ListFields()[0]
     config_model.num_classes = num_classes
 
-    configs['train_config'].fine_tune_checkpoint = checkpoint_path
+    configs['train_config'].fine_tune_checkpoint = str(checkpoint_path)
     configs['train_config'].batch_size = batch_size
     if augment_path is not None:
         augment_config = configs['train_config'].data_augmentation_options
@@ -212,12 +210,16 @@ def set_config(
             augment.train_config.data_augmentation_options
         )
 
-    label_map_to_text(label_map, str(label_map_filepath))
+    label_map_to_file(label_map=label_map, filepath=label_map_filepath)
+
+    def clear_repeated_proto(proto):
+        for _ in proto:
+            proto.pop()
 
     configs['train_input_config'].label_map_path = str(label_map_filepath)
     clear_repeated_proto(configs['train_input_config'].tf_record_input_reader.input_path)
-    configs['train_input_config'].tf_record_input_reader.input_path.append(tf_records_train_path)
+    configs['train_input_config'].tf_record_input_reader.input_path.append(str(tf_records_train_path))
 
     pipeline_proto = create_pipeline_proto_from_configs(configs)
-    save_pipeline_config(pipeline_proto, str(config_path))
+    save_pipeline_config(pipeline_proto, str(config_path.parent))
     logger.info(f"Config {config_path} changed")
