@@ -7,12 +7,13 @@ from datetime import datetime
 from tensorflow import get_logger as tf_get_logger
 
 LOGS_DIRECTORY = Path(__file__).parent / '__logs__'
-LOGS_DIRECTORY.mkdir(exist_ok=True, parents=True)
-LOG_FILENAME = datetime.now().strftime("%Y-%m-%d_%Hh.logs")
 
 logger = logging.getLogger('cv-pipeliner')
 
 if os.environ.get('CV_PIPELINER_LOGGING', False):
+    LOGS_DIRECTORY.mkdir(exist_ok=True, parents=True)
+    LOG_FILENAME = datetime.now().strftime("%Y-%m-%d_%Hh.logs")
+
     formatter = logging.Formatter(
         "%(asctime)s [%(name)s] [%(levelname)s] %(message)s"
     )
