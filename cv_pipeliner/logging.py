@@ -1,5 +1,6 @@
 import logging
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 
@@ -10,24 +11,26 @@ LOGS_DIRECTORY.mkdir(exist_ok=True, parents=True)
 LOG_FILENAME = datetime.now().strftime("%Y-%m-%d_%Hh.logs")
 
 logger = logging.getLogger('cv-pipeliner')
-formatter = logging.Formatter(
-    "%(asctime)s [%(name)s] [%(levelname)s] %(message)s"
-)
 
-file_handler = logging.FileHandler(LOGS_DIRECTORY / LOG_FILENAME,
-                                   encoding='utf-8')
-file_handler.setFormatter(formatter)
-file_handler.setLevel(logging.INFO)
-logger.addHandler(file_handler)
+if os.environ.get('CV_PIPELINER_LOGGING', False):
+    formatter = logging.Formatter(
+        "%(asctime)s [%(name)s] [%(levelname)s] %(message)s"
+    )
 
-stream_handler = logging.StreamHandler(sys.stdout)
-stream_handler.setFormatter(formatter)
-stream_handler.setLevel(logging.INFO)
-logger.addHandler(stream_handler)
-logger.propagate = False
+    file_handler = logging.FileHandler(LOGS_DIRECTORY / LOG_FILENAME,
+                                    encoding='utf-8')
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.INFO)
+    logger.addHandler(file_handler)
 
-tf_logger = tf_get_logger()
-tf_logger.addHandler(file_handler)
-tf_logger.propagate = False
-for handler in tf_logger.handlers:
-    handler.setFormatter(formatter)
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(logging.INFO)
+    logger.addHandler(stream_handler)
+    logger.propagate = False
+
+    tf_logger = tf_get_logger()
+    tf_logger.addHandler(file_handler)
+    tf_logger.propagate = False
+    for handler in tf_logger.handlers:
+        handler.setFormatter(formatter)
