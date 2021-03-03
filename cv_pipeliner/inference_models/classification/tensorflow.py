@@ -39,9 +39,10 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         with fsspec.open(script_file, 'r') as src:
             script_code = src.read()
         with tempfile.TemporaryDirectory() as tmpdirname:
-            module_folder = Path(tmpdirname) / 'module'
+            tmpdirname = Path(tmpdirname)
+            module_folder = tmpdirname / 'module'
             module_folder.mkdir()
-            script_file = module_folder / 'preprocess_input.py'
+            script_file = module_folder / f'preprocess_input_{tmpdirname.name}.py'
             with open(script_file, 'w') as out:
                 out.write(script_code)
             sys.path.append(str(script_file.parent.absolute()))
