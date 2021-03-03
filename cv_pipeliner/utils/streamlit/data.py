@@ -25,10 +25,10 @@ def get_images_data_from_dir(
         fsspec.open_files(str(images_dir / '*.jp*g')),
         key=lambda f: f.path
     )
-    annotation_filepath = Pathy(annotation_filepath)
     annotation_success = False
 
     if annotation_filepath is not None:
+        annotation_filepath = Pathy(annotation_filepath)
         if images_annotation_type == 'brickit':
             images_data = BrickitDataConverter().get_images_data_from_annots(
                 image_paths=image_paths,
