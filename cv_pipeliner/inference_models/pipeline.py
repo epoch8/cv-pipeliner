@@ -49,7 +49,10 @@ class PipelineModel(InferenceModel):
             isinstance(model_spec, PipelineModelSpec)
             super().__init__(model_spec)
             self.detection_model = model_spec.detection_model_spec.load()
-            self.classification_model = model_spec.classification_model_spec.load()
+            if model_spec.classification_model_spec is not None:
+                self.classification_model = model_spec.classification_model_spec.load()
+            else:
+                self.classification_model = None
 
     def load_from_loaded_models(
         self,
@@ -93,7 +96,7 @@ class PipelineModel(InferenceModel):
         )
 
         logger.info("Running classification...")
-        if self.model_spec.classification_model_spec is None:
+        if self.classification_model is None:
             # Detector is the pipeline itself
             return (
                 n_pred_bboxes,
