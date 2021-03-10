@@ -229,7 +229,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         bboxes = bboxes[correct_non_repeated_bboxes_idxs]
         scores = scores[correct_non_repeated_bboxes_idxs]
         classes = classes[correct_non_repeated_bboxes_idxs]
-        classes_scores = scores[correct_non_repeated_bboxes_idxs]
+        classes_scores = scores.copy()
         if self.class_names is not None:
             class_names_top_n = np.array([
                 [class_name for i in range(classification_top_n)]
