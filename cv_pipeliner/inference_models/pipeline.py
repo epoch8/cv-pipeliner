@@ -87,9 +87,13 @@ class PipelineModel(InferenceModel):
     ) -> PipelineOutput:
         logger.info("Running detection...")
         detection_input = self.detection_model.preprocess_input(input)
-        n_pred_bboxes, n_pred_detection_scores, n_pred_class_names = self.detection_model.predict(
+        (
+            n_pred_bboxes, n_pred_detection_scores,
+            n_pred_class_names_top_k, n_pred_classification_scores_top_k
+        ) = self.detection_model.predict(
             detection_input,
-            score_threshold=detection_score_threshold
+            score_threshold=detection_score_threshold,
+            classification_top_n=classification_top_n
         )
         logger.info(
             f"Detection: found {np.sum([len(pred_bboxes) for pred_bboxes in n_pred_bboxes])} bboxes!"
@@ -101,8 +105,8 @@ class PipelineModel(InferenceModel):
             return (
                 n_pred_bboxes,
                 n_pred_detection_scores,
-                n_pred_class_names,
-                n_pred_detection_scores
+                n_pred_class_names_top_k,
+                n_pred_classification_scores_top_k
             )
 
         shapes = [len(pred_bboxes) for pred_bboxes in n_pred_bboxes]

@@ -17,7 +17,8 @@ DetectionInput = List[np.ndarray]
 DetectionOutput = Tuple[
     List[Bboxes],
     List[Scores],
-    List[Classes]  # Optional exit
+    List[Classes],  # Optional exit
+    List[Scores]  # Optional exit
 ]
 
 
@@ -35,8 +36,12 @@ class DetectionModel(InferenceModel):
         super().__init__(model_spec)
 
     @abc.abstractmethod
-    def predict(self, input: DetectionInput,
-                score_threshold: float) -> DetectionOutput:
+    def predict(
+        self,
+        input: DetectionInput,
+        score_threshold: float,
+        classification_top_n: int = None
+    ) -> DetectionOutput:
         pass
 
     @abc.abstractmethod

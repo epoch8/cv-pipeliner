@@ -208,8 +208,9 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         raw_classes: np.ndarray,
         score_threshold: float,
         height: int,
-        width: int
-    ) -> Tuple[List[Tuple[int, int, int, int]], List[int]]:
+        width: int,
+        classification_top_n: int
+    ) -> Tuple[List[Tuple[int, int, int, int]], List[float], List[List[str]], List[List[float]]]:
 
         raw_bboxes = denormalize_bboxes(raw_bboxes, width, height)
         mask = raw_scores > score_threshold
@@ -228,38 +229,55 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         bboxes = bboxes[correct_non_repeated_bboxes_idxs]
         scores = scores[correct_non_repeated_bboxes_idxs]
         classes = classes[correct_non_repeated_bboxes_idxs]
+        classes_scores = scores[correct_non_repeated_bboxes_idxs]
         if self.class_names is not None:
-            class_names = self.class_names[classes]
+            class_names_top_n = np.array([
+                [class_name for i in range(classification_top_n)]
+                for class_name in self.class_names[classes]
+            ])
+            classes_scores_top_n = np.array([
+                [score for _ in range(classification_top_n)]
+                for score in classes_scores
+            ])
         else:
-            class_names = None
+            class_names_top_n = np.array([
+                [None for _ in range(classification_top_n)]
+                for _ in classes
+            ])
+            classes_scores_top_n = np.array([
+                [score for _ in range(classification_top_n)]
+                for score in classes_scores
+            ])
 
-        return bboxes, scores, class_names
+        return bboxes, scores, class_names_top_n, classes_scores_top_n
 
     def predict(
         self,
         input: DetectionInput,
         score_threshold: float,
-        crop_detections_from_image: bool = True
+        classification_top_n: int = 1
     ) -> DetectionOutput:
-        n_pred_bboxes, n_pred_scores, n_pred_class_names = [], [], []
+        n_pred_bboxes, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k = [], [], [], []
 
         for image in input:
             height, width, _ = image.shape
             raw_bboxes, raw_scores, raw_classes = self._raw_predict_single_image(image)
-            bboxes, scores, class_names = self._postprocess_prediction(
+            bboxes, scores, class_names_top_k, classes_scores_top_k = self._postprocess_prediction(
                 raw_bboxes=raw_bboxes,
                 raw_scores=raw_scores,
                 raw_classes=raw_classes,
                 score_threshold=score_threshold,
                 height=height,
-                width=width
+                width=width,
+                classification_top_n=classification_top_n
             )
 
             n_pred_bboxes.append(bboxes)
             n_pred_scores.append(scores)
-            n_pred_class_names.append(class_names)
+            n_pred_class_names_top_k.append(class_names_top_k)
+            n_pred_scores_top_k.append(classes_scores_top_k)
 
-        return n_pred_bboxes, n_pred_scores, n_pred_class_names
+        return n_pred_bboxes, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k
 
     def preprocess_input(self, input: DetectionInput):
         return input
