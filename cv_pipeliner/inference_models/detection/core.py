@@ -7,14 +7,17 @@ from cv_pipeliner.core.inference_model import ModelSpec, InferenceModel
 
 Bbox = Tuple[int, int, int, int]  # (xmin, ymin, xmax, ymax)
 Score = float
+Class = str
 
 Bboxes = List[Bbox]
 Scores = List[Score]
+Classes = List[Class]
 
 DetectionInput = List[np.ndarray]
 DetectionOutput = Tuple[
     List[Bboxes],
-    List[Scores]
+    List[Scores],
+    List[Classes]  # Optional exit
 ]
 
 

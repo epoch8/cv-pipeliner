@@ -1,4 +1,4 @@
-from typing import List, Tuple, Type
+from typing import List, Tuple, Type, Union
 from dataclasses import dataclass
 import numpy as np
 from tqdm import tqdm
@@ -15,7 +15,7 @@ from cv_pipeliner.logging import logger
 @dataclass
 class PipelineModelSpec(ModelSpec):
     detection_model_spec: DetectionModelSpec
-    classification_model_spec: ClassificationModelSpec
+    classification_model_spec: Union[ClassificationModelSpec, None]
 
     @property
     def inference_model_cls(self) -> Type['PipelineModel']:
@@ -84,7 +84,7 @@ class PipelineModel(InferenceModel):
     ) -> PipelineOutput:
         logger.info("Running detection...")
         detection_input = self.detection_model.preprocess_input(input)
-        n_pred_bboxes, n_pred_detection_scores = self.detection_model.predict(
+        n_pred_bboxes, n_pred_detection_scores, n_pred_class_names = self.detection_model.predict(
             detection_input,
             score_threshold=detection_score_threshold
         )
@@ -93,6 +93,15 @@ class PipelineModel(InferenceModel):
         )
 
         logger.info("Running classification...")
+        if self.model_spec.classification_model_spec is None:
+            # Detector is the pipeline itself
+            return (
+                n_pred_bboxes,
+                n_pred_detection_scores,
+                n_pred_class_names,
+                n_pred_detection_scores
+            )
+
         shapes = [len(pred_bboxes) for pred_bboxes in n_pred_bboxes]
         pred_labels_top_n, pred_classification_scores_top_n = [], []
         with tqdm(total=np.sum(shapes)) as pbar:
