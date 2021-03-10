@@ -241,7 +241,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         score_threshold: float,
         crop_detections_from_image: bool = True
     ) -> DetectionOutput:
-        n_pred_bboxes, n_pred_scores, n_pred_class_names = [], []
+        n_pred_bboxes, n_pred_scores, n_pred_class_names = [], [], []
 
         for image in input:
             height, width, _ = image.shape
