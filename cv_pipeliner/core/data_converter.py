@@ -50,7 +50,7 @@ class DataConverter(abc.ABC):
 
                 if xmin >= xmax or ymin >= ymax or xmin < 0 or ymin < 0:
                     logger.warning(
-                        f"Wrong annotation: "
+                        f"Wrong annotation at image {bbox_data.image_path}: "
                         f"incorrect bbox (xmin, ymin, xmax, ymax): {(xmin, ymin, xmax, ymax)} "
                         "(xmin >= xmax or ymin >= ymax or xmin < 0 or ymin < 0). Skipping."
                     )

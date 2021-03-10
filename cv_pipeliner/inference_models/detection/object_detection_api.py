@@ -197,14 +197,16 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         bboxes = raw_bboxes[mask]
         scores = raw_scores[mask]
 
-        correct_bboxes_idxs = []
+        correct_non_repeated_bboxes_idxs = []
+        bboxes_set = set()
         for idx, bbox in enumerate(bboxes):
             xmin, ymin, xmax, ymax = bbox
-            if xmax - xmin > 0 and ymax - ymin > 0:
-                correct_bboxes_idxs.append(idx)
+            if xmax - xmin > 0 and ymax - ymin > 0 and (xmin, ymin, xmax, ymax) not in bboxes_set:
+                bboxes_set.add((xmin, ymin, xmax, ymax))
+                correct_non_repeated_bboxes_idxs.append(idx)
 
-        bboxes = bboxes[correct_bboxes_idxs]
-        scores = scores[correct_bboxes_idxs]
+        bboxes = bboxes[correct_non_repeated_bboxes_idxs]
+        scores = scores[correct_non_repeated_bboxes_idxs]
 
         return bboxes, scores
 

@@ -5,6 +5,7 @@ import numpy as np
 import dataframe_image as dfi
 
 from cv_pipeliner.core.data import BboxData, ImageData
+from cv_pipeliner.logging import logger
 
 
 def intersection_over_union(bbox_data1: BboxData, bbox_data2: BboxData) -> float:
@@ -173,10 +174,10 @@ class ImageDataMatching:
                 bbox_data.assert_coords_are_valid()
                 xmin, ymin, xmax, ymax = bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax
                 if (xmin, ymin, xmax, ymax) in bboxes_coords:
-                    raise ValueError(
+                    logger.warning(
                         f'Repeated {tag} BboxData with these coords '
-                        '(xmin, ymin, xmax, ymax): {xmin, ymin, xmax, ymax}. '
-                        'All BboxData must contain unique elements.'
+                        f'(xmin, ymin, xmax, ymax): {xmin, ymin, xmax, ymax}. '
+                        'All BboxData should contain unique elements.'
                     )
                 bboxes_coords.add((xmin, ymin, xmax, ymax))
 

@@ -1,7 +1,7 @@
 import logging
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Tuple
 
 import contextlib2
 import tensorflow as tf
@@ -63,7 +63,8 @@ def create_tf_record(
 
 def tf_record_from_image_data(
     image_data: ImageData,
-    label_map: Dict[str, int]
+    label_map: Dict[str, int],
+    use_thumbnail: Tuple[int, int] = None
 ):
     filename = image_data.image_path
     encoded_filename = str(filename).encode('utf8')
@@ -86,7 +87,10 @@ def tf_record_from_image_data(
         ymins, xmins, ymaxs, xmaxs = [], [], [], []
 
     encoded_jpg = BytesIO()
-    Image.fromarray(image).save(encoded_jpg, format='JPEG')
+    image = Image.fromarray(image)
+    if use_thumbnail:
+        image.thumbnail(use_thumbnail)
+    image.save(encoded_jpg, format='JPEG')
     encoded_jpg = encoded_jpg.getvalue()
     image_format = b'jpg'
 
@@ -117,6 +121,7 @@ def convert_to_tf_records(
     num_workers: int = 1,
     num_shards: int = 2,
     max_pictures_per_worker: int = 1000,
+    use_thumbnail: Tuple[int, int] = None
 ):
     logger.info('Create tf_records from data.')
 
@@ -129,7 +134,7 @@ def convert_to_tf_records(
         )
         for data_chunk in tqdm(data_chunks):
             tf_records = Parallel(n_jobs=num_workers)(
-                delayed(tf_record_from_image_data)(image_data=image_data, label_map=label_map)
+                delayed(tf_record_from_image_data)(image_data=image_data, label_map=label_map, use_thumbnail=use_thumbnail)
                 for image_data in data_chunk
             )
 
