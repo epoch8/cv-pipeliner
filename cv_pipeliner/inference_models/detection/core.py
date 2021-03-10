@@ -23,6 +23,7 @@ DetectionOutput = Tuple[
 
 
 class DetectionModelSpec(ModelSpec):
+    class_names: List[str] = None  # optional
 
     @abc.abstractproperty
     def inference_model_cls(self) -> Type['DetectionModel']:

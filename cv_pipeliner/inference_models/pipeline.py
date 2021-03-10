@@ -143,4 +143,7 @@ class PipelineModel(InferenceModel):
 
     @property
     def class_names(self) -> List[str]:
-        return self.classification_model.class_names
+        if self.classification_model is not None:
+            return self.classification_model.class_names
+        elif self.detection_model.class_names is not None:
+            return self.detection_model.class_names
