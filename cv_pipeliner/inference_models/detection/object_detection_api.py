@@ -1,3 +1,4 @@
+import json
 import tempfile
 from dataclasses import dataclass
 from typing import List, Tuple, Union, Type, Literal
@@ -19,6 +20,7 @@ from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
     config_path: Union[str, Path]
     checkpoint_path: Union[str, Path]
+    class_names: List[str] = None
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -30,6 +32,7 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
 class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
     saved_model_dir: Union[str, Path]
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
+    class_names: List[str] = None
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -42,6 +45,8 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     model_path: Union[str, Path]
     bboxes_output_index: int
     scores_output_index: int
+    classes_output_index: int = None
+    class_names: List[str] = None
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -132,6 +137,21 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
     ):
         super().__init__(model_spec)
 
+        if model_spec.class_names is not None:
+            if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
+                with fsspec.open(model_spec.class_names, 'r', encoding='utf-8') as out:
+                    self.class_names = np.array(json.load(out))
+            else:
+                self.class_names = np.array(model_spec.class_names)
+
+            if isinstance(model_spec, ObjectDetectionAPI_ModelSpec):
+                self.class_names_coef = 0  # saved_model.pb returns from 0
+            else:
+                self.class_names_coef = -1  # saved_model.pb returns from 1
+        else:
+            self.class_names = None
+            self.coef = -1
+
         if isinstance(model_spec, ObjectDetectionAPI_ModelSpec):
             self._load_object_detection_api(model_spec)
             self._raw_predict_single_image = self._raw_predict_single_image_default
@@ -149,7 +169,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
     def _raw_predict_single_image_default(
         self,
         image: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         input_tensor = tf.convert_to_tensor(image, dtype=self.input_dtype)
         if (
             isinstance(self.model_spec, ObjectDetectionAPI_pb_ModelSpec)
@@ -164,12 +184,15 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         raw_bboxes = np.array(raw_bboxes)[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
         raw_scores = detection_output_dict["detection_scores"][0]
         raw_scores = np.array(raw_scores)
-        return raw_bboxes, raw_scores
+        raw_classes = detection_output_dict["detection_classes"][0]
+        raw_classes = np.array(raw_classes)
+
+        return raw_bboxes, raw_scores, raw_classes
 
     def _raw_predict_single_image_tflite(
         self,
         image: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         height, width, _ = image.shape
         image = np.array(image[None, ...], dtype=np.float32)
         self.model.resize_tensor_input(0, [1, height, width, 3])
@@ -180,57 +203,87 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         raw_bboxes = np.array(self.model.get_tensor(self.bboxes_index))[0]  # (ymin, xmin, ymax, xmax)
         raw_bboxes = raw_bboxes[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
         raw_scores = np.array(self.model.get_tensor(self.scores_index))[0]
+        raw_classes = np.array(self.model.get_tensor(self.scores_index))[0]
 
-        return raw_bboxes, raw_scores
+        return raw_bboxes, raw_scores, raw_classes
 
     def _postprocess_prediction(
         self,
         raw_bboxes: np.ndarray,
         raw_scores: np.ndarray,
+        raw_classes: np.ndarray,
         score_threshold: float,
         height: int,
-        width: int
-    ) -> Tuple[List[Tuple[int, int, int, int]], List[int]]:
+        width: int,
+        classification_top_n: int
+    ) -> Tuple[List[Tuple[int, int, int, int]], List[float], List[List[str]], List[List[float]]]:
 
         raw_bboxes = denormalize_bboxes(raw_bboxes, width, height)
         mask = raw_scores > score_threshold
         bboxes = raw_bboxes[mask]
         scores = raw_scores[mask]
+        classes = raw_classes[mask]
 
-        correct_bboxes_idxs = []
+        correct_non_repeated_bboxes_idxs = []
+        bboxes_set = set()
         for idx, bbox in enumerate(bboxes):
             xmin, ymin, xmax, ymax = bbox
-            if xmax - xmin > 0 and ymax - ymin > 0:
-                correct_bboxes_idxs.append(idx)
+            if xmax - xmin > 0 and ymax - ymin > 0 and (xmin, ymin, xmax, ymax) not in bboxes_set:
+                bboxes_set.add((xmin, ymin, xmax, ymax))
+                correct_non_repeated_bboxes_idxs.append(idx)
 
-        bboxes = bboxes[correct_bboxes_idxs]
-        scores = scores[correct_bboxes_idxs]
+        bboxes = bboxes[correct_non_repeated_bboxes_idxs]
+        scores = scores[correct_non_repeated_bboxes_idxs]
+        classes = classes[correct_non_repeated_bboxes_idxs]
+        classes_scores = scores.copy()
+        if self.class_names is not None:
+            class_names_top_n = np.array([
+                [class_name for i in range(classification_top_n)]
+                for class_name in self.class_names[(classes.astype(np.int32) + self.class_names_coef)]
+            ])
+            classes_scores_top_n = np.array([
+                [score for _ in range(classification_top_n)]
+                for score in classes_scores
+            ])
+        else:
+            class_names_top_n = np.array([
+                [None for _ in range(classification_top_n)]
+                for _ in classes
+            ])
+            classes_scores_top_n = np.array([
+                [score for _ in range(classification_top_n)]
+                for score in classes_scores
+            ])
 
-        return bboxes, scores
+        return bboxes, scores, class_names_top_n, classes_scores_top_n
 
     def predict(
         self,
         input: DetectionInput,
         score_threshold: float,
-        crop_detections_from_image: bool = True
+        classification_top_n: int = 1
     ) -> DetectionOutput:
-        n_pred_bboxes, n_pred_scores = [], []
+        n_pred_bboxes, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k = [], [], [], []
 
         for image in input:
             height, width, _ = image.shape
-            raw_bboxes, raw_scores = self._raw_predict_single_image(image)
-            bboxes, scores = self._postprocess_prediction(
+            raw_bboxes, raw_scores, raw_classes = self._raw_predict_single_image(image)
+            bboxes, scores, class_names_top_k, classes_scores_top_k = self._postprocess_prediction(
                 raw_bboxes=raw_bboxes,
                 raw_scores=raw_scores,
+                raw_classes=raw_classes,
                 score_threshold=score_threshold,
                 height=height,
-                width=width
+                width=width,
+                classification_top_n=classification_top_n
             )
 
             n_pred_bboxes.append(bboxes)
             n_pred_scores.append(scores)
+            n_pred_class_names_top_k.append(class_names_top_k)
+            n_pred_scores_top_k.append(classes_scores_top_k)
 
-        return n_pred_bboxes, n_pred_scores
+        return n_pred_bboxes, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k
 
     def preprocess_input(self, input: DetectionInput):
         return input

@@ -63,7 +63,7 @@ class DetectionInferencer(Inferencer):
             for images_data in images_data_gen:
                 input = [image_data.image for image_data in images_data]
                 input = self.model.preprocess_input(input)
-                n_pred_bboxes, n_pred_scores = self.model.predict(
+                n_pred_bboxes, n_pred_scores, _, _ = self.model.predict(
                     input=input,
                     score_threshold=score_threshold
                 )

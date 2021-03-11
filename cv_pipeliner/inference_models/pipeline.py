@@ -1,4 +1,4 @@
-from typing import List, Tuple, Type
+from typing import List, Tuple, Type, Union
 from dataclasses import dataclass
 import numpy as np
 from tqdm import tqdm
@@ -15,7 +15,7 @@ from cv_pipeliner.logging import logger
 @dataclass
 class PipelineModelSpec(ModelSpec):
     detection_model_spec: DetectionModelSpec
-    classification_model_spec: ClassificationModelSpec
+    classification_model_spec: Union[ClassificationModelSpec, None]
 
     @property
     def inference_model_cls(self) -> Type['PipelineModel']:
@@ -49,7 +49,10 @@ class PipelineModel(InferenceModel):
             isinstance(model_spec, PipelineModelSpec)
             super().__init__(model_spec)
             self.detection_model = model_spec.detection_model_spec.load()
-            self.classification_model = model_spec.classification_model_spec.load()
+            if model_spec.classification_model_spec is not None:
+                self.classification_model = model_spec.classification_model_spec.load()
+            else:
+                self.classification_model = None
 
     def load_from_loaded_models(
         self,
@@ -84,15 +87,28 @@ class PipelineModel(InferenceModel):
     ) -> PipelineOutput:
         logger.info("Running detection...")
         detection_input = self.detection_model.preprocess_input(input)
-        n_pred_bboxes, n_pred_detection_scores = self.detection_model.predict(
+        (
+            n_pred_bboxes, n_pred_detection_scores,
+            n_pred_class_names_top_k, n_pred_classification_scores_top_k
+        ) = self.detection_model.predict(
             detection_input,
-            score_threshold=detection_score_threshold
+            score_threshold=detection_score_threshold,
+            classification_top_n=classification_top_n
         )
         logger.info(
             f"Detection: found {np.sum([len(pred_bboxes) for pred_bboxes in n_pred_bboxes])} bboxes!"
         )
 
         logger.info("Running classification...")
+        if self.classification_model is None:
+            # Detector is the pipeline itself
+            return (
+                n_pred_bboxes,
+                n_pred_detection_scores,
+                n_pred_class_names_top_k,
+                n_pred_classification_scores_top_k
+            )
+
         shapes = [len(pred_bboxes) for pred_bboxes in n_pred_bboxes]
         pred_labels_top_n, pred_classification_scores_top_n = [], []
         with tqdm(total=np.sum(shapes)) as pbar:
@@ -127,4 +143,7 @@ class PipelineModel(InferenceModel):
 
     @property
     def class_names(self) -> List[str]:
-        return self.classification_model.class_names
+        if self.classification_model is not None:
+            return self.classification_model.class_names
+        elif self.detection_model.class_names is not None:
+            return self.detection_model.class_names

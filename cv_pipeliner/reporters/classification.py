@@ -242,7 +242,7 @@ classification_interactive_work(
         n_true_bboxes_data: List[List[BboxData]],
         pseudo_class_names: List[str],
         batch_size: int = 16,
-    ):
+    ) -> List[ClassificationReportData]:
         for model_spec in models_specs:
             if hasattr(model_spec, 'preprocess_input'):
                 assert (
@@ -283,6 +283,7 @@ classification_interactive_work(
             markdowns=markdowns,
             codes=codes
         )
+        return classifications_reports_datas
 
     def report_on_predictions(
         self,
