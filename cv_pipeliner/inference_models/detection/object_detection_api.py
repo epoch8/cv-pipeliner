@@ -143,8 +143,14 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
                     self.class_names = np.array(json.load(out))
             else:
                 self.class_names = np.array(model_spec.class_names)
+
+            if isinstance(model_spec, ObjectDetectionAPI_ModelSpec):
+                self.class_names_coef = 0  # saved_model.pb returns from 0
+            else:
+                self.class_names_coef = -1  # saved_model.pb returns from 1
         else:
             self.class_names = None
+            self.coef = -1
 
         if isinstance(model_spec, ObjectDetectionAPI_ModelSpec):
             self._load_object_detection_api(model_spec)
@@ -233,7 +239,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         if self.class_names is not None:
             class_names_top_n = np.array([
                 [class_name for i in range(classification_top_n)]
-                for class_name in self.class_names[classes]
+                for class_name in self.class_names[(classes.astype(np.int32) + self.class_names_coef)]
             ])
             classes_scores_top_n = np.array([
                 [score for _ in range(classification_top_n)]
