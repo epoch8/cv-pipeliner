@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 import pandas as pd
 import numpy as np
@@ -10,6 +10,7 @@ from cv_pipeliner.core.data import BboxData
 def _add_metrics_to_dict(
     classification_metrics: Dict,
     labels: List[str],
+    tops_n: List[int],
     prefix_caption: str = '',
     postfix_caption: str = '',
 ):
@@ -68,16 +69,53 @@ def _add_metrics_to_dict(
         'recall': weighted_average_recall,
         'f1_score': weighted_average_f1_score
     }
+    for top_n in tops_n:
+        if top_n == 1:
+            continue
+        TP_top_n = np.sum([classification_metrics[class_name][f'TP@{top_n}'] for class_name in labels])
+        FP_top_n = np.sum([classification_metrics[class_name][f'FP@{top_n}'] for class_name in labels])
+        precisions_top_n = [classification_metrics[class_name][f'precision@{top_n}'] for class_name in labels]
+        micro_average_precision_top_n = TP_top_n / max(TP_top_n + FP_top_n, 1e-6)
+        macro_average_precision_top_n = np.average(precisions_top_n)
+        weighted_average_precision_top_n = np.average(precisions_top_n, weights=supports)
+        for average in ['micro_average', 'macro_average', 'weighted_average']:
+            classification_metrics[f'{prefix_caption}{average}{postfix_caption}'][f'TP@{top_n}'] = (
+                TP_top_n
+            )
+            classification_metrics[f'{prefix_caption}{average}{postfix_caption}'][f'FP@{top_n}'] = (
+                FP_top_n
+            )
+        classification_metrics[f'{prefix_caption}micro_average{postfix_caption}'][f'precision@{top_n}'] = (
+            micro_average_precision_top_n
+        )
+        classification_metrics[f'{prefix_caption}macro_average{postfix_caption}'][f'precision@{top_n}'] = (
+            macro_average_precision_top_n
+        )
+        classification_metrics[f'{prefix_caption}weighted_average{postfix_caption}'][f'precision@{top_n}'] = (
+            weighted_average_precision_top_n
+        )
 
 
-df_classification_metrics_columns = ['support', 'value', 'TP', 'FP', 'FN', 'precision', 'recall', 'f1_score']
+def get_TP_and_FP_top_n(
+    true_labels: List[str],
+    pred_labels_top_n: List[List[str]],
+    top_n: int
+) -> Tuple[int, int]:
+    TP, FP = 0, 0
+    for true_label, pred_label_top_n in zip(true_labels, pred_labels_top_n):
+        if true_label in pred_label_top_n[:top_n]:
+            TP += 1
+        else:
+            FP += 1
+    return TP, FP
 
 
 def get_df_classification_metrics(
     n_true_bboxes_data: List[List[BboxData]],
     n_pred_bboxes_data: List[List[BboxData]],
     pseudo_class_names: List[str],
-    known_class_names: List[str] = None
+    known_class_names: List[str] = None,
+    tops_n: List[int] = [1]
 ) -> pd.DataFrame:
     # We use pipeline metrics for it:
 
@@ -87,6 +125,8 @@ def get_df_classification_metrics(
     assert len(true_bboxes_data) == len(pred_bboxes_data)
     true_labels = np.array([bbox_data.label for bbox_data in true_bboxes_data])
     pred_labels = np.array([bbox_data.label for bbox_data in pred_bboxes_data])
+    pred_labels_top_n = np.array([bbox_data.labels_top_n for bbox_data in pred_bboxes_data])
+    assert max(tops_n) <= min([bbox_data.top_n for bbox_data in pred_bboxes_data])
 
     all_class_names = np.unique(np.concatenate([true_labels, pred_labels])).tolist()
     class_names_without_pseudo_classes = list(set(all_class_names) - set(pseudo_class_names))
@@ -115,14 +155,30 @@ def get_df_classification_metrics(
             'recall': recall_by_class_name,
             'f1_score': f1_score_by_class_name
         }
+        if max(tops_n) > 1:
+            for top_n in tops_n:
+                if top_n == 1:
+                    continue
+                TP_by_class_name_top_n, FP_by_class_name_top_n = get_TP_and_FP_top_n(
+                    true_labels=true_labels[true_labels == class_name],
+                    pred_labels_top_n=pred_labels_top_n[true_labels == class_name],
+                    top_n=top_n
+                )
+                classification_metrics[class_name][f'TP@{top_n}'] = TP_by_class_name_top_n
+                classification_metrics[class_name][f'FP@{top_n}'] = FP_by_class_name_top_n
+                classification_metrics[class_name][f'precision@{top_n}'] = TP_by_class_name_top_n / max(
+                    TP_by_class_name_top_n + FP_by_class_name_top_n, 1e-6
+                )
     _add_metrics_to_dict(
         classification_metrics=classification_metrics,
         labels=all_class_names,
+        tops_n=tops_n,
         prefix_caption='all_'
     )
     _add_metrics_to_dict(
         classification_metrics=classification_metrics,
         labels=class_names_without_pseudo_classes,
+        tops_n=tops_n,
         prefix_caption='all_',
         postfix_caption='_without_pseudo_classes'
     )
@@ -132,17 +188,25 @@ def get_df_classification_metrics(
         _add_metrics_to_dict(
             classification_metrics=classification_metrics,
             labels=known_class_names,
+            tops_n=tops_n,
             prefix_caption='known_'
         )
         _add_metrics_to_dict(
             classification_metrics=classification_metrics,
             labels=known_class_names_without_pseudo_classes,
+            tops_n=tops_n,
             prefix_caption='known_',
             postfix_caption='_without_pseudo_classes'
         )
 
     df_classification_metrics = pd.DataFrame(classification_metrics, dtype=object).T
     df_classification_metrics.sort_values(by='support', ascending=False, inplace=True)
+    df_classification_metrics_columns = ['support', 'precision', 'recall', 'f1_score', 'value'] + [
+        f'precision@{top_n}' for top_n in tops_n if top_n > 1
+    ] + ['TP', 'FP', 'FN'] + [
+        item for sublist in [[f'TP@{top_n}', f'FP@{top_n}'] for top_n in tops_n if top_n > 1]
+        for item in sublist
+    ]
     df_classification_metrics = df_classification_metrics[df_classification_metrics_columns]
 
     if known_class_names is not None:

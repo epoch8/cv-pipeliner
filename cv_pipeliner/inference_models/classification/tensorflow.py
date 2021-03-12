@@ -80,7 +80,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 temp_files_cleanup = temp_file.close
 
             if model_spec.saved_model_type in "tf.keras":
-                self.model = tf.keras.models.load_model(str(model_path))
+                self.model = tf.keras.models.load_model(str(model_path), compile=False)
                 self.input_dtype = np.float32
             elif model_spec.saved_model_type == "tf.saved_model":
                 self.loaded_model = tf.saved_model.load(str(model_path))  # to protect from gc

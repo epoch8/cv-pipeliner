@@ -11,7 +11,7 @@ from cv_pipeliner.core.data import BboxData
 from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
 from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
-from cv_pipeliner.metrics.classification import get_df_classification_metrics, df_classification_metrics_columns
+from cv_pipeliner.metrics.classification import get_df_classification_metrics
 from cv_pipeliner.visualizers.classification import ClassificationVisualizer
 from cv_pipeliner.logging import logger
 from cv_pipeliner.utils.dataframes import transpose_columns_and_write_diffs_to_df_with_tags
@@ -53,18 +53,21 @@ class ClassificationReportData:
     def __init__(
         self,
         df_classification_metrics: pd.DataFrame = None,
+        tops_n: List[int] = [1],
         tag: str = None,
-        collect_the_rest: bool = True
+        collect_the_rest: bool = True,
     ):
         self.df_classification_metrics = df_classification_metrics.copy()
         if not collect_the_rest:
             return
-
+        df_classification_metrics_short_columns = ['precision', 'recall'] + [
+            f'precision@{top_n}' for top_n in tops_n if top_n > 1
+        ]
         self.df_classification_metrics_short = df_classification_metrics.loc[
             [
                 'all_weighted_average', 'all_weighted_average_without_pseudo_classes',
                 'known_weighted_average', 'known_weighted_average_without_pseudo_classes',
-            ], ['precision', 'recall']
+            ], df_classification_metrics_short_columns
         ].copy()
 
         self.tag = tag
@@ -81,7 +84,9 @@ class ClassificationReportData:
 
 def concat_classifications_reports_datas(
     classifications_reports_datas: List[ClassificationReportData],
-    compare_tag: str = None
+    df_classification_metrics_columns: List[str],
+    tops_n: List[int],
+    compare_tag: str = None,
 ) -> ClassificationReportData:
     tags = [classification_report_data.tag for classification_report_data in classifications_reports_datas]
     df_classification_metrics = transpose_columns_and_write_diffs_to_df_with_tags(
@@ -98,6 +103,7 @@ def concat_classifications_reports_datas(
     )
     classification_report_data = ClassificationReportData(
         df_classification_metrics=df_classification_metrics,
+        tops_n=tops_n,
         collect_the_rest=False
     )
     classification_report_data.df_classification_metrics_short = transpose_columns_and_write_diffs_to_df_with_tags(
@@ -182,6 +188,7 @@ classification_interactive_work(
         self,
         model_spec: ClassificationModelSpec,
         n_true_bboxes_data: List[List[BboxData]],
+        tops_n: List[int],
         batch_size: int,
         pseudo_class_names: List[str]
     ) -> pd.DataFrame:
@@ -190,12 +197,13 @@ classification_interactive_work(
         bboxes_data_gen = BatchGeneratorBboxData(n_true_bboxes_data,
                                                  batch_size=batch_size,
                                                  use_not_caught_elements_as_last_batch=True)
-        n_pred_bboxes_data = inferencer.predict(bboxes_data_gen)
+        n_pred_bboxes_data = inferencer.predict(bboxes_data_gen, top_n=max(tops_n))
         df_classification_metrics = get_df_classification_metrics(
             n_true_bboxes_data=n_true_bboxes_data,
             n_pred_bboxes_data=n_pred_bboxes_data,
             pseudo_class_names=pseudo_class_names,
-            known_class_names=classification_model.class_names
+            known_class_names=classification_model.class_names,
+            tops_n=tops_n
         )
 
         return df_classification_metrics
@@ -241,6 +249,7 @@ classification_interactive_work(
         output_directory: Union[str, Path],
         n_true_bboxes_data: List[List[BboxData]],
         pseudo_class_names: List[str],
+        tops_n: List[int] = [1],
         batch_size: int = 16,
     ) -> List[ClassificationReportData]:
         for model_spec in models_specs:
@@ -254,21 +263,28 @@ classification_interactive_work(
         assert compare_tag in tags
 
         classifications_reports_datas = []
+        df_classification_metrics_columns = None
         for model_spec, tag in zip(models_specs, tags):
             logger.info(f"Making inference and counting metrics for '{tag}'...")
             tag_df_classification_metrics = self._inference_classification_and_get_metrics(
                 model_spec=model_spec,
                 n_true_bboxes_data=n_true_bboxes_data,
                 pseudo_class_names=pseudo_class_names,
-                batch_size=batch_size
+                tops_n=tops_n,
+                batch_size=batch_size,
             )
+            if df_classification_metrics_columns is None:
+                df_classification_metrics_columns = tag_df_classification_metrics.columns
             classifications_reports_datas.append(ClassificationReportData(
                 df_classification_metrics=tag_df_classification_metrics,
+                tops_n=tops_n,
                 tag=tag
             ))
 
         classification_report_data = concat_classifications_reports_datas(
             classifications_reports_datas=classifications_reports_datas,
+            df_classification_metrics_columns=df_classification_metrics_columns,
+            tops_n=tops_n,
             compare_tag=compare_tag
         )
         markdowns = self._get_markdowns(
@@ -294,6 +310,7 @@ classification_interactive_work(
         compare_tag: str,
         output_directory: Union[str, Path],
         pseudo_class_names: List[str],
+        tops_n: List[int] = [1]
     ):
 
         logger.info(f"Cunting metrics for '{tag}'...")
@@ -303,14 +320,18 @@ classification_interactive_work(
             pseudo_class_names=pseudo_class_names,
             known_class_names=known_class_names
         )
+        df_classification_metrics_columns = tag_df_classification_metrics.columns
 
         classifications_reports_datas = [ClassificationReportData(
             df_classification_metrics=tag_df_classification_metrics,
+            tops_n=tops_n,
             tag=tag
         )]
 
         classification_report_data = concat_classifications_reports_datas(
             classifications_reports_datas=classifications_reports_datas,
+            df_classification_metrics_columns=df_classification_metrics_columns,
+            tops_n=tops_n,
             compare_tag=tag
         )
         markdowns = self._get_markdowns(
