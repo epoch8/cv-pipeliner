@@ -81,7 +81,8 @@ class ClassificationReportData:
 
 def concat_classifications_reports_datas(
     classifications_reports_datas: List[ClassificationReportData],
-    compare_tag: str = None
+    df_classification_metrics_columns: List[str],
+    compare_tag: str = None,
 ) -> ClassificationReportData:
     tags = [classification_report_data.tag for classification_report_data in classifications_reports_datas]
     df_classification_metrics = transpose_columns_and_write_diffs_to_df_with_tags(
@@ -92,7 +93,7 @@ def concat_classifications_reports_datas(
             ],
             axis=1
         ),
-        columns=classifications_reports_datas[0].df_classification_metrics,
+        columns=df_classification_metrics_columns,
         tags=tags,
         compare_tag=compare_tag
     )
@@ -257,6 +258,7 @@ classification_interactive_work(
         assert compare_tag in tags
 
         classifications_reports_datas = []
+        df_classification_metrics_columns = None
         for model_spec, tag in zip(models_specs, tags):
             logger.info(f"Making inference and counting metrics for '{tag}'...")
             tag_df_classification_metrics = self._inference_classification_and_get_metrics(
@@ -266,6 +268,8 @@ classification_interactive_work(
                 tops_n=tops_n,
                 batch_size=batch_size,
             )
+            if df_classification_metrics_columns is None:
+                df_classification_metrics_columns = tag_df_classification_metrics.columns
             classifications_reports_datas.append(ClassificationReportData(
                 df_classification_metrics=tag_df_classification_metrics,
                 tag=tag
@@ -273,6 +277,7 @@ classification_interactive_work(
 
         classification_report_data = concat_classifications_reports_datas(
             classifications_reports_datas=classifications_reports_datas,
+            df_classification_metrics_columns=df_classification_metrics_columns,
             compare_tag=compare_tag
         )
         markdowns = self._get_markdowns(
@@ -307,6 +312,7 @@ classification_interactive_work(
             pseudo_class_names=pseudo_class_names,
             known_class_names=known_class_names
         )
+        df_classification_metrics_columns = tag_df_classification_metrics.columns
 
         classifications_reports_datas = [ClassificationReportData(
             df_classification_metrics=tag_df_classification_metrics,
@@ -315,6 +321,7 @@ classification_interactive_work(
 
         classification_report_data = concat_classifications_reports_datas(
             classifications_reports_datas=classifications_reports_datas,
+            df_classification_metrics_columns=df_classification_metrics_columns,
             compare_tag=tag
         )
         markdowns = self._get_markdowns(
