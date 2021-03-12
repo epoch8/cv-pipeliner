@@ -284,6 +284,7 @@ classification_interactive_work(
         classification_report_data = concat_classifications_reports_datas(
             classifications_reports_datas=classifications_reports_datas,
             df_classification_metrics_columns=df_classification_metrics_columns,
+            tops_n=tops_n,
             compare_tag=compare_tag
         )
         markdowns = self._get_markdowns(
@@ -330,6 +331,7 @@ classification_interactive_work(
         classification_report_data = concat_classifications_reports_datas(
             classifications_reports_datas=classifications_reports_datas,
             df_classification_metrics_columns=df_classification_metrics_columns,
+            tops_n=tops_n,
             compare_tag=tag
         )
         markdowns = self._get_markdowns(
