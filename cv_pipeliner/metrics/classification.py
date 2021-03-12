@@ -99,10 +99,11 @@ def _add_metrics_to_dict(
 def get_TP_and_FP_top_n(
     true_labels: List[str],
     pred_labels_top_n: List[List[str]],
+    top_n: int
 ) -> Tuple[int, int]:
     TP, FP = 0, 0
     for true_label, pred_label_top_n in zip(true_labels, pred_labels_top_n):
-        if true_label in pred_label_top_n:
+        if true_label in pred_label_top_n[:top_n]:
             TP += 1
         else:
             FP += 1
@@ -160,7 +161,8 @@ def get_df_classification_metrics(
                     continue
                 TP_by_class_name_top_n, FP_by_class_name_top_n = get_TP_and_FP_top_n(
                     true_labels=true_labels[true_labels == class_name],
-                    pred_labels_top_n=pred_labels_top_n[true_labels == class_name]
+                    pred_labels_top_n=pred_labels_top_n[true_labels == class_name],
+                    top_n=top_n
                 )
                 classification_metrics[class_name][f'TP@{top_n}'] = TP_by_class_name_top_n
                 classification_metrics[class_name][f'FP@{top_n}'] = FP_by_class_name_top_n
