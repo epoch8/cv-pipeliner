@@ -209,10 +209,6 @@ def get_df_classification_metrics(
         item for sublist in [[f'TP@{top_n}', f'FP@{top_n}'] for top_n in tops_n if top_n > 1]
         for item in sublist
     ]
-    for top_n in tops_n:
-        if top_n == 1:
-            continue
-        df_classification_metrics_columns += ['TP@{']
     df_classification_metrics = df_classification_metrics[df_classification_metrics_columns]
 
     if known_class_names is not None:
