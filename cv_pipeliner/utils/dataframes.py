@@ -21,8 +21,7 @@ def transpose_columns_and_write_diffs_to_df_with_tags(
     transposed_df_with_tags = df_with_tags[transposed_columns]
 
     def round_nan(value, ndigits):
-        print(f"{value=}")
-        if value is not None and not np.isnan(value):
+        if not np.isnan(value):
             return round(value, ndigits)
         else:
             return value

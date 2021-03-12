@@ -219,4 +219,6 @@ def get_df_classification_metrics(
             df_classification_metrics.loc[all_class_names].index.isin(pseudo_class_names)
         )
 
+    display(df_classification_metrics)
+
     return df_classification_metrics
