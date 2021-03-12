@@ -129,7 +129,7 @@ def get_df_classification_metrics(
         for bbox_data in pred_bboxes_data
 
     ])
-    assert max(tops_n) <= min([bbox_data.top_n for bbox_data in true_bboxes_data])
+    assert max(tops_n) <= min([bbox_data.top_n for bbox_data in pred_bboxes_data])
 
     all_class_names = np.unique(np.concatenate([true_labels, pred_labels])).tolist()
     class_names_without_pseudo_classes = list(set(all_class_names) - set(pseudo_class_names))
