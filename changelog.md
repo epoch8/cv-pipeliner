@@ -1,3 +1,8 @@
+# 0.5.1 (2021-03-12)
+
+- Add presicion@K classification metrics
+- Fix `cv_pipeliner.complex_pipelines` module bug
+
 # 0.5.0 (2021-03-11)
 
 - Detector now can be pipeline itself
