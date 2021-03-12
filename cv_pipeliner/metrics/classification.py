@@ -124,11 +124,7 @@ def get_df_classification_metrics(
     assert len(true_bboxes_data) == len(pred_bboxes_data)
     true_labels = np.array([bbox_data.label for bbox_data in true_bboxes_data])
     pred_labels = np.array([bbox_data.label for bbox_data in pred_bboxes_data])
-    pred_labels_top_n = np.array([
-        [top_n_label for top_n_label in bbox_data.labels_top_n]
-        for bbox_data in pred_bboxes_data
-
-    ])
+    pred_labels_top_n = np.array([bbox_data.labels_top_n for bbox_data in pred_bboxes_data])
     assert max(tops_n) <= min([bbox_data.top_n for bbox_data in pred_bboxes_data])
 
     all_class_names = np.unique(np.concatenate([true_labels, pred_labels])).tolist()
@@ -205,7 +201,7 @@ def get_df_classification_metrics(
     df_classification_metrics.sort_values(by='support', ascending=False, inplace=True)
     df_classification_metrics_columns = ['support', 'recall', 'f1_score', 'value'] + [
         f'precision@{top_n}' for top_n in tops_n if top_n > 1
-    ] + ['precision', 'recall', 'f1_score', 'value', 'TP', 'FP', 'FN'] + [
+    ] + ['TP', 'FP', 'FN'] + [
         item for sublist in [[f'TP@{top_n}', f'FP@{top_n}'] for top_n in tops_n if top_n > 1]
         for item in sublist
     ]
@@ -218,7 +214,5 @@ def get_df_classification_metrics(
         df_classification_metrics.loc[all_class_names, 'pseudo'] = (
             df_classification_metrics.loc[all_class_names].index.isin(pseudo_class_names)
         )
-
-    display(df_classification_metrics)
 
     return df_classification_metrics
