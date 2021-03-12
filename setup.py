@@ -5,7 +5,7 @@ with open('requirements.txt') as f:
 
 setuptools.setup(
     name='cv_pipeliner',
-    version='0.5.0',
+    version='0.5.1',
     include_package_data=True,
     packages=setuptools.find_packages(),
     install_requires=install_requires,
