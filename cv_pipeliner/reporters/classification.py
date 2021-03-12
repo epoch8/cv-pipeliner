@@ -53,7 +53,7 @@ class ClassificationReportData:
     def __init__(
         self,
         df_classification_metrics: pd.DataFrame = None,
-        tops_n: List[int],
+        tops_n: List[int] = [1],
         tag: str = None,
         collect_the_rest: bool = True,
     ):
