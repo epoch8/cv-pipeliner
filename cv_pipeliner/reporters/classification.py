@@ -53,17 +53,21 @@ class ClassificationReportData:
     def __init__(
         self,
         df_classification_metrics: pd.DataFrame = None,
+        tops_n: List[int],
         tag: str = None,
-        collect_the_rest: bool = True
+        collect_the_rest: bool = True,
     ):
         self.df_classification_metrics = df_classification_metrics.copy()
         if not collect_the_rest:
             return
+        df_classification_metrics_short_columns = ['precision', 'recall'] + [
+            f'precision@{top_n}' for top_n in tops_n if top_n > 1
+        ]
         self.df_classification_metrics_short = df_classification_metrics.loc[
             [
                 'all_weighted_average', 'all_weighted_average_without_pseudo_classes',
                 'known_weighted_average', 'known_weighted_average_without_pseudo_classes',
-            ], ['precision', 'recall']
+            ], df_classification_metrics_short_columns
         ].copy()
 
         self.tag = tag
@@ -81,6 +85,7 @@ class ClassificationReportData:
 def concat_classifications_reports_datas(
     classifications_reports_datas: List[ClassificationReportData],
     df_classification_metrics_columns: List[str],
+    tops_n: List[int],
     compare_tag: str = None,
 ) -> ClassificationReportData:
     tags = [classification_report_data.tag for classification_report_data in classifications_reports_datas]
@@ -98,6 +103,7 @@ def concat_classifications_reports_datas(
     )
     classification_report_data = ClassificationReportData(
         df_classification_metrics=df_classification_metrics,
+        tops_n=tops_n,
         collect_the_rest=False
     )
     classification_report_data.df_classification_metrics_short = transpose_columns_and_write_diffs_to_df_with_tags(
@@ -271,6 +277,7 @@ classification_interactive_work(
                 df_classification_metrics_columns = tag_df_classification_metrics.columns
             classifications_reports_datas.append(ClassificationReportData(
                 df_classification_metrics=tag_df_classification_metrics,
+                tops_n=tops_n,
                 tag=tag
             ))
 
@@ -302,6 +309,7 @@ classification_interactive_work(
         compare_tag: str,
         output_directory: Union[str, Path],
         pseudo_class_names: List[str],
+        tops_n: List[int] = [1]
     ):
 
         logger.info(f"Cunting metrics for '{tag}'...")
@@ -315,6 +323,7 @@ classification_interactive_work(
 
         classifications_reports_datas = [ClassificationReportData(
             df_classification_metrics=tag_df_classification_metrics,
+            tops_n=tops_n,
             tag=tag
         )]
 
