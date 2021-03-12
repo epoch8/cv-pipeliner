@@ -11,7 +11,7 @@ from cv_pipeliner.core.data import BboxData
 from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
 from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
-from cv_pipeliner.metrics.classification import get_df_classification_metrics, df_classification_metrics_columns
+from cv_pipeliner.metrics.classification import get_df_classification_metrics
 from cv_pipeliner.visualizers.classification import ClassificationVisualizer
 from cv_pipeliner.logging import logger
 from cv_pipeliner.utils.dataframes import transpose_columns_and_write_diffs_to_df_with_tags
@@ -92,7 +92,7 @@ def concat_classifications_reports_datas(
             ],
             axis=1
         ),
-        columns=df_classification_metrics_columns,
+        columns=classifications_reports_datas[0].df_classification_metrics,
         tags=tags,
         compare_tag=compare_tag
     )
@@ -182,6 +182,7 @@ classification_interactive_work(
         self,
         model_spec: ClassificationModelSpec,
         n_true_bboxes_data: List[List[BboxData]],
+        tops_n: List[int],
         batch_size: int,
         pseudo_class_names: List[str]
     ) -> pd.DataFrame:
@@ -190,12 +191,13 @@ classification_interactive_work(
         bboxes_data_gen = BatchGeneratorBboxData(n_true_bboxes_data,
                                                  batch_size=batch_size,
                                                  use_not_caught_elements_as_last_batch=True)
-        n_pred_bboxes_data = inferencer.predict(bboxes_data_gen)
+        n_pred_bboxes_data = inferencer.predict(bboxes_data_gen, top_n=max(tops_n))
         df_classification_metrics = get_df_classification_metrics(
             n_true_bboxes_data=n_true_bboxes_data,
             n_pred_bboxes_data=n_pred_bboxes_data,
             pseudo_class_names=pseudo_class_names,
-            known_class_names=classification_model.class_names
+            known_class_names=classification_model.class_names,
+            tops_n=tops_n
         )
 
         return df_classification_metrics
@@ -241,6 +243,7 @@ classification_interactive_work(
         output_directory: Union[str, Path],
         n_true_bboxes_data: List[List[BboxData]],
         pseudo_class_names: List[str],
+        tops_n: List[int] = [1],
         batch_size: int = 16,
     ) -> List[ClassificationReportData]:
         for model_spec in models_specs:
@@ -260,7 +263,8 @@ classification_interactive_work(
                 model_spec=model_spec,
                 n_true_bboxes_data=n_true_bboxes_data,
                 pseudo_class_names=pseudo_class_names,
-                batch_size=batch_size
+                tops_n=tops_n,
+                batch_size=batch_size,
             )
             classifications_reports_datas.append(ClassificationReportData(
                 df_classification_metrics=tag_df_classification_metrics,
