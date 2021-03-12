@@ -199,7 +199,7 @@ def get_df_classification_metrics(
 
     df_classification_metrics = pd.DataFrame(classification_metrics, dtype=object).T
     df_classification_metrics.sort_values(by='support', ascending=False, inplace=True)
-    df_classification_metrics_columns = ['support', 'recall', 'f1_score', 'value'] + [
+    df_classification_metrics_columns = ['support', 'precision', 'recall', 'f1_score', 'value'] + [
         f'precision@{top_n}' for top_n in tops_n if top_n > 1
     ] + ['TP', 'FP', 'FN'] + [
         item for sublist in [[f'TP@{top_n}', f'FP@{top_n}'] for top_n in tops_n if top_n > 1]

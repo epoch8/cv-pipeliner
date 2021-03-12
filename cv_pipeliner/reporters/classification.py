@@ -59,7 +59,6 @@ class ClassificationReportData:
         self.df_classification_metrics = df_classification_metrics.copy()
         if not collect_the_rest:
             return
-        display(df_classification_metrics)
         self.df_classification_metrics_short = df_classification_metrics.loc[
             [
                 'all_weighted_average', 'all_weighted_average_without_pseudo_classes',
