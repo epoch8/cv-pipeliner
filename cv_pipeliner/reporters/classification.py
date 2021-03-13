@@ -61,7 +61,8 @@ class ClassificationReportData:
         if not collect_the_rest:
             return
         df_classification_metrics_short_columns = ['precision', 'recall'] + [
-            f'precision@{top_n}' for top_n in tops_n if top_n > 1
+            item for sublist in [[f'precision@{top_n}', f'recall@{top_n}'] for top_n in tops_n if top_n > 1]
+            for item in sublist
         ]
         self.df_classification_metrics_short = df_classification_metrics.loc[
             [
