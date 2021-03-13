@@ -72,50 +72,26 @@ def _add_metrics_to_dict(
     for top_n in tops_n:
         if top_n == 1:
             continue
-        TP_top_n = np.sum([classification_metrics[class_name][f'TP@{top_n}'] for class_name in labels])
-        FP_top_n = np.sum([classification_metrics[class_name][f'FP@{top_n}'] for class_name in labels])
-        FN_top_n = np.sum([classification_metrics[class_name][f'FN@{top_n}'] for class_name in labels])
         precisions_top_n = [classification_metrics[class_name][f'precision@{top_n}'] for class_name in labels]
         recalls_top_n = [classification_metrics[class_name][f'recall@{top_n}'] for class_name in labels]
         f1_score_top_n = [classification_metrics[class_name][f'f1_score@{top_n}'] for class_name in labels]
-        micro_average_precision_top_n = TP_top_n / max(TP_top_n + FP_top_n, 1e-6)
         macro_average_precision_top_n = np.average(precisions_top_n)
         weighted_average_precision_top_n = np.average(precisions_top_n, weights=supports)
-        micro_average_recall_top_n = TP_top_n / max(TP_top_n + FN_top_n, 1e-6)
         macro_average_recall_top_n = np.average(recalls_top_n)
         weighted_average_recall_top_n = np.average(recalls_top_n, weights=supports)
-        micro_average_f1_score_top_n = 2 * micro_average_precision_top_n * micro_average_recall_top_n / (
-            max(micro_average_precision_top_n + micro_average_recall_top_n, 1e-6)
-        )
         macro_average_f1_score_top_n = np.average(f1_score_top_n)
         weighted_average_f1_score_top_n = np.average(f1_score_top_n, weights=supports)
-        for average in ['micro_average', 'macro_average', 'weighted_average']:
-            classification_metrics[f'{prefix_caption}{average}{postfix_caption}'][f'TP@{top_n}'] = (
-                TP_top_n
-            )
-            classification_metrics[f'{prefix_caption}{average}{postfix_caption}'][f'FP@{top_n}'] = (
-                FP_top_n
-            )
-        classification_metrics[f'{prefix_caption}micro_average{postfix_caption}'][f'precision@{top_n}'] = (
-            micro_average_precision_top_n
-        )
         classification_metrics[f'{prefix_caption}macro_average{postfix_caption}'][f'precision@{top_n}'] = (
             macro_average_precision_top_n
         )
         classification_metrics[f'{prefix_caption}weighted_average{postfix_caption}'][f'precision@{top_n}'] = (
             weighted_average_precision_top_n
         )
-        classification_metrics[f'{prefix_caption}micro_average{postfix_caption}'][f'recall@{top_n}'] = (
-            micro_average_recall_top_n
-        )
         classification_metrics[f'{prefix_caption}macro_average{postfix_caption}'][f'recall@{top_n}'] = (
             macro_average_recall_top_n
         )
         classification_metrics[f'{prefix_caption}weighted_average{postfix_caption}'][f'recall@{top_n}'] = (
             weighted_average_recall_top_n
-        )
-        classification_metrics[f'{prefix_caption}micro_average{postfix_caption}'][f'f1_score@{top_n}'] = (
-            micro_average_f1_score_top_n
         )
         classification_metrics[f'{prefix_caption}macro_average{postfix_caption}'][f'f1_score@{top_n}'] = (
             macro_average_f1_score_top_n
@@ -125,24 +101,28 @@ def _add_metrics_to_dict(
         )
 
 
-def get_TP_FP_FN_TN_top_n(
+def get_precision_and_recall_top_n(
     true_labels: List[str],
     pred_labels_top_n: List[List[str]],
     label: str,
-    top_n: int
 ) -> Tuple[int, int]:
-    TP, FP, FN, TN = 0, 0, 0, 0
+    # Precision@k = (# of recommended items @k that are relevant) / (# of recommended items @k)
+    # Recall@k = (# of recommended items @k that are relevant) / (total # of relevant items)
+    recommended_relevant_items = 0
+    recommended_items = 0
+    relevant_items = 0
     for true_label, pred_label_top_n in zip(true_labels, pred_labels_top_n):
-        if true_label != label and label not in pred_label_top_n:
-            TN += 1
-        elif true_label == label and label in pred_label_top_n:
-            TP += 1
-        elif true_label != label and label in pred_label_top_n:
-            FP += 1
-        else:
-            FN += 1
+        if label in pred_label_top_n:
+            recommended_items += 1
+        if true_label == label:
+            relevant_items += 1
+            if label in pred_label_top_n:
+                recommended_relevant_items += 1
 
-    return TP, FP, FN, TN
+    precision_top_n = recommended_relevant_items / max(recommended_items, 1e-6)
+    recall_top_n = recommended_relevant_items / max(relevant_items, 1e-6)
+
+    return precision_top_n, recall_top_n
 
 
 def get_df_classification_metrics(
@@ -194,27 +174,16 @@ def get_df_classification_metrics(
             for top_n in tops_n:
                 if top_n == 1:
                     continue
-                TP_by_class_name_top_n, FP_by_class_name_top_n, FN_by_class_name_top_n, _ = get_TP_FP_FN_TN_top_n(
+                precision_top_n, recall_top_n = get_precision_and_recall_top_n(
                     true_labels=true_labels,
                     pred_labels_top_n=pred_labels_top_n,
-                    label=class_name,
-                    top_n=top_n
+                    label=class_name
                 )
-                classification_metrics[class_name][f'TP@{top_n}'] = TP_by_class_name_top_n
-                classification_metrics[class_name][f'FP@{top_n}'] = FP_by_class_name_top_n
-                classification_metrics[class_name][f'FN@{top_n}'] = FN_by_class_name_top_n
-                classification_metrics[class_name][f'precision@{top_n}'] = TP_by_class_name_top_n / max(
-                    TP_by_class_name_top_n + FP_by_class_name_top_n, 1e-6
-                )
-                classification_metrics[class_name][f'recall@{top_n}'] = TP_by_class_name_top_n / max(
-                    TP_by_class_name_top_n + FN_by_class_name_top_n, 1e-6
-                )
+                classification_metrics[class_name][f'precision@{top_n}'] = precision_top_n
+                classification_metrics[class_name][f'recall@{top_n}'] = recall_top_n
                 classification_metrics[class_name][f'f1_score@{top_n}'] = (
-                    2 * classification_metrics[class_name][f'precision@{top_n}'] * classification_metrics[class_name][f'recall@{top_n}']  # noqa: E501
-                ) / (
-                    max(
-                        classification_metrics[class_name][f'precision@{top_n}'] + classification_metrics[class_name][f'recall@{top_n}'], 1e-6)  # noqa: E501
-                )
+                    2 * precision_top_n * recall_top_n
+                ) / max(precision_top_n + recall_top_n, 1e-6)
 
     _add_metrics_to_dict(
         classification_metrics=classification_metrics,
@@ -251,10 +220,7 @@ def get_df_classification_metrics(
     df_classification_metrics_columns = ['support', 'precision', 'recall', 'f1_score', 'value'] + [
         item for sublist in [[f'precision@{top_n}', f'recall@{top_n}'] for top_n in tops_n if top_n > 1]
         for item in sublist
-    ] + ['TP', 'FP', 'FN'] + [
-        item for sublist in [[f'TP@{top_n}', f'FP@{top_n}', f'FN@{top_n}'] for top_n in tops_n if top_n > 1]
-        for item in sublist
-    ]
+    ] + ['TP', 'FP', 'FN']
     df_classification_metrics = df_classification_metrics[df_classification_metrics_columns]
 
     if known_class_names is not None:
