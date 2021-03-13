@@ -178,7 +178,8 @@ def get_df_classification_metrics(
                 precision_top_n, recall_top_n = get_precision_and_recall_top_n(
                     true_labels=true_labels,
                     pred_labels_top_n=pred_labels_top_n,
-                    label=class_name
+                    label=class_name,
+                    top_n=top_n
                 )
                 classification_metrics[class_name][f'precision@{top_n}'] = precision_top_n
                 classification_metrics[class_name][f'recall@{top_n}'] = recall_top_n
