@@ -105,6 +105,7 @@ def get_precision_and_recall_top_n(
     true_labels: List[str],
     pred_labels_top_n: List[List[str]],
     label: str,
+    top_n: int
 ) -> Tuple[int, int]:
     # Precision@k = (# of recommended items @k that are relevant) / (# of recommended items @k)
     # Recall@k = (# of recommended items @k that are relevant) / (total # of relevant items)
@@ -112,11 +113,11 @@ def get_precision_and_recall_top_n(
     recommended_items = 0
     relevant_items = 0
     for true_label, pred_label_top_n in zip(true_labels, pred_labels_top_n):
-        if label in pred_label_top_n:
+        if label in pred_label_top_n[0:top_n]:
             recommended_items += 1
         if true_label == label:
             relevant_items += 1
-            if label in pred_label_top_n:
+            if label in pred_label_top_n[0:top_n]:
                 recommended_relevant_items += 1
 
     precision_top_n = recommended_relevant_items / max(recommended_items, 1e-6)
