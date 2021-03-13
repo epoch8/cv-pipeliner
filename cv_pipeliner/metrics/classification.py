@@ -131,7 +131,7 @@ def get_TP_FP_FN_TN_top_n(
     label: str,
     top_n: int
 ) -> Tuple[int, int]:
-    TP, FP, FN, TN = 0, 0, 0
+    TP, FP, FN, TN = 0, 0, 0, 0
     for true_label, pred_label_top_n in zip(true_labels, pred_labels_top_n):
         if true_label != label and label not in pred_label_top_n:
             TN += 1
