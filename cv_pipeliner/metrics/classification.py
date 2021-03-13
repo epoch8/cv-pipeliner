@@ -195,8 +195,9 @@ def get_df_classification_metrics(
                 if top_n == 1:
                     continue
                 TP_by_class_name_top_n, FP_by_class_name_top_n, FN_by_class_name_top_n, _ = get_TP_FP_FN_TN_top_n(
-                    true_labels=true_labels[true_labels == class_name],
-                    pred_labels_top_n=pred_labels_top_n[true_labels == class_name],
+                    true_labels=true_labels,
+                    pred_labels_top_n=pred_labels_top_n,
+                    label=class_name,
                     top_n=top_n
                 )
                 classification_metrics[class_name][f'TP@{top_n}'] = TP_by_class_name_top_n
