@@ -13,6 +13,7 @@ def _add_metrics_to_dict(
     tops_n: List[int],
     prefix_caption: str = '',
     postfix_caption: str = '',
+    count_mean_expected_steps: bool = False
 ):
     supports = [classification_metrics[class_name]['support'] for class_name in labels]
     support = np.sum(supports)
@@ -69,6 +70,17 @@ def _add_metrics_to_dict(
         'recall': weighted_average_recall,
         'f1_score': weighted_average_f1_score
     }
+    if count_mean_expected_steps:
+        mean_expected_steps = [classification_metrics[class_name]['mean_expected_steps'] for class_name in labels]
+        macro_average_mean_expected_steps = np.average(mean_expected_steps)
+        weighted_average_mean_expected_steps = np.average(mean_expected_steps, weights=supports)
+        classification_metrics[f'{prefix_caption}macro_average{postfix_caption}']['mean_expected_steps'] = (
+            macro_average_mean_expected_steps
+        )
+        classification_metrics[f'{prefix_caption}weighted_average{postfix_caption}']['mean_expected_steps'] = (
+            weighted_average_mean_expected_steps
+        )
+
     for top_n in tops_n:
         if top_n == 1:
             continue
@@ -126,12 +138,30 @@ def get_precision_and_recall_top_n(
     return precision_top_n, recall_top_n
 
 
+def get_mean_expected_steps(
+    n_true_bboxes_data: List[List[BboxData]],
+    n_pred_bboxes_data: List[List[BboxData]],
+    top_n: int,
+    label: str = str,
+) -> Tuple[int, int]:
+    n_steps = [
+        [
+            list(pred_bbox_data.labels_top_n[0:top_n]).index(bbox_data.label) + 1
+            for bbox_data, pred_bbox_data in zip(true_bboxes_data, pred_bboxes_data)
+            if bbox_data.label == label
+        ]
+        for true_bboxes_data, pred_bboxes_data in zip(n_true_bboxes_data, n_pred_bboxes_data)
+    ]
+    mean_expected_steps = np.mean(n_steps)
+    return mean_expected_steps
+
+
 def get_df_classification_metrics(
     n_true_bboxes_data: List[List[BboxData]],
     n_pred_bboxes_data: List[List[BboxData]],
     pseudo_class_names: List[str],
     known_class_names: List[str] = None,
-    tops_n: List[int] = [1]
+    tops_n: List[int] = [1],
 ) -> pd.DataFrame:
     # We use pipeline metrics for it:
 
@@ -186,7 +216,6 @@ def get_df_classification_metrics(
                 classification_metrics[class_name][f'f1_score@{top_n}'] = (
                     2 * precision_top_n * recall_top_n
                 ) / max(precision_top_n + recall_top_n, 1e-6)
-
     _add_metrics_to_dict(
         classification_metrics=classification_metrics,
         labels=all_class_names,
@@ -201,8 +230,17 @@ def get_df_classification_metrics(
         postfix_caption='_without_pseudo_classes'
     )
     if known_class_names is not None:
+        len_known_class_names = len(known_class_names)
         known_class_names = list(set(all_class_names).intersection(set(known_class_names)))
         known_class_names_without_pseudo_classes = list(set(known_class_names) - set(pseudo_class_names))
+        if max(tops_n) >= len_known_class_names:
+            for known_class_name in known_class_names:
+                classification_metrics[class_name]['mean_expected_steps'] = get_mean_expected_steps(
+                    n_true_bboxes_data=n_true_bboxes_data,
+                    n_pred_bboxes_data=n_pred_bboxes_data,
+                    top_n=len_known_class_names,
+                    label=known_class_name
+                )
         _add_metrics_to_dict(
             classification_metrics=classification_metrics,
             labels=known_class_names,
