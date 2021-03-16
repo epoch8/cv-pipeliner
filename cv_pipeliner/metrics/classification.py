@@ -245,14 +245,16 @@ def get_df_classification_metrics(
             classification_metrics=classification_metrics,
             labels=known_class_names,
             tops_n=tops_n,
-            prefix_caption='known_'
+            prefix_caption='known_',
+            count_mean_expected_steps=True
         )
         _add_metrics_to_dict(
             classification_metrics=classification_metrics,
             labels=known_class_names_without_pseudo_classes,
             tops_n=tops_n,
             prefix_caption='known_',
-            postfix_caption='_without_pseudo_classes'
+            postfix_caption='_without_pseudo_classes',
+            count_mean_expected_steps=True
         )
 
     df_classification_metrics = pd.DataFrame(classification_metrics, dtype=object).T
