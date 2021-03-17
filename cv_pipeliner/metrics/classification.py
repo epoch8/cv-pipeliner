@@ -161,22 +161,13 @@ def get_mean_expected_steps(
     for true_labels, pred_labels_top_n, pred_scores_top_n in zip(
         n_true_labels, n_pred_labels_top_n, n_pred_scores_top_n
     ):
-        print(f"{label=}")
-        print(f"{pred_labels_top_n=}")
-        print(f"{pred_scores_top_n=}")
         idxs_by_label = (pred_labels_top_n == label)
-        print(f"{idxs_by_label=}")
         pred_scores_top_n_by_label = pred_scores_top_n[idxs_by_label]
-        print(f"{pred_scores_top_n_by_label=}")
         idxs_sorted = np.argsort((-1) * pred_scores_top_n_by_label)
-        print(f"{idxs_sorted=}")
         true_labels_sorted = true_labels[idxs_sorted]
-        print(f"{true_labels_sorted=}")
         steps = np.where(label == true_labels_sorted)[0]
-        print(f"{steps=}")
         if len(steps) > 0:
             steps = np.min(steps) + 1
-            print(f"{steps=}")
             n_steps.append(steps)
     mean_expected_steps = np.mean(steps)
     return mean_expected_steps

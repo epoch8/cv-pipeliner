@@ -31,7 +31,8 @@ pred_bbox_data_A1 = BboxData(
     ymax=341,
     label='A',
     top_n=4,
-    labels_top_n=['A', 'B', 'Z', 'other']
+    labels_top_n=['A', 'B', 'Z', 'other'],
+    classification_scores_top_n=[0.3, 0.5, 0.1, 0.1]
 )
 
 true_bbox_data_A2 = BboxData(
@@ -50,7 +51,8 @@ pred_bbox_data_B2 = BboxData(
     ymax=855,
     label='B',
     top_n=4,
-    labels_top_n=['B', 'A', 'Z', 'other']
+    labels_top_n=['B', 'A', 'Z', 'other'],
+    classification_scores_top_n=[0.5, 0.1, 0.1, 0.3]
 )
 
 true_bbox_data_A3 = BboxData(
@@ -69,7 +71,8 @@ pred_bbox_data_Z3 = BboxData(
     ymax=289,
     label='Z',
     top_n=4,
-    labels_top_n=['Z', 'B', 'other', 'A']
+    labels_top_n=['Z', 'B', 'other', 'A'],
+    classification_scores_top_n=[0.6, 0.3, 0.05, 0.05]
 )
 
 true_bbox_data_B4 = BboxData(
@@ -88,7 +91,8 @@ pred_bbox_data_B4 = BboxData(
     ymax=709,
     label='B',
     top_n=4,
-    labels_top_n=['B', 'Z', 'A', 'other']
+    labels_top_n=['B', 'Z', 'A', 'other'],
+    classification_scores_top_n=[0.25, 0.25, 0.25, 0.25]
 )
 true_bbox_data_other6 = BboxData(
     image_path=image_path,
@@ -106,7 +110,8 @@ pred_bbox_data_B6 = BboxData(
     ymax=900,
     label='B',
     top_n=4,
-    labels_top_n=['B', 'A', 'Z', 'other']
+    labels_top_n=['B', 'A', 'Z', 'other'],
+    classification_scores_top_n=[0.3, 0.2, 0.3, 0.2]
 )
 
 true_bbox_data_B7 = BboxData(
@@ -125,7 +130,8 @@ pred_bbox_data_other7 = BboxData(
     ymax=952,
     label='other',
     top_n=4,
-    labels_top_n=['other', 'B', 'A', 'Z']
+    labels_top_n=['other', 'B', 'A', 'Z'],
+    classification_scores_top_n=[0.4, 0.3, 0.1, 0.2]
 )
 
 true_bbox_data_other8 = BboxData(
@@ -144,7 +150,8 @@ pred_bbox_data_A8 = BboxData(
     ymax=592,
     label='other',
     top_n=4,
-    labels_top_n=['other', 'A', 'B', 'Z']
+    labels_top_n=['other', 'A', 'B', 'Z'],
+    classification_scores_top_n=[0.9, 0.1, 0.0, 0.0]
 )
 true_bbox_data_Z10 = BboxData(
     image_path=image_path,
@@ -162,7 +169,8 @@ pred_bbox_data_Z10 = BboxData(
     ymax=420,
     label='Z',
     top_n=4,
-    labels_top_n=['Z', 'A', 'B', 'other']
+    labels_top_n=['Z', 'A', 'B', 'other'],
+    classification_scores_top_n=[0.8, 0.1, 0.0, 0.1]
 )
 
 true_bbox_data_C11 = BboxData(
@@ -181,7 +189,8 @@ pred_bbox_data_B11 = BboxData(
     ymax=670,
     label='B',
     top_n=4,
-    labels_top_n=['B', 'A', 'Z', 'other']
+    labels_top_n=['B', 'A', 'Z', 'other'],
+    classification_scores_top_n=[0.4, 0.4, 0.1, 0.1]
 )
 
 
