@@ -169,7 +169,7 @@ def get_mean_expected_steps(
         if len(steps) > 0:
             steps = np.min(steps) + 1
             n_steps.append(steps)
-    mean_expected_steps = np.mean(steps)
+    mean_expected_steps = np.mean(n_steps)
     return mean_expected_steps
 
 
