@@ -83,7 +83,10 @@ def _add_metrics_to_dict(
             classification_metrics[class_name]['support'] for class_name in not_nan_labels
         ]
         macro_average_mean_expected_steps = np.average(mean_expected_steps)
-        weighted_average_mean_expected_steps = np.average(mean_expected_steps, weights=mean_expected_steps_supports)
+        weighted_average_mean_expected_steps = np.average(
+            mean_expected_steps,
+            weights=mean_expected_steps_supports
+        )
         classification_metrics[f'{prefix_caption}macro_average{postfix_caption}']['mean_expected_steps'] = (
             macro_average_mean_expected_steps
         )
@@ -167,7 +170,7 @@ def get_mean_expected_steps(
     for true_idxs, true_labels, pred_labels_top_n in zip(n_true_idxs, n_true_labels, n_pred_labels_top_n):
         steps, _ = np.where(true_labels[true_idxs] == pred_labels_top_n[true_idxs, :].T)  # from 0
         steps = steps + 1  # from 1
-        n_steps.append(steps)
+        n_steps.append(np.mean(steps))
     steps = [step for steps in n_steps for step in steps]
     mean_expected_steps = np.mean(steps)
     return mean_expected_steps
