@@ -149,15 +149,10 @@ def get_precision_and_recall_top_n(
 
 
 def get_mean_expected_steps(
-    n_true_bboxes_data: List[List[BboxData]],
-    n_pred_bboxes_data: List[List[BboxData]],
-    top_n: int,
+    n_true_labels: List[List[str]],
+    n_pred_labels_top_n: List[List[List[str]]],
     label: str = None
 ) -> Tuple[int, int]:
-    n_true_labels = [
-        np.array([true_bbox_data.label for true_bbox_data in true_bboxes_data])
-        for true_bboxes_data in n_true_bboxes_data
-    ]
     if label is not None:
         n_true_idxs = [
             true_labels == label
@@ -168,19 +163,13 @@ def get_mean_expected_steps(
             [True for _ in range(len(true_labels))]
             for true_labels in n_true_labels
         ]
-    n_pred_labels_top_n = [
-        np.array([
-            pred_bbox_data.labels_top_n[0:top_n]
-            for pred_bbox_data in pred_bboxes_data
-        ])
-        for pred_bboxes_data in n_pred_bboxes_data
-    ]
-    n_average_steps = []
+    n_steps = []
     for true_idxs, true_labels, pred_labels_top_n in zip(n_true_idxs, n_true_labels, n_pred_labels_top_n):
         steps, _ = np.where(true_labels[true_idxs] == pred_labels_top_n[true_idxs, :].T)  # from 0
         steps = steps + 1  # from 1
-        n_average_steps.append(steps)
-    mean_expected_steps = np.mean(n_average_steps)
+        n_steps.append(steps)
+    steps = [step for steps in n_steps for step in steps]
+    mean_expected_steps = np.mean(steps)
     return mean_expected_steps
 
 
@@ -202,6 +191,17 @@ def get_df_classification_metrics(
     pred_labels_top_n = np.array([bbox_data.labels_top_n for bbox_data in pred_bboxes_data])
     min_tops_n_from_pred_bboxes_data = min([bbox_data.top_n for bbox_data in pred_bboxes_data])
     assert max(tops_n) <= min_tops_n_from_pred_bboxes_data
+    n_true_labels = [
+        np.array([true_bbox_data.label for true_bbox_data in true_bboxes_data])
+        for true_bboxes_data in n_true_bboxes_data
+    ]
+    n_pred_labels_top_n = [
+        np.array([
+            pred_bbox_data.labels_top_n
+            for pred_bbox_data in pred_bboxes_data
+        ])
+        for pred_bboxes_data in n_pred_bboxes_data
+    ]
 
     all_class_names = np.unique(np.concatenate([true_labels, pred_labels])).tolist()
     class_names_without_pseudo_classes = list(set(all_class_names) - set(pseudo_class_names))
@@ -267,9 +267,8 @@ def get_df_classification_metrics(
             known_class_names = list(set(all_class_names).intersection(set(known_class_names)))
             for known_class_name in known_class_names:
                 classification_metrics[known_class_name]['mean_expected_steps'] = get_mean_expected_steps(
-                    n_true_bboxes_data=n_true_bboxes_data,
-                    n_pred_bboxes_data=n_pred_bboxes_data,
-                    top_n=len_known_class_names,
+                    n_true_labels=n_true_labels,
+                    n_pred_labels_top_n=n_pred_labels_top_n,
                     label=known_class_name
                 )
         _add_metrics_to_dict(
