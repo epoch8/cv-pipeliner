@@ -171,7 +171,6 @@ def get_mean_expected_steps(
         steps, _ = np.where(true_labels[true_idxs] == pred_labels_top_n[true_idxs, :].T)  # from 0
         steps = steps + 1  # from 1
         n_steps.append(np.mean(steps))
-    steps = [step for steps in n_steps for step in steps]
     mean_expected_steps = np.mean(steps)
     return mean_expected_steps
 
