@@ -154,23 +154,30 @@ def get_precision_and_recall_top_n(
 def get_mean_expected_steps(
     n_true_labels: List[List[str]],
     n_pred_labels_top_n: List[List[List[str]]],
-    label: str = None
+    n_pred_scores_top_n: List[List[List[float]]],
+    label: str
 ) -> Tuple[int, int]:
-    if label is not None:
-        n_true_idxs = [
-            true_labels == label
-            for true_labels in n_true_labels
-        ]
-    else:
-        n_true_idxs = [
-            [True for _ in range(len(true_labels))]
-            for true_labels in n_true_labels
-        ]
     n_steps = []
-    for true_idxs, true_labels, pred_labels_top_n in zip(n_true_idxs, n_true_labels, n_pred_labels_top_n):
-        steps, _ = np.where(true_labels[true_idxs] == pred_labels_top_n[true_idxs, :].T)  # from 0
-        steps = steps + 1  # from 1
-        n_steps.append(np.mean(steps))
+    for true_labels, pred_labels_top_n, pred_scores_top_n in zip(
+        n_true_labels, n_pred_labels_top_n, n_pred_scores_top_n
+    ):
+        print(f"{label=}")
+        print(f"{pred_labels_top_n=}")
+        print(f"{pred_scores_top_n=}")
+        idxs_by_label = (pred_labels_top_n == label)
+        print(f"{idxs_by_label=}")
+        pred_scores_top_n_by_label = pred_scores_top_n[idxs_by_label]
+        print(f"{pred_scores_top_n_by_label=}")
+        idxs_sorted = np.argsort((-1) * pred_scores_top_n_by_label)
+        print(f"{idxs_sorted=}")
+        true_labels_sorted = true_labels[idxs_sorted]
+        print(f"{true_labels_sorted=}")
+        steps = np.where(label == true_labels_sorted)[0]
+        print(f"{steps=}")
+        if len(steps) > 0:
+            steps = np.min(steps) + 1
+            print(f"{steps=}")
+            n_steps.append(steps)
     mean_expected_steps = np.mean(steps)
     return mean_expected_steps
 
@@ -200,6 +207,13 @@ def get_df_classification_metrics(
     n_pred_labels_top_n = [
         np.array([
             pred_bbox_data.labels_top_n
+            for pred_bbox_data in pred_bboxes_data
+        ])
+        for pred_bboxes_data in n_pred_bboxes_data
+    ]
+    n_pred_scores_top_n = [
+        np.array([
+            pred_bbox_data.classification_scores_top_n
             for pred_bbox_data in pred_bboxes_data
         ])
         for pred_bboxes_data in n_pred_bboxes_data
@@ -271,7 +285,8 @@ def get_df_classification_metrics(
                 classification_metrics[known_class_name]['mean_expected_steps'] = get_mean_expected_steps(
                     n_true_labels=n_true_labels,
                     n_pred_labels_top_n=n_pred_labels_top_n,
-                    label=known_class_name
+                    n_pred_scores_top_n=n_pred_scores_top_n,
+                    label=known_class_name,
                 )
         _add_metrics_to_dict(
             classification_metrics=classification_metrics,
