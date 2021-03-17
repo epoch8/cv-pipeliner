@@ -144,11 +144,11 @@ def get_mean_expected_steps(
     top_n: int,
     label: str = str,
 ) -> Tuple[int, int]:
-    n_steps = [
+    n_pred_bboxes_data = 
+    n_pred_labels = [
         [
-            list(pred_bbox_data.labels_top_n[0:top_n]).index(bbox_data.label) + 1
+            pred_bbox_data.labels_top_n
             for bbox_data, pred_bbox_data in zip(true_bboxes_data, pred_bboxes_data)
-            if bbox_data.label == label
         ]
         for true_bboxes_data, pred_bboxes_data in zip(n_true_bboxes_data, n_pred_bboxes_data)
     ]
@@ -262,7 +262,7 @@ def get_df_classification_metrics(
     df_classification_metrics_columns = ['support', 'precision', 'recall', 'f1_score', 'value'] + [
         item for sublist in [[f'precision@{top_n}', f'recall@{top_n}'] for top_n in tops_n if top_n > 1]
         for item in sublist
-    ] + ['TP', 'FP', 'FN']
+    ] + ['mean_expected_steps' if known_class_names is not None] + ['TP', 'FP', 'FN']
     df_classification_metrics = df_classification_metrics[df_classification_metrics_columns]
 
     if known_class_names is not None:

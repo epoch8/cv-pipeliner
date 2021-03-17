@@ -63,7 +63,7 @@ class ClassificationReportData:
         df_classification_metrics_short_columns = ['precision', 'recall'] + [
             item for sublist in [[f'precision@{top_n}', f'recall@{top_n}'] for top_n in tops_n if top_n > 1]
             for item in sublist
-        ]
+        ] + ['mean_expected_steps']
         self.df_classification_metrics_short = df_classification_metrics.loc[
             [
                 'all_weighted_average', 'all_weighted_average_without_pseudo_classes',
