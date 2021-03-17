@@ -80,7 +80,7 @@ def _add_metrics_to_dict(
             classification_metrics[class_name]['mean_expected_steps'] for class_name in not_nan_labels
         ]
         mean_expected_steps_supports = [
-            classification_metrics[class_name]['mean_expected_steps'] for class_name in not_nan_labels
+            classification_metrics[class_name]['support'] for class_name in not_nan_labels
         ]
         macro_average_mean_expected_steps = np.average(mean_expected_steps)
         weighted_average_mean_expected_steps = np.average(mean_expected_steps, weights=mean_expected_steps_supports)
