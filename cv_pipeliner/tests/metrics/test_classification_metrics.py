@@ -29,7 +29,9 @@ pred_bbox_data_A1 = BboxData(
     ymin=149,
     xmax=355,
     ymax=341,
-    label='A'
+    label='A',
+    top_n=4,
+    labels_top_n=['A', 'B', 'Z', 'other']
 )
 
 true_bbox_data_A2 = BboxData(
@@ -46,7 +48,9 @@ pred_bbox_data_B2 = BboxData(
     ymin=705,
     xmax=273,
     ymax=855,
-    label='B'
+    label='B',
+    top_n=4,
+    labels_top_n=['B', 'A', 'Z', 'other']
 )
 
 true_bbox_data_A3 = BboxData(
@@ -63,7 +67,9 @@ pred_bbox_data_Z3 = BboxData(
     ymin=119,
     xmax=837,
     ymax=289,
-    label='Z'
+    label='Z',
+    top_n=4,
+    labels_top_n=['Z', 'B', 'other', 'A']
 )
 
 true_bbox_data_B4 = BboxData(
@@ -80,7 +86,9 @@ pred_bbox_data_B4 = BboxData(
     ymin=487,
     xmax=859,
     ymax=709,
-    label='B'
+    label='B',
+    top_n=4,
+    labels_top_n=['B', 'Z', 'A', 'other']
 )
 true_bbox_data_other6 = BboxData(
     image_path=image_path,
@@ -96,7 +104,9 @@ pred_bbox_data_B6 = BboxData(
     ymin=757,
     xmax=533,
     ymax=900,
-    label='B'
+    label='B',
+    top_n=4,
+    labels_top_n=['B', 'A', 'Z', 'other']
 )
 
 true_bbox_data_B7 = BboxData(
@@ -113,7 +123,9 @@ pred_bbox_data_other7 = BboxData(
     ymin=821,
     xmax=846,
     ymax=952,
-    label='other'
+    label='other',
+    top_n=4,
+    labels_top_n=['other', 'B', 'A', 'Z']
 )
 
 true_bbox_data_other8 = BboxData(
@@ -130,7 +142,9 @@ pred_bbox_data_A8 = BboxData(
     ymin=452,
     xmax=223,
     ymax=592,
-    label='other'
+    label='other',
+    top_n=4,
+    labels_top_n=['other', 'A', 'B', 'Z']
 )
 true_bbox_data_Z10 = BboxData(
     image_path=image_path,
@@ -146,7 +160,28 @@ pred_bbox_data_Z10 = BboxData(
     ymin=312,
     xmax=567,
     ymax=420,
-    label='Z'
+    label='Z',
+    top_n=4,
+    labels_top_n=['Z', 'A', 'B', 'other']
+)
+
+true_bbox_data_C11 = BboxData(
+    image_path=image_path,
+    xmin=435,
+    ymin=525,
+    xmax=591,
+    ymax=690,
+    label='C'
+)
+pred_bbox_data_B11 = BboxData(
+    image_path=image_path,
+    xmin=455,
+    ymin=562,
+    xmax=567,
+    ymax=670,
+    label='B',
+    top_n=4,
+    labels_top_n=['B', 'A', 'Z', 'other']
 )
 
 
@@ -160,7 +195,8 @@ true_image_data = ImageData(
         true_bbox_data_other6,
         true_bbox_data_B7,
         true_bbox_data_other8,
-        true_bbox_data_Z10
+        true_bbox_data_Z10,
+        true_bbox_data_C11
     ]
 )
 pred_image_data = ImageData(
@@ -173,7 +209,8 @@ pred_image_data = ImageData(
         pred_bbox_data_B6,
         pred_bbox_data_other7,
         pred_bbox_data_A8,
-        pred_bbox_data_Z10
+        pred_bbox_data_Z10,
+        pred_bbox_data_B11
     ]
 )
 
@@ -190,11 +227,12 @@ def test_pipeline_metrics():
         n_true_bboxes_data=[true_image_data.bboxes_data],
         n_pred_bboxes_data=[pred_image_data.bboxes_data],
         pseudo_class_names=['other'],
-        known_class_names=['A', 'B']
+        known_class_names=['A', 'B', 'Z', 'other'],
+        tops_n=[1, 2, 3, 4]
     )
     df_classification_metrics = df_classification_metrics.loc[
         [
-            'A', 'B', 'Z', 'other',
+            'A', 'B', 'C', 'Z', 'other',
             'all_accuracy', 'all_weighted_average',
             'all_accuracy_without_pseudo_classes', 'all_weighted_average_without_pseudo_classes',
             'known_accuracy_without_pseudo_classes', 'known_weighted_average_without_pseudo_classes'

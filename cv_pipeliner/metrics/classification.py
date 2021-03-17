@@ -71,9 +71,19 @@ def _add_metrics_to_dict(
         'f1_score': weighted_average_f1_score
     }
     if count_mean_expected_steps:
-        mean_expected_steps = [classification_metrics[class_name]['mean_expected_steps'] for class_name in labels]
+        not_nan_labels = [
+            class_name
+            for class_name in labels
+            if not np.isnan(classification_metrics[class_name]['mean_expected_steps'])
+        ]
+        mean_expected_steps = [
+            classification_metrics[class_name]['mean_expected_steps'] for class_name in not_nan_labels
+        ]
+        mean_expected_steps_supports = [
+            classification_metrics[class_name]['mean_expected_steps'] for class_name in not_nan_labels
+        ]
         macro_average_mean_expected_steps = np.average(mean_expected_steps)
-        weighted_average_mean_expected_steps = np.average(mean_expected_steps, weights=supports)
+        weighted_average_mean_expected_steps = np.average(mean_expected_steps, weights=mean_expected_steps_supports)
         classification_metrics[f'{prefix_caption}macro_average{postfix_caption}']['mean_expected_steps'] = (
             macro_average_mean_expected_steps
         )
@@ -142,17 +152,35 @@ def get_mean_expected_steps(
     n_true_bboxes_data: List[List[BboxData]],
     n_pred_bboxes_data: List[List[BboxData]],
     top_n: int,
-    label: str = str,
+    label: str = None
 ) -> Tuple[int, int]:
-    n_pred_bboxes_data = 
-    n_pred_labels = [
-        [
-            pred_bbox_data.labels_top_n
-            for bbox_data, pred_bbox_data in zip(true_bboxes_data, pred_bboxes_data)
-        ]
-        for true_bboxes_data, pred_bboxes_data in zip(n_true_bboxes_data, n_pred_bboxes_data)
+    n_true_labels = [
+        np.array([true_bbox_data.label for true_bbox_data in true_bboxes_data])
+        for true_bboxes_data in n_true_bboxes_data
     ]
-    mean_expected_steps = np.mean(n_steps)
+    if label is not None:
+        n_true_idxs = [
+            true_labels == label
+            for true_labels in n_true_labels
+        ]
+    else:
+        n_true_idxs = [
+            [True for _ in range(len(true_labels))]
+            for true_labels in n_true_labels
+        ]
+    n_pred_labels_top_n = [
+        np.array([
+            pred_bbox_data.labels_top_n[0:top_n]
+            for pred_bbox_data in pred_bboxes_data
+        ])
+        for pred_bboxes_data in n_pred_bboxes_data
+    ]
+    n_average_steps = []
+    for true_idxs, true_labels, pred_labels_top_n in zip(n_true_idxs, n_true_labels, n_pred_labels_top_n):
+        steps, _ = np.where(true_labels[true_idxs] == pred_labels_top_n[true_idxs, :].T)  # from 0
+        steps = steps + 1  # from 1
+        n_average_steps.append(steps)
+    mean_expected_steps = np.mean(n_average_steps)
     return mean_expected_steps
 
 
@@ -172,7 +200,8 @@ def get_df_classification_metrics(
     true_labels = np.array([bbox_data.label for bbox_data in true_bboxes_data])
     pred_labels = np.array([bbox_data.label for bbox_data in pred_bboxes_data])
     pred_labels_top_n = np.array([bbox_data.labels_top_n for bbox_data in pred_bboxes_data])
-    assert max(tops_n) <= min([bbox_data.top_n for bbox_data in pred_bboxes_data])
+    min_tops_n_from_pred_bboxes_data = min([bbox_data.top_n for bbox_data in pred_bboxes_data])
+    assert max(tops_n) <= min_tops_n_from_pred_bboxes_data
 
     all_class_names = np.unique(np.concatenate([true_labels, pred_labels])).tolist()
     class_names_without_pseudo_classes = list(set(all_class_names) - set(pseudo_class_names))
@@ -231,11 +260,13 @@ def get_df_classification_metrics(
     )
     if known_class_names is not None:
         len_known_class_names = len(known_class_names)
+        count_mean_expected_steps = min_tops_n_from_pred_bboxes_data == len_known_class_names
         known_class_names = list(set(all_class_names).intersection(set(known_class_names)))
         known_class_names_without_pseudo_classes = list(set(known_class_names) - set(pseudo_class_names))
-        if max(tops_n) >= len_known_class_names:
+        if count_mean_expected_steps:
+            known_class_names = list(set(all_class_names).intersection(set(known_class_names)))
             for known_class_name in known_class_names:
-                classification_metrics[class_name]['mean_expected_steps'] = get_mean_expected_steps(
+                classification_metrics[known_class_name]['mean_expected_steps'] = get_mean_expected_steps(
                     n_true_bboxes_data=n_true_bboxes_data,
                     n_pred_bboxes_data=n_pred_bboxes_data,
                     top_n=len_known_class_names,
@@ -246,7 +277,7 @@ def get_df_classification_metrics(
             labels=known_class_names,
             tops_n=tops_n,
             prefix_caption='known_',
-            count_mean_expected_steps=True
+            count_mean_expected_steps=count_mean_expected_steps
         )
         _add_metrics_to_dict(
             classification_metrics=classification_metrics,
@@ -254,15 +285,18 @@ def get_df_classification_metrics(
             tops_n=tops_n,
             prefix_caption='known_',
             postfix_caption='_without_pseudo_classes',
-            count_mean_expected_steps=True
+            count_mean_expected_steps=count_mean_expected_steps
         )
 
     df_classification_metrics = pd.DataFrame(classification_metrics, dtype=object).T
     df_classification_metrics.sort_values(by='support', ascending=False, inplace=True)
+    df_classification_metrics_MES_column = (
+        ['mean_expected_steps'] if 'mean_expected_steps' in df_classification_metrics.columns else []
+    )
     df_classification_metrics_columns = ['support', 'precision', 'recall', 'f1_score', 'value'] + [
         item for sublist in [[f'precision@{top_n}', f'recall@{top_n}'] for top_n in tops_n if top_n > 1]
         for item in sublist
-    ] + ['mean_expected_steps' if known_class_names is not None] + ['TP', 'FP', 'FN']
+    ] + df_classification_metrics_MES_column + ['TP', 'FP', 'FN']
     df_classification_metrics = df_classification_metrics[df_classification_metrics_columns]
 
     if known_class_names is not None:
