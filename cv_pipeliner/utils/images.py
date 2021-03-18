@@ -1,3 +1,4 @@
+import base64
 import io
 import math
 from pathlib import Path
@@ -417,3 +418,13 @@ def draw_n_base_labels_images(
                 how='vertically'
             )
     return total_image
+
+
+def get_mask_b64(
+    image: np.ndarray
+) -> str:
+    mask_png_io = io.BytesIO()
+    Image.fromarray(image).save(mask_png_io, format='png')
+    mask_png = mask_png_io.getvalue()
+    mask_b64 = f"data:image/png;base64,{base64.b64encode(mask_png).decode('utf-8')}"
+    return mask_b64
