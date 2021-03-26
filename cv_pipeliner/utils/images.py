@@ -420,7 +420,7 @@ def draw_n_base_labels_images(
     return total_image
 
 
-def get_mask_b64(
+def get_image_b64(
     image: np.ndarray
 ) -> str:
     mask_png_io = io.BytesIO()

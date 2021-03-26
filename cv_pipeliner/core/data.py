@@ -177,8 +177,12 @@ class BboxData:
         assert self.label is not None
 
     def asdict(self) -> Dict:
+        if isinstance(self.image_path, fsspec.core.OpenFile):
+            image_path_str = str(self.image_path.path)
+        else:
+            image_path_str = str(self.image_path) if self.image_path is not None else None
         return {
-            'image_path': str(self.image_path) if self.image_path is not None else None,
+            'image_path': image_path_str,
             'xmin': int(self.xmin),
             'ymin': int(self.ymin),
             'xmax': int(self.xmax),
@@ -239,8 +243,12 @@ class ImageData:
         return open_image_for_object(obj=self, inplace=inplace)
 
     def asdict(self) -> Dict:
+        if isinstance(self.image_path, fsspec.core.OpenFile):
+            image_path_str = str(self.image_path.path)
+        else:
+            image_path_str = str(self.image_path) if self.image_path is not None else None
         return {
-            'image_path': str(self.image_path) if self.image_path is not None else None,
+            'image_path': image_path_str,
             'bboxes_data': [bbox_data.asdict() for bbox_data in self.bboxes_data],
             'additional_info': self.additional_info
         }

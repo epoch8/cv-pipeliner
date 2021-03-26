@@ -12,7 +12,7 @@ import fsspec
 def get_images_data_from_dir(
     images_annotation_type: Literal['brickit', 'supervisely'],
     images_dir: Union[str, Path],
-    annotation_filepath: Union[str, Path] = None
+    annotation_filepath: Union[str, Path, None]
 ) -> List[ImageData]:
     images_dir = Pathy(images_dir)
     image_paths = sorted(
@@ -47,9 +47,5 @@ def get_images_data_from_dir(
 
     if not annotation_success:
         images_data = [ImageData(image_path=image_path) for image_path in image_paths]
-
-    images_data = sorted(images_data,
-                         key=lambda image_data: len(image_data.bboxes_data),
-                         reverse=True)
 
     return images_data, annotation_success

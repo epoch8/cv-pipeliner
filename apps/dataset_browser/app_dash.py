@@ -1,6 +1,8 @@
 import os
 import datetime
 import json
+from dash_html_components.Button import Button
+from dash_html_components.Center import Center
 import fsspec
 import copy
 import time
@@ -20,7 +22,7 @@ from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels, get_n_bboxes_data_filtered_by_labels
 from cv_pipeliner.utils.images import (
-    get_label_to_base_label_image, open_image,
+    get_image_b64, get_label_to_base_label_image, open_image,
     draw_n_base_labels_images
 )
 from cv_pipeliner.utils.data import get_label_to_description
@@ -38,15 +40,21 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from yacs.config import CfgNode
 
+from cv_pipeliner.utils.dash.visualization import illustrate_bboxes_data, illustrate_n_bboxes_data
+
 config_file = os.environ['CV_PIPELINER_APP_CONFIG']
 cfg, current_config_str = None, None
 label_to_base_label_image, label_to_description, label_to_category = None, None, None
+ann_class_names = None
+
+
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
 def read_config_file() -> bool:
     global cfg, current_config_str
     global label_to_base_label_image, label_to_description, label_to_category
+    global ann_class_names
     with fsspec.open(config_file, 'r') as src:
         config_str = src.read()
     if config_str != current_config_str:
@@ -67,9 +75,14 @@ def read_config_file() -> bool:
             default_description='No category'
         )
 
+        if cfg.data.ann_class_names is not None:
+            with fsspec.open(cfg.data.ann_class_names, 'r') as src:
+                ann_class_names = json.load(src)
+
         return True
     else:
         return False
+
 
 # the style arguments for the sidebar. We use position:fixed and a fixed width
 SIDEBAR_STYLE = {
@@ -85,14 +98,14 @@ SIDEBAR_STYLE = {
 # the styles for the main content position it to the right of the sidebar and
 # add some padding.
 CONTENT_STYLE = {
-    "margin-left": "20rem",
+    "margin-left": "45rem",
     "margin-right": "4rem",
     "padding": "2rem 1rem",
 }
 
+
 sidebar = html.Div(
     children=[
-        html.H2("Sidebar", className="display-4"),
         html.Hr(),
         html.P(
             "Images from"
@@ -129,6 +142,10 @@ sidebar = html.Div(
         html.P(
             "Maximum images per page"
         ),
+        html.Center(
+            id='average_maximum_images_per_page_output',
+            children=[]
+        ),
         dcc.Slider(
             id='average_maximum_images_per_page',
             min=1,
@@ -151,6 +168,58 @@ sidebar = html.Div(
             ],
             value=[]
         ),
+        html.Hr(),
+        html.P(
+            "Classes to find"
+        ),
+        dcc.Dropdown(
+            id='find_labels',
+            options=[
+                {'label': 'None', 'value': 'None'},
+            ],
+            multi=True
+        ),
+        html.Br(),
+        html.P(
+            "Classes to hide"
+        ),
+        dcc.Dropdown(
+            id='hide_labels',
+            options=[
+                {'label': 'None', 'value': 'None'},
+            ],
+            multi=True
+        ),
+        html.Hr(),
+        html.Center(
+            children=[
+                html.P(
+                    children='Page 1/1',
+                    id='current_page_text'
+                )
+            ],
+            style={
+                'font-size': '30px'
+            }
+        ),
+        html.Center(
+            children=[
+                html.Button(
+                    children='Back',
+                    id='back_button',
+                    style={
+                        'width': '100px'
+                    }
+                ),
+                html.Button(
+                    children='Next',
+                    id='next_button',
+                    style={
+                        'width': '100px'
+                    }
+                )
+            ],
+        )
     ],
     style=SIDEBAR_STYLE
 )
@@ -164,35 +233,126 @@ stores = html.Div(
         ),
         dcc.Store(id='config', data=current_config_str),
         dcc.Store(id='images_data', storage_type='session'),
-        dcc.Store(id='images_data_captions', storage_type='session'),
+        dcc.Store(id='current_ann_class_names', storage_type='session'),
+        dcc.Store(id='filter_by_labels', storage_type='session'),
+        dcc.Store(id='current_image_data', storage_type='session'),
+        dcc.Store(id='current_page', storage_type='session', data=1),
+        dcc.Store(id='maximum_page', storage_type='session', data=1),
     ]
 )
 
-detection_page_content = html.Div(
-    children=[],
-    id="detection_page_content",
-    style=CONTENT_STYLE
-)
-classification_page_content = html.Div(
-    children=[],
-    id="classification_page_content",
+main_page_content = html.Div(
+    children=[
+        html.Div(
+            children=[
+                html.Div(
+                    id='images_data_selected_caption_view',
+                    children=[
+                        html.P(
+                            "Choose an image:"
+                        ),
+                        dcc.Dropdown(
+                            id='images_data_selected_caption',
+                            options=[
+                                {'label': 'None', 'value': 'None'},
+                            ]
+                        )
+                    ]
+                ),
+                html.Div(
+                    id='page_content_image',
+                    children=[]
+                ),
+                html.Div(
+                    id='page_content_bboxes',
+                    children=[]
+                )
+            ],
+            style={
+                "max-width": "600px",
+            }
+        )
+    ],
+    id="main_page_content",
     style=CONTENT_STYLE
 )
 
+
 app.layout = html.Div([
-    dcc.Location(id="url"), sidebar, stores,
-    detection_page_content, classification_page_content
+    stores,
+    dcc.Location(id="url"),
+    sidebar,
+    main_page_content
 ])
 
 
-@app.callback(Output('config', 'data'),
-              Input('interval-component', 'n_intervals'))
+@app.callback(
+    Output('config', 'data'),
+    Input('interval-component', 'n_intervals')
+)
 def update_config(n):
     read_config_file()
     return current_config_str
 
 
-@app.callback(Output("images_from", "options"), [Input("config", "data")])
+@app.callback(
+    dash.dependencies.Output('average_maximum_images_per_page_output', 'children'),
+    [dash.dependencies.Input('average_maximum_images_per_page', 'value')])
+def update_dcc_slider_output(value):
+    return [
+        html.P(f"{value}")
+    ]
+
+
+@app.callback(
+    Output("current_page_text", "children"),
+    [
+        Input("current_page", "data"),
+        Input("maximum_page", "data")
+    ]
+)
+def render_current_page_text(
+    current_page,
+    maximum_page,
+):
+    return f"Page {current_page}/{maximum_page}"
+
+
+@app.callback(
+    Output("current_page", "data"),
+    [
+        Input("current_page", "data"),
+        Input("maximum_page", "data"),
+        Input("back_button", "n_clicks"),
+        Input("next_button", "n_clicks")
+    ]
+)
+def on_click_back_button(
+    current_page,
+    maximum_page,
+    back_button,
+    next_button
+):
+    changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+    if "back_button" in changed_id:
+        current_page -= 1
+    elif "next_button" in changed_id:
+        current_page += 1
+
+    if current_page > maximum_page:
+        current_page = 1
+    elif current_page < 1:
+        current_page = maximum_page
+
+    return current_page
+
+
+@app.callback(
+    Output("images_from", "options"),
+    [
+        Input("config", "data")
+    ]
+)
 def render_images_dirs(data):
     # with fsspec.open(cfg.data.ann_class_names, 'r') as src:
     #     ann_class_names = json.load(src)
@@ -205,7 +365,12 @@ def render_images_dirs(data):
     return dropdown_options
 
 
-@app.callback(Output("annotation_filepath", "options"), [Input("images_from", "value")])
+@app.callback(
+    Output("annotation_filepath", "options"),
+    [
+        Input("images_from", "value")
+    ]
+)
 def render_annotation_paths(images_from):
     # with fsspec.open(cfg.data.ann_class_names, 'r') as src:
     #     ann_class_names = json.load(src)
@@ -227,64 +392,274 @@ def render_annotation_paths(images_from):
 
 
 @app.callback(
-    Output("images_data", "data"),
-    Output("images_data_captions", "data"),
-    Input("images_from", "value"),
-    Input("annotation_filepath", "value"),
+    Output("images_data_selected_caption_view", "style"),
+    [
+        Input("view", "value"),
+    ]
+)
+def render_images_data_selected_caption(
+    view
+):
+    if view == "Detection":
+        return {}
+    else:
+        return {'display': 'none'}
+
+
+@app.callback(
+    [
+        Output("images_data", "data"),
+        Output("images_data_selected_caption", "options")
+    ],
+    [
+        Input("images_from", "value"),
+        Input("annotation_filepath", "value")
+    ]
 )
 def get_images_data(images_from: str, annotation_filepath: str):
-    images_data, images_data_captions = None, None
-    if images_from is not None and annotation_filepath is not None:
+    images_data = None
+    images_data_options = [{'label': 'None', 'value': 'None'}]
+    if images_from is not None:
         images_data, annotation_success = get_images_data_from_dir(
             images_annotation_type=cfg.data.images_annotation_type,
             images_dir=images_from,
             annotation_filepath=annotation_filepath,
         )
+        images_data = sorted(images_data, key=lambda image_data: image_data.image_name)
+        idxs_images_data = [(idx, image_data) for idx, image_data in enumerate(images_data)]
         if annotation_success:
+            idxs_images_data = sorted(
+                idxs_images_data,
+                key=lambda pair: len(pair[1].bboxes_data),
+                reverse=True
+            )
             images_data_captions = [
-                f"[{i}] {image_data.image_name} [{len(image_data.bboxes_data)} bboxes]"
-                for i, image_data in enumerate(images_data)
+                f"[{idx}] {image_data.image_name} [{len(image_data.bboxes_data)} bboxes]"
+                for idx, image_data in idxs_images_data
             ]
+        else:
+            images_data_captions = [
+                f"[{idx}] {image_data.image_name}"
+                for idx, image_data in idxs_images_data
+            ]
+        images_data_options = [
+            {
+                'label': image_data_caption,
+                'value': idx
+            } for (idx, _), image_data_caption in zip(idxs_images_data, images_data_captions)
+        ]
         images_data = [image_data.asdict() for image_data in images_data]
 
-    return images_data, images_data_captions
+    return images_data, images_data_options
+
+@app.callback(
+    [
+        Output("current_image_data", "data"),
+        Output("maximum_page", "data"),
+        Output("current_ann_class_names", "data"),
+    ],
+    [
+        Input("images_data", "data"),
+        Input("images_data_selected_caption", "value"),
+        Input("average_maximum_images_per_page", "value"),
+        Input("view", "value"),
+    ]
+)
+def update_current_image_data_and_maximum_page(
+    images_data,
+    images_data_selected_caption,
+    average_maximum_images_per_page,
+    view
+):
+    global ann_class_names
+    current_ann_class_names = ann_class_names
+
+    if images_data is None:
+        return None, 1, current_ann_class_names
+
+    if view == 'Detection':
+        if images_data_selected_caption is None:
+            return None, 1, current_ann_class_names
+        current_image_data = images_data[images_data_selected_caption]
+        image_data = ImageData.from_dict(current_image_data)
+        bboxes_data = image_data.bboxes_data
+    elif view == 'Classification':
+        current_image_data = None
+        images_data = [ImageData.from_dict(image_data) for image_data in images_data]
+        bboxes_data = [bbox_data for image_data in images_data for bbox_data in image_data.bboxes_data]
+
+    maximum_page = int(np.ceil(len(bboxes_data) / average_maximum_images_per_page))
+
+    if current_ann_class_names is None:
+        labels = [bbox_data.label for bbox_data in bboxes_data]
+        labels_counter = Counter(labels)
+        current_ann_class_names = sorted(
+            set(labels), key=lambda label: labels_counter[label]
+        )
+
+    print(f"{current_ann_class_names=}")
+
+    return current_image_data, maximum_page, current_ann_class_names
 
 
 @app.callback(
     [
-        Output("detection_page_content", "children"),
-        Output("classification_page_content", "children"),
+        Output("find_labels", "options"),
+        Output("hide_labels", "options")
     ],
     [
-        Input("images_from", "value"),
-        Input("images_data_captions", "data"),
-        Input("view", "value")
+        Input("current_ann_class_names", "data"),
     ]
 )
-def render_current_view(
-    images_data: Dict,
-    images_data_captions: List[str],
-    view: str
+def update_find_and_hide_labels(
+    current_ann_class_names
 ):
-    if images_data is None:
-        return [], []
-    if view == 'detection':
-        st.markdown("Choose an image:")
-        images_data_selected_caption = st.selectbox(
-            label='Image',
-            options=[None] + images_data_captions
+    if current_ann_class_names is None:
+        res_options = [{'label': 'None', 'value': 'None'}]
+    else:
+        res_options = [
+            {
+                'label': f'{class_name} [{label_to_description[class_name]}]',
+                'value': class_name
+            }
+            for class_name in current_ann_class_names
+        ]
+    return res_options, res_options
+
+
+@app.callback(
+    Output("filter_by_labels", "data"),
+    [
+        Input("find_labels", "value"),
+        Input("hide_labels", "value")
+    ]
+)
+def update_filter_by_labels(
+    find_labels,
+    hide_labels
+):
+    if find_labels is None or hide_labels is None:
+        return None
+
+    filter_by_labels = list(set(find_labels) - set(hide_labels))
+    return filter_by_labels
+
+
+@app.callback(
+    Output("page_content_image", "children"),
+    [
+        Input("current_image_data", "data"),
+        Input('use_labels', "value"),
+        Input('draw_label_images', "value"),
+        Input("view", "value"),
+        Input("filter_by_labels", "data"),
+    ]
+)
+def render_main_image(
+    current_image_data,
+    use_labels,
+    draw_label_images,
+    view,
+    filter_by_labels
+):
+
+    div_children_result = []
+
+    if view == "Detection":
+        if current_image_data is None:
+            return None
+        image_data = ImageData.from_dict(current_image_data)
+        image_data = get_image_data_filtered_by_labels(
+            image_data=image_data,
+            filter_by_labels=filter_by_labels
         )
-        if images_data_selected_caption is not None:
-            image_data_index = images_data_captions.index(images_data_selected_caption)
-            image_data = images_data[image_data_index]
-            st.text(images_data_selected_caption)
+        use_labels = True if 'true' in use_labels else False
+        draw_label_images = True if 'true' in draw_label_images else False
+        global label_to_base_label_image
+        draw_base_labels_with_given_label_to_base_label_image = (
+            label_to_base_label_image if draw_label_images else None
+        )
 
-            labels = [bbox_data.label for bbox_data in image_data.bboxes_data]
-        else:
-            image_data = None
-            labels = None
-    return [], []
+        image = visualize_image_data(
+            image_data=image_data,
+            use_labels=use_labels,
+            draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+        )
+        div_children_result = [
+            html.Hr(),
+            html.Img(
+                src=get_image_b64(image),
+                style={
+                    'max-width': '100%',
+                    'height': 'auto'
+                }
+            ),
+            html.Hr(),
+            html.Hr()
+        ]
 
+    return div_children_result
+
+
+@app.callback(
+    Output("page_content_bboxes", "children"),
+    [
+        Input("images_data", "data"),
+        Input("current_image_data", "data"),
+        Input("view", "value"),
+        Input("average_maximum_images_per_page", "value"),
+        Input("current_page", "data"),
+        Input("filter_by_labels", "data")
+    ]
+)
+def render_bboxes(
+    images_data,
+    current_image_data,
+    view,
+    average_maximum_images_per_page,
+    current_page,
+    filter_by_labels
+):
+    if view == 'Detection':
+        if current_image_data is None:
+            return None
+        image_data = ImageData.from_dict(current_image_data)
+        image_data = get_image_data_filtered_by_labels(
+            image_data=image_data,
+            filter_by_labels=filter_by_labels
+        )
+        return illustrate_bboxes_data(
+            true_image_data=image_data,
+            label_to_base_label_image=label_to_base_label_image,
+            label_to_description=label_to_description,
+            background_color_a=[0, 0, 0, 255],
+            true_background_color_b=[0, 255, 0, 255],
+            bbox_offset=100,
+            draw_rectangle_with_color=[0, 255, 0],
+            change_annotation=False,
+            average_maximum_images_per_page=average_maximum_images_per_page,
+            current_page=current_page
+        )
+    elif view == 'Classification':
+        images_data = [ImageData.from_dict(image_data) for image_data in images_data]
+        bboxes_data = [bbox_data for image_data in images_data for bbox_data in image_data.bboxes_data]
+        n_bboxes_data = [bboxes_data]
+        n_bboxes_data = get_n_bboxes_data_filtered_by_labels(
+            n_bboxes_data=[bboxes_data],
+            filter_by_labels=filter_by_labels
+        )
+        return illustrate_n_bboxes_data(
+            n_bboxes_data=n_bboxes_data,
+            label_to_base_label_image=label_to_base_label_image,
+            label_to_description=label_to_description,
+            background_color_a=[0, 0, 0, 255],
+            true_background_color_b=[0, 255, 0, 255],
+            bbox_offset=100,
+            draw_rectangle_with_color=[0, 255, 0],
+            average_maximum_images_per_page=average_maximum_images_per_page,
+            current_page=current_page
+        )
+    return None
 
     # if view == 'detection':
     #     st.markdown("Choose an image:")

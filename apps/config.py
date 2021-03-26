@@ -58,9 +58,9 @@ cfg.backend.models.classification = [tensorflow_cls_model, dummy_cls_model]
 
 cfg.data = CfgNode()
 cfg.data.base_labels_images = 'renders/'
-cfg.data.labels_decriptions = 'label_to_description.json'
-cfg.data.ann_class_names = 'ann_class_names.json'
-cfg.data.label_to_category = 'label_to_category.json'
+cfg.data.labels_decriptions = None  # 'label_to_description.json'
+cfg.data.ann_class_names = None  # 'ann_class_names.json'
+cfg.data.label_to_category = None  # 'label_to_category.json'
 cfg.data.images_dirs = [
     {'images_dir_with_annotation/': ['annotations_filename.json']},
     {'images_dir_without_annotation/': []}
