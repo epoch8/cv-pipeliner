@@ -424,6 +424,7 @@ def get_image_b64(
     image: np.ndarray
 ) -> str:
     mask_png_io = io.BytesIO()
+    image = np.array(image, dtype=np.uint8)
     Image.fromarray(image).save(mask_png_io, format='png')
     mask_png = mask_png_io.getvalue()
     mask_b64 = f"data:image/png;base64,{base64.b64encode(mask_png).decode('utf-8')}"

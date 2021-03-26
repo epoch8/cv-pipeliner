@@ -169,28 +169,6 @@ sidebar = html.Div(
             value=[]
         ),
         html.Hr(),
-        html.P(
-            "Classes to find"
-        ),
-        dcc.Dropdown(
-            id='find_labels',
-            options=[
-                {'label': 'None', 'value': 'None'},
-            ],
-            multi=True
-        ),
-        html.Br(),
-        html.P(
-            "Classes to hide"
-        ),
-        dcc.Dropdown(
-            id='hide_labels',
-            options=[
-                {'label': 'None', 'value': 'None'},
-            ],
-            multi=True
-        ),
-        html.Hr(),
         html.Center(
             children=[
                 html.P(
@@ -256,8 +234,30 @@ main_page_content = html.Div(
                             options=[
                                 {'label': 'None', 'value': 'None'},
                             ]
-                        )
+                        ),
                     ]
+                ),
+                html.Br(),
+                html.P(
+                    "Classes to find"
+                ),
+                dcc.Dropdown(
+                    id='find_labels',
+                    options=[
+                        {'label': 'None', 'value': 'None'},
+                    ],
+                    multi=True
+                ),
+                html.Br(),
+                html.P(
+                    "Classes to hide"
+                ),
+                dcc.Dropdown(
+                    id='hide_labels',
+                    options=[
+                        {'label': 'None', 'value': 'None'},
+                    ],
+                    multi=True
                 ),
                 html.Div(
                     id='page_content_image',
@@ -372,8 +372,6 @@ def render_images_dirs(data):
     ]
 )
 def render_annotation_paths(images_from):
-    # with fsspec.open(cfg.data.ann_class_names, 'r') as src:
-    #     ann_class_names = json.load(src)
     if images_from is not None:
         images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
         image_dir_to_annotation_filepaths = {
@@ -463,13 +461,17 @@ def get_images_data(images_from: str, annotation_filepath: str):
         Input("images_data_selected_caption", "value"),
         Input("average_maximum_images_per_page", "value"),
         Input("view", "value"),
+        Input("find_labels", "value"),
+        Input("hide_labels", "value")
     ]
 )
 def update_current_image_data_and_maximum_page(
     images_data,
     images_data_selected_caption,
     average_maximum_images_per_page,
-    view
+    view,
+    find_labels,
+    hide_labels
 ):
     global ann_class_names
     current_ann_class_names = ann_class_names
@@ -496,8 +498,6 @@ def update_current_image_data_and_maximum_page(
         current_ann_class_names = sorted(
             set(labels), key=lambda label: labels_counter[label]
         )
-
-    print(f"{current_ann_class_names=}")
 
     return current_image_data, maximum_page, current_ann_class_names
 
@@ -526,25 +526,6 @@ def update_find_and_hide_labels(
         ]
     return res_options, res_options
 
-
-@app.callback(
-    Output("filter_by_labels", "data"),
-    [
-        Input("find_labels", "value"),
-        Input("hide_labels", "value")
-    ]
-)
-def update_filter_by_labels(
-    find_labels,
-    hide_labels
-):
-    if find_labels is None or hide_labels is None:
-        return None
-
-    filter_by_labels = list(set(find_labels) - set(hide_labels))
-    return filter_by_labels
-
-
 @app.callback(
     Output("page_content_image", "children"),
     [
@@ -552,7 +533,8 @@ def update_filter_by_labels(
         Input('use_labels', "value"),
         Input('draw_label_images', "value"),
         Input("view", "value"),
-        Input("filter_by_labels", "data"),
+        Input("find_labels", "value"),
+        Input("hide_labels", "value")
     ]
 )
 def render_main_image(
@@ -560,7 +542,8 @@ def render_main_image(
     use_labels,
     draw_label_images,
     view,
-    filter_by_labels
+    find_labels,
+    hide_labels
 ):
 
     div_children_result = []
@@ -571,7 +554,13 @@ def render_main_image(
         image_data = ImageData.from_dict(current_image_data)
         image_data = get_image_data_filtered_by_labels(
             image_data=image_data,
-            filter_by_labels=filter_by_labels
+            filter_by_labels=find_labels,
+            include=True
+        )
+        image_data = get_image_data_filtered_by_labels(
+            image_data=image_data,
+            filter_by_labels=hide_labels,
+            include=False
         )
         use_labels = True if 'true' in use_labels else False
         draw_label_images = True if 'true' in draw_label_images else False
@@ -609,7 +598,8 @@ def render_main_image(
         Input("view", "value"),
         Input("average_maximum_images_per_page", "value"),
         Input("current_page", "data"),
-        Input("filter_by_labels", "data")
+        Input("find_labels", "value"),
+        Input("hide_labels", "value")
     ]
 )
 def render_bboxes(
@@ -618,7 +608,8 @@ def render_bboxes(
     view,
     average_maximum_images_per_page,
     current_page,
-    filter_by_labels
+    find_labels,
+    hide_labels
 ):
     if view == 'Detection':
         if current_image_data is None:
@@ -626,7 +617,13 @@ def render_bboxes(
         image_data = ImageData.from_dict(current_image_data)
         image_data = get_image_data_filtered_by_labels(
             image_data=image_data,
-            filter_by_labels=filter_by_labels
+            filter_by_labels=find_labels,
+            include=True
+        )
+        image_data = get_image_data_filtered_by_labels(
+            image_data=image_data,
+            filter_by_labels=hide_labels,
+            include=False
         )
         return illustrate_bboxes_data(
             true_image_data=image_data,
@@ -645,8 +642,14 @@ def render_bboxes(
         bboxes_data = [bbox_data for image_data in images_data for bbox_data in image_data.bboxes_data]
         n_bboxes_data = [bboxes_data]
         n_bboxes_data = get_n_bboxes_data_filtered_by_labels(
-            n_bboxes_data=[bboxes_data],
-            filter_by_labels=filter_by_labels
+            n_bboxes_data=n_bboxes_data,
+            include=True,
+            filter_by_labels=find_labels
+        )
+        n_bboxes_data = get_n_bboxes_data_filtered_by_labels(
+            n_bboxes_data=n_bboxes_data,
+            include=False,
+            filter_by_labels=hide_labels
         )
         return illustrate_n_bboxes_data(
             n_bboxes_data=n_bboxes_data,
@@ -660,108 +663,6 @@ def render_bboxes(
             current_page=current_page
         )
     return None
-
-    # if view == 'detection':
-    #     st.markdown("Choose an image:")
-    #     images_data_selected_caption = st.selectbox(
-    #         label='Image',
-    #         options=[None] + images_data_captions
-    #     )
-    #     if images_data_selected_caption is not None:
-    #         image_data_index = images_data_captions.index(images_data_selected_caption)
-    #         image_data = images_data[image_data_index]
-    #         st.text(images_data_selected_caption)
-
-    #         labels = [bbox_data.label for bbox_data in image_data.bboxes_data]
-    #     else:
-    #         image_data = None
-    #         labels = None
-
-    # elif view == 'classification':
-    #     bboxes_data = [bbox_data for image_data in images_data for bbox_data in image_data.bboxes_data]
-    #     labels = [bbox_data.label for bbox_data in bboxes_data]
-    # else:
-    #     image_data = None
-    #     bboxes_data = None
-
-    # st.sidebar.markdown('---')
-    # if not annotation_mode:
-    #     average_maximum_images_per_page = st.sidebar.slider(
-    #         label='Maximum images per page',
-    #         min_value=1,
-    #         max_value=100,
-    #         value=50
-    #     )
-    # else:
-    #     average_maximum_images_per_page = 1
-
-    # if view == 'detection':
-    #     st.sidebar.title("Visualization")
-    #     use_labels = st.sidebar.checkbox(
-    #         'Write labels',
-    #         value=True
-    #     )
-    #     draw_label_images = st.sidebar.checkbox(
-    #         'Draw base labels images',
-    #         value=False
-    #     )
-    #     draw_base_labels_with_given_label_to_base_label_image = (
-    #         label_to_base_label_image if draw_label_images else None
-    #     )
-
-    # class_names_counter = Counter(labels) if labels is not None else {}
-    # class_names = sorted(
-    #     ann_class_names,
-    #     key=lambda x: int(re.sub('\D', '', x)) if re.sub('\D', '', x).isdigit() else 0
-    # )
-
-    # classes_col1, classes_col2 = st.beta_columns(2)
-    # with classes_col1:
-    #     label_to_description['non_default_class'] = "Not from ann_class_names.json"
-    #     format_func_filter = lambda class_name: (
-    #         f"{class_name} [{label_to_description[class_name]}]"
-    #     )
-    #     filter_by_labels = st.multiselect(
-    #         label="Classes to find",
-    #         options=['non_default_class'] + class_names,
-    #         default=[],
-    #         format_func=format_func_filter
-    #     )
-    #     st.markdown(f'Classes chosen: {", ".join([format_func_filter(class_name) for class_name in filter_by_labels])}')
-    # with classes_col2:
-    #     sorted_class_names = sorted(
-    #         class_names, key=lambda class_name: class_names_counter.get(class_name, 0), reverse=True
-    #     )
-    #     show_df = st.checkbox(
-    #         label='Show count df'
-    #     )
-    #     if show_df:
-    #         df = pd.DataFrame({
-    #             'class_name': sorted_class_names,
-    #             'count': list(map(lambda class_name: class_names_counter.get(class_name, 0), sorted_class_names))
-    #         })
-    #         st.dataframe(data=df, width=1000)
-    # filter_by_labels = [
-    #     chosen_class_name
-    #     for chosen_class_name in filter_by_labels
-    # ]
-    # if 'non_default_class' in filter_by_labels and labels is not None:
-    #     filter_by_labels = sorted(set(labels) - set(ann_class_names))
-    #     if len(filter_by_labels) == 0:
-    #         filter_by_labels = ['non_default_class']
-    # categories_by_class_names = [label_to_category[class_name] for class_name in class_names]
-    # categories_counter = Counter(categories_by_class_names)
-    # categories = sorted([
-    #     category
-    #     for category in set(label_to_category.values())
-    #     if categories_counter[category] > 0
-    # ])
-
-
-
-# @app.callback(Output("dd-output-container", "options"), [Input("demo-dropdown", "value")])
-# def render_page_content(value: str):
-#     return f'You have selected "{value}"'
 
 
 if __name__ == "__main__":
