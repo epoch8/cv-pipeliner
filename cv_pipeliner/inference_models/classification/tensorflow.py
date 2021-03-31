@@ -119,7 +119,6 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             TensorFlow_ClassificationModelSpec_TFServing
         ]
     ):
-        assert isinstance(model_spec, TensorFlow_ClassificationModelSpec)
         super().__init__(model_spec)
 
         if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
@@ -133,6 +132,10 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self._raw_predict = self._raw_predict_tensorflow
         elif isinstance(model_spec, TensorFlow_ClassificationModelSpec_TFServing):
             self._raw_predict = self._raw_predict_kfserving
+        else:
+            raise ValueError(
+                f"Tensorflow_ClassificationModel got unknown ClassificationModelSpec: {type(model_spec)}"
+            )
 
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
             self._preprocess_input = self._get_preprocess_input_from_script_file(

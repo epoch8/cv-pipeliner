@@ -176,7 +176,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             self._load_object_detection_api_tflite(model_spec)
             self._raw_predict_single_image = self._raw_predict_single_image_tflite
         elif isinstance(model_spec, ObjectDetectionAPI_KFServing):
-            self.input_dtype = np.string
+            self.input_dtype = tf.string
             self._raw_predict_single_image = self._raw_predict_single_image_kfserving
         else:
             raise ValueError(
