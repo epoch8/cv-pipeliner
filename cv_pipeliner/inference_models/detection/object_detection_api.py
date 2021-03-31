@@ -1,5 +1,6 @@
 import json
 import tempfile
+import base64
 from dataclasses import dataclass
 from typing import List, Tuple, Union, Type, Literal
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 import tensorflow as tf
 import numpy as np
 import fsspec
+import requests
 from pathy import Pathy
 
 from cv_pipeliner.inference_models.detection.core import (
@@ -39,13 +41,24 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
         from cv_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
         return ObjectDetectionAPI_DetectionModel
 
-
 @dataclass
 class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     model_path: Union[str, Path]
     bboxes_output_index: int
     scores_output_index: int
     classes_output_index: int = None
+    class_names: List[str] = None
+
+    @property
+    def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
+        from cv_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
+        return ObjectDetectionAPI_DetectionModel
+
+
+@dataclass
+class ObjectDetectionAPI_KFServing(DetectionModelSpec):
+    url: str
+    input_name: str
     class_names: List[str] = None
 
     @property
@@ -132,7 +145,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         model_spec: Union[
             ObjectDetectionAPI_ModelSpec,
             ObjectDetectionAPI_pb_ModelSpec,
-            ObjectDetectionAPI_TFLite_ModelSpec
+            ObjectDetectionAPI_TFLite_ModelSpec,
+            ObjectDetectionAPI_KFServing
         ],
     ):
         super().__init__(model_spec)
@@ -161,6 +175,9 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         elif isinstance(model_spec, ObjectDetectionAPI_TFLite_ModelSpec):
             self._load_object_detection_api_tflite(model_spec)
             self._raw_predict_single_image = self._raw_predict_single_image_tflite
+        elif isinstance(model_spec, ObjectDetectionAPI_KFServing):
+            self.input_dtype = np.string
+            self._raw_predict_single_image = self._raw_predict_single_image_kfserving
         else:
             raise ValueError(
                 f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}"
@@ -176,7 +193,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             and
             self.model_spec.input_type == "encoded_image_string_tensor"
         ):
-            input_tensor = tf.io.encode_jpeg(input_tensor)
+            input_tensor = tf.io.encode_jpeg(input_tensor, quality=100)
         input_tensor = input_tensor[None, ...]
         detection_output_dict = self.model(input_tensor)
 
@@ -204,6 +221,39 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         raw_bboxes = raw_bboxes[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
         raw_scores = np.array(self.model.get_tensor(self.scores_index))[0]
         raw_classes = np.array(self.model.get_tensor(self.scores_index))[0]
+
+        return raw_bboxes, raw_scores, raw_classes
+
+    def _raw_predict_single_image_kfserving(
+        self,
+        image: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        input_tensor = tf.io.encode_jpeg(image, quality=100)
+        input_tensor_b64 = base64.b64encode(input_tensor.numpy()).decode('utf-8')
+        response = requests.post(
+            url=self.model_spec.url,
+            data=json.dumps({
+                'inputs': {
+                    self.model_spec.input_name: {
+                        'b64': input_tensor_b64
+                    }
+                }
+            })
+        )
+        detection_output_dict = json.loads(response.content)
+        if not response.ok:
+            if 'error' in detection_output_dict:
+                error = detection_output_dict['error']
+            else:
+                error = response.response
+            raise ValueError(error)
+        detection_output_dict = detection_output_dict['outputs']
+        raw_bboxes = detection_output_dict["detection_boxes"][0]  # (ymin, xmin, ymax, xmax)
+        raw_bboxes = np.array(raw_bboxes)[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
+        raw_scores = detection_output_dict["detection_scores"][0]
+        raw_scores = np.array(raw_scores)
+        raw_classes = detection_output_dict["detection_classes"][0]
+        raw_classes = np.array(raw_classes)
 
         return raw_bboxes, raw_scores, raw_classes
 
