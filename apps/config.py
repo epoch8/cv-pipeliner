@@ -19,6 +19,7 @@ object_detection_api.config_path = 'path1'
 object_detection_api.checkpoint_path = 'path2'
 object_detection_api.score_threshold = 0.3
 object_detection_api.model_index = 'detection_model1'
+object_detection_api.class_names = None
 
 object_detection_api_pb = CfgNode()
 object_detection_api_pb.description = 'Object Detection API model (from saved_model.pb)'
@@ -26,6 +27,7 @@ object_detection_api_pb.saved_model_dir = 'saved_model_dir/'
 object_detection_api_pb.input_type = 'float_image_tensor'  # "image_tensor", "float_image_tensor", "encoded_image_string_tensor"
 object_detection_api_pb.score_threshold = 0.3
 object_detection_api_pb.model_index = 'detection_model2'
+object_detection_api.class_names = None
 
 object_detection_api_tflite = CfgNode()
 object_detection_api_tflite.description = 'Object Detection API model (from TFLite)'
@@ -34,11 +36,19 @@ object_detection_api_tflite.bboxes_output_index = 0
 object_detection_api_tflite.scores_output_index = 1
 object_detection_api_tflite.score_threshold = 0.3
 object_detection_api_tflite.model_index = 'detection_model3'
+object_detection_api_tflite.class_names = None
+
+object_detection_api_kfserving = CfgNode()
+object_detection_api_kfserving.description = 'Object Detection API model (from KFServing)'
+object_detection_api_kfserving.url = 'url:predict'
+object_detection_api_kfserving.input_name = 'input_name'
+object_detection_api_kfserving.class_names = None
 
 cfg.backend.models.detection = [
     object_detection_api,
     object_detection_api_pb,
-    object_detection_api_tflite
+    object_detection_api_tflite,
+    object_detection_api_kfserving
 ]
 # Classification models: 'TensorFlow'
 tensorflow_cls_model = CfgNode()

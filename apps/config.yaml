@@ -10,6 +10,7 @@ backend:
           checkpoint_path: 'path2'
           score_threshold: 0.3
           model_index: 'detection_model1'
+          class_names: null
 
       - object_detection_api_pb:   # load from Object Detection API saved_model.pb
           description: 'Object Detection API model (from saved_model.pb)'
@@ -17,6 +18,7 @@ backend:
           input_type: 'float_image_tensor'  # 'image_tensor', 'float_image_tensor', 'encoded_image_string_tensor'
           score_threshold: 0.3
           model_index: 'detection_model2'
+          class_names: null
 
       - object_detection_api_tflite:  # load from Object Detection API TFLite dynamic graph
           description: 'Object Detection API model (from TFLite)'
@@ -25,16 +27,31 @@ backend:
           scores_output_index: 1
           score_threshold: 0.3
           model_index: 'detection_model3'
+          class_names: null
+
+      - object_detection_api_kfserving:  # load from Object Detection API (KFServing)
+          description: 'Object Detection API model (from url)'
+          url: 'url:predict'
+          input_name: 'input_name'
+          class_names: null
 
     classification:
       - tensorflow_cls_model:
           description: 'Classficiation Tensorflow Keras Model'
           input_size: (224, 224)
-          preprocess_input_script_file: 'preprocess_input/preprocess_input.py'  # must have function preprocess_input(input: List[np.ndarray]) -> np.ndarray
+          preprocess_input_script_file: 'preprocess_input.py'  # must have function preprocess_input(input: List[np.ndarray]) -> np.ndarray
           class_names: 'class_names.json'
           model_path: 'path5'
           saved_model_type: 'tf.keras'  # 'tf.saved_model', 'tf.keras', 'tflite'
           model_index: 'classification_model1'
+
+      - tensorflow_cls_model_kfserving:  # load from Object Detection API (KFServing)
+          description: 'Classficiation Tensorflow Keras Model (from url)'
+          url: 'url:predict'
+          input_name: 'input_name'
+          input_size: (224, 224)
+          preprocess_input_script_file: 'preprocess_input.py'  # must have function preprocess_input(input: List[np.ndarray]) -> np.ndarray
+          class_names: 'class_names.json'
 
       - dummy_cls_model:
           description: 'Classficiation Tensorflow Keras Dummy Model'
