@@ -537,6 +537,7 @@ def update_find_and_hide_labels(
         ]
     return res_options, res_options
 
+
 @app.callback(
     Output("page_content_image", "children"),
     [
@@ -643,7 +644,6 @@ def render_bboxes(
             true_background_color_b=[0, 255, 0, 255],
             bbox_offset=100,
             draw_rectangle_with_color=[0, 255, 0],
-            change_annotation=False,
             average_maximum_images_per_page=average_maximum_images_per_page,
             current_page=current_page
         )
