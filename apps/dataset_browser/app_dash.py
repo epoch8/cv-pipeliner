@@ -211,21 +211,6 @@ main_page_content = html.Div(
     children=[
         html.Div(
             children=[
-                html.Div(
-                    id='images_data_selected_caption_view',
-                    children=[
-                        html.P(
-                            "Choose an image:"
-                        ),
-                        dcc.Dropdown(
-                            id='images_data_selected_caption',
-                            options=[
-                                {'label': 'None', 'value': 'None'},
-                            ]
-                        ),
-                    ]
-                ),
-                html.Br(),
                 html.P(
                     "Classes to find"
                 ),
@@ -247,6 +232,22 @@ main_page_content = html.Div(
                     ],
                     multi=True
                 ),
+                html.Br(),
+                html.Div(
+                    id='images_data_selected_caption_view',
+                    children=[
+                        html.P(
+                            "Choose an image:"
+                        ),
+                        dcc.Dropdown(
+                            id='images_data_selected_caption',
+                            options=[
+                                {'label': 'None', 'value': 'None'},
+                            ]
+                        ),
+                    ]
+                ),
+                html.Br(),
                 html.Div(
                     id='page_content_image',
                     children=[]
@@ -500,7 +501,7 @@ def update_current_image_data_and_maximum_page(
         )
         bboxes_data = n_bboxes_data[0]
 
-    maximum_page = int(np.ceil(len(bboxes_data) / average_maximum_images_per_page))
+    maximum_page = max(1, int(np.ceil(len(bboxes_data) / average_maximum_images_per_page)))
 
     if current_ann_class_names is None:
         labels = [bbox_data.label for bbox_data in bboxes_data]
