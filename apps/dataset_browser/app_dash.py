@@ -20,7 +20,7 @@ from cv_pipeliner.utils.dash.data import get_images_data_from_dir
 #     illustrate_bboxes_data, illustrate_n_bboxes_data, fetch_page_session
 # )
 from apps.config import get_cfg_defaults, merge_cfg_from_string
-
+from flask import Flask
 import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
@@ -36,7 +36,8 @@ label_to_base_label_image, label_to_description, label_to_category = None, None,
 ann_class_names = None
 
 
-app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
+server = Flask(__name__)
+app = dash.Dash(server=server, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
 def read_config_file() -> bool:
@@ -675,6 +676,15 @@ def render_bboxes(
     return None
 
 
+from traceback_with_variables import iter_tb_lines, ColorSchemes
+@server.errorhandler(Exception)
+def handle_exception(e):
+    for line in iter_tb_lines(e=e, color_scheme=ColorSchemes.synthwave):
+        app.logger.error(line)
+
+    return 'Bad request', 500
+
+
 if __name__ == "__main__":
     read_config_file()
-    app.run_server(debug=True)
+    app.run_server()

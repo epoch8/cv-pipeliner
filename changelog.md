@@ -1,3 +1,8 @@
+# 0.6.0 (2021-04-01)
+
+- Add Mean Expected Steps metrics
+- Major apps code refactor (migrate from Streamlit to Dash)
+
 # 0.5.1 (2021-03-12)
 
 - Add presicion@K classification metrics

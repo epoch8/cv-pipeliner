@@ -1,54 +1,33 @@
 version: '3'
 
 services:
-  cv_pipeliner_backend:
-    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.5.1
-    expose: 
-      - 5000
-    ports:
-      - "5000:5000"
-    environment:
-      CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
-      FLASK_APP: apps/backend/app.py
-    volumes:
-      - ./configs/:/configs/
-      - ~/.config/gcloud:/root/.config/gcloud
-
-    command: ["flask", "run", "--host", "0.0.0.0", "--port", "5000", "--without-threads"]
-
-  cv_pipeliner_frontend:
-    image: eu.gcr.io/e8-gke/cv-pipeliner-frontend:0.5.1
-    expose: 
-      - 5001
-    ports:
-      - "5001:80"
-
   cv_pipeliner_app:
-    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.5.1
-    depends_on:
-      - cv_pipeliner_backend
-      - cv_pipeliner_frontend
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.6.0
     container_name: "cv_pipeliner_app"
     ports:
-      - "80:80"
+      - "8050:8050"
     environment:
-      CV_PIPELINER_BACKEND_URL: http://cv_pipeliner_backend:5000/
-      CV_PIPELINER_FRONTEND_URL: http://localhost:5001/
       CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
+      HOST: 0.0.0.0
+      PORT: 8050
+      FLASK_ENV: development
     volumes:
       - ./configs/:/configs/
       - ~/.config/gcloud:/root/.config/gcloud
 
-    command: ["streamlit", "run", "apps/app/app.py", "--server.port", "80"]
+    command: ["python", "apps/app/app_dash.py"]
 
   cv_pipeliner_dataset_browser:
-    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.5.1
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.6.0
     container_name: "dataset_browser"
     ports:
-      - "81:81"
+      - "8051:8051"
     environment:
       CV_PIPELINER_APP_CONFIG: /configs/my_config_brickit_gcs.yaml
+      HOST: 0.0.0.0
+      PORT: 8051
+      FLASK_ENV: development
     volumes:
       - ./configs/:/configs/
       - ~/.config/gcloud:/root/.config/gcloud
-    command: ["streamlit", "run", "apps/dataset_browser/app.py", "--server.port", "81"]
+    command: ["python", "apps/dataset_browser/app_dash.py"]

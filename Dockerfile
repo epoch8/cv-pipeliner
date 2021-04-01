@@ -22,28 +22,29 @@ RUN wget \
 RUN conda update -n base -c defaults conda
 RUN conda install -c anaconda python=3.8
 
-# Install Object Detection API
-RUN git clone https://github.com/tensorflow/models.git
-RUN cd models/research/ && \
-    protoc object_detection/protos/*.proto --python_out=. && \
-    cp object_detection/packages/tf2/setup.py . && \
-    pip3 install --use-feature=2020-resolver . && \
-    cd ../.. && rm -rf models/
+# # Install Object Detection API
+# RUN git clone https://github.com/tensorflow/models.git
+# RUN cd models/research/ && \
+#     protoc object_detection/protos/*.proto --python_out=. && \
+#     cp object_detection/packages/tf2/setup.py . && \
+#     pip3 install --use-feature=2020-resolver . && \
+#     cd ../.. && rm -rf models/
 
 # Install Arial fonts
-RUN apt-get install -y fontconfig
-RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections
-RUN apt-get install -y ttf-mscorefonts-installer
-RUN fc-cache
-
-# Fix "Illegal instruction (core dumped)" (on our cluster)
-RUN pip install tensorflow==2.3.1 tensorflow-gpu==2.3.1
+# RUN apt-get install -y fontconfig
+# RUN echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | debconf-set-selections
+# RUN apt-get install --reinstall ttf-mscorefonts-installer -y
+# RUN fc-cache
 
 # Install cv_pipeliner
 ADD requirements.txt /app/requirements.txt
 RUN pip3 install -r /app/requirements.txt
 RUN pip3 install label-studio>=0.7.6
 RUN python3 -c 'import matplotlib.font_manager'
+
+RUN pip3 install tensorflow tensorflow-gpu
+RUN pip3 install dash
+RUN pip3 install dash-bootstrap-components
 
 ADD cv_pipeliner /app/cv_pipeliner/
 ADD setup.py /app/setup.py

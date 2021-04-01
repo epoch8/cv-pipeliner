@@ -8,6 +8,7 @@ from cv_pipeliner.utils.models_definitions import PipelineDefinition
 from dacite import from_dict
 import fsspec
 from typing import Dict, List
+from flask import Flask
 from collections import Counter
 
 import numpy as np
@@ -44,8 +45,8 @@ detection_models_definitions, classification_models_definitions = [], []
 minimum_iou = None
 top_n = 20
 
-
-app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
+server = Flask(__name__)
+app = dash.Dash(server=server, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
 def read_config_file() -> bool:
@@ -874,6 +875,15 @@ def render_bboxes(
         return None
 
 
+from traceback_with_variables import iter_tb_lines, ColorSchemes
+@server.errorhandler(Exception)
+def handle_exception(e):
+    for line in iter_tb_lines(e=e, color_scheme=ColorSchemes.synthwave):
+        app.logger.error(line)
+
+    return 'Bad request', 500
+
+
 if __name__ == "__main__":
     read_config_file()
-    app.run_server(debug=True)
+    app.run_server()
