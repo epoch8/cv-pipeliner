@@ -66,13 +66,23 @@ def rotate_point(
     return xnew, ynew
 
 
+def is_base64(s: str):
+    try:
+        return base64.b64encode(base64.b64decode(s)).decode() == s
+    except Exception as e:
+        return False
+
+
 def open_image(
     image: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO],
     open_as_rgb: bool = False
 ) -> np.ndarray:
     if isinstance(image, str) or isinstance(image, Path):
-        with fsspec.open(str(image), 'rb') as src:
-            image_bytes = src.read()
+        if is_base64(str(image)):
+            image_bytes = base64.b64decode(str(image))
+        else:
+            with fsspec.open(str(image), 'rb') as src:
+                image_bytes = src.read()
     elif isinstance(image, fsspec.core.OpenFile):
         with image as src:
             image_bytes = src.read()
@@ -421,11 +431,12 @@ def draw_n_base_labels_images(
 
 
 def get_image_b64(
-    image: np.ndarray
+    image: np.ndarray,
+    format: str
 ) -> str:
-    mask_png_io = io.BytesIO()
+    image_io = io.BytesIO()
     image = np.array(image, dtype=np.uint8)
-    Image.fromarray(image).save(mask_png_io, format='png')
-    mask_png = mask_png_io.getvalue()
-    mask_b64 = f"data:image/png;base64,{base64.b64encode(mask_png).decode('utf-8')}"
-    return mask_b64
+    Image.fromarray(image).save(image_io, format=format)
+    image_format = image_io.getvalue()
+    image_format_b64 = base64.b64encode(image_format).decode('utf-8')
+    return image_format_b64

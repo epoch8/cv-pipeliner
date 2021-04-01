@@ -22,7 +22,7 @@ from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
     config_path: Union[str, Path]
     checkpoint_path: Union[str, Path]
-    class_names: List[str] = None
+    class_names: Union[None, List[str]] = None
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -34,7 +34,7 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
 class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
     saved_model_dir: Union[str, Path]
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
-    class_names: List[str] = None
+    class_names: Union[None, List[str]] = None
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -46,8 +46,8 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     model_path: Union[str, Path]
     bboxes_output_index: int
     scores_output_index: int
-    classes_output_index: int = None
-    class_names: List[str] = None
+    classes_output_index: Union[None, int] = None
+    class_names: Union[None, List[str]] = None
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -59,7 +59,7 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
 class ObjectDetectionAPI_KFServing(DetectionModelSpec):
     url: str
     input_name: str
-    class_names: List[str] = None
+    class_names: Union[None, List[str]] = None
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:

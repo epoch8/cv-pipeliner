@@ -135,10 +135,7 @@ def illustrate_bboxes_data(
     max_images_size: int = 400,
     bbox_offset: int = 0,
     draw_rectangle_with_color: Tuple[int, int, int] = None,
-    change_annotation: Callable[[BboxData], None] = None,
     show_top_n: bool = False,
-    fast_annotation_mode: bool = False,
-    app: dash.Dash = None
 ):
     div_children_result = []
 
@@ -146,6 +143,8 @@ def illustrate_bboxes_data(
 
     if pred_image_data is None:
         bboxes_data = true_image_data.bboxes_data
+        for idx, bbox_data in enumerate(bboxes_data):
+            bbox_data.additional_info['idx'] = idx + 1
     else:
         assert minimum_iou is not None
         assert pred_background_color_b is not None
@@ -158,16 +157,19 @@ def illustrate_bboxes_data(
             bbox_data_matching for bbox_data_matching in image_data_matching.bboxes_data_matchings
             if bbox_data_matching.pred_bbox_data is not None
         ]
+        for idx, bbox_data in enumerate(bboxes_data):
+            bbox_data.pred_bbox_data.additional_info['idx'] = idx + 1
 
     if len(bboxes_data) == 0:
         return html.Div(children=div_children_result)
 
     if pred_image_data is not None:
+        total_bboxes = len(pred_image_data.bboxes_data)
         div_children_result.extend([
             html.Center(
-                cildren=[
+                children=[
                     dcc.Markdown(
-                        f"Found **{len(pred_image_data.bboxes_data)}** bboxes!",
+                        f"Found **{total_bboxes}** bboxes!",
                         style={
                             'font-size': '16px'
                         }
@@ -188,11 +190,12 @@ def illustrate_bboxes_data(
             ),
         ])
     else:
+        total_bboxes = len(true_image_data.bboxes_data)
         div_children_result.append(
             html.Center(
                 children=[
                     dcc.Markdown(
-                        f"Found **{len(true_image_data.bboxes_data)}** bboxes!",
+                        f"Found **{total_bboxes}** bboxes!",
                         style={
                             'font-size': '16px'
                         }
@@ -233,7 +236,7 @@ def illustrate_bboxes_data(
     for cropped_image_and_render, label, bbox_data in zip(cropped_images_and_renders, labels, page_bboxes_data):
         div_children_result.append(
             html.Img(
-                src=get_image_b64(cropped_image_and_render),
+                src=f"data:image/png;base64,{get_image_b64(cropped_image_and_render, format='png')}",
                 style={
                     'max-width': '100%',
                     'height': 'auto'
@@ -241,13 +244,11 @@ def illustrate_bboxes_data(
             )
         )
         if isinstance(bbox_data, BboxData):
-            # if fast_annotation_mode:
-            #     col1, col2 = st.beta_columns(2)
-            # else:
-            #     col1, _ = st.beta_columns([1000, 1])
-            # with col1:
             div_children_result.extend([
                 html.Br(),
+                dcc.Markdown(
+                    f"Bbox **{bbox_data.additional_info['idx']}/{total_bboxes}**"
+                ),
                 dcc.Markdown(
                     f"**'{label}'**",
                     style={
@@ -267,28 +268,21 @@ def illustrate_bboxes_data(
                 )
             if show_top_n:
                 div_children_result.extend([
-                    dcc.Markdown(f'Top-n labels: {bbox_data.labels_top_n}'),
-                    dcc.Markdown(f'Top-n scores: {bbox_data.classification_scores_top_n}')
+                    dcc.Markdown(f'Top-n labels: {tuple(bbox_data.labels_top_n)}'),
+                    dcc.Markdown(f'Top-n scores: {tuple(bbox_data.classification_scores_top_n)}')
                 ])
-            # if fast_annotation_mode:
-            #     with col2:
-            #         fast_annotation = st.radio(
-            #             label='Annotate:',
-            #             options=[None, 'OK', 'Detection error', 'Classification error'],
-            #             index=0,
-            #             key=f"{(bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)}"
-            #         )
-            #     page_session = fetch_image_data(image_data=true_image_data)
-            #     page_session.bboxes_data_fast_annotations[
-            #         (bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)
-            #     ] = fast_annotation
 
         elif isinstance(bbox_data, BboxDataMatching):
             true_bbox_data = bbox_data.true_bbox_data
             pred_bbox_data = bbox_data.pred_bbox_data
+            div_children_result.append(
+                dcc.Markdown(
+                    f"BboxDataMatching **{pred_bbox_data.additional_info['idx']}/{total_bboxes}**"
+                )
+            )
             if pred_bbox_data is not None:
                 div_children_result.extend([
-                    dcc.Markdown(f"Prediction: '{pred_bbox_data.label}'"),
+                    dcc.Markdown(f"**Prediction**: **'{pred_bbox_data.label}'**"),
                     dcc.Markdown(label_to_description[pred_bbox_data.label]),
                     dcc.Markdown(
                         f'Bbox: {(pred_bbox_data.xmin, pred_bbox_data.ymin, pred_bbox_data.xmax, pred_bbox_data.ymax)}'
@@ -304,37 +298,34 @@ def illustrate_bboxes_data(
                     )
                 if show_top_n:
                     div_children_result.extend([
-                        dcc.Markdown(f'Top-n labels: {pred_bbox_data.labels_top_n}'),
-                        dcc.Markdown(f'Top-n scores: {pred_bbox_data.classification_scores_top_n}')
+                        dcc.Markdown(f'Top-n labels: {tuple(pred_bbox_data.labels_top_n)}'),
+                        dcc.Markdown(f'Top-n scores: {tuple(pred_bbox_data.classification_scores_top_n)}')
                     ])
                 div_children_result.append(
                     html.Hr()
                 )
             if true_bbox_data is not None:
                 div_children_result.extend([
-                    dcc.Markdown(f"Ground Truth: '{true_bbox_data.label}'"),
+                    dcc.Markdown(f"**Ground Truth**: **'{true_bbox_data.label}'**"),
                     dcc.Markdown(label_to_description[true_bbox_data.label]),
                     dcc.Markdown(
                         f'Bbox: {(true_bbox_data.xmin, true_bbox_data.ymin, true_bbox_data.xmax, true_bbox_data.ymax)}'
-                    ),
-                    html.Hr(),
-                    dcc.Markdown(f'Top-n labels: {pred_bbox_data.labels_top_n}'),
-                    dcc.Markdown(f'Top-n scores: {pred_bbox_data.classification_scores_top_n}')
+                    )
                 ])
+                if show_top_n:
+                    div_children_result.extend([
+                        dcc.Markdown(f'Top-n labels: {tuple(pred_bbox_data.labels_top_n)}'),
+                        dcc.Markdown(f'Top-n scores: {tuple(pred_bbox_data.classification_scores_top_n)}')
+                    ])
+                div_children_result.append(
+                    html.Hr()
+                )
             div_children_result.append(
                 dcc.Markdown(f'Pipeline error type: {bbox_data.get_pipeline_error_type()}')
             )
-        # if change_annotation is not None:
-        #     change_annotation(
-        #         bbox_data=bbox_data,
-        #         max_page=n_split
-        #     )
         div_children_result.append(
             html.Hr()
         )
-    # elif mode == "many":
-    #     st.image(image=cropped_images_and_renders, caption=labels)
-    #     st.markdown('----')
 
     return html.Div(children=div_children_result)
 
@@ -350,9 +341,11 @@ def illustrate_n_bboxes_data(
     max_images_size: int = 400,
     bbox_offset: int = 0,
     draw_rectangle_with_color: Tuple[int, int, int] = None,
-    change_annotation: Callable[[BboxData], None] = None,
 ):
     bboxes_data = [bbox_data for bboxes_data in n_bboxes_data for bbox_data in bboxes_data]
+    for idx, bbox_data in enumerate(bboxes_data):
+        bbox_data.additional_info['idx'] = idx + 1
+    total_bboxes = len(bboxes_data)
     div_children_result = []
 
     if len(bboxes_data) == 0:
@@ -362,7 +355,7 @@ def illustrate_n_bboxes_data(
         html.Center(
             children=[
                 dcc.Markdown(
-                    f"Found **{len(bboxes_data)}** bboxes!",
+                    f"Found **{total_bboxes}** bboxes!",
                     style={
                         'font-size': '20px'
                     }
@@ -409,13 +402,16 @@ def illustrate_n_bboxes_data(
     for cropped_image_and_render, label, bbox_data in zip(cropped_images_and_renders, labels, page_bboxes_data):
         div_children_result.extend([
             html.Img(
-                src=get_image_b64(cropped_image_and_render),
+                src=f"data:image/png;base64,{get_image_b64(cropped_image_and_render, format='png')}",
                 style={
                     'max-width': '100%',
                     'height': 'auto'
                 }
             ),
             html.Br(),
+            dcc.Markdown(
+                f"Bbox **{bbox_data.additional_info['idx']}/{total_bboxes}**"
+            ),
             dcc.Markdown(
                 f"**'{label}'**",
                 style={
@@ -427,10 +423,5 @@ def illustrate_n_bboxes_data(
             dcc.Markdown(f'Bbox: {(bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)}'),
             html.Hr()
         ])
-        # if change_annotation is not None:
-        #     change_annotation(
-        #         bbox_data=bbox_data,
-        #         max_page=n_split
-        #     )
 
     return html.Div(children=div_children_result)

@@ -42,6 +42,7 @@ label_to_base_label_image, label_to_description, label_to_category = None, None,
 ann_class_names = None
 detection_models_definitions, classification_models_definitions = [], []
 minimum_iou = None
+top_n = 20
 
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -99,7 +100,7 @@ SIDEBAR_STYLE = {
     "top": 0,
     "left": 0,
     "bottom": 0,
-    "width": "20rem",
+    "width": "25rem",
     "padding": "2rem 1rem",
     "background-color": "#f8f9fa",
 }
@@ -123,9 +124,7 @@ sidebar = html.Div(
             options=[
                 {'label': 'None', 'value': 'None'},
             ],
-            style={
-                'height': '100px'
-            }
+            optionHeight=120,
         ),
         html.P(
             "Classification model"
@@ -135,6 +134,7 @@ sidebar = html.Div(
             options=[
                 {'label': 'None', 'value': 'None'},
             ],
+            optionHeight=120
         ),
         html.Hr(),
         html.P(
@@ -192,6 +192,13 @@ sidebar = html.Div(
             ],
             value=['true']
         ),
+        dcc.Checklist(
+            id='show_top_n',
+            options=[
+                {'label': 'Show top-20', 'value': 'true'},
+            ],
+            value=[]
+        ),
         html.Hr(),
         html.Center(
             children=[
@@ -235,6 +242,7 @@ stores = html.Div(
         ),
         dcc.Store(id='config', data=current_config_str),
         dcc.Store(id='pipeline_model_definition', data=None),
+        dcc.Store(id='annotation_success', data=False),
         dcc.Store(id='images_data', storage_type='session'),
         dcc.Store(id='current_ann_class_names', storage_type='session'),
         dcc.Store(id='filter_by_labels', storage_type='session'),
@@ -272,12 +280,16 @@ main_page_content = html.Div(
                     ],
                     multi=True
                 ),
-                html.Br(),
+                html.Hr(),
                 html.Center(
                     html.Button(
                         children='Predict',
                         id='predict_button',
-                    ),
+                        style={
+                            'height': '50px',
+                            'width': '120px'
+                        }
+                    )
                 ),
                 html.Br(),
                 html.Div(
@@ -515,7 +527,8 @@ def render_images_data_selected_caption(
 @app.callback(
     [
         Output("images_data", "data"),
-        Output("images_data_selected_caption", "options")
+        Output("images_data_selected_caption", "options"),
+        Output("annotation_success", "data")
     ],
     [
         Input("images_from", "value"),
@@ -530,7 +543,8 @@ def get_images_data(
 ):
     images_data = None
     images_data_options = [{'label': 'None', 'value': 'None'}]
-    if images_from is not None and images_from != 'Upload':
+    annotation_success = False
+    if images_from is not None:
         images_data, annotation_success = get_images_data_from_dir(
             images_annotation_type=cfg.data.images_annotation_type,
             images_dir=images_from,
@@ -565,7 +579,7 @@ def get_images_data(
         images_data = [ImageData(image=content_string).asdict()]
         images_data_options = [{'label': 'Upload', 'value': 0}]
 
-    return images_data, images_data_options
+    return images_data, images_data_options, annotation_success
 
 
 @app.callback(
@@ -621,10 +635,10 @@ def update_current_image_data(
             pipeline_model_spec=pipeline_model_spec,
             image_data=current_image_data,
             detection_score_threshold=pipeline_model_definition.detection_model_definition.score_threshold,
-            classification_top_n=10
+            classification_top_n=top_n
         )
-        bboxes_data += current_pred_image_data.bboxes_data
-        current_pred_image_data = current_pred_image_data.asdict()
+        current_pred_image_data.image = current_image_data.image
+        bboxes_data = bboxes_data + current_pred_image_data.bboxes_data
     else:
         current_pred_image_data = None
 
@@ -636,6 +650,8 @@ def update_current_image_data(
         )
 
     current_image_data = current_image_data.asdict()
+    if current_pred_image_data is not None:
+        current_pred_image_data = current_pred_image_data.asdict()
 
     return current_image_data, current_pred_image_data, current_ann_class_names
 
@@ -800,6 +816,8 @@ def render_main_image(
         Input("current_image_data_filtered", "data"),
         Input("current_pred_image_data_filtered", "data"),
         Input('show_annotation', "value"),
+        Input("annotation_success", "data"),
+        Input('show_top_n', "value"),
         Input("average_maximum_images_per_page", "value"),
         Input("current_page", "data"),
     ]
@@ -808,19 +826,22 @@ def render_bboxes(
     current_image_data_filtered,
     current_pred_image_data_filtered,
     show_annotation,
+    annotation_success,
+    show_top_n,
     average_maximum_images_per_page,
     current_page,
 ):
     if current_image_data_filtered is None:
         return None
     show_annotation = True if 'true' in show_annotation else False
+    show_top_n = True if 'true' in show_top_n else False
 
     true_image_data = ImageData.from_dict(current_image_data_filtered)
     if current_pred_image_data_filtered is not None:
         pred_image_data = ImageData.from_dict(current_pred_image_data_filtered)
     else:
         pred_image_data = None
-    if show_annotation:
+    if show_annotation and annotation_success:
         return illustrate_bboxes_data(
             true_image_data=true_image_data,
             label_to_base_label_image=label_to_base_label_image,
@@ -832,7 +853,7 @@ def render_bboxes(
             pred_background_color_b=[255, 255, 0, 255],
             bbox_offset=100,
             draw_rectangle_with_color=[0, 255, 0],
-            # show_top_n=show_top_n,
+            show_top_n=show_top_n,
             average_maximum_images_per_page=average_maximum_images_per_page,
             current_page=current_page
         )
@@ -845,7 +866,7 @@ def render_bboxes(
             true_background_color_b=[255, 255, 0, 255],
             bbox_offset=100,
             draw_rectangle_with_color=[0, 255, 0],
-            # show_top_n=show_top_n,
+            show_top_n=show_top_n,
             average_maximum_images_per_page=average_maximum_images_per_page,
             current_page=current_page
         )

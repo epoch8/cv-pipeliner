@@ -15,11 +15,13 @@ def open_image_for_object(
     obj: Union['ImageData', 'BboxData'],
     inplace: bool = False
 ) -> Union[None, np.ndarray]:
-    if obj.image is not None:
+    if obj.image is not None and isinstance(obj.image, np.ndarray):
         if not inplace:
             return obj.image
         else:
             image = obj.image.copy()
+    elif isinstance(obj.image, bytes) or isinstance(obj.image, str):
+        image = open_image(image=obj.image, open_as_rgb=True)
     elif obj.image_path is not None:
         image = open_image(image=obj.image_path, open_as_rgb=True)
     else:
@@ -60,6 +62,12 @@ class BboxData:
             self.image_name = Pathy(self.image_path.path).name
         elif isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):
             self.image_name = 'bytes'
+        if self.detection_score is not None:
+            self.detection_score = float(self.detection_score)
+        if self.classification_score is not None:
+            self.classification_score = float(self.classification_score)
+        if self.classification_scores_top_n is not None:
+            self.classification_scores_top_n = list(map(float, self.classification_scores_top_n))
 
     def open_cropped_image(
         self,
@@ -181,8 +189,10 @@ class BboxData:
             image_path_str = str(self.image_path.path)
         else:
             image_path_str = str(self.image_path) if self.image_path is not None else None
+        image_str = self.image if isinstance(self.image, str) else None
         return {
             'image_path': image_path_str,
+            'image': image_str,
             'xmin': int(self.xmin),
             'ymin': int(self.ymin),
             'xmax': int(self.xmax),
@@ -203,7 +213,7 @@ class BboxData:
 
     def _from_dict(self, d):
         for key in [
-            'image_path', 'xmin', 'ymin', 'xmax', 'ymax',
+            'image_path', 'image', 'xmin', 'ymin', 'xmax', 'ymax',
             'angle', 'label', 'top_n', 'labels_top_n', 'classification_scores_top_n',
             'detection_score', 'classification_score',
             'additional_info',
@@ -247,14 +257,16 @@ class ImageData:
             image_path_str = str(self.image_path.path)
         else:
             image_path_str = str(self.image_path) if self.image_path is not None else None
+        image_str = self.image if isinstance(self.image, str) else None
         return {
             'image_path': image_path_str,
+            'image': image_str,
             'bboxes_data': [bbox_data.asdict() for bbox_data in self.bboxes_data],
             'additional_info': self.additional_info
         }
 
     def _from_dict(self, d):
-        for key in ['image_path', 'additional_info']:
+        for key in ['image_path', 'image', 'additional_info']:
             if key in d:
                 super().__setattr__(key, d[key])
         if 'bboxes_data' in d:

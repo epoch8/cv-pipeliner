@@ -78,7 +78,7 @@ SIDEBAR_STYLE = {
     "top": 0,
     "left": 0,
     "bottom": 0,
-    "width": "20rem",
+    "width": "25rem",
     "padding": "2rem 1rem",
     "background-color": "#f8f9fa",
 }
