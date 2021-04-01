@@ -238,7 +238,7 @@ stores = html.Div(
     [
         dcc.Interval(
             id='interval-component',
-            interval=3*1000,  # in milliseconds
+            interval=10*1000,  # in milliseconds
             n_intervals=0
         ),
         dcc.Store(id='config', data=current_config_str),

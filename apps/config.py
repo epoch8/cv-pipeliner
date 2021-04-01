@@ -39,6 +39,7 @@ object_detection_api_kfserving = CfgNode()
 object_detection_api_kfserving.description = 'Object Detection API model (from KFServing)'
 object_detection_api_kfserving.url = 'url:predict'
 object_detection_api_kfserving.input_name = 'input_name'
+object_detection_api_kfserving.score_threshold = 0.3
 object_detection_api_kfserving.class_names = None
 
 cfg.backend.models.detection = [

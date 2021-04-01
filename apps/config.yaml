@@ -30,6 +30,7 @@ backend:
           description: 'Object Detection API model (from url)'
           url: 'url:predict'
           input_name: 'input_name'
+          score_threshold: 0.3
           class_names: null
 
     classification:

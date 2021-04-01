@@ -195,7 +195,7 @@ stores = html.Div(
     [
         dcc.Interval(
             id='interval-component',
-            interval=3*1000,  # in milliseconds
+            interval=10*1000,  # in milliseconds
             n_intervals=0
         ),
         dcc.Store(id='config', data=current_config_str),
@@ -687,4 +687,4 @@ def handle_exception(e):
 
 if __name__ == "__main__":
     read_config_file()
-    app.run_server()
+    app.run_server(debug=True)

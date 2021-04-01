@@ -23,7 +23,9 @@ from apps.config import (
     object_detection_api,
     object_detection_api_pb,
     object_detection_api_tflite,
+    object_detection_api_kfserving,
     tensorflow_cls_model,
+    tensorflow_cls_model_kfserving,
     dummy_cls_model
 )
 # from apps.backend.src.realtime_inferencer import RealTimeInferencer
@@ -37,7 +39,10 @@ def get_detection_models_definitions_from_config(
     for detection_cfg in cfg.backend.models.detection:
         detection_cfg, key = get_cfg_from_dict(
             d=detection_cfg,
-            possible_cfgs=[object_detection_api, object_detection_api_pb, object_detection_api_tflite]
+            possible_cfgs=[
+                object_detection_api, object_detection_api_pb,
+                object_detection_api_tflite, object_detection_api_kfserving
+            ]
         )
         detection_model_definition = DetectionModelDefinition(
             description=detection_cfg.description,
@@ -84,7 +89,7 @@ def get_classification_models_definitions_from_config(
     for classification_cfg in cfg.backend.models.classification:
         classification_cfg, key = get_cfg_from_dict(
             d=classification_cfg,
-            possible_cfgs=[tensorflow_cls_model, dummy_cls_model]
+            possible_cfgs=[tensorflow_cls_model, tensorflow_cls_model_kfserving, dummy_cls_model]
         )
         classification_model_definition = ClassificationDefinition(
             description=classification_cfg.description,

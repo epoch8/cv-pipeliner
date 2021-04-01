@@ -186,8 +186,13 @@ class BboxData:
 
     def asdict(self) -> Dict:
         if isinstance(self.image_path, fsspec.core.OpenFile):
-            protocol = self.image_path.fs.protocol[0]
-            image_path_str = f"{protocol}://{str(self.image_path.path)}"
+            protocol = self.image_path.fs.protocol
+            if isinstance(protocol, tuple):
+                protocol = protocol[0]
+            prefix = f"{protocol}://"
+            if protocol == 'file':
+                prefix = ''
+            image_path_str = f"{prefix}{str(self.image_path.path)}"
         else:
             image_path_str = str(self.image_path) if self.image_path is not None else None
         image_str = self.image if isinstance(self.image, str) else None
@@ -255,8 +260,13 @@ class ImageData:
 
     def asdict(self) -> Dict:
         if isinstance(self.image_path, fsspec.core.OpenFile):
-            protocol = self.image_path.fs.protocol[0]
-            image_path_str = f"{protocol}://{str(self.image_path.path)}"
+            protocol = self.image_path.fs.protocol
+            if isinstance(protocol, tuple):
+                protocol = protocol[0]
+            prefix = f"{protocol}://"
+            if protocol == 'file':
+                prefix = ''
+            image_path_str = f"{prefix}{str(self.image_path.path)}"
         else:
             image_path_str = str(self.image_path) if self.image_path is not None else None
         image_str = self.image if isinstance(self.image, str) else None
