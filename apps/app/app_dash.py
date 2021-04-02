@@ -57,8 +57,8 @@ def read_config_file() -> bool:
     global minimum_iou
     with fsspec.open(config_file, 'r') as src:
         config_str = src.read()
-    if config_str != current_config_str:
-        if current_config_str is not None:
+    if current_config_str is None or config_str != current_config_str:
+        if current_config_str is None:
             app.logger.info("Loading config...")
         else:
             app.logger.info("Config change detected. Reloading...")
@@ -95,6 +95,7 @@ def read_config_file() -> bool:
         return False
 
 
+read_config_file()
 # the style arguments for the sidebar. We use position:fixed and a fixed width
 SIDEBAR_STYLE = {
     "position": "fixed",
@@ -155,6 +156,7 @@ sidebar = html.Div(
             options=[
                 {'label': 'None', 'value': 'None'},
             ],
+            optionHeight=90
         ),
         html.Hr(),
         html.P(
@@ -244,15 +246,11 @@ stores = html.Div(
         dcc.Store(id='config', data=current_config_str),
         dcc.Store(id='pipeline_model_definition', data=None),
         dcc.Store(id='annotation_success', data=False),
-        dcc.Store(id='images_data', storage_type='session'),
-        dcc.Store(id='current_ann_class_names', storage_type='session'),
-        dcc.Store(id='filter_by_labels', storage_type='session'),
-        dcc.Store(id='current_image_data', storage_type='session'),
-        dcc.Store(id='current_image_data_filtered', storage_type='session'),
-        dcc.Store(id='current_pred_image_data', storage_type='session'),
-        dcc.Store(id='current_pred_image_data_filtered', storage_type='session'),
-        dcc.Store(id='current_page', storage_type='session', data=1),
-        dcc.Store(id='maximum_page', storage_type='session', data=1),
+        dcc.Store(id='images_data_short', storage_type='memory'),
+        dcc.Store(id='current_image_data', storage_type='memory'),
+        dcc.Store(id='current_pred_image_data', storage_type='memory'),
+        dcc.Store(id='current_page', storage_type='memory', data=1),
+        dcc.Store(id='maximum_page', storage_type='memory', data=1),
     ]
 )
 
@@ -266,7 +264,11 @@ main_page_content = html.Div(
                 dcc.Dropdown(
                     id='find_labels',
                     options=[
-                        {'label': 'None', 'value': 'None'},
+                        {
+                            'label': f'{class_name} [{label_to_description[class_name]}]',
+                            'value': class_name
+                        }
+                        for class_name in ann_class_names
                     ],
                     multi=True
                 ),
@@ -277,7 +279,11 @@ main_page_content = html.Div(
                 dcc.Dropdown(
                     id='hide_labels',
                     options=[
-                        {'label': 'None', 'value': 'None'},
+                        {
+                            'label': f'{class_name} [{label_to_description[class_name]}]',
+                            'value': class_name
+                        }
+                        for class_name in ann_class_names
                     ],
                     multi=True
                 ),
@@ -299,7 +305,7 @@ main_page_content = html.Div(
                         html.P(
                             "Choose an image:"
                         ),
-                        dcc.Dropdown(
+                        dbc.Select(
                             id='images_data_selected_caption',
                             options=[
                                 {'label': 'None', 'value': 'None'},
@@ -490,7 +496,7 @@ def render_annotation_paths(images_from):
             {
                 'label': f"../{Pathy(filepath).name}",
                 'value': filepath
-            } for filepath in image_dir_to_annotation_filepaths[images_from]
+            } for filepath in image_dir_to_annotation_filepaths[images_from] if isinstance(filepath, str)
         ]
     else:
         dropdown_options = [{'label': 'None', 'value': 'None'}]
@@ -527,7 +533,7 @@ def render_images_data_selected_caption(
 
 @app.callback(
     [
-        Output("images_data", "data"),
+        Output("images_data_short", "data"),
         Output("images_data_selected_caption", "options"),
         Output("annotation_success", "data")
     ],
@@ -574,7 +580,7 @@ def get_images_data(
                 'value': idx
             } for (idx, _), image_data_caption in zip(idxs_images_data, images_data_captions)
         ]
-        images_data = [image_data.asdict() for image_data in images_data]
+        images_data = [ImageData(image_path=image_data.image_path).asdict() for image_data in images_data]
     elif images_from is None and upload_image_contents is not None:
         content_type, content_string = upload_image_contents.split(',')
         images_data = [ImageData(image=content_string).asdict()]
@@ -586,11 +592,11 @@ def get_images_data(
 @app.callback(
     [
         Output("current_image_data", "data"),
-        Output("current_pred_image_data", "data"),
-        Output("current_ann_class_names", "data"),
+        Output("current_pred_image_data", "data")
     ],
     [
-        Input("images_data", "data"),
+        Input("images_data_short", "data"),
+        Input("annotation_filepath", "value"),
         Input("images_data_selected_caption", "value"),
         Input("images_data_selected_caption", "options"),
         Input("pipeline_model_definition", "data"),
@@ -598,17 +604,15 @@ def get_images_data(
     ]
 )
 def update_current_image_data(
-    images_data,
+    images_data_short,
+    annotation_filepath,
     images_data_selected_caption,
     images_data_selected_caption_options,
     pipeline_model_definition,
     predict_button
 ):
-    global ann_class_names
-    current_ann_class_names = ann_class_names
-
-    if images_data is None:
-        return None, None, current_ann_class_names
+    if images_data_short is None:
+        return None, None
 
     if images_data_selected_caption is None:
         if len(images_data_selected_caption_options) == 1 and (
@@ -616,10 +620,17 @@ def update_current_image_data(
         ):
             images_data_selected_caption = 0
         else:
-            return None, None, current_ann_class_names
+            return None, None
 
-    current_image_data = images_data[images_data_selected_caption]
+    current_image_data = images_data_short[int(images_data_selected_caption)]
     current_image_data = ImageData.from_dict(current_image_data)
+    if current_image_data.image_path is not None:
+        current_image_data = get_images_data_from_dir(
+            images_annotation_type=cfg.data.images_annotation_type,
+            images_dir=[current_image_data.image_path],
+            annotation_filepath=annotation_filepath,
+        )[0][0]
+
     bboxes_data = current_image_data.bboxes_data
 
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
@@ -643,25 +654,14 @@ def update_current_image_data(
     else:
         current_pred_image_data = None
 
-    if current_ann_class_names is None:
-        labels = [bbox_data.label for bbox_data in bboxes_data]
-        labels_counter = Counter(labels)
-        current_ann_class_names = sorted(
-            set(labels), key=lambda label: labels_counter[label]
-        )
-
     current_image_data = current_image_data.asdict()
     if current_pred_image_data is not None:
         current_pred_image_data = current_pred_image_data.asdict()
 
-    return current_image_data, current_pred_image_data, current_ann_class_names
+    return current_image_data, current_pred_image_data
 
 @app.callback(
-    [
-        Output("current_image_data_filtered", "data"),
-        Output("current_pred_image_data_filtered", "data"),
-        Output("maximum_page", "data"),
-    ],
+    Output("maximum_page", "data"),
     [
         Input("current_image_data", "data"),
         Input("current_pred_image_data", "data"),
@@ -678,7 +678,7 @@ def update_current_image_data_filtered_and_maximum_page(
     hide_labels
 ):
     if current_image_data is None:
-        return None, None, 1
+        return 1
 
     current_image_data_filtered = ImageData.from_dict(current_image_data)
     current_image_data_filtered = get_image_data_filtered_by_labels(
@@ -723,64 +723,68 @@ def update_current_image_data_filtered_and_maximum_page(
 
     maximum_page = max(1, int(np.ceil(len(bboxes_data) / average_maximum_images_per_page)))
 
-    current_image_data_filtered = current_image_data_filtered.asdict()
-    if current_pred_image_data_filtered is not None:
-        current_pred_image_data_filtered = current_pred_image_data_filtered.asdict()
-
-    return current_image_data_filtered, current_pred_image_data_filtered, maximum_page
-
-@app.callback(
-    [
-        Output("find_labels", "options"),
-        Output("hide_labels", "options")
-    ],
-    [
-        Input("current_ann_class_names", "data"),
-    ]
-)
-def update_find_and_hide_labels(
-    current_ann_class_names
-):
-    if current_ann_class_names is None:
-        res_options = [{'label': 'None', 'value': 'None'}]
-    else:
-        res_options = [
-            {
-                'label': f'{class_name} [{label_to_description[class_name]}]',
-                'value': class_name
-            }
-            for class_name in current_ann_class_names
-        ]
-    return res_options, res_options
+    return maximum_page
 
 
 @app.callback(
     Output("page_content_image", "children"),
     [
-        Input("current_image_data_filtered", "data"),
-        Input("current_pred_image_data_filtered", "data"),
+        Input("current_image_data", "data"),
+        Input("current_pred_image_data", "data"),
         Input('show_annotation', "value"),
         Input('use_labels', "value"),
-        Input('draw_label_images', "value")
+        Input('draw_label_images', "value"),
+        Input("find_labels", "value"),
+        Input("hide_labels", "value"),
     ]
 )
 def render_main_image(
-    current_image_data_filtered,
-    current_pred_image_data_filtered,
+    current_image_data,
+    current_pred_image_data,
     show_annotation,
     use_labels,
-    draw_label_images
+    draw_label_images,
+    find_labels,
+    hide_labels
 ):
 
     div_children_result = []
 
-    show_annotation = True if 'true' in show_annotation else False
-    if current_image_data_filtered is None:
+    if current_image_data is None:
         return None
-    if current_pred_image_data_filtered is not None:
-        image_data = ImageData.from_dict(current_pred_image_data_filtered)
+
+    current_image_data_filtered = ImageData.from_dict(current_image_data)
+    current_image_data_filtered = get_image_data_filtered_by_labels(
+        image_data=current_image_data_filtered,
+        filter_by_labels=find_labels,
+        include=True
+    )
+    current_image_data_filtered = get_image_data_filtered_by_labels(
+        image_data=current_image_data_filtered,
+        filter_by_labels=hide_labels,
+        include=False
+    )
+
+    if current_pred_image_data is not None:
+        current_pred_image_data_filtered = ImageData.from_dict(current_pred_image_data)
+        current_pred_image_data_filtered = get_image_data_filtered_by_labels(
+            image_data=current_pred_image_data_filtered,
+            filter_by_labels=find_labels,
+            include=True
+        )
+        current_pred_image_data_filtered = get_image_data_filtered_by_labels(
+            image_data=current_pred_image_data_filtered,
+            filter_by_labels=hide_labels,
+            include=False
+        )
     else:
-        image_data = ImageData.from_dict(current_image_data_filtered)
+        current_pred_image_data_filtered = None
+
+    show_annotation = True if 'true' in show_annotation else False
+    if current_pred_image_data_filtered is not None:
+        image_data = current_pred_image_data_filtered
+    else:
+        image_data = current_image_data_filtered
         if not show_annotation:
             image_data.bboxes_data = []
     use_labels = True if 'true' in use_labels else False
@@ -814,32 +818,65 @@ def render_main_image(
 @app.callback(
     Output("page_content_bboxes", "children"),
     [
-        Input("current_image_data_filtered", "data"),
-        Input("current_pred_image_data_filtered", "data"),
+        Input("current_image_data", "data"),
+        Input("current_pred_image_data", "data"),
         Input('show_annotation', "value"),
         Input("annotation_success", "data"),
         Input('show_top_n', "value"),
         Input("average_maximum_images_per_page", "value"),
         Input("current_page", "data"),
+        Input("find_labels", "value"),
+        Input("hide_labels", "value"),
     ]
 )
 def render_bboxes(
-    current_image_data_filtered,
-    current_pred_image_data_filtered,
+    current_image_data,
+    current_pred_image_data,
     show_annotation,
     annotation_success,
     show_top_n,
     average_maximum_images_per_page,
     current_page,
+    find_labels,
+    hide_labels
 ):
-    if current_image_data_filtered is None:
+
+    if current_image_data is None:
         return None
+
+    current_image_data_filtered = ImageData.from_dict(current_image_data)
+    current_image_data_filtered = get_image_data_filtered_by_labels(
+        image_data=current_image_data_filtered,
+        filter_by_labels=find_labels,
+        include=True
+    )
+    current_image_data_filtered = get_image_data_filtered_by_labels(
+        image_data=current_image_data_filtered,
+        filter_by_labels=hide_labels,
+        include=False
+    )
+
+    if current_pred_image_data is not None:
+        current_pred_image_data_filtered = ImageData.from_dict(current_pred_image_data)
+        current_pred_image_data_filtered = get_image_data_filtered_by_labels(
+            image_data=current_pred_image_data_filtered,
+            filter_by_labels=find_labels,
+            include=True
+        )
+        current_pred_image_data_filtered = get_image_data_filtered_by_labels(
+            image_data=current_pred_image_data_filtered,
+            filter_by_labels=hide_labels,
+            include=False
+        )
+    else:
+        current_pred_image_data_filtered = None
+
     show_annotation = True if 'true' in show_annotation else False
     show_top_n = True if 'true' in show_top_n else False
 
-    true_image_data = ImageData.from_dict(current_image_data_filtered)
+    true_image_data = current_image_data_filtered
     if current_pred_image_data_filtered is not None:
-        pred_image_data = ImageData.from_dict(current_pred_image_data_filtered)
+        pred_image_data = current_pred_image_data_filtered
     else:
         pred_image_data = None
     if show_annotation and annotation_success:
@@ -885,5 +922,4 @@ def handle_exception(e):
 
 
 if __name__ == "__main__":
-    read_config_file()
-    app.run_server()
+    app.run_server(debug=True)

@@ -199,12 +199,11 @@ stores = html.Div(
             n_intervals=0
         ),
         dcc.Store(id='config', data=current_config_str),
-        dcc.Store(id='images_data', storage_type='session'),
-        dcc.Store(id='current_ann_class_names', storage_type='session'),
-        dcc.Store(id='filter_by_labels', storage_type='session'),
-        dcc.Store(id='current_image_data', storage_type='session'),
-        dcc.Store(id='current_page', storage_type='session', data=1),
-        dcc.Store(id='maximum_page', storage_type='session', data=1),
+        dcc.Store(id='images_data', storage_type='memory'),
+        dcc.Store(id='current_ann_class_names', storage_type='memory'),
+        dcc.Store(id='current_image_data', storage_type='memory'),
+        dcc.Store(id='current_page', storage_type='memory', data=1),
+        dcc.Store(id='maximum_page', storage_type='memory', data=1),
     ]
 )
 
@@ -240,7 +239,7 @@ main_page_content = html.Div(
                         html.P(
                             "Choose an image:"
                         ),
-                        dcc.Dropdown(
+                        dbc.Select(
                             id='images_data_selected_caption',
                             options=[
                                 {'label': 'None', 'value': 'None'},
@@ -344,8 +343,6 @@ def on_click_back_button(
     ]
 )
 def render_images_dirs(data):
-    # with fsspec.open(cfg.data.ann_class_names, 'r') as src:
-    #     ann_class_names = json.load(src)
     images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
     image_dir_to_annotation_filepaths = {
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
@@ -371,7 +368,7 @@ def render_annotation_paths(images_from):
             {
                 'label': f"../{Pathy(filepath).name}",
                 'value': filepath
-            } for filepath in image_dir_to_annotation_filepaths[images_from]
+            } for filepath in image_dir_to_annotation_filepaths[images_from] if isinstance(filepath, str)
         ]
     else:
         dropdown_options = [{'label': 'None', 'value': 'None'}]
@@ -444,7 +441,6 @@ def get_images_data(images_from: str, annotation_filepath: str):
     [
         Output("current_image_data", "data"),
         Output("maximum_page", "data"),
-        Output("current_ann_class_names", "data"),
     ],
     [
         Input("images_data", "data"),
@@ -463,16 +459,14 @@ def update_current_image_data_and_maximum_page(
     find_labels,
     hide_labels
 ):
-    global ann_class_names
-    current_ann_class_names = ann_class_names
 
     if images_data is None:
-        return None, 1, current_ann_class_names
+        return None, 1
 
     if view == 'Detection':
         if images_data_selected_caption is None:
-            return None, 1, current_ann_class_names
-        current_image_data = images_data[images_data_selected_caption]
+            return None, 1
+        current_image_data = images_data[int(images_data_selected_caption)]
         image_data = ImageData.from_dict(current_image_data)
         image_data = get_image_data_filtered_by_labels(
             image_data=image_data,
@@ -504,39 +498,7 @@ def update_current_image_data_and_maximum_page(
 
     maximum_page = max(1, int(np.ceil(len(bboxes_data) / average_maximum_images_per_page)))
 
-    if current_ann_class_names is None:
-        labels = [bbox_data.label for bbox_data in bboxes_data]
-        labels_counter = Counter(labels)
-        current_ann_class_names = sorted(
-            set(labels), key=lambda label: labels_counter[label]
-        )
-
-    return current_image_data, maximum_page, current_ann_class_names
-
-
-@app.callback(
-    [
-        Output("find_labels", "options"),
-        Output("hide_labels", "options")
-    ],
-    [
-        Input("current_ann_class_names", "data"),
-    ]
-)
-def update_find_and_hide_labels(
-    current_ann_class_names
-):
-    if current_ann_class_names is None:
-        res_options = [{'label': 'None', 'value': 'None'}]
-    else:
-        res_options = [
-            {
-                'label': f'{class_name} [{label_to_description[class_name]}]',
-                'value': class_name
-            }
-            for class_name in current_ann_class_names
-        ]
-    return res_options, res_options
+    return current_image_data, maximum_page
 
 
 @app.callback(
