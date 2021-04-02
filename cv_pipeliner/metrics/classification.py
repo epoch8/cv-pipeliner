@@ -155,7 +155,8 @@ def get_mean_expected_steps(
     n_true_labels: List[List[str]],
     n_pred_labels_top_n: List[List[List[str]]],
     n_pred_scores_top_n: List[List[List[float]]],
-    label: str
+    label: str,
+    step_penalty: int
 ) -> Tuple[int, int]:
     n_steps = []
     for true_labels, pred_labels_top_n, pred_scores_top_n in zip(
@@ -166,8 +167,9 @@ def get_mean_expected_steps(
         idxs_sorted = np.argsort((-1) * pred_scores_top_n_by_label)
         true_labels_sorted = true_labels[idxs_sorted]
         steps = np.where(label == true_labels_sorted)[0]
-        if len(steps) > 0:
-            steps = np.min(steps) + 1
+        nth_step_penalty = step_penalty if len(np.where(label == true_labels)[0]) > 0 else None
+        steps = min(step_penalty, np.min(steps) + 1) if len(steps) > 0 else nth_step_penalty
+        if steps is not None:
             n_steps.append(steps)
     mean_expected_steps = np.mean(n_steps)
     return mean_expected_steps
@@ -179,6 +181,7 @@ def get_df_classification_metrics(
     pseudo_class_names: List[str],
     known_class_names: List[str] = None,
     tops_n: List[int] = [1],
+    step_penalty: int = 20
 ) -> pd.DataFrame:
     # We use pipeline metrics for it:
 
@@ -252,32 +255,20 @@ def get_df_classification_metrics(
                 classification_metrics[class_name][f'f1_score@{top_n}'] = (
                     2 * precision_top_n * recall_top_n
                 ) / max(precision_top_n + recall_top_n, 1e-6)
-    _add_metrics_to_dict(
-        classification_metrics=classification_metrics,
-        labels=all_class_names,
-        tops_n=tops_n,
-        prefix_caption='all_'
-    )
-    _add_metrics_to_dict(
-        classification_metrics=classification_metrics,
-        labels=class_names_without_pseudo_classes,
-        tops_n=tops_n,
-        prefix_caption='all_',
-        postfix_caption='_without_pseudo_classes'
-    )
+
     if known_class_names is not None:
         len_known_class_names = len(known_class_names)
         count_mean_expected_steps = min_tops_n_from_pred_bboxes_data == len_known_class_names
         known_class_names = list(set(all_class_names).intersection(set(known_class_names)))
         known_class_names_without_pseudo_classes = list(set(known_class_names) - set(pseudo_class_names))
         if count_mean_expected_steps:
-            known_class_names = list(set(all_class_names).intersection(set(known_class_names)))
-            for known_class_name in known_class_names:
-                classification_metrics[known_class_name]['mean_expected_steps'] = get_mean_expected_steps(
+            for class_name in all_class_names:
+                classification_metrics[class_name]['mean_expected_steps'] = get_mean_expected_steps(
                     n_true_labels=n_true_labels,
                     n_pred_labels_top_n=n_pred_labels_top_n,
                     n_pred_scores_top_n=n_pred_scores_top_n,
-                    label=known_class_name,
+                    label=class_name,
+                    step_penalty=step_penalty
                 )
         _add_metrics_to_dict(
             classification_metrics=classification_metrics,
@@ -294,16 +285,33 @@ def get_df_classification_metrics(
             postfix_caption='_without_pseudo_classes',
             count_mean_expected_steps=count_mean_expected_steps
         )
+    else:
+        count_mean_expected_steps = False
+    _add_metrics_to_dict(
+        classification_metrics=classification_metrics,
+        labels=all_class_names,
+        tops_n=tops_n,
+        prefix_caption='all_',
+        count_mean_expected_steps=count_mean_expected_steps
+    )
+    _add_metrics_to_dict(
+        classification_metrics=classification_metrics,
+        labels=class_names_without_pseudo_classes,
+        tops_n=tops_n,
+        prefix_caption='all_',
+        postfix_caption='_without_pseudo_classes',
+        count_mean_expected_steps=count_mean_expected_steps
+    )
 
     df_classification_metrics = pd.DataFrame(classification_metrics, dtype=object).T
     df_classification_metrics.sort_values(by='support', ascending=False, inplace=True)
     df_classification_metrics_MES_column = (
         ['mean_expected_steps'] if 'mean_expected_steps' in df_classification_metrics.columns else []
     )
-    df_classification_metrics_columns = ['support', 'precision', 'recall', 'f1_score', 'value'] + [
+    df_classification_metrics_columns = ['support'] + df_classification_metrics_MES_column + ['precision', 'recall', 'f1_score', 'value'] + [
         item for sublist in [[f'precision@{top_n}', f'recall@{top_n}'] for top_n in tops_n if top_n > 1]
         for item in sublist
-    ] + df_classification_metrics_MES_column + ['TP', 'FP', 'FN']
+    ] + ['TP', 'FP', 'FN']
     df_classification_metrics = df_classification_metrics[df_classification_metrics_columns]
 
     if known_class_names is not None:

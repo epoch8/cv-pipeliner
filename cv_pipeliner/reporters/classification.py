@@ -18,6 +18,7 @@ from cv_pipeliner.utils.dataframes import transpose_columns_and_write_diffs_to_d
 
 CLASSIFICATION_MODEL_SPEC_PREFIX = "classification_model_spec"
 BBOXES_DATA_FILENAME = "n_bboxes_data.pkl"
+CLASSIFICATIONS_REPORTS_DATAS_FILENAME = "classifications_reports_data.pkl"
 
 
 def classification_interactive_work(
@@ -60,10 +61,13 @@ class ClassificationReportData:
         self.df_classification_metrics = df_classification_metrics.copy()
         if not collect_the_rest:
             return
-        df_classification_metrics_short_columns = ['precision', 'recall'] + [
+        df_classification_metrics_MES_column = (
+            ['mean_expected_steps'] if 'mean_expected_steps' in df_classification_metrics.columns else []
+        )
+        df_classification_metrics_short_columns = ['precision', 'recall'] + df_classification_metrics_MES_column + [
             item for sublist in [[f'precision@{top_n}', f'recall@{top_n}'] for top_n in tops_n if top_n > 1]
             for item in sublist
-        ] + ['mean_expected_steps']
+        ]
         self.df_classification_metrics_short = df_classification_metrics.loc[
             [
                 'all_weighted_average', 'all_weighted_average_without_pseudo_classes',
@@ -191,7 +195,8 @@ classification_interactive_work(
         n_true_bboxes_data: List[List[BboxData]],
         tops_n: List[int],
         batch_size: int,
-        pseudo_class_names: List[str]
+        pseudo_class_names: List[str],
+        step_penalty: int
     ) -> pd.DataFrame:
         classification_model = model_spec.load()
         inferencer = ClassificationInferencer(classification_model)
@@ -204,7 +209,8 @@ classification_interactive_work(
             n_pred_bboxes_data=n_pred_bboxes_data,
             pseudo_class_names=pseudo_class_names,
             known_class_names=classification_model.class_names,
-            tops_n=tops_n
+            tops_n=tops_n,
+            step_penalty=step_penalty
         )
 
         return df_classification_metrics
@@ -217,6 +223,7 @@ classification_interactive_work(
         n_true_bboxes_data: List[List[BboxData]],
         markdowns: List[str],
         codes: List[str],
+        classifications_reports_datas: List[ClassificationReportData]
     ):
         output_directory = Path(output_directory)
         output_directory.mkdir(exist_ok=True, parents=True)
@@ -229,6 +236,10 @@ classification_interactive_work(
         bboxes_data_filepath = output_directory / BBOXES_DATA_FILENAME
         with open(bboxes_data_filepath, 'wb') as out:
             pickle.dump(n_true_bboxes_data, out)
+            
+        classification_reports_data_filepath = output_directory / CLASSIFICATIONS_REPORTS_DATAS_FILENAME
+        with open(classification_reports_data_filepath, "wb") as out:
+            pickle.dump(classifications_reports_datas, out)
 
         nb = nbf.v4.new_notebook()
         nb['cells'] = [
@@ -252,6 +263,7 @@ classification_interactive_work(
         pseudo_class_names: List[str],
         tops_n: List[int] = [1],
         batch_size: int = 16,
+        step_penalty: int = 20
     ) -> List[ClassificationReportData]:
         for model_spec in models_specs:
             if hasattr(model_spec, 'preprocess_input'):
@@ -273,6 +285,7 @@ classification_interactive_work(
                 pseudo_class_names=pseudo_class_names,
                 tops_n=tops_n,
                 batch_size=batch_size,
+                step_penalty=step_penalty
             )
             if df_classification_metrics_columns is None:
                 df_classification_metrics_columns = tag_df_classification_metrics.columns
@@ -298,7 +311,8 @@ classification_interactive_work(
             output_directory=output_directory,
             n_true_bboxes_data=n_true_bboxes_data,
             markdowns=markdowns,
-            codes=codes
+            codes=codes,
+            classifications_reports_datas=classifications_reports_datas
         )
         return classifications_reports_datas
 
@@ -311,15 +325,17 @@ classification_interactive_work(
         compare_tag: str,
         output_directory: Union[str, Path],
         pseudo_class_names: List[str],
-        tops_n: List[int] = [1]
-    ):
+        tops_n: List[int] = [1],
+        step_penalty: int = 20
+    ) -> List[ClassificationReportData]:
 
         logger.info(f"Cunting metrics for '{tag}'...")
         tag_df_classification_metrics = get_df_classification_metrics(
             n_true_bboxes_data=n_true_bboxes_data,
             n_pred_bboxes_data=n_pred_bboxes_data,
             pseudo_class_names=pseudo_class_names,
-            known_class_names=known_class_names
+            known_class_names=known_class_names,
+            step_penalty=step_penalty
         )
         df_classification_metrics_columns = tag_df_classification_metrics.columns
 
@@ -344,5 +360,9 @@ classification_interactive_work(
             output_directory=output_directory,
             n_true_bboxes_data=n_true_bboxes_data,
             markdowns=markdowns,
-            codes=[]
+            codes=[],
+            classifications_reports_datas=classifications_reports_datas
         )
+
+        return classifications_reports_datas
+
