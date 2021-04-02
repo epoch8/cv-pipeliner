@@ -47,7 +47,8 @@ def get_detection_models_definitions_from_config(
         detection_model_definition = DetectionModelDefinition(
             description=detection_cfg.description,
             score_threshold=detection_cfg.score_threshold,
-            model_spec=None
+            model_spec=None,
+            model_index=detection_cfg.model_index
         )
         if key == 'object_detection_api':
             detection_model_definition.model_spec = ObjectDetectionAPI_ModelSpec(
@@ -94,6 +95,7 @@ def get_classification_models_definitions_from_config(
         classification_model_definition = ClassificationDefinition(
             description=classification_cfg.description,
             model_spec=None,
+            model_index=classification_cfg.model_index
         )
         if key == 'tensorflow_cls_model':
             classification_model_definition.model_spec = TensorFlow_ClassificationModelSpec(

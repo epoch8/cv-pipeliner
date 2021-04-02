@@ -25,6 +25,7 @@ class DetectionModelDefinition:
         ObjectDetectionAPI_KFServing
     ]
     score_threshold: float
+    model_index: str
 
 
 @dataclass
@@ -36,6 +37,7 @@ class ClassificationDefinition:
         TensorFlow_ClassificationModelSpec_TFServing,
         Dummy_ClassificationModelSpec
     ]
+    model_index: str
 
 
 @dataclass
