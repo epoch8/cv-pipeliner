@@ -32,7 +32,6 @@ from apps.config import get_cfg_defaults, merge_cfg_from_file_fsspec
 st.set_option('deprecation.showfileUploaderEncoding', False)
 
 config_file = os.environ['CV_PIPELINER_APP_CONFIG']
-backend_url = os.environ['CV_PIPELINER_BACKEND_URL']
 frontend_url = os.environ['CV_PIPELINER_FRONTEND_URL']
 
 cfg = get_cfg_defaults()
