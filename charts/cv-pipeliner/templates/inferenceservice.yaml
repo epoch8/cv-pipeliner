@@ -1,8 +1,11 @@
-{{ range .Values.models }}
+{{- $window := .Values.kfserving.knativeWindow -}}
+{{ range .Values.kfserving.models }}
 apiVersion: serving.kubeflow.org/v1alpha2
 kind: InferenceService
 metadata:
   name: {{ .name }}
+  annotations:
+    autoscaling.knative.dev/window: "{{ $window }}"
 spec:
 {{- .spec | toYaml | nindent 2 }}
 ---

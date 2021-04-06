@@ -35,7 +35,9 @@ app:
     enabled: false
     uri: 'DISABLED'
 
-models: []
+kfserving:
+  knativeWindow: 5m
+  models: []
 
 serviceAccount:
   # Specifies whether a service account should be created
