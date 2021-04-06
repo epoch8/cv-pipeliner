@@ -1,0 +1,9 @@
+{{ range .Values.models }}
+apiVersion: serving.kubeflow.org/v1alpha2
+kind: InferenceService
+metadata:
+  name: {{ .name }}
+spec:
+{{- .spec | toYaml | nindent 2 }}
+---
+{{ end }}

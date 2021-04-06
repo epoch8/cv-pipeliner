@@ -1,5 +1,6 @@
-examples/
-__pycache__/
 __logs__/
-node_modules/
+__pycache__/
 .git/
+.mypy_cache/
+examples/
+node_modules/
