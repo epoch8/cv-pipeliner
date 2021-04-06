@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.1-cudnn7-runtime-ubuntu18.04
+FROM nvidia/cuda:11.0-cudnn8-runtime-ubuntu18.04
 
 ENV PATH="/root/miniconda3/bin:${PATH}"
 ARG PATH="/root/miniconda3/bin:${PATH}"
@@ -23,18 +23,18 @@ RUN conda update -n base -c defaults conda
 RUN conda install -c anaconda python=3.8
 
 # # Install Object Detection API
-# RUN git clone https://github.com/tensorflow/models.git
-# RUN cd models/research/ && \
-#     protoc object_detection/protos/*.proto --python_out=. && \
-#     cp object_detection/packages/tf2/setup.py . && \
-#     pip3 install --use-feature=2020-resolver . && \
-#     cd ../.. && rm -rf models/
+RUN git clone https://github.com/tensorflow/models.git
+RUN cd models/research/ && \
+    protoc object_detection/protos/*.proto --python_out=. && \
+    cp object_detection/packages/tf2/setup.py . && \
+    pip3 install --use-feature=2020-resolver . && \
+    cd ../.. && rm -rf models/
 
 # Install Arial fonts
-# RUN apt-get install -y fontconfig
-# RUN echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | debconf-set-selections
-# RUN apt-get install --reinstall ttf-mscorefonts-installer -y
-# RUN fc-cache
+RUN apt-get install -y fontconfig
+RUN echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | debconf-set-selections
+RUN apt-get install --reinstall ttf-mscorefonts-installer -y
+RUN fc-cache
 
 # Install cv_pipeliner
 ADD requirements.txt /app/requirements.txt
