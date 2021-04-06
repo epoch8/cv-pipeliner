@@ -97,6 +97,11 @@ class DataConverter(abc.ABC):
         if isinstance(annots, str) or isinstance(annots, Path):
             with fsspec.open(annots, 'r', encoding='utf8') as f:
                 annots = json.load(f)
+            if isinstance(annots, List) and len(annots) > 0 and 'filename' in annots[0]:
+                annots = {
+                    annot['filename']: annot
+                    for annot in annots
+                }
             images_data = [
                 self.get_image_data_from_annot(
                     image_path=image_path,
