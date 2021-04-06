@@ -15,7 +15,7 @@ services:
       - /home/ml/ceph-data:/notebooks/ceph-data/
 #       - ~/.config/gcloud:/root/.config/gcloud
 
-    command: ["python", "apps/app/app_dash.py"]
+    command: ["python", "apps/app.py"]
 
   cv_pipeliner_dataset_browser:
     image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.6.0
@@ -30,4 +30,4 @@ services:
     volumes:
       - /home/ml/ceph-data:/notebooks/ceph-data/
 #       - ~/.config/gcloud:/root/.config/gcloud
-    command: ["python", "apps/dataset_browser/app_dash.py"]
+    command: ["python", "apps/dataset_browser.py"]
