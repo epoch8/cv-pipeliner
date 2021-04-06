@@ -11,15 +11,18 @@ import fsspec
 
 def get_images_data_from_dir(
     images_annotation_type: Literal['brickit', 'supervisely'],
-    images_dir: Union[str, Path],
+    images_dir: Union[str, Path, List[Path]],
     annotation_filepath: Union[str, Path, None]
 ) -> List[ImageData]:
-    images_dir = Pathy(images_dir)
-    image_paths = sorted(
-        fsspec.open_files(str(images_dir / '*.png')) +
-        fsspec.open_files(str(images_dir / '*.jp*g')),
-        key=lambda f: f.path
-    )
+    if not isinstance(images_dir, List):
+        images_dir = Pathy(images_dir)
+        image_paths = sorted(
+            fsspec.open_files(str(images_dir / '*.png')) +
+            fsspec.open_files(str(images_dir / '*.jp*g')),
+            key=lambda f: f.path
+        )
+    else:
+        image_paths = images_dir
     annotation_success = False
 
     if annotation_filepath is not None:
