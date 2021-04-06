@@ -39,12 +39,6 @@ RUN fc-cache
 # Install cv_pipeliner
 ADD requirements.txt /app/requirements.txt
 RUN pip3 install -r /app/requirements.txt
-RUN pip3 install label-studio>=0.7.6
-RUN python3 -c 'import matplotlib.font_manager'
-
-RUN pip3 install tensorflow tensorflow-gpu
-RUN pip3 install dash
-RUN pip3 install dash-bootstrap-components
 
 ADD cv_pipeliner /app/cv_pipeliner/
 ADD setup.py /app/setup.py
