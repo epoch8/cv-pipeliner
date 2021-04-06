@@ -24,7 +24,7 @@ import streamlit as st
 from cv_pipeliner.utils.data import get_label_to_description
 from cv_pipeliner.utils.streamlit.data import get_images_data_from_dir
 from cv_pipeliner.utils.streamlit.visualization import illustrate_bboxes_data, fetch_image_data
-from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
+from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationModelDefinition
 
 from apps.config import get_cfg_defaults, merge_cfg_from_file_fsspec
 
@@ -54,7 +54,7 @@ if models_definitions_response.ok:
         for detection_model_definition in models_definitions['detection_models_definitions']
     ]
     classification_models_definitions = [
-        from_dict(data_class=ClassificationDefinition, data=classification_model_definition)
+        from_dict(data_class=ClassificationModelDefinition, data=classification_model_definition)
         for classification_model_definition in models_definitions['classification_models_definitions']
     ]
 else:
@@ -77,7 +77,7 @@ if current_model_definition_response.ok:
         data=current_models_definitions['detection_model_definition']
     )
     current_classification_model_definition = from_dict(
-        data_class=ClassificationDefinition,
+        data_class=ClassificationModelDefinition,
         data=current_models_definitions['classification_model_definition']
     )
 else:

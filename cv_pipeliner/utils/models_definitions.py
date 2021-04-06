@@ -29,7 +29,7 @@ class DetectionModelDefinition:
 
 
 @dataclass
-class ClassificationDefinition:
+class ClassificationModelDefinition:
     description: str
     model_spec: Union[
         ClassificationModelSpec,
@@ -41,6 +41,6 @@ class ClassificationDefinition:
 
 
 @dataclass
-class PipelineDefinition:
+class PipelineModelDefinition:
     detection_model_definition: DetectionModelDefinition
-    classification_model_definition: ClassificationDefinition
+    classification_model_definition: ClassificationModelDefinition

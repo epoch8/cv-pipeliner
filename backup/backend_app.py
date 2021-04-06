@@ -15,7 +15,7 @@ from cv_pipeliner.inference_models.detection.core import DetectionModel
 from cv_pipeliner.inference_models.classification.core import ClassificationModel
 from cv_pipeliner.inference_models.pipeline import PipelineModel
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
-from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
+from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationModelDefinition
 
 from apps.config import get_cfg_defaults, merge_cfg_from_string
 from apps.backend.src.realtime_inferencer import RealTimeInferencer
@@ -47,7 +47,7 @@ def set_gpu():
 @dataclass
 class CurrentPipelineDefinition:
     detection_model_definition: DetectionModelDefinition = None
-    classification_model_definition: ClassificationDefinition = None
+    classification_model_definition: ClassificationModelDefinition = None
 
     detection_model: DetectionModel = None
     classification_model: ClassificationModel = None

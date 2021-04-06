@@ -1,19 +1,26 @@
-from dataclasses import asdict
 import os
 import json
-from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
-from cv_pipeliner.inferencers.pipeline import PipelineInferencer
-from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
-from cv_pipeliner.utils.models_definitions import PipelineDefinition
-from dacite import from_dict
-import fsspec
-from typing import Dict, List
-from flask import Flask
-from collections import Counter
-
-import numpy as np
+from dataclasses import asdict
 from pathy import Pathy
+from typing import List
 
+import fsspec
+import numpy as np
+import dash
+import dash_bootstrap_components as dbc
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+from flask import Flask
+from dacite import from_dict
+
+from traceback_with_variables import iter_tb_lines, ColorSchemes
+
+from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
+from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
+from cv_pipeliner.utils.models_definitions import (
+    ClassificationModelDefinition, DetectionModelDefinition, PipelineModelDefinition
+)
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
@@ -22,20 +29,14 @@ from cv_pipeliner.utils.images import (
 )
 from cv_pipeliner.utils.data import get_label_to_description
 from cv_pipeliner.utils.dash.data import get_images_data_from_dir
+from cv_pipeliner.utils.dash.visualization import illustrate_bboxes_data
+
 from apps.config import get_cfg_defaults, merge_cfg_from_string
 from apps.model import (
     get_detection_models_definitions_from_config,
     get_classification_models_definitions_from_config,
     inference
 )
-
-import dash
-import dash_bootstrap_components as dbc
-import dash_core_components as dcc
-import dash_html_components as html
-from dash.dependencies import Input, Output
-
-from cv_pipeliner.utils.dash.visualization import illustrate_bboxes_data
 
 config_file = os.environ['CV_PIPELINER_APP_CONFIG']
 cfg, current_config_str = None, None
@@ -354,7 +355,9 @@ app.layout = html.Div([
     Output('config', 'data'),
     Input('interval-component', 'n_intervals')
 )
-def update_config(n):
+def update_config(
+    n_intervals: int
+) -> str:
     read_config_file()
     return current_config_str
 
@@ -376,9 +379,9 @@ def update_dcc_slider_output(value):
     ]
 )
 def render_current_page_text(
-    current_page,
-    maximum_page,
-):
+    current_page: int,
+    maximum_page: int,
+) -> str:
     return f"Page {current_page}/{maximum_page}"
 
 
@@ -392,11 +395,11 @@ def render_current_page_text(
     ]
 )
 def on_click_back_button(
-    current_page,
-    maximum_page,
-    back_button,
-    next_button
-):
+    current_page: int,
+    maximum_page: int,
+    back_button: int,
+    next_button: int
+) -> int:
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
     if "back_button" in changed_id:
         current_page -= 1
@@ -417,7 +420,9 @@ def on_click_back_button(
         Input("config", "data")
     ]
 )
-def render_detection_models_definitions(data):
+def render_detection_models_definitions(
+    config_data: str
+) -> List[DetectionModelDefinition]:
     global detection_models_definitions
     dropdown_options = [
         {'label': detection_model_definition.description, 'value': idx}
@@ -432,7 +437,9 @@ def render_detection_models_definitions(data):
         Input("config", "data")
     ]
 )
-def render_classification_models_definitions(data):
+def render_classification_models_definitions(
+    config_data: str
+) -> List[ClassificationModelDefinition]:
     global classification_models_definitions
     dropdown_options = [
         {'label': classification_model_definition.description, 'value': idx}
@@ -449,15 +456,15 @@ def render_classification_models_definitions(data):
     ]
 )
 def get_pipeline_model_spec(
-    detection_model_definition_idx,
-    classification_model_definition_idx
-):
+    detection_model_definition_idx: int,
+    classification_model_definition_idx: int
+) -> PipelineModelDefinition:
     global detection_models_definitions, classification_models_definitions
     if detection_model_definition_idx is None or classification_model_definition_idx is None:
         return None
     detection_model_definition = detection_models_definitions[detection_model_definition_idx]
     classification_model_definition = classification_models_definitions[classification_model_definition_idx]
-    pipeline_model_definition = PipelineDefinition(
+    pipeline_model_definition = PipelineModelDefinition(
         detection_model_definition=detection_model_definition,
         classification_model_definition=classification_model_definition
     )
@@ -470,7 +477,9 @@ def get_pipeline_model_spec(
         Input("config", "data")
     ]
 )
-def render_images_dirs(data):
+def render_images_dirs(
+    config_data: str
+) -> List[str]:
     images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
     image_dir_to_annotation_filepaths = {
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
@@ -486,7 +495,9 @@ def render_images_dirs(data):
         Input("images_from", "value")
     ]
 )
-def render_annotation_paths(images_from):
+def render_annotation_paths(
+    images_from: str
+) -> List[str]:
     if images_from is not None:
         images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
         image_dir_to_annotation_filepaths = {
@@ -604,12 +615,12 @@ def get_images_data(
     ]
 )
 def update_current_image_data(
-    images_data_short,
-    annotation_filepath,
-    images_data_selected_caption,
-    images_data_selected_caption_options,
-    pipeline_model_definition,
-    predict_button
+    images_data_short: List[ImageData],
+    annotation_filepath: str,
+    images_data_selected_caption: str,
+    images_data_selected_caption_options: List[str],
+    pipeline_model_definition: PipelineModelDefinition,
+    predict_button: int
 ):
     if images_data_short is None:
         return None, None
@@ -636,7 +647,7 @@ def update_current_image_data(
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
     if "predict_button" in changed_id and pipeline_model_definition is not None:
         pipeline_model_definition = from_dict(
-            data_class=PipelineDefinition,
+            data_class=PipelineModelDefinition,
             data=pipeline_model_definition
         )
         pipeline_model_spec = PipelineModelSpec(
@@ -660,6 +671,7 @@ def update_current_image_data(
 
     return current_image_data, current_pred_image_data
 
+
 @app.callback(
     Output("maximum_page", "data"),
     [
@@ -671,11 +683,11 @@ def update_current_image_data(
     ]
 )
 def update_current_image_data_filtered_and_maximum_page(
-    current_image_data,
-    current_pred_image_data,
-    average_maximum_images_per_page,
-    find_labels,
-    hide_labels
+    current_image_data: ImageData,
+    current_pred_image_data: ImageData,
+    average_maximum_images_per_page: int,
+    find_labels: List[str],
+    hide_labels: List[str]
 ):
     if current_image_data is None:
         return 1
@@ -739,13 +751,13 @@ def update_current_image_data_filtered_and_maximum_page(
     ]
 )
 def render_main_image(
-    current_image_data,
-    current_pred_image_data,
-    show_annotation,
-    use_labels,
-    draw_label_images,
-    find_labels,
-    hide_labels
+    current_image_data: ImageData,
+    current_pred_image_data: ImageData,
+    show_annotation: bool,
+    use_labels: bool,
+    draw_label_images: bool,
+    find_labels: List[str],
+    hide_labels: List[str]
 ):
 
     div_children_result = []
@@ -830,15 +842,15 @@ def render_main_image(
     ]
 )
 def render_bboxes(
-    current_image_data,
-    current_pred_image_data,
-    show_annotation,
-    annotation_success,
-    show_top_n,
-    average_maximum_images_per_page,
-    current_page,
-    find_labels,
-    hide_labels
+    current_image_data: ImageData,
+    current_pred_image_data: ImageData,
+    show_annotation: bool,
+    annotation_success: bool,
+    show_top_n: bool,
+    average_maximum_images_per_page: int,
+    current_page: int,
+    find_labels: List[str],
+    hide_labels: List[str]
 ):
 
     if current_image_data is None:
@@ -912,7 +924,6 @@ def render_bboxes(
         return None
 
 
-from traceback_with_variables import iter_tb_lines, ColorSchemes
 @server.errorhandler(Exception)
 def handle_exception(e):
     for line in iter_tb_lines(e=e, color_scheme=ColorSchemes.synthwave):
@@ -922,4 +933,4 @@ def handle_exception(e):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server()

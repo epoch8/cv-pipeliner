@@ -16,7 +16,7 @@ from cv_pipeliner.inference_models.classification.tensorflow import (
 )
 from cv_pipeliner.inference_models.classification.dummy import Dummy_ClassificationModelSpec
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
-from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationDefinition
+from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationModelDefinition
 
 from apps.config import (
     get_cfg_from_dict, CfgNode,
@@ -85,14 +85,14 @@ def get_detection_models_definitions_from_config(
 
 def get_classification_models_definitions_from_config(
     cfg: CfgNode
-) -> ClassificationDefinition:
+) -> ClassificationModelDefinition:
     classification_models_definitions = []
     for classification_cfg in cfg.backend.models.classification:
         classification_cfg, key = get_cfg_from_dict(
             d=classification_cfg,
             possible_cfgs=[tensorflow_cls_model, tensorflow_cls_model_kfserving, dummy_cls_model]
         )
-        classification_model_definition = ClassificationDefinition(
+        classification_model_definition = ClassificationModelDefinition(
             description=classification_cfg.description,
             model_spec=None,
             model_index=classification_cfg.model_index

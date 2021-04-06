@@ -1,11 +1,18 @@
 import os
 import json
-import fsspec
-from typing import Dict, List
-from collections import Counter
-
-import numpy as np
+from typing import List
 from pathy import Pathy
+
+import fsspec
+import numpy as np
+import dash
+import dash_bootstrap_components as dbc
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+from flask import Flask
+
+from traceback_with_variables import iter_tb_lines, ColorSchemes
 
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
@@ -15,20 +22,9 @@ from cv_pipeliner.utils.images import (
 )
 from cv_pipeliner.utils.data import get_label_to_description
 from cv_pipeliner.utils.dash.data import get_images_data_from_dir
-# from cv_pipeliner.utils.streamlit.visualization import (
-#     get_illustrated_bboxes_data,
-#     illustrate_bboxes_data, illustrate_n_bboxes_data, fetch_page_session
-# )
-from apps.config import get_cfg_defaults, merge_cfg_from_string
-from flask import Flask
-import dash
-import dash_bootstrap_components as dbc
-import dash_core_components as dcc
-import dash_html_components as html
-from dash.dependencies import Input, Output
-from yacs.config import CfgNode
-
 from cv_pipeliner.utils.dash.visualization import illustrate_bboxes_data, illustrate_n_bboxes_data
+
+from apps.config import get_cfg_defaults, merge_cfg_from_string
 
 config_file = os.environ['CV_PIPELINER_APP_CONFIG']
 cfg, current_config_str = None, None
@@ -46,8 +42,8 @@ def read_config_file() -> bool:
     global ann_class_names
     with fsspec.open(config_file, 'r') as src:
         config_str = src.read()
-    if config_str != current_config_str:
-        if current_config_str is not None:
+    if current_config_str is None or config_str != current_config_str:
+        if current_config_str is None:
             app.logger.info("Loading config...")
         else:
             app.logger.info("Config change detected. Reloading...")
@@ -279,7 +275,9 @@ app.layout = html.Div([
     Output('config', 'data'),
     Input('interval-component', 'n_intervals')
 )
-def update_config(n):
+def update_config(
+    n_intervals: int
+) -> str:
     read_config_file()
     return current_config_str
 
@@ -287,9 +285,11 @@ def update_config(n):
 @app.callback(
     dash.dependencies.Output('average_maximum_images_per_page_output', 'children'),
     [dash.dependencies.Input('average_maximum_images_per_page', 'value')])
-def update_dcc_slider_output(value):
+def update_dcc_slider_output(
+    average_maximum_images_per_page: int
+):
     return [
-        html.P(f"{value}")
+        html.P(f"{average_maximum_images_per_page}")
     ]
 
 
@@ -301,9 +301,9 @@ def update_dcc_slider_output(value):
     ]
 )
 def render_current_page_text(
-    current_page,
-    maximum_page,
-):
+    current_page: int,
+    maximum_page: int,
+) -> str:
     return f"Page {current_page}/{maximum_page}"
 
 
@@ -317,10 +317,10 @@ def render_current_page_text(
     ]
 )
 def on_click_back_button(
-    current_page,
-    maximum_page,
-    back_button,
-    next_button
+    current_page: int,
+    maximum_page: int,
+    back_button: int,
+    next_button: int
 ):
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
     if "back_button" in changed_id:
@@ -342,7 +342,9 @@ def on_click_back_button(
         Input("config", "data")
     ]
 )
-def render_images_dirs(data):
+def render_images_dirs(
+    config_data: str
+) -> List[str]:
     images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
     image_dir_to_annotation_filepaths = {
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
@@ -358,7 +360,9 @@ def render_images_dirs(data):
         Input("images_from", "value")
     ]
 )
-def render_annotation_paths(images_from):
+def render_annotation_paths(
+    images_from: str
+) -> List[str]:
     if images_from is not None:
         images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
         image_dir_to_annotation_filepaths = {
@@ -383,7 +387,7 @@ def render_annotation_paths(images_from):
     ]
 )
 def render_images_data_selected_caption(
-    view
+    view: str
 ):
     if view == "Detection":
         return {}
@@ -401,7 +405,10 @@ def render_images_data_selected_caption(
         Input("annotation_filepath", "value")
     ]
 )
-def get_images_data(images_from: str, annotation_filepath: str):
+def get_images_data(
+    images_from: str,
+    annotation_filepath: str
+):
     images_data = None
     images_data_options = [{'label': 'None', 'value': 'None'}]
     if images_from is not None:
@@ -437,6 +444,7 @@ def get_images_data(images_from: str, annotation_filepath: str):
 
     return images_data, images_data_options
 
+
 @app.callback(
     [
         Output("current_image_data", "data"),
@@ -452,12 +460,12 @@ def get_images_data(images_from: str, annotation_filepath: str):
     ]
 )
 def update_current_image_data_and_maximum_page(
-    images_data,
-    images_data_selected_caption,
-    average_maximum_images_per_page,
-    view,
-    find_labels,
-    hide_labels
+    images_data: List[ImageData],
+    images_data_selected_caption: List[ImageData],
+    average_maximum_images_per_page: int,
+    view: str,
+    find_labels: List[str],
+    hide_labels: List[str]
 ):
 
     if images_data is None:
@@ -513,12 +521,12 @@ def update_current_image_data_and_maximum_page(
     ]
 )
 def render_main_image(
-    current_image_data,
-    use_labels,
-    draw_label_images,
-    view,
-    find_labels,
-    hide_labels
+    current_image_data: ImageData,
+    use_labels: bool,
+    draw_label_images: bool,
+    view: str,
+    find_labels: List[str],
+    hide_labels: List[str]
 ):
 
     div_children_result = []
@@ -564,6 +572,7 @@ def render_main_image(
 
     return div_children_result
 
+
 @app.callback(
     Output("page_content_bboxes", "children"),
     [
@@ -577,13 +586,13 @@ def render_main_image(
     ]
 )
 def render_bboxes(
-    images_data,
-    current_image_data,
-    view,
-    average_maximum_images_per_page,
-    current_page,
-    find_labels,
-    hide_labels
+    images_data: List[ImageData],
+    current_image_data: ImageData,
+    view: str,
+    average_maximum_images_per_page: int,
+    current_page: int,
+    find_labels: List[str],
+    hide_labels: List[str]
 ):
     if view == 'Detection':
         if current_image_data is None:
@@ -638,7 +647,6 @@ def render_bboxes(
     return None
 
 
-from traceback_with_variables import iter_tb_lines, ColorSchemes
 @server.errorhandler(Exception)
 def handle_exception(e):
     for line in iter_tb_lines(e=e, color_scheme=ColorSchemes.synthwave):
@@ -648,5 +656,4 @@ def handle_exception(e):
 
 
 if __name__ == "__main__":
-    read_config_file()
-    app.run_server(debug=True)
+    app.run_server()
