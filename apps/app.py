@@ -20,9 +20,7 @@ from traceback_with_variables import iter_tb_lines, ColorSchemes
 
 from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
 from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
-from cv_pipeliner.utils.models_definitions import (
-    ClassificationModelDefinition, DetectionModelDefinition, PipelineModelDefinition
-)
+from cv_pipeliner.utils.models_definitions import PipelineModelDefinition
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
@@ -431,10 +429,11 @@ def render_images_dirs(
     }
 
     def get_option(image_dir):
-        if image_dir_to_annotation_filepaths[image_dir] is not None and len(image_dir_to_annotation_filepaths[image_dir]) > 0:
+        annotation_filepaths = image_dir_to_annotation_filepaths[image_dir]
+        if annotation_filepaths is not None and len(annotation_filepaths) > 0:
             return {
-                'label': f"../{Pathy(image_dir).name} [{Path(image_dir_to_annotation_filepaths[image_dir][0]).name}]",
-                'value': f"{image_dir}\n{image_dir_to_annotation_filepaths[image_dir][0]}"
+                'label': f"../{Pathy(image_dir).name} [{Path(annotation_filepaths[0]).name}]",
+                'value': f"{image_dir}\n{annotation_filepaths[0]}"
             }
         else:
             return {
@@ -894,6 +893,7 @@ def render_bboxes(
             average_maximum_images_per_page=average_maximum_images_per_page,
             current_page=current_page
         )
+
 
 @server.errorhandler(Exception)
 def handle_exception(e):

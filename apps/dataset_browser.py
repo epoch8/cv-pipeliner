@@ -344,7 +344,11 @@ def render_images_dirs(
     }
     images_dirs = [
         image_dir for image_dir in images_dirs
-        if image_dir_to_annotation_filepaths[image_dir] is not None and len(image_dir_to_annotation_filepaths[image_dir]) > 0
+        if (
+            image_dir_to_annotation_filepaths[image_dir] is not None
+            and
+            len(image_dir_to_annotation_filepaths[image_dir]) > 0
+        )
     ]
     dropdown_options = [{'label': f"../{Pathy(image_dir).name}", 'value': image_dir} for image_dir in images_dirs]
     return dropdown_options
