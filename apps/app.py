@@ -227,9 +227,25 @@ main_page_content = html.Div(
                 html.Div(
                     id='images_data_selected_caption_view',
                     children=[
-                        html.P(
-                            "Choose an image:"
+                        html.Center(
+                            children=[
+                                html.Button(
+                                    children='Back',
+                                    id='back_image_button',
+                                    style={
+                                        'width': '50px'
+                                    }
+                                ),
+                                html.Button(
+                                    children='Next',
+                                    id='next_image_button',
+                                    style={
+                                        'width': '50px'
+                                    }
+                                )
+                            ]
                         ),
+                        html.Br(),
                         dbc.Select(
                             id='images_data_selected_caption',
                             options=[
@@ -268,14 +284,14 @@ main_page_content = html.Div(
                     children=[
                         html.Button(
                             children='Back',
-                            id='back_button',
+                            id='back_page_button',
                             style={
                                 'width': '100px'
                             }
                         ),
                         html.Button(
                             children='Next',
-                            id='next_button',
+                            id='next_page_button',
                             style={
                                 'width': '100px'
                             }
@@ -339,20 +355,20 @@ def render_current_page_text(
     [
         Input("current_page", "data"),
         Input("maximum_page", "data"),
-        Input("back_button", "n_clicks"),
-        Input("next_button", "n_clicks")
+        Input("back_page_button", "n_clicks"),
+        Input("next_page_button", "n_clicks")
     ]
 )
-def on_click_back_button(
+def on_click_page_buttons(
     current_page: int,
     maximum_page: int,
-    back_button: int,
-    next_button: int
+    back_page_button: int,
+    next_page_button: int
 ) -> int:
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
-    if "back_button" in changed_id:
+    if "back_page_button" in changed_id:
         current_page -= 1
-    elif "next_button" in changed_id:
+    elif "next_page_button" in changed_id:
         current_page += 1
 
     if current_page > maximum_page:
@@ -516,6 +532,37 @@ def get_images_data(
         images_data_options = [{'label': 'Upload', 'value': 0}]
 
     return images_data, images_data_options, annotation_success
+
+
+@app.callback(
+    Output("images_data_selected_caption", "value"),
+    [
+        Input("images_data_selected_caption", "value"),
+        Input("images_data_selected_caption", "options"),
+        Input("back_image_button", "n_clicks"),
+        Input("next_image_button", "n_clicks")
+    ]
+)
+def on_click_image_buttons(
+    current_images_data_selected_caption: str,
+    images_data_selected_caption_options: List[str],
+    back_image_button: int,
+    next_image_button: int
+) -> int:
+    if current_images_data_selected_caption is not None:
+        current_images_data_selected_caption = int(current_images_data_selected_caption)
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+        if "back_image_button" in changed_id:
+            current_images_data_selected_caption -= 1
+        elif "next_image_button" in changed_id:
+            current_images_data_selected_caption += 1
+
+        if current_images_data_selected_caption < 0:
+            current_images_data_selected_caption = len(images_data_selected_caption_options) - 1
+        if current_images_data_selected_caption >= len(images_data_selected_caption_options):
+            current_images_data_selected_caption = 0
+
+    return current_images_data_selected_caption
 
 
 @app.callback(
