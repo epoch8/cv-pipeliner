@@ -468,6 +468,8 @@ def on_click_image_buttons(
         if current_images_data_selected_caption >= len(images_data_selected_caption_options):
             current_images_data_selected_caption = 0
 
+        current_images_data_selected_caption = str(current_images_data_selected_caption)
+
     return current_images_data_selected_caption
 
 
@@ -492,7 +494,7 @@ def update_current_image_data_and_maximum_page(
     hide_labels: List[str]
 ):
 
-    if images_data is None or len(images_data) == 0:
+    if images_data is None or len(images_data) == 0 or images_data_selected_caption is None:
         return None, 1
 
     if view == 'Detection':

@@ -502,28 +502,22 @@ def get_images_data(
             images_dir=images_dir,
             annotation_filepath=annotation_filepath,
         )
-        images_data = sorted(images_data, key=lambda image_data: image_data.image_name)
-        idxs_images_data = [(idx, image_data) for idx, image_data in enumerate(images_data)]
+        images_data = sorted(images_data, key=lambda image_data: -len(image_data.bboxes_data))
         if annotation_success:
-            idxs_images_data = sorted(
-                idxs_images_data,
-                key=lambda pair: len(pair[1].bboxes_data),
-                reverse=True
-            )
             images_data_captions = [
                 f"[{idx}] {image_data.image_name} [{len(image_data.bboxes_data)} bboxes]"
-                for idx, image_data in idxs_images_data
+                for idx, image_data in enumerate(images_data)
             ]
         else:
             images_data_captions = [
                 f"[{idx}] {image_data.image_name}"
-                for idx, image_data in idxs_images_data
+                for idx, image_data in enumerate(images_data)
             ]
         images_data_options = [
             {
                 'label': image_data_caption,
                 'value': idx
-            } for (idx, _), image_data_caption in zip(idxs_images_data, images_data_captions)
+            } for idx, image_data_caption in enumerate(images_data_captions)
         ]
         images_data = [ImageData(image_path=image_data.image_path).asdict() for image_data in images_data]
     elif dataset is None and upload_image_contents is not None:
@@ -549,7 +543,7 @@ def on_click_image_buttons(
     back_image_button: int,
     next_image_button: int
 ) -> int:
-    if current_images_data_selected_caption is not None:
+    if current_images_data_selected_caption is not None and current_images_data_selected_caption != 'None':
         current_images_data_selected_caption = int(current_images_data_selected_caption)
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if "back_image_button" in changed_id:
@@ -561,6 +555,8 @@ def on_click_image_buttons(
             current_images_data_selected_caption = len(images_data_selected_caption_options) - 1
         if current_images_data_selected_caption >= len(images_data_selected_caption_options):
             current_images_data_selected_caption = 0
+
+        current_images_data_selected_caption = str(current_images_data_selected_caption)
 
     return current_images_data_selected_caption
 
