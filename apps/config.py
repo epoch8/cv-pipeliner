@@ -78,6 +78,14 @@ dummy_cls_model.default_class_name = 'dummy'
 dummy_cls_model.model_index = 'model_index7'
 cfg.backend.models.classification = [tensorflow_cls_model, dummy_cls_model]
 
+# Pipeline models (from indexes)
+pipeline_model = CfgNode()
+pipeline_model.description = 'Pipeline Model (from above)'
+pipeline_model.detection_model_index = 'model_index1'
+pipeline_model.classification_model_index = 'model_index6'
+
+cfg.backend.models.pipeline = [pipeline_model]
+
 cfg.data = CfgNode()
 cfg.data.base_labels_images = 'renders/'
 cfg.data.labels_decriptions = None  # 'label_to_description.json'

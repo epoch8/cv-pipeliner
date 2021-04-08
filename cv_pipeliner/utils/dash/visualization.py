@@ -169,9 +169,9 @@ def illustrate_bboxes_data(
             html.Center(
                 children=[
                     dcc.Markdown(
-                        f"Found **{total_bboxes}** bboxes!",
+                        f"Found **{total_bboxes}** bboxes total",
                         style={
-                            'font-size': '16px'
+                            'font-size': '25px'
                         }
                     ),
                     dcc.Markdown(f"""
@@ -234,17 +234,19 @@ def illustrate_bboxes_data(
         )
 
     for cropped_image_and_render, label, bbox_data in zip(cropped_images_and_renders, labels, page_bboxes_data):
-        div_children_result.append(
+        main_div_children = []
+        main_div_children.append(
             html.Img(
                 src=f"data:image/png;base64,{get_image_b64(cropped_image_and_render, format='png')}",
                 style={
-                    'max-width': '100%',
-                    'height': 'auto'
+                    'max-width': '600px',
+                    'height': '100%'
                 }
             )
         )
+        bbox_div = []
         if isinstance(bbox_data, BboxData):
-            div_children_result.extend([
+            bbox_div.extend([
                 html.Br(),
                 dcc.Markdown(
                     f"Bbox **{bbox_data.additional_info['idx']}/{total_bboxes}**"
@@ -259,15 +261,15 @@ def illustrate_bboxes_data(
                 dcc.Markdown(f'Bbox: {(bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)}'),
             ])
             if bbox_data.detection_score is not None:
-                div_children_result.append(
+                bbox_div.append(
                     dcc.Markdown(f'Detection score: {bbox_data.detection_score}')
                 )
             if bbox_data.classification_score is not None:
-                div_children_result.append(
+                bbox_div.append(
                     dcc.Markdown(f'Classification score: {bbox_data.classification_score}')
                 )
             if show_top_n:
-                div_children_result.extend([
+                bbox_div.extend([
                     dcc.Markdown(f'Top-n labels: {tuple(bbox_data.labels_top_n)}'),
                     dcc.Markdown(f'Top-n scores: {tuple(bbox_data.classification_scores_top_n)}')
                 ])
@@ -275,13 +277,13 @@ def illustrate_bboxes_data(
         elif isinstance(bbox_data, BboxDataMatching):
             true_bbox_data = bbox_data.true_bbox_data
             pred_bbox_data = bbox_data.pred_bbox_data
-            div_children_result.append(
+            bbox_div.append(
                 dcc.Markdown(
                     f"BboxDataMatching **{pred_bbox_data.additional_info['idx']}/{total_bboxes}**"
                 )
             )
             if pred_bbox_data is not None:
-                div_children_result.extend([
+                bbox_div.extend([
                     dcc.Markdown(f"**Prediction**: **'{pred_bbox_data.label}'**"),
                     dcc.Markdown(label_to_description[pred_bbox_data.label]),
                     dcc.Markdown(
@@ -289,23 +291,23 @@ def illustrate_bboxes_data(
                     )
                 ])
                 if pred_bbox_data.detection_score is not None:
-                    div_children_result.append(
+                    bbox_div.append(
                         dcc.Markdown(f'Detection score: {pred_bbox_data.detection_score}')
                     )
                 if pred_bbox_data.classification_score is not None:
-                    div_children_result.append(
+                    bbox_div.append(
                         dcc.Markdown(f'Classification score: {pred_bbox_data.classification_score}')
                     )
                 if show_top_n:
-                    div_children_result.extend([
+                    bbox_div.extend([
                         dcc.Markdown(f'Top-n labels: {tuple(pred_bbox_data.labels_top_n)}'),
                         dcc.Markdown(f'Top-n scores: {tuple(pred_bbox_data.classification_scores_top_n)}')
                     ])
-                div_children_result.append(
+                bbox_div.append(
                     html.Hr()
                 )
             if true_bbox_data is not None:
-                div_children_result.extend([
+                bbox_div.extend([
                     dcc.Markdown(f"**Ground Truth**: **'{true_bbox_data.label}'**"),
                     dcc.Markdown(label_to_description[true_bbox_data.label]),
                     dcc.Markdown(
@@ -313,16 +315,38 @@ def illustrate_bboxes_data(
                     )
                 ])
                 if show_top_n:
-                    div_children_result.extend([
+                    bbox_div.extend([
                         dcc.Markdown(f'Top-n labels: {tuple(pred_bbox_data.labels_top_n)}'),
                         dcc.Markdown(f'Top-n scores: {tuple(pred_bbox_data.classification_scores_top_n)}')
                     ])
-                div_children_result.append(
+                bbox_div.append(
                     html.Hr()
                 )
-            div_children_result.append(
+            bbox_div.append(
                 dcc.Markdown(f'Pipeline error type: {bbox_data.get_pipeline_error_type()}')
             )
+        main_div_children.append(
+            html.Div(
+                children=bbox_div,
+                style={
+                    'border': '3px solid black',
+                    'padding': '10px',
+                    'max-width': '600px',
+                    'margin-left': '30px'
+                }
+            )
+        )
+        div_children_result.append(
+            html.Div(
+                children=main_div_children,
+                style={
+                    'display': 'flex',
+                    'justify-content': 'start',
+                    'margin-top': '10px',
+                    'max-width': '1000px'
+                }
+            )
+        )
         div_children_result.append(
             html.Hr()
         )
@@ -355,9 +379,9 @@ def illustrate_n_bboxes_data(
         html.Center(
             children=[
                 dcc.Markdown(
-                    f"Found **{total_bboxes}** bboxes!",
+                    f"Found **{total_bboxes}** bboxes total",
                     style={
-                        'font-size': '20px'
+                        'font-size': '25px'
                     }
                 ),
                 html.Hr()
@@ -401,26 +425,50 @@ def illustrate_n_bboxes_data(
 
     for cropped_image_and_render, label, bbox_data in zip(cropped_images_and_renders, labels, page_bboxes_data):
         div_children_result.extend([
-            html.Img(
-                src=f"data:image/png;base64,{get_image_b64(cropped_image_and_render, format='png')}",
+            html.Div(
+                children=[
+                    html.Div(
+                        children=[
+                            html.Img(
+                                src=f"data:image/png;base64,{get_image_b64(cropped_image_and_render, format='png')}",
+                                style={
+                                    'max-width': '600px',
+                                    'height': '100%'
+                                }
+                            ),
+                        ]
+                    ),
+                    html.Div(
+                        children=[
+                            html.Br(),
+                            dcc.Markdown(
+                                f"Bbox **{bbox_data.additional_info['idx']}/{total_bboxes}**"
+                            ),
+                            dcc.Markdown(
+                                f"**'{label}'**",
+                                style={
+                                    'font-size': '20px'
+                                }
+                            ),
+                            dcc.Markdown(label_to_description[label]),
+                            dcc.Markdown(f"From image '{bbox_data.image_name}'"),
+                            dcc.Markdown(f'Bbox: {(bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)}'),
+                        ],
+                        style={
+                            'border': '3px solid black',
+                            'padding': '10px',
+                            'max-width': '600px',
+                            'margin-left': '30px'
+                        }
+                    ),
+                ],
                 style={
-                    'max-width': '100%',
-                    'height': 'auto'
+                    'display': 'flex',
+                    'justify-content': 'start',
+                    'margin-top': '10px',
+                    'max-width': '1000px'
                 }
             ),
-            html.Br(),
-            dcc.Markdown(
-                f"Bbox **{bbox_data.additional_info['idx']}/{total_bboxes}**"
-            ),
-            dcc.Markdown(
-                f"**'{label}'**",
-                style={
-                    'font-size': '20px'
-                }
-            ),
-            dcc.Markdown(label_to_description[label]),
-            dcc.Markdown(f"From image '{bbox_data.image_name}'"),
-            dcc.Markdown(f'Bbox: {(bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax)}'),
             html.Hr()
         ])
 

@@ -42,5 +42,6 @@ class ClassificationModelDefinition:
 
 @dataclass
 class PipelineModelDefinition:
+    description: str
     detection_model_definition: DetectionModelDefinition
     classification_model_definition: ClassificationModelDefinition

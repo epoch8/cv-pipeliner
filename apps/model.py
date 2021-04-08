@@ -1,7 +1,8 @@
+from collections import Counter
 from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
 import imageio
 
-from typing import Dict
+from typing import Dict, List
 
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
@@ -16,7 +17,9 @@ from cv_pipeliner.inference_models.classification.tensorflow import (
 )
 from cv_pipeliner.inference_models.classification.dummy import Dummy_ClassificationModelSpec
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
-from cv_pipeliner.utils.models_definitions import DetectionModelDefinition, ClassificationModelDefinition
+from cv_pipeliner.utils.models_definitions import (
+    DetectionModelDefinition, ClassificationModelDefinition, PipelineModelDefinition
+)
 
 from apps.config import (
     get_cfg_from_dict, CfgNode,
@@ -26,7 +29,8 @@ from apps.config import (
     object_detection_api_kfserving,
     tensorflow_cls_model,
     tensorflow_cls_model_kfserving,
-    dummy_cls_model
+    dummy_cls_model,
+    pipeline_model
 )
 # from apps.backend.src.realtime_inferencer import RealTimeInferencer
 
@@ -35,7 +39,6 @@ def get_detection_models_definitions_from_config(
     cfg: CfgNode
 ) -> DetectionModelDefinition:
     detection_models_definitions = []
-    detection_models_indexes = []
     for detection_cfg in cfg.backend.models.detection:
         detection_cfg, key = get_cfg_from_dict(
             d=detection_cfg,
@@ -76,10 +79,6 @@ def get_detection_models_definitions_from_config(
                 class_names=detection_cfg.class_names
             )
         detection_models_definitions.append(detection_model_definition)
-
-    if len(set(detection_models_indexes)) != len(detection_models_indexes):
-        raise ValueError('Detection model indexes in config file must be different.')
-
     return detection_models_definitions
 
 
@@ -120,6 +119,57 @@ def get_classification_models_definitions_from_config(
         classification_models_definitions.append(classification_model_definition)
 
     return classification_models_definitions
+
+
+def get_pipeline_models_definitions_from_config(
+    cfg: CfgNode,
+    detection_models_definitions: List[DetectionModelDefinition],
+    classification_models_definitions: List[ClassificationModelDefinition]
+) -> PipelineModelDefinition:
+    detection_models_indexes = [
+        detection_model_definition.model_index
+        for detection_model_definition in detection_models_definitions
+    ]
+    if len(set(detection_models_indexes)) != len(detection_models_indexes):
+        raise ValueError(
+            'Detection model indexes in config file must be different:'
+            f'{[model_index for model_index, count in Counter(detection_models_indexes).items() if count > 1]}'
+        )
+    classification_models_indexes = [
+        classification_model_definition.model_index
+        for classification_model_definition in classification_models_definitions
+    ]
+    if len(set(classification_models_indexes)) != len(classification_models_indexes):
+        raise ValueError(
+            'Classification model indexes in config file must be different:'
+            f'{[model_index for model_index, count in Counter(classification_models_indexes).items() if count > 1]}'
+        )
+    pipeline_models_definitions = []
+    for pipeline_cfg in cfg.backend.models.pipeline:
+        pipeline_cfg, key = get_cfg_from_dict(
+            d=pipeline_cfg,
+            possible_cfgs=[pipeline_model]
+        )
+        if key == 'pipeline_model':
+            assert pipeline_cfg.detection_model_index in detection_models_indexes, (
+                f'Missing detection model_index: {pipeline_cfg.detection_model_index}'
+            )
+            if pipeline_cfg.classification_model_index is not None:
+                assert pipeline_cfg.classification_model_index in classification_models_indexes, (
+                    f'Missing classification model_index: {pipeline_cfg.classification_models_indexes}'
+                )
+            pipeline_model_definition = PipelineModelDefinition(
+                description=pipeline_cfg.description,
+                detection_model_definition=detection_models_definitions[
+                    detection_models_indexes.index(pipeline_cfg.detection_model_index)
+                ],
+                classification_model_definition=classification_models_definitions[
+                    classification_models_indexes.index(pipeline_cfg.classification_model_index)
+                ] if pipeline_cfg.classification_model_index is not None else None,
+            )
+            pipeline_models_definitions.append(pipeline_model_definition)
+
+    return pipeline_models_definitions
 
 
 def inference(

@@ -30,6 +30,7 @@ config_file = os.environ['CV_PIPELINER_APP_CONFIG']
 cfg, current_config_str = None, None
 label_to_base_label_image, label_to_description, label_to_category = None, None, None
 ann_class_names = None
+average_maximum_images_per_page = 20
 
 
 server = Flask(__name__)
@@ -69,26 +70,17 @@ def read_config_file() -> bool:
         return False
 
 
-# the style arguments for the sidebar. We use position:fixed and a fixed width
-SIDEBAR_STYLE = {
-    "position": "fixed",
-    "top": 0,
-    "left": 0,
-    "bottom": 0,
-    "width": "25rem",
-    "padding": "2rem 1rem",
-    "background-color": "#f8f9fa",
-}
-
-# the styles for the main content position it to the right of the sidebar and
-# add some padding.
-CONTENT_STYLE = {
-    "margin-left": "45rem",
-    "margin-right": "4rem",
-    "padding": "2rem 1rem",
-}
-
-
+read_config_file()
+if ann_class_names is not None:
+    find_labels_options = [
+        {
+            'label': f'{class_name} [{label_to_description[class_name]}]',
+            'value': class_name
+        }
+        for class_name in ann_class_names
+    ]
+else:
+    find_labels_options = [{'label': 'None', 'value': 'None'}]
 sidebar = html.Div(
     children=[
         html.Hr(),
@@ -125,20 +117,23 @@ sidebar = html.Div(
         ),
         html.Hr(),
         html.P(
-            "Maximum images per page"
+            "Classes to find"
         ),
-        html.Center(
-            id='average_maximum_images_per_page_output',
-            children=[]
+        dcc.Dropdown(
+            id='find_labels',
+            options=find_labels_options,
+            multi=True
         ),
-        dcc.Slider(
-            id='average_maximum_images_per_page',
-            min=1,
-            max=100,
-            step=1,
-            value=20,
-            marks={i: {'label': str(i)} for i in range(10, 101, 10)}
+        html.Br(),
+        html.P(
+            "Classes to hide"
         ),
+        dcc.Dropdown(
+            id='hide_labels',
+            options=find_labels_options,
+            multi=True
+        ),
+        html.Hr(),
         dcc.Checklist(
             id='use_labels',
             options=[
@@ -153,38 +148,16 @@ sidebar = html.Div(
             ],
             value=[]
         ),
-        html.Hr(),
-        html.Center(
-            children=[
-                html.P(
-                    children='Page 1/1',
-                    id='current_page_text'
-                )
-            ],
-            style={
-                'font-size': '30px'
-            }
-        ),
-        html.Center(
-            children=[
-                html.Button(
-                    children='Back',
-                    id='back_button',
-                    style={
-                        'width': '100px'
-                    }
-                ),
-                html.Button(
-                    children='Next',
-                    id='next_button',
-                    style={
-                        'width': '100px'
-                    }
-                )
-            ],
-        )
     ],
-    style=SIDEBAR_STYLE
+    style={
+        "position": "fixed",
+        "top": 0,
+        "left": 0,
+        "bottom": 0,
+        "width": "25rem",
+        "padding": "2rem 1rem",
+        "background-color": "#f8f9fa",
+    }
 )
 
 stores = html.Div(
@@ -207,28 +180,6 @@ main_page_content = html.Div(
     children=[
         html.Div(
             children=[
-                html.P(
-                    "Classes to find"
-                ),
-                dcc.Dropdown(
-                    id='find_labels',
-                    options=[
-                        {'label': 'None', 'value': 'None'},
-                    ],
-                    multi=True
-                ),
-                html.Br(),
-                html.P(
-                    "Classes to hide"
-                ),
-                dcc.Dropdown(
-                    id='hide_labels',
-                    options=[
-                        {'label': 'None', 'value': 'None'},
-                    ],
-                    multi=True
-                ),
-                html.Br(),
                 html.Div(
                     id='images_data_selected_caption_view',
                     children=[
@@ -248,18 +199,52 @@ main_page_content = html.Div(
                     id='page_content_image',
                     children=[]
                 ),
+                html.Hr(),
+                html.Center(
+                    children=[
+                        html.P(
+                            children='Page 1/1',
+                            id='current_page_text'
+                        )
+                    ],
+                    style={
+                        'font-size': '25px'
+                    }
+                ),
+                html.Center(
+                    children=[
+                        html.Button(
+                            children='Back',
+                            id='back_button',
+                            style={
+                                'width': '100px'
+                            }
+                        ),
+                        html.Button(
+                            children='Next',
+                            id='next_button',
+                            style={
+                                'width': '100px'
+                            }
+                        )
+                    ],
+                ),
                 html.Div(
                     id='page_content_bboxes',
                     children=[]
                 )
             ],
             style={
-                "max-width": "600px",
+                "max-width": "1200px",
             }
         )
     ],
     id="main_page_content",
-    style=CONTENT_STYLE
+    style={
+        "margin-left": "30rem",
+        "margin-right": "4rem",
+        "padding": "2rem 1rem",
+    }
 )
 
 
@@ -280,17 +265,6 @@ def update_config(
 ) -> str:
     read_config_file()
     return current_config_str
-
-
-@app.callback(
-    dash.dependencies.Output('average_maximum_images_per_page_output', 'children'),
-    [dash.dependencies.Input('average_maximum_images_per_page', 'value')])
-def update_dcc_slider_output(
-    average_maximum_images_per_page: int
-):
-    return [
-        html.P(f"{average_maximum_images_per_page}")
-    ]
 
 
 @app.callback(
@@ -453,7 +427,6 @@ def get_images_data(
     [
         Input("images_data", "data"),
         Input("images_data_selected_caption", "value"),
-        Input("average_maximum_images_per_page", "value"),
         Input("view", "value"),
         Input("find_labels", "value"),
         Input("hide_labels", "value")
@@ -462,7 +435,6 @@ def get_images_data(
 def update_current_image_data_and_maximum_page(
     images_data: List[ImageData],
     images_data_selected_caption: List[ImageData],
-    average_maximum_images_per_page: int,
     view: str,
     find_labels: List[str],
     hide_labels: List[str]
@@ -579,7 +551,6 @@ def render_main_image(
         Input("images_data", "data"),
         Input("current_image_data", "data"),
         Input("view", "value"),
-        Input("average_maximum_images_per_page", "value"),
         Input("current_page", "data"),
         Input("find_labels", "value"),
         Input("hide_labels", "value")
@@ -589,7 +560,6 @@ def render_bboxes(
     images_data: List[ImageData],
     current_image_data: ImageData,
     view: str,
-    average_maximum_images_per_page: int,
     current_page: int,
     find_labels: List[str],
     hide_labels: List[str]

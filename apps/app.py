@@ -1,8 +1,9 @@
 import os
 import json
 from dataclasses import asdict
+from pathlib import Path
 from pathy import Pathy
-from typing import List
+from typing import List, Tuple
 
 import fsspec
 import numpy as np
@@ -35,6 +36,7 @@ from apps.config import get_cfg_defaults, merge_cfg_from_string
 from apps.model import (
     get_detection_models_definitions_from_config,
     get_classification_models_definitions_from_config,
+    get_pipeline_models_definitions_from_config,
     inference
 )
 
@@ -42,9 +44,10 @@ config_file = os.environ['CV_PIPELINER_APP_CONFIG']
 cfg, current_config_str = None, None
 label_to_base_label_image, label_to_description, label_to_category = None, None, None
 ann_class_names = None
-detection_models_definitions, classification_models_definitions = [], []
+detection_models_definitions, classification_models_definitions, pipeline_models_definitons = [], [], []
 minimum_iou = None
 top_n = 20
+average_maximum_images_per_page = 20
 
 server = Flask(__name__)
 app = dash.Dash(server=server, external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -54,7 +57,7 @@ def read_config_file() -> bool:
     global cfg, current_config_str
     global label_to_base_label_image, label_to_description, label_to_category
     global ann_class_names
-    global detection_models_definitions, classification_models_definitions
+    global detection_models_definitions, classification_models_definitions, pipeline_models_definitons
     global minimum_iou
     with fsspec.open(config_file, 'r') as src:
         config_str = src.read()
@@ -80,14 +83,13 @@ def read_config_file() -> bool:
             with fsspec.open(cfg.data.ann_class_names, 'r') as src:
                 ann_class_names = json.load(src)
 
-        detection_models_definitions = [
-            detection_model_definition
-            for detection_model_definition in get_detection_models_definitions_from_config(cfg)
-        ]
-        classification_models_definitions = [
-            classification_model_definition
-            for classification_model_definition in get_classification_models_definitions_from_config(cfg)
-        ]
+        detection_models_definitions = get_detection_models_definitions_from_config(cfg)
+        classification_models_definitions = get_classification_models_definitions_from_config(cfg)
+        pipeline_models_definitons = get_pipeline_models_definitions_from_config(
+            cfg=cfg,
+            detection_models_definitions=detection_models_definitions,
+            classification_models_definitions=classification_models_definitions
+        )
 
         minimum_iou = cfg.data.minimum_iou
 
@@ -97,104 +99,86 @@ def read_config_file() -> bool:
 
 
 read_config_file()
-# the style arguments for the sidebar. We use position:fixed and a fixed width
-SIDEBAR_STYLE = {
-    "position": "fixed",
-    "top": 0,
-    "left": 0,
-    "bottom": 0,
-    "width": "25rem",
-    "padding": "2rem 1rem",
-    "background-color": "#f8f9fa",
-}
-
-# the styles for the main content position it to the right of the sidebar and
-# add some padding.
-CONTENT_STYLE = {
-    "margin-left": "45rem",
-    "margin-right": "4rem",
-    "padding": "2rem 1rem",
-}
-
-
+if ann_class_names is not None:
+    find_labels_options = [
+        {
+            'label': f'{class_name} [{label_to_description[class_name]}]',
+            'value': class_name
+        }
+        for class_name in ann_class_names
+    ]
+else:
+    find_labels_options = [{'label': 'None', 'value': 'None'}]
 sidebar = html.Div(
     children=[
         html.P(
-            "Detection model"
+            "Pipeline"
         ),
         dcc.Dropdown(
-            id='detection_model_definition',
+            id='pipeline_model_definition_caption',
             options=[
                 {'label': 'None', 'value': 'None'},
             ],
             optionHeight=120,
         ),
+        html.Hr(),
         html.P(
-            "Classification model"
+            "Dataset"
         ),
         dcc.Dropdown(
-            id='classification_model_definition',
+            id='dataset',
             options=[
                 {'label': 'None', 'value': 'None'},
             ],
-            optionHeight=120
         ),
         html.Hr(),
         html.P(
-            "Images from"
+            "Classes to find"
         ),
         dcc.Dropdown(
-            id='images_from',
-            options=[
-                {'label': 'None', 'value': 'None'},
-            ],
+            id='find_labels',
+            options=find_labels_options,
+            multi=True
         ),
+        html.Br(),
         html.P(
-            "Annotation filepath"
+            "Classes to hide"
         ),
         dcc.Dropdown(
-            id='annotation_filepath',
-            options=[
-                {'label': 'None', 'value': 'None'},
-            ],
-            optionHeight=90
+            id='hide_labels',
+            options=find_labels_options,
+            multi=True
         ),
         html.Hr(),
         html.P(
-            "Maximum images per page"
+            "Show"
         ),
-        html.Center(
-            id='average_maximum_images_per_page_output',
-            children=[]
+        dcc.RadioItems(
+            id='show',
+            options=[
+                {'label': 'None', 'value': 'None'},
+                {'label': 'Annotation (green)', 'value': 'Annotation'},
+                {'label': 'Prediction (yellow)', 'value': 'Prediction'},
+                {'label': 'Prediction (yellow) / Annotation (green)', 'value': 'Prediction/Annotation'}
+            ],
+            value='None',
+            labelStyle={'display': 'table-row'}
         ),
-        dcc.Slider(
-            id='average_maximum_images_per_page',
-            min=1,
-            max=100,
-            step=1,
-            value=20,
-            marks={i: {'label': str(i)} for i in range(10, 101, 10)}
-        ),
+        html.Hr(),
+        html.Hr(),
         dcc.Checklist(
             id='use_labels',
             options=[
-                {'label': 'Write labels on image', 'value': 'true'},
+                {'label': 'Write labels on the image', 'value': 'true'},
             ],
             value=['true']
         ),
         dcc.Checklist(
             id='draw_label_images',
             options=[
-                {'label': 'Draw base labels images', 'value': 'true'},
+                {'label': 'Draw base labels renders on the image', 'value': 'true'},
             ],
             value=[]
-        ),
-        dcc.Checklist(
-            id='show_annotation',
-            options=[
-                {'label': 'Show annotation', 'value': 'true'},
-            ],
-            value=['true']
         ),
         dcc.Checklist(
             id='show_top_n',
@@ -203,38 +187,16 @@ sidebar = html.Div(
             ],
             value=[]
         ),
-        html.Hr(),
-        html.Center(
-            children=[
-                html.P(
-                    children='Page 1/1',
-                    id='current_page_text'
-                )
-            ],
-            style={
-                'font-size': '30px'
-            }
-        ),
-        html.Center(
-            children=[
-                html.Button(
-                    children='Back',
-                    id='back_button',
-                    style={
-                        'width': '100px'
-                    }
-                ),
-                html.Button(
-                    children='Next',
-                    id='next_button',
-                    style={
-                        'width': '100px'
-                    }
-                )
-            ],
-        )
     ],
-    style=SIDEBAR_STYLE
+    style={
+        "position": "fixed",
+        "top": 0,
+        "left": 0,
+        "bottom": 0,
+        "width": "25rem",
+        "padding": "2rem 1rem",
+        "background-color": "#f8f9fa",
+    }
 )
 
 stores = html.Div(
@@ -259,46 +221,6 @@ main_page_content = html.Div(
     children=[
         html.Div(
             children=[
-                html.P(
-                    "Classes to find"
-                ),
-                dcc.Dropdown(
-                    id='find_labels',
-                    options=[
-                        {
-                            'label': f'{class_name} [{label_to_description[class_name]}]',
-                            'value': class_name
-                        }
-                        for class_name in ann_class_names
-                    ],
-                    multi=True
-                ),
-                html.Br(),
-                html.P(
-                    "Classes to hide"
-                ),
-                dcc.Dropdown(
-                    id='hide_labels',
-                    options=[
-                        {
-                            'label': f'{class_name} [{label_to_description[class_name]}]',
-                            'value': class_name
-                        }
-                        for class_name in ann_class_names
-                    ],
-                    multi=True
-                ),
-                html.Hr(),
-                html.Center(
-                    html.Button(
-                        children='Predict',
-                        id='predict_button',
-                        style={
-                            'height': '50px',
-                            'width': '120px'
-                        }
-                    )
-                ),
                 html.Br(),
                 html.Div(
                     id='images_data_selected_caption_view',
@@ -328,18 +250,52 @@ main_page_content = html.Div(
                     id='page_content_image',
                     children=[]
                 ),
+                html.Hr(),
+                html.Center(
+                    children=[
+                        html.P(
+                            children='Page 1/1',
+                            id='current_page_text'
+                        )
+                    ],
+                    style={
+                        'font-size': '25px',
+                    }
+                ),
+                html.Center(
+                    children=[
+                        html.Button(
+                            children='Back',
+                            id='back_button',
+                            style={
+                                'width': '100px'
+                            }
+                        ),
+                        html.Button(
+                            children='Next',
+                            id='next_button',
+                            style={
+                                'width': '100px'
+                            }
+                        )
+                    ]
+                ),
                 html.Div(
                     id='page_content_bboxes',
                     children=[]
                 )
             ],
             style={
-                "max-width": "600px",
+                "max-width": "1200px",
             }
         )
     ],
     id="main_page_content",
-    style=CONTENT_STYLE
+    style={
+        "margin-left": "30rem",
+        "margin-right": "4rem",
+        "padding": "2rem 1rem",
+    }
 )
 
 
@@ -360,15 +316,6 @@ def update_config(
 ) -> str:
     read_config_file()
     return current_config_str
-
-
-@app.callback(
-    dash.dependencies.Output('average_maximum_images_per_page_output', 'children'),
-    [dash.dependencies.Input('average_maximum_images_per_page', 'value')])
-def update_dcc_slider_output(value):
-    return [
-        html.P(f"{value}")
-    ]
 
 
 @app.callback(
@@ -415,35 +362,18 @@ def on_click_back_button(
 
 
 @app.callback(
-    Output("detection_model_definition", "options"),
+    Output("pipeline_model_definition_caption", "options"),
     [
         Input("config", "data")
     ]
 )
-def render_detection_models_definitions(
+def render_pipeline_models_definitions(
     config_data: str
-) -> List[DetectionModelDefinition]:
-    global detection_models_definitions
+) -> List[PipelineModelDefinition]:
+    global pipeline_models_definitons
     dropdown_options = [
-        {'label': detection_model_definition.description, 'value': idx}
-        for idx, detection_model_definition in enumerate(detection_models_definitions)
-    ]
-    return dropdown_options
-
-
-@app.callback(
-    Output("classification_model_definition", "options"),
-    [
-        Input("config", "data")
-    ]
-)
-def render_classification_models_definitions(
-    config_data: str
-) -> List[ClassificationModelDefinition]:
-    global classification_models_definitions
-    dropdown_options = [
-        {'label': classification_model_definition.description, 'value': idx}
-        for idx, classification_model_definition in enumerate(classification_models_definitions)
+        {'label': pipeline_model_definition.description, 'value': idx}
+        for idx, pipeline_model_definition in enumerate(pipeline_models_definitons)
     ]
     return dropdown_options
 
@@ -451,28 +381,21 @@ def render_classification_models_definitions(
 @app.callback(
     Output("pipeline_model_definition", "data"),
     [
-        Input("detection_model_definition", "value"),
-        Input("classification_model_definition", "value")
+        Input("pipeline_model_definition_caption", "value"),
     ]
 )
 def get_pipeline_model_spec(
-    detection_model_definition_idx: int,
-    classification_model_definition_idx: int
+    pipeline_model_definition_caption: int,
 ) -> PipelineModelDefinition:
-    global detection_models_definitions, classification_models_definitions
-    if detection_model_definition_idx is None or classification_model_definition_idx is None:
+    global pipeline_models_definitons
+    if pipeline_model_definition_caption is None:
         return None
-    detection_model_definition = detection_models_definitions[detection_model_definition_idx]
-    classification_model_definition = classification_models_definitions[classification_model_definition_idx]
-    pipeline_model_definition = PipelineModelDefinition(
-        detection_model_definition=detection_model_definition,
-        classification_model_definition=classification_model_definition
-    )
+    pipeline_model_definition = pipeline_models_definitons[int(pipeline_model_definition_caption)]
     return asdict(pipeline_model_definition)
 
 
 @app.callback(
-    Output("images_from", "options"),
+    Output("dataset", "options"),
     [
         Input("config", "data")
     ]
@@ -485,32 +408,25 @@ def render_images_dirs(
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
     }
     images_dirs = [image_dir for image_dir in images_dirs if len(image_dir_to_annotation_filepaths[image_dir]) > 0]
-    dropdown_options = [{'label': f"../{Pathy(image_dir).name}", 'value': image_dir} for image_dir in images_dirs]
-    return dropdown_options
+    image_dir_to_annotation_filepaths = {
+        image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
+    }
 
+    def get_option(image_dir):
+        if len(image_dir_to_annotation_filepaths[image_dir]) > 0:
+            return {
+                'label': f"../{Pathy(image_dir).name} [{Path(image_dir_to_annotation_filepaths[image_dir][0]).name}]",
+                'value': (image_dir, image_dir_to_annotation_filepaths[image_dir][0])
+            }
+        else:
+            return {
+                'label': f"../{Pathy(image_dir).name} [no annotation]",
+                'value': (image_dir, None)
+            }
 
-@app.callback(
-    Output("annotation_filepath", "options"),
-    [
-        Input("images_from", "value")
+    dropdown_options = [
+        get_option(image_dir) for image_dir in images_dirs
     ]
-)
-def render_annotation_paths(
-    images_from: str
-) -> List[str]:
-    if images_from is not None:
-        images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
-        image_dir_to_annotation_filepaths = {
-            image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
-        }
-        dropdown_options = [
-            {
-                'label': f"../{Pathy(filepath).name}",
-                'value': filepath
-            } for filepath in image_dir_to_annotation_filepaths[images_from] if isinstance(filepath, str)
-        ]
-    else:
-        dropdown_options = [{'label': 'None', 'value': 'None'}]
 
     return dropdown_options
 
@@ -521,13 +437,13 @@ def render_annotation_paths(
         Output("upload_image", "style"),
     ],
     [
-        Input("images_from", "value"),
+        Input("dataset", "value"),
     ]
 )
 def render_images_data_selected_caption(
-    images_from: str
+    dataset: str
 ):
-    if images_from is None:
+    if dataset is None:
         return {'display': 'none'}, {
             'width': '100%',
             'height': '60px',
@@ -549,23 +465,22 @@ def render_images_data_selected_caption(
         Output("annotation_success", "data")
     ],
     [
-        Input("images_from", "value"),
-        Input("annotation_filepath", "value"),
+        Input("dataset", "value"),
         Input("upload_image", "contents")
     ]
 )
 def get_images_data(
-    images_from: str,
-    annotation_filepath: str,
+    dataset: str,
     upload_image_contents: str
 ):
     images_data = None
     images_data_options = [{'label': 'None', 'value': 'None'}]
     annotation_success = False
-    if images_from is not None:
+    if dataset is not None:
+        images_dir, annotation_filepath = dataset
         images_data, annotation_success = get_images_data_from_dir(
             images_annotation_type=cfg.data.images_annotation_type,
-            images_dir=images_from,
+            images_dir=images_dir,
             annotation_filepath=annotation_filepath,
         )
         images_data = sorted(images_data, key=lambda image_data: image_data.image_name)
@@ -592,7 +507,7 @@ def get_images_data(
             } for (idx, _), image_data_caption in zip(idxs_images_data, images_data_captions)
         ]
         images_data = [ImageData(image_path=image_data.image_path).asdict() for image_data in images_data]
-    elif images_from is None and upload_image_contents is not None:
+    elif dataset is None and upload_image_contents is not None:
         content_type, content_string = upload_image_contents.split(',')
         images_data = [ImageData(image=content_string).asdict()]
         images_data_options = [{'label': 'Upload', 'value': 0}]
@@ -607,20 +522,20 @@ def get_images_data(
     ],
     [
         Input("images_data_short", "data"),
-        Input("annotation_filepath", "value"),
+        Input("dataset", "value"),
         Input("images_data_selected_caption", "value"),
         Input("images_data_selected_caption", "options"),
         Input("pipeline_model_definition", "data"),
-        Input('predict_button', 'n_clicks'),
+        Input('show', 'value')
     ]
 )
 def update_current_image_data(
     images_data_short: List[ImageData],
-    annotation_filepath: str,
+    dataset: Tuple[str, str],
     images_data_selected_caption: str,
     images_data_selected_caption_options: List[str],
     pipeline_model_definition: PipelineModelDefinition,
-    predict_button: int
+    show: str
 ):
     if images_data_short is None:
         return None, None
@@ -636,6 +551,7 @@ def update_current_image_data(
     current_image_data = images_data_short[int(images_data_selected_caption)]
     current_image_data = ImageData.from_dict(current_image_data)
     if current_image_data.image_path is not None:
+        _, annotation_filepath = dataset
         current_image_data = get_images_data_from_dir(
             images_annotation_type=cfg.data.images_annotation_type,
             images_dir=[current_image_data.image_path],
@@ -644,15 +560,16 @@ def update_current_image_data(
 
     bboxes_data = current_image_data.bboxes_data
 
-    changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
-    if "predict_button" in changed_id and pipeline_model_definition is not None:
+    if show == 'Prediction' or show == 'Prediction/Annotation':
         pipeline_model_definition = from_dict(
             data_class=PipelineModelDefinition,
             data=pipeline_model_definition
         )
         pipeline_model_spec = PipelineModelSpec(
             detection_model_spec=pipeline_model_definition.detection_model_definition.model_spec,
-            classification_model_spec=pipeline_model_definition.classification_model_definition.model_spec
+            classification_model_spec=(
+                pipeline_model_definition.classification_model_definition.model_spec
+            ) if pipeline_model_definition.classification_model_definition is not None else None
         )
         current_pred_image_data = inference(
             pipeline_model_spec=pipeline_model_spec,
@@ -677,7 +594,6 @@ def update_current_image_data(
     [
         Input("current_image_data", "data"),
         Input("current_pred_image_data", "data"),
-        Input("average_maximum_images_per_page", "value"),
         Input("find_labels", "value"),
         Input("hide_labels", "value"),
     ]
@@ -685,7 +601,6 @@ def update_current_image_data(
 def update_current_image_data_filtered_and_maximum_page(
     current_image_data: ImageData,
     current_pred_image_data: ImageData,
-    average_maximum_images_per_page: int,
     find_labels: List[str],
     hide_labels: List[str]
 ):
@@ -743,9 +658,9 @@ def update_current_image_data_filtered_and_maximum_page(
     [
         Input("current_image_data", "data"),
         Input("current_pred_image_data", "data"),
-        Input('show_annotation', "value"),
-        Input('use_labels', "value"),
-        Input('draw_label_images', "value"),
+        Input("show", "value"),
+        Input("use_labels", "value"),
+        Input("draw_label_images", "value"),
         Input("find_labels", "value"),
         Input("hide_labels", "value"),
     ]
@@ -753,7 +668,7 @@ def update_current_image_data_filtered_and_maximum_page(
 def render_main_image(
     current_image_data: ImageData,
     current_pred_image_data: ImageData,
-    show_annotation: bool,
+    show: str,
     use_labels: bool,
     draw_label_images: bool,
     find_labels: List[str],
@@ -792,13 +707,13 @@ def render_main_image(
     else:
         current_pred_image_data_filtered = None
 
-    show_annotation = True if 'true' in show_annotation else False
-    if current_pred_image_data_filtered is not None:
-        image_data = current_pred_image_data_filtered
-    else:
+    if show == 'None':
         image_data = current_image_data_filtered
-        if not show_annotation:
-            image_data.bboxes_data = []
+        image_data.bboxes_data = []
+    elif show == 'Annotation':
+        image_data = current_image_data_filtered
+    elif show == 'Prediction' or show == 'Prediction/Annotation':
+        image_data = current_pred_image_data_filtered
     use_labels = True if 'true' in use_labels else False
     draw_label_images = True if 'true' in draw_label_images else False
     global label_to_base_label_image
@@ -832,10 +747,9 @@ def render_main_image(
     [
         Input("current_image_data", "data"),
         Input("current_pred_image_data", "data"),
-        Input('show_annotation', "value"),
+        Input('show', 'value'),
         Input("annotation_success", "data"),
         Input('show_top_n', "value"),
-        Input("average_maximum_images_per_page", "value"),
         Input("current_page", "data"),
         Input("find_labels", "value"),
         Input("hide_labels", "value"),
@@ -844,10 +758,9 @@ def render_main_image(
 def render_bboxes(
     current_image_data: ImageData,
     current_pred_image_data: ImageData,
-    show_annotation: bool,
+    show: str,
     annotation_success: bool,
     show_top_n: bool,
-    average_maximum_images_per_page: int,
     current_page: int,
     find_labels: List[str],
     hide_labels: List[str]
@@ -883,33 +796,26 @@ def render_bboxes(
     else:
         current_pred_image_data_filtered = None
 
-    show_annotation = True if 'true' in show_annotation else False
     show_top_n = True if 'true' in show_top_n else False
 
-    true_image_data = current_image_data_filtered
-    if current_pred_image_data_filtered is not None:
-        pred_image_data = current_pred_image_data_filtered
-    else:
-        pred_image_data = None
-    if show_annotation and annotation_success:
+    if show == 'None':
+        return None
+    elif show == 'Annotation':
         return illustrate_bboxes_data(
-            true_image_data=true_image_data,
+            true_image_data=current_image_data_filtered,
             label_to_base_label_image=label_to_base_label_image,
             label_to_description=label_to_description,
-            pred_image_data=pred_image_data,
-            minimum_iou=cfg.data.minimum_iou,
             background_color_a=[0, 0, 0, 255],
             true_background_color_b=[0, 255, 0, 255],
-            pred_background_color_b=[255, 255, 0, 255],
             bbox_offset=100,
             draw_rectangle_with_color=[0, 255, 0],
             show_top_n=show_top_n,
             average_maximum_images_per_page=average_maximum_images_per_page,
             current_page=current_page
         )
-    elif pred_image_data is not None:
+    elif show == 'Prediction':
         return illustrate_bboxes_data(
-            true_image_data=pred_image_data,
+            true_image_data=current_pred_image_data_filtered,
             label_to_base_label_image=label_to_base_label_image,
             label_to_description=label_to_description,
             background_color_a=[0, 0, 0, 255],
@@ -920,9 +826,22 @@ def render_bboxes(
             average_maximum_images_per_page=average_maximum_images_per_page,
             current_page=current_page
         )
-    else:
-        return None
-
+    elif show == 'Prediction/Annotation':
+        return illustrate_bboxes_data(
+            true_image_data=current_image_data_filtered,
+            label_to_base_label_image=label_to_base_label_image,
+            label_to_description=label_to_description,
+            pred_image_data=current_pred_image_data_filtered,
+            minimum_iou=cfg.data.minimum_iou,
+            background_color_a=[0, 0, 0, 255],
+            true_background_color_b=[0, 255, 0, 255],
+            pred_background_color_b=[255, 255, 0, 255],
+            bbox_offset=100,
+            draw_rectangle_with_color=[0, 255, 0],
+            show_top_n=show_top_n,
+            average_maximum_images_per_page=average_maximum_images_per_page,
+            current_page=current_page
+        )
 
 @server.errorhandler(Exception)
 def handle_exception(e):
@@ -933,4 +852,4 @@ def handle_exception(e):
 
 
 if __name__ == "__main__":
-    app.run_server()
+    app.run_server(debug=True)
