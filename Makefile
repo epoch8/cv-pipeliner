@@ -1,4 +1,4 @@
-VERSION=0.6.0
+VERSION=0.6.1
 
 APP_IMAGE=eu.gcr.io/e8-gke/cv-pipeliner-app:${VERSION}
 
