@@ -1,4 +1,4 @@
-# 0.6.0 (2021-04-01)
+# 0.6.0-0.6.1 (2021-04-01)
 
 - Add Mean Expected Steps metrics
 - Major apps code refactor (migrate from Streamlit to Dash)

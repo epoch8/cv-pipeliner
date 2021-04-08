@@ -171,7 +171,7 @@ def illustrate_bboxes_data(
                     dcc.Markdown(
                         f"Found **{total_bboxes}** bboxes total",
                         style={
-                            'font-size': '25px'
+                            'font-size': '40px'
                         }
                     ),
                     dcc.Markdown(f"""
@@ -195,9 +195,9 @@ def illustrate_bboxes_data(
             html.Div(
                 children=[
                     dcc.Markdown(
-                        f"Found **{total_bboxes}** bboxes!",
+                        f"Found **{total_bboxes}** bboxes total",
                         style={
-                            'font-size': '16px'
+                            'font-size': '40px'
                         }
                     ),
                     html.Hr()
@@ -381,7 +381,7 @@ def illustrate_n_bboxes_data(
                 dcc.Markdown(
                     f"Found **{total_bboxes}** bboxes total",
                     style={
-                        'font-size': '25px'
+                        'font-size': '40px'
                     }
                 ),
                 html.Hr()

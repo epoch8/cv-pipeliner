@@ -2,7 +2,7 @@ version: '3'
 
 services:
   cv_pipeliner_app:
-    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.6.0
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.6.2
     container_name: "cv_pipeliner_app"
     ports:
       - "8050:8050"
@@ -18,7 +18,7 @@ services:
     command: ["python", "apps/app.py"]
 
   cv_pipeliner_dataset_browser:
-    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.6.0
+    image: eu.gcr.io/e8-gke/cv-pipeliner-app:0.6.2
     container_name: "dataset_browser"
     ports:
       - "8051:8051"
