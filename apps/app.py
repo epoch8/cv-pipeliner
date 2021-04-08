@@ -14,6 +14,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from flask import Flask
 from dacite import from_dict
+from PIL import Image
 
 from traceback_with_variables import iter_tb_lines, ColorSchemes
 
@@ -130,6 +131,7 @@ sidebar = html.Div(
             options=[
                 {'label': 'None', 'value': 'None'},
             ],
+            optionHeight=80,
         ),
         html.Hr(),
         html.P(
@@ -407,21 +409,21 @@ def render_images_dirs(
     image_dir_to_annotation_filepaths = {
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
     }
-    images_dirs = [image_dir for image_dir in images_dirs if len(image_dir_to_annotation_filepaths[image_dir]) > 0]
+    images_dirs = [image_dir for image_dir in images_dirs]
     image_dir_to_annotation_filepaths = {
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
     }
 
     def get_option(image_dir):
-        if len(image_dir_to_annotation_filepaths[image_dir]) > 0:
+        if image_dir_to_annotation_filepaths[image_dir] is not None and len(image_dir_to_annotation_filepaths[image_dir]) > 0:
             return {
                 'label': f"../{Pathy(image_dir).name} [{Path(image_dir_to_annotation_filepaths[image_dir][0]).name}]",
-                'value': (image_dir, image_dir_to_annotation_filepaths[image_dir][0])
+                'value': f"{image_dir}\n{image_dir_to_annotation_filepaths[image_dir][0]}"
             }
         else:
             return {
                 'label': f"../{Pathy(image_dir).name} [no annotation]",
-                'value': (image_dir, None)
+                'value': f"{image_dir}\nNone"
             }
 
     dropdown_options = [
@@ -477,7 +479,8 @@ def get_images_data(
     images_data_options = [{'label': 'None', 'value': 'None'}]
     annotation_success = False
     if dataset is not None:
-        images_dir, annotation_filepath = dataset
+        images_dir, annotation_filepath = dataset.split('\n')
+        annotation_filepath = None if annotation_filepath == 'None' else annotation_filepath
         images_data, annotation_success = get_images_data_from_dir(
             images_annotation_type=cfg.data.images_annotation_type,
             images_dir=images_dir,
@@ -548,10 +551,13 @@ def update_current_image_data(
         else:
             return None, None
 
+    if int(images_data_selected_caption) > len(images_data_selected_caption_options):
+        images_data_selected_caption = 0
     current_image_data = images_data_short[int(images_data_selected_caption)]
     current_image_data = ImageData.from_dict(current_image_data)
     if current_image_data.image_path is not None:
-        _, annotation_filepath = dataset
+        _, annotation_filepath = dataset.split('\n')
+        annotation_filepath = None if annotation_filepath == 'None' else annotation_filepath
         current_image_data = get_images_data_from_dir(
             images_annotation_type=cfg.data.images_annotation_type,
             images_dir=[current_image_data.image_path],
@@ -726,6 +732,9 @@ def render_main_image(
         use_labels=use_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
     )
+    image = Image.fromarray(image)
+    image.thumbnail((1000, 1000))
+    image = np.array(image)
     div_children_result = [
         html.Hr(),
         html.Img(
@@ -852,4 +861,4 @@ def handle_exception(e):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server()

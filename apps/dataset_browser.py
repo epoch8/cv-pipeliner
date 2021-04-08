@@ -11,6 +11,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 from flask import Flask
+from PIL import Image
 
 from traceback_with_variables import iter_tb_lines, ColorSchemes
 
@@ -92,6 +93,7 @@ sidebar = html.Div(
             options=[
                 {'label': 'None', 'value': 'None'},
             ],
+            optionHeight=60,
         ),
         html.P(
             "Annotation filepath"
@@ -101,6 +103,7 @@ sidebar = html.Div(
             options=[
                 {'label': 'None', 'value': 'None'},
             ],
+            optionHeight=60,
         ),
         html.Hr(),
         html.P(
@@ -323,7 +326,10 @@ def render_images_dirs(
     image_dir_to_annotation_filepaths = {
         image_dir: d[image_dir] for d, image_dir in zip(cfg.data.images_dirs, images_dirs)
     }
-    images_dirs = [image_dir for image_dir in images_dirs if len(image_dir_to_annotation_filepaths[image_dir]) > 0]
+    images_dirs = [
+        image_dir for image_dir in images_dirs
+        if image_dir_to_annotation_filepaths[image_dir] is not None and len(image_dir_to_annotation_filepaths[image_dir]) > 0
+    ]
     dropdown_options = [{'label': f"../{Pathy(image_dir).name}", 'value': image_dir} for image_dir in images_dirs]
     return dropdown_options
 
@@ -337,6 +343,7 @@ def render_images_dirs(
 def render_annotation_paths(
     images_from: str
 ) -> List[str]:
+    dropdown_options = [{'label': 'None', 'value': 'None'}]
     if images_from is not None:
         images_dirs = [list(d)[0] for d in cfg.data.images_dirs]
         image_dir_to_annotation_filepaths = {
@@ -348,8 +355,6 @@ def render_annotation_paths(
                 'value': filepath
             } for filepath in image_dir_to_annotation_filepaths[images_from] if isinstance(filepath, str)
         ]
-    else:
-        dropdown_options = [{'label': 'None', 'value': 'None'}]
 
     return dropdown_options
 
@@ -440,7 +445,7 @@ def update_current_image_data_and_maximum_page(
     hide_labels: List[str]
 ):
 
-    if images_data is None:
+    if images_data is None or len(images_data) == 0:
         return None, 1
 
     if view == 'Detection':
@@ -529,6 +534,9 @@ def render_main_image(
             use_labels=use_labels,
             draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
         )
+        image = Image.fromarray(image)
+        image.thumbnail((1000, 1000))
+        image = np.array(image)
         div_children_result = [
             html.Hr(),
             html.Img(

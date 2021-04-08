@@ -166,7 +166,7 @@ def illustrate_bboxes_data(
     if pred_image_data is not None:
         total_bboxes = len(pred_image_data.bboxes_data)
         div_children_result.extend([
-            html.Center(
+            html.Div(
                 children=[
                     dcc.Markdown(
                         f"Found **{total_bboxes}** bboxes total",
@@ -192,7 +192,7 @@ def illustrate_bboxes_data(
     else:
         total_bboxes = len(true_image_data.bboxes_data)
         div_children_result.append(
-            html.Center(
+            html.Div(
                 children=[
                     dcc.Markdown(
                         f"Found **{total_bboxes}** bboxes!",
@@ -376,7 +376,7 @@ def illustrate_n_bboxes_data(
         return html.Div(children=div_children_result)
 
     div_children_result.append(
-        html.Center(
+        html.Div(
             children=[
                 dcc.Markdown(
                     f"Found **{total_bboxes}** bboxes total",
