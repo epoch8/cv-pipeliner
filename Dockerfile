@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.1-cudnn7-runtime-ubuntu18.04
+FROM nvidia/cuda:11.0-cudnn8-runtime-ubuntu18.04
 
 ENV PATH="/root/miniconda3/bin:${PATH}"
 ARG PATH="/root/miniconda3/bin:${PATH}"
@@ -22,7 +22,7 @@ RUN wget \
 RUN conda update -n base -c defaults conda
 RUN conda install -c anaconda python=3.8
 
-# Install Object Detection API
+# # Install Object Detection API
 RUN git clone https://github.com/tensorflow/models.git
 RUN cd models/research/ && \
     protoc object_detection/protos/*.proto --python_out=. && \
@@ -32,18 +32,13 @@ RUN cd models/research/ && \
 
 # Install Arial fonts
 RUN apt-get install -y fontconfig
-RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections
-RUN apt-get install -y ttf-mscorefonts-installer
+RUN echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | debconf-set-selections
+RUN apt-get install --reinstall ttf-mscorefonts-installer -y
 RUN fc-cache
-
-# Fix "Illegal instruction (core dumped)" (on our cluster)
-RUN pip install tensorflow==2.3.1 tensorflow-gpu==2.3.1
 
 # Install cv_pipeliner
 ADD requirements.txt /app/requirements.txt
 RUN pip3 install -r /app/requirements.txt
-RUN pip3 install label-studio>=0.7.6
-RUN python3 -c 'import matplotlib.font_manager'
 
 ADD cv_pipeliner /app/cv_pipeliner/
 ADD setup.py /app/setup.py

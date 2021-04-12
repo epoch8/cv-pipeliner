@@ -39,14 +39,18 @@ class BrickitDataConverter(DataConverter):
             with annot as f:
                 annot = json.load(f)
         image_idx = None
-        for i, image_annot in enumerate(annot):
-            if image_annot['filename'] == image_name:
-                image_idx = i
-                break
-        if image_idx is None:
+        if image_name not in annot:
             return None
+        else:
+            annot = annot[image_name]
+#         for i, image_annot in enumerate(annot):
+#             if image_annot['filename'] == image_name:
+#                 image_idx = i
+#                 break
+#         if image_idx is None:
+#             return None
 
-        annot = annot[image_idx]
+#         annot = annot[image_idx]
         additional_info = {}
         for key in annot:
             if key not in ['objects', 'filename']:

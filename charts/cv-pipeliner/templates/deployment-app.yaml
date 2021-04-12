@@ -9,8 +9,6 @@ spec:
 {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
 {{- end }}
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       {{- include "helm-chart.selectorLabels" . | nindent 6 }}
@@ -44,27 +42,31 @@ spec:
           {{- end }}
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8050
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /
+              path: {{ .Values.app.virtualService.uri }}
               port: http
           readinessProbe:
             httpGet:
-              path: /
+              path: {{ .Values.app.virtualService.uri }}
               port: http
           resources:
             {{- toYaml .Values.app.resources | nindent 12 }}
           env:
-            - name: CV_PIPELINER_BACKEND_URL
-              value: "http://{{ include "helm-chart.backend-name" . }}/"
-            - name: CV_PIPELINER_FRONTEND_URL
-              value: "{{ .Values.frontend.virtualService.uri }}"
+            - name: HOST
+              value: "0.0.0.0"
+            {{- if .Values.app.virtualService.enabled }}
+            - name: DASH_REQUESTS_PATHNAME_PREFIX
+              value: {{ .Values.app.virtualService.uri }}
+            - name: DASH_ROUTES_PATHNAME_PREFIX
+              value: {{ .Values.app.virtualService.uri }}
+            {{- end }}
           {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          command: ["streamlit", "run", "apps/app/app.py", "--server.port", "80"]
+          command: ["python", "apps/app.py"]
       {{- with .Values.volumes }}
       volumes:
         {{- toYaml . | nindent 8 }}

@@ -1,3 +1,4 @@
+import base64
 import json
 import sys
 import importlib
@@ -6,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple, Callable, Union, Type, Literal
 
+import requests
 import numpy as np
 import tensorflow as tf
 import fsspec
@@ -24,6 +26,20 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     class_names: Union[List[str], str, Path]
     model_path: Union[str, Pathy, tf.keras.Model]
     saved_model_type: Literal["tf.saved_model", "tf.keras", "tf.keras.Model", "tflite"]
+
+    @property
+    def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
+        from cv_pipeliner.inference_models.classification.tensorflow import Tensorflow_ClassificationModel
+        return Tensorflow_ClassificationModel
+
+
+@dataclass
+class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
+    url: str
+    input_name: str
+    input_size: Union[Tuple[int, int], List[int]]
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path]
+    class_names: Union[List[str], str, Path]
 
     @property
     def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
@@ -51,19 +67,10 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             sys.path.pop()
         return module.preprocess_input
 
-    def __init__(
+    def _load_tensorflow_classification_model_spec(
         self,
         model_spec: TensorFlow_ClassificationModelSpec
     ):
-        assert isinstance(model_spec, TensorFlow_ClassificationModelSpec)
-        super().__init__(model_spec)
-
-        if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
-            with fsspec.open(model_spec.class_names, 'r', encoding='utf-8') as out:
-                self._class_names = json.load(out)
-        else:
-            self._class_names = model_spec.class_names
-
         if model_spec.saved_model_type in ["tf.keras", "tf.saved_model", "tflite"]:
             model_openfile = fsspec.open(model_spec.model_path, 'rb')
             if model_openfile.fs.isdir(model_openfile.path):
@@ -105,6 +112,31 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 f"in TensorFlow_ClassificationModelSpec: {self.saved_model_type}"
             )
 
+    def __init__(
+        self,
+        model_spec: Union[
+            TensorFlow_ClassificationModelSpec,
+            TensorFlow_ClassificationModelSpec_TFServing
+        ]
+    ):
+        super().__init__(model_spec)
+
+        if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
+            with fsspec.open(model_spec.class_names, 'r', encoding='utf-8') as out:
+                self._class_names = json.load(out)
+        else:
+            self._class_names = model_spec.class_names
+
+        if isinstance(model_spec, TensorFlow_ClassificationModelSpec):
+            self._load_tensorflow_classification_model_spec(model_spec)
+            self._raw_predict = self._raw_predict_tensorflow
+        elif isinstance(model_spec, TensorFlow_ClassificationModelSpec_TFServing):
+            self._raw_predict = self._raw_predict_kfserving
+        else:
+            raise ValueError(
+                f"Tensorflow_ClassificationModel got unknown ClassificationModelSpec: {type(model_spec)}"
+            )
+
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
             self._preprocess_input = self._get_preprocess_input_from_script_file(
                 script_file=model_spec.preprocess_input
@@ -114,7 +146,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
 
         self.id_to_class_name = np.array([class_name for class_name in self._class_names])
 
-    def _raw_predict(
+    def _raw_predict_tensorflow(
         self,
         images: np.ndarray
     ):
@@ -133,6 +165,36 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self.model.set_tensor(self.input_index, images)
             self.model.invoke()
             raw_predictions_batch = self.model.get_tensor(self.output_index)
+        return raw_predictions_batch
+
+    def _raw_predict_kfserving(
+        self,
+        images: np.ndarray
+    ):
+        images_encoded = [tf.io.encode_jpeg(image, quality=100) for image in images]
+        images_encoded_b64 = [base64.b64encode(image.numpy()).decode('utf-8') for image in images_encoded]
+        response = requests.post(
+            url=self.model_spec.url,
+            data=json.dumps({
+                'instances': [
+                    {
+                        self.model_spec.input_name: {
+                            'b64': image
+                        }
+                    }
+                    for image in images_encoded_b64
+                ]
+            })
+        )
+        output_dict = json.loads(response.content)
+        if not response.ok:
+            if 'error' in output_dict:
+                error = output_dict['error']
+            else:
+                error = response.response
+            raise ValueError(error)
+        raw_predictions_batch = np.array(output_dict['predictions'])
+
         return raw_predictions_batch
 
     def predict(

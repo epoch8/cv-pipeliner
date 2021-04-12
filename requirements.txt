@@ -19,3 +19,8 @@ pathy>=0.3.3
 traceback_with_variables==1.1.9
 dataframe_image>=0.1.1
 tqdm>=4.40.2
+tensorflow>=2.4.1
+tensorflow-gpu>=2.4.1
+dash>=1.19.0
+dash-bootstrap-components>=0.11.3
+label-studio>=1.0.1

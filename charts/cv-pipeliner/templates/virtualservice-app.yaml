@@ -14,8 +14,6 @@ spec:
     - match:
         - uri:
             prefix: {{ .Values.app.virtualService.uri }}
-      rewrite:
-        uri: /
       route:
         - destination:
             host: "{{ include "helm-chart.app-name" . }}.{{ .Release.Namespace }}.svc.cluster.local"

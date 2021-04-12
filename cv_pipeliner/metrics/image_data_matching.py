@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Literal, List
 
 import numpy as np
-import dataframe_image as dfi
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.logging import logger
