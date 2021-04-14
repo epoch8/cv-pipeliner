@@ -51,6 +51,9 @@ average_maximum_images_per_page = 20
 server = Flask(__name__)
 app = dash.Dash(server=server, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
+from trace import setup_flask_tracing, trace_function, trace_span
+setup_flask_tracing(server)
+
 
 def read_config_file() -> bool:
     global cfg, current_config_str
@@ -416,6 +419,7 @@ def get_pipeline_model_spec(
         Input("config", "data")
     ]
 )
+@trace_function
 def render_images_dirs(
     config_data: str
 ) -> List[str]:
@@ -486,6 +490,7 @@ def render_images_data_selected_caption(
         Input("upload_image", "contents")
     ]
 )
+@trace_function
 def get_images_data(
     dataset: str,
     upload_image_contents: str
@@ -574,6 +579,7 @@ def on_click_image_buttons(
         Input('show', 'value')
     ]
 )
+@trace_function
 def update_current_image_data(
     images_data_short: List[ImageData],
     dataset: Tuple[str, str],
@@ -593,40 +599,42 @@ def update_current_image_data(
         else:
             return None, None
 
-    if int(images_data_selected_caption) > len(images_data_selected_caption_options):
-        images_data_selected_caption = 0
-    current_image_data = images_data_short[int(images_data_selected_caption)]
-    current_image_data = ImageData.from_dict(current_image_data)
-    if current_image_data.image_path is not None:
-        _, annotation_filepath = dataset.split('\n')
-        annotation_filepath = None if annotation_filepath == 'None' else annotation_filepath
-        current_image_data = get_images_data_from_dir(
-            images_annotation_type=cfg.data.images_annotation_type,
-            images_dir=[current_image_data.image_path],
-            annotation_filepath=annotation_filepath,
-        )[0][0]
+    with trace_span('current_image_data'):
+        if int(images_data_selected_caption) > len(images_data_selected_caption_options):
+            images_data_selected_caption = 0
+        current_image_data = images_data_short[int(images_data_selected_caption)]
+        current_image_data = ImageData.from_dict(current_image_data)
+        if current_image_data.image_path is not None:
+            _, annotation_filepath = dataset.split('\n')
+            annotation_filepath = None if annotation_filepath == 'None' else annotation_filepath
+            current_image_data = get_images_data_from_dir(
+                images_annotation_type=cfg.data.images_annotation_type,
+                images_dir=[current_image_data.image_path],
+                annotation_filepath=annotation_filepath,
+            )[0][0]
 
     bboxes_data = current_image_data.bboxes_data
 
     if show == 'Prediction' or show == 'Prediction/Annotation':
-        pipeline_model_definition = from_dict(
-            data_class=PipelineModelDefinition,
-            data=pipeline_model_definition
-        )
-        pipeline_model_spec = PipelineModelSpec(
-            detection_model_spec=pipeline_model_definition.detection_model_definition.model_spec,
-            classification_model_spec=(
-                pipeline_model_definition.classification_model_definition.model_spec
-            ) if pipeline_model_definition.classification_model_definition is not None else None
-        )
-        current_pred_image_data = inference(
-            pipeline_model_spec=pipeline_model_spec,
-            image_data=current_image_data,
-            detection_score_threshold=pipeline_model_definition.detection_model_definition.score_threshold,
-            classification_top_n=top_n
-        )
-        current_pred_image_data.image = current_image_data.image
-        bboxes_data = bboxes_data + current_pred_image_data.bboxes_data
+        with trace_span('inference'):
+            pipeline_model_definition = from_dict(
+                data_class=PipelineModelDefinition,
+                data=pipeline_model_definition
+            )
+            pipeline_model_spec = PipelineModelSpec(
+                detection_model_spec=pipeline_model_definition.detection_model_definition.model_spec,
+                classification_model_spec=(
+                    pipeline_model_definition.classification_model_definition.model_spec
+                ) if pipeline_model_definition.classification_model_definition is not None else None
+            )
+            current_pred_image_data = inference(
+                pipeline_model_spec=pipeline_model_spec,
+                image_data=current_image_data,
+                detection_score_threshold=pipeline_model_definition.detection_model_definition.score_threshold,
+                classification_top_n=top_n
+            )
+            current_pred_image_data.image = current_image_data.image
+            bboxes_data = bboxes_data + current_pred_image_data.bboxes_data
     else:
         current_pred_image_data = None
 
@@ -646,6 +654,7 @@ def update_current_image_data(
         Input("hide_labels", "value"),
     ]
 )
+@trace_function
 def update_current_image_data_filtered_and_maximum_page(
     current_image_data: ImageData,
     current_pred_image_data: ImageData,
@@ -713,6 +722,7 @@ def update_current_image_data_filtered_and_maximum_page(
         Input("hide_labels", "value"),
     ]
 )
+@trace_function
 def render_main_image(
     current_image_data: ImageData,
     current_pred_image_data: ImageData,
@@ -728,67 +738,73 @@ def render_main_image(
     if current_image_data is None:
         return None
 
-    current_image_data_filtered = ImageData.from_dict(current_image_data)
-    current_image_data_filtered = get_image_data_filtered_by_labels(
-        image_data=current_image_data_filtered,
-        filter_by_labels=find_labels,
-        include=True
-    )
-    current_image_data_filtered = get_image_data_filtered_by_labels(
-        image_data=current_image_data_filtered,
-        filter_by_labels=hide_labels,
-        include=False
-    )
-
-    if current_pred_image_data is not None:
-        current_pred_image_data_filtered = ImageData.from_dict(current_pred_image_data)
-        current_pred_image_data_filtered = get_image_data_filtered_by_labels(
-            image_data=current_pred_image_data_filtered,
+    with trace_span('filter image data'):
+        current_image_data_filtered = ImageData.from_dict(current_image_data)
+        current_image_data_filtered = get_image_data_filtered_by_labels(
+            image_data=current_image_data_filtered,
             filter_by_labels=find_labels,
             include=True
         )
-        current_pred_image_data_filtered = get_image_data_filtered_by_labels(
-            image_data=current_pred_image_data_filtered,
+        current_image_data_filtered = get_image_data_filtered_by_labels(
+            image_data=current_image_data_filtered,
             filter_by_labels=hide_labels,
             include=False
         )
-    else:
-        current_pred_image_data_filtered = None
 
-    if show == 'None':
-        image_data = current_image_data_filtered
-        image_data.bboxes_data = []
-    elif show == 'Annotation':
-        image_data = current_image_data_filtered
-    elif show == 'Prediction' or show == 'Prediction/Annotation':
-        image_data = current_pred_image_data_filtered
-    use_labels = True if 'true' in use_labels else False
-    draw_label_images = True if 'true' in draw_label_images else False
-    global label_to_base_label_image
-    draw_base_labels_with_given_label_to_base_label_image = (
-        label_to_base_label_image if draw_label_images else None
-    )
+        if current_pred_image_data is not None:
+            current_pred_image_data_filtered = ImageData.from_dict(current_pred_image_data)
+            current_pred_image_data_filtered = get_image_data_filtered_by_labels(
+                image_data=current_pred_image_data_filtered,
+                filter_by_labels=find_labels,
+                include=True
+            )
+            current_pred_image_data_filtered = get_image_data_filtered_by_labels(
+                image_data=current_pred_image_data_filtered,
+                filter_by_labels=hide_labels,
+                include=False
+            )
+        else:
+            current_pred_image_data_filtered = None
 
-    image = visualize_image_data(
-        image_data=image_data,
-        use_labels=use_labels,
-        draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
-    )
-    image = Image.fromarray(image)
-    image.thumbnail((1000, 1000))
-    image = np.array(image)
-    div_children_result = [
-        html.Hr(),
-        html.Img(
-            src=f"data:image/png;base64,{get_image_b64(image, format='png')}",
-            style={
-                'max-width': '100%',
-                'height': 'auto'
-            }
-        ),
-        html.Hr(),
-        html.Hr()
-    ]
+        if show == 'None':
+            image_data = current_image_data_filtered
+            image_data.bboxes_data = []
+        elif show == 'Annotation':
+            image_data = current_image_data_filtered
+        elif show == 'Prediction' or show == 'Prediction/Annotation':
+            image_data = current_pred_image_data_filtered
+        use_labels = True if 'true' in use_labels else False
+        draw_label_images = True if 'true' in draw_label_images else False
+        global label_to_base_label_image
+        draw_base_labels_with_given_label_to_base_label_image = (
+            label_to_base_label_image if draw_label_images else None
+        )
+
+    with trace_span('visualize_image_data'):
+        image = visualize_image_data(
+            image_data=image_data,
+            use_labels=use_labels,
+            draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+        )
+
+    with trace_span('make thumbnail'):
+        image = Image.fromarray(image)
+        image.thumbnail((1000, 1000))
+        image = np.array(image)
+
+    with trace_span('make html'):
+        div_children_result = [
+            html.Hr(),
+            html.Img(
+                src=f"data:image/png;base64,{get_image_b64(image, format='png')}",
+                style={
+                    'max-width': '100%',
+                    'height': 'auto'
+                }
+            ),
+            html.Hr(),
+            html.Hr()
+        ]
 
     return div_children_result
 
@@ -806,6 +822,7 @@ def render_main_image(
         Input("hide_labels", "value"),
     ]
 )
+@trace_function
 def render_bboxes(
     current_image_data: ImageData,
     current_pred_image_data: ImageData,
