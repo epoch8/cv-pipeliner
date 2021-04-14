@@ -652,6 +652,7 @@ def update_current_image_data(
         Input("current_pred_image_data", "data"),
         Input("find_labels", "value"),
         Input("hide_labels", "value"),
+        Input('show', 'value')
     ]
 )
 @trace_function
@@ -659,51 +660,56 @@ def update_current_image_data_filtered_and_maximum_page(
     current_image_data: ImageData,
     current_pred_image_data: ImageData,
     find_labels: List[str],
-    hide_labels: List[str]
+    hide_labels: List[str],
+    show: str
 ):
     if current_image_data is None:
         return 1
 
-    current_image_data_filtered = ImageData.from_dict(current_image_data)
-    current_image_data_filtered = get_image_data_filtered_by_labels(
-        image_data=current_image_data_filtered,
-        filter_by_labels=find_labels,
-        include=True
-    )
-    current_image_data_filtered = get_image_data_filtered_by_labels(
-        image_data=current_image_data_filtered,
-        filter_by_labels=hide_labels,
-        include=False
-    )
-
-    if current_pred_image_data is not None:
-        current_pred_image_data_filtered = ImageData.from_dict(current_pred_image_data)
-        current_pred_image_data_filtered = get_image_data_filtered_by_labels(
-            image_data=current_pred_image_data_filtered,
+    with trace_span('get_image_data_filtered_by_labels (current_image_data)'):
+        current_image_data_filtered = ImageData.from_dict(current_image_data)
+        current_image_data_filtered = get_image_data_filtered_by_labels(
+            image_data=current_image_data_filtered,
             filter_by_labels=find_labels,
             include=True
         )
-        current_pred_image_data_filtered = get_image_data_filtered_by_labels(
-            image_data=current_pred_image_data_filtered,
+        current_image_data_filtered = get_image_data_filtered_by_labels(
+            image_data=current_image_data_filtered,
             filter_by_labels=hide_labels,
             include=False
         )
-    else:
-        current_pred_image_data_filtered = None
 
-    if current_pred_image_data_filtered is not None:
+    with trace_span('get_image_data_filtered_by_labels (current_pred_image_data)'):
+        if current_pred_image_data is not None:
+            current_pred_image_data_filtered = ImageData.from_dict(current_pred_image_data)
+            current_pred_image_data_filtered = get_image_data_filtered_by_labels(
+                image_data=current_pred_image_data_filtered,
+                filter_by_labels=find_labels,
+                include=True
+            )
+            current_pred_image_data_filtered = get_image_data_filtered_by_labels(
+                image_data=current_pred_image_data_filtered,
+                filter_by_labels=hide_labels,
+                include=False
+            )
+        else:
+            current_pred_image_data_filtered = None
+
+    if current_pred_image_data_filtered is not None and show == 'Prediction/Annotation':
         global minimum_iou
-        image_data_matching = ImageDataMatching(
-            true_image_data=current_image_data_filtered,
-            pred_image_data=current_pred_image_data_filtered,
-            minimum_iou=minimum_iou
-        )
-        bboxes_data = [
-            bbox_data_matching for bbox_data_matching in image_data_matching.bboxes_data_matchings
-            if bbox_data_matching.pred_bbox_data is not None
-        ]
+        with trace_span('get bboxes_data from ImageDataMatching'):
+            image_data_matching = ImageDataMatching(
+                true_image_data=current_image_data_filtered,
+                pred_image_data=current_pred_image_data_filtered,
+                minimum_iou=minimum_iou
+            )
+            bboxes_data = [
+                bbox_data_matching for bbox_data_matching in image_data_matching.bboxes_data_matchings
+                if bbox_data_matching.pred_bbox_data is not None
+            ]
     else:
-        bboxes_data = current_image_data_filtered.bboxes_data
+        with trace_span('get bboxes_data from current_image_data_filtered'):
+            bboxes_data = current_image_data_filtered.bboxes_data
 
     maximum_page = max(1, int(np.ceil(len(bboxes_data) / average_maximum_images_per_page)))
 
