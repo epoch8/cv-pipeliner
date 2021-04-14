@@ -10,3 +10,6 @@ How to build and run locally:
 make build
 docker-compose run
 ```
+
+# Zipkin
+docker run --rm -p 9411:9411 openzipkin/zipkin
