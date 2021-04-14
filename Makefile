@@ -1,4 +1,4 @@
-VERSION=0.6.2rc0
+VERSION=0.6.2rc1
 
 APP_IMAGE=dcr.epoch8.co/cv-pipeliner-app:${VERSION}
 

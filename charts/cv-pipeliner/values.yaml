@@ -37,7 +37,7 @@ app:
     uri: 'DISABLED'
 
 kfserving:
-  knativeWindow: 5m
+  knativeWindow: 10m
   models: []
 
 serviceAccount:
