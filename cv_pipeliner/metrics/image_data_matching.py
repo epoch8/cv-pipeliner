@@ -207,36 +207,52 @@ class ImageDataMatching:
                     )
                 bboxes_coords.add((xmin, ymin, xmax, ymax))
 
-        pairwise_ious = pairwise_intersection_over_union(true_bboxes_data, bboxes_data)
+        if len(true_bboxes_data) > 0 and len(bboxes_data) > 0:
+            pairwise_ious = pairwise_intersection_over_union(true_bboxes_data, bboxes_data)
 
-        for idx, true_bbox_data in enumerate(true_bboxes_data):
-            best_pred_bbox_column = np.argmax(pairwise_ious[idx, :])
+            for idx, true_bbox_data in enumerate(true_bboxes_data):
+                best_pred_bbox_column = np.argmax(pairwise_ious[idx, :])
 
-            if pairwise_ious[idx, best_pred_bbox_column] >= minimum_iou:
-                # Remove pred_bbox_data from pairwise matrix
-                pairwise_ious[:, best_pred_bbox_column] = -1
-                remained_pred_bboxes_data.remove(best_pred_bbox_column)
-            else:
-                best_pred_bbox_column = None
+                if pairwise_ious[idx, best_pred_bbox_column] >= minimum_iou:
+                    # Remove pred_bbox_data from pairwise matrix
+                    pairwise_ious[:, best_pred_bbox_column] = -1
+                    remained_pred_bboxes_data.remove(best_pred_bbox_column)
+                else:
+                    best_pred_bbox_column = None
 
-            if best_pred_bbox_column is not None:  # Not found
+                if best_pred_bbox_column is not None:  # Not found
+                    bboxes_data_matchings.append(BboxDataMatching(
+                        true_bbox_data=true_bbox_data,
+                        pred_bbox_data=pred_bboxes_data[best_pred_bbox_column],
+                        extra_bbox_label=extra_bbox_label
+                    ))
+                else:
+                    bboxes_data_matchings.append(BboxDataMatching(  # Found
+                        true_bbox_data=true_bbox_data,
+                        pred_bbox_data=None,
+                        extra_bbox_label=extra_bbox_label
+                    ))
+            for pred_bbox_data_column in remained_pred_bboxes_data:
                 bboxes_data_matchings.append(BboxDataMatching(
-                    true_bbox_data=true_bbox_data,
-                    pred_bbox_data=pred_bboxes_data[best_pred_bbox_column],
+                    true_bbox_data=None,
+                    pred_bbox_data=pred_bboxes_data[pred_bbox_data_column],
                     extra_bbox_label=extra_bbox_label
                 ))
-            else:
-                bboxes_data_matchings.append(BboxDataMatching(  # Found
+        elif len(true_bboxes_data) > 0:
+            for true_bbox_data in true_bboxes_data:
+                bboxes_data_matchings.append(BboxDataMatching(
                     true_bbox_data=true_bbox_data,
                     pred_bbox_data=None,
                     extra_bbox_label=extra_bbox_label
                 ))
-        for pred_bbox_data_column in remained_pred_bboxes_data:
-            bboxes_data_matchings.append(BboxDataMatching(
-                true_bbox_data=None,
-                pred_bbox_data=pred_bboxes_data[pred_bbox_data_column],
-                extra_bbox_label=extra_bbox_label
-            ))
+        elif len(bboxes_data) > 0:
+            for pred_bbox_data in bboxes_data:
+                bboxes_data_matchings.append(BboxDataMatching(
+                    true_bbox_data=None,
+                    pred_bbox_data=pred_bbox_data,
+                    extra_bbox_label=extra_bbox_label
+                ))
+        
         return bboxes_data_matchings
 
     def get_detection_errors_types(
