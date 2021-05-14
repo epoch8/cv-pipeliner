@@ -5,7 +5,8 @@
 replicaCount: 1
 
 image:
-  repository: eu.gcr.io/e8-gke/cv-pipeliner-app
+  # repository: eu.gcr.io/e8-gke/cv-pipeliner-app
+  repository: dcr.epoch8.co/cv-pipeliner-app
   pullPolicy: IfNotPresent
   # tag: 0.2.1
 
@@ -36,7 +37,7 @@ app:
     uri: 'DISABLED'
 
 kfserving:
-  knativeWindow: 5m
+  knativeWindow: 10m
   models: []
 
 serviceAccount:

@@ -280,6 +280,7 @@ def visualize_image_data(
     filter_by_labels: List[str] = None,
     known_labels: List[str] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
+    groundtruth_box_visualization_color: str = 'lime'
 ) -> np.ndarray:
     image_data = get_image_data_filtered_by_labels(
         image_data=image_data,
@@ -304,16 +305,16 @@ def visualize_image_data(
         skip_scores = True
 
     image = visualize_boxes_and_labels_on_image_array(
-            image=image,
-            bboxes=bboxes,
-            angles=angles,
-            scores=scores,
-            labels=labels,
-            use_normalized_coordinates=False,
-            skip_scores=skip_scores,
-            skip_labels=not use_labels,
-            groundtruth_box_visualization_color='lime',
-            known_labels=known_labels
+        image=image,
+        bboxes=bboxes,
+        angles=angles,
+        scores=scores,
+        labels=labels,
+        use_normalized_coordinates=False,
+        skip_scores=skip_scores,
+        skip_labels=not use_labels,
+        groundtruth_box_visualization_color=groundtruth_box_visualization_color,
+        known_labels=known_labels
     )
     if draw_base_labels_with_given_label_to_base_label_image is not None:
         for bbox_data in image_data.bboxes_data:
