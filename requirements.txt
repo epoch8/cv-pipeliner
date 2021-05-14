@@ -23,7 +23,6 @@ tensorflow>=2.4.1
 # tensorflow-gpu>=2.4.1
 dash>=1.19.0
 dash-bootstrap-components>=0.11.3
-label-studio>=1.0.1
 opencensus==0.7.12
 opencensus_ext_zipkin==0.2.2
 opencensus-ext-flask
