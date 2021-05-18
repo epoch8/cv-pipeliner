@@ -38,9 +38,9 @@ class TextDetection(Inferencer):
         images_data_gen: BatchGeneratorImageData,
         score_threshold_step1: float,
         score_threshold_step2: float,
+        x_offset: float,
+        y_offset: float,
         disable_tqdm: bool = False,
-        x_offset: float = 0.1,
-        y_offset: float = 0.1
     ) -> List[ImageData]:
 
         pred_images_data = self.pipeline_inferencer_step1.predict(
