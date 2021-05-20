@@ -8,7 +8,7 @@ import cv2
 import fsspec
 from pathy import Pathy
 
-from cv_pipeliner.utils.images import rotate_point, open_image
+from cv_pipeliner.utils.images import is_base64, rotate_point, open_image
 
 
 def open_image_for_object(
@@ -36,7 +36,6 @@ def open_image_for_object(
 @dataclass
 class BboxData:
     image_path: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
-    image_name: str = None
     image: np.ndarray = None
     cropped_image: np.ndarray = None
     xmin: int = None
@@ -55,19 +54,23 @@ class BboxData:
     additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
-        if isinstance(self.image_path, str) or isinstance(self.image_path, Path):
+        if isinstance(self.image_path, Path) or (isinstance(self.image_path, str) and not is_base64(self.image_path)):
             self.image_path = Pathy(self.image_path)
-            self.image_name = self.image_path.name
-        elif isinstance(self.image_path, fsspec.core.OpenFile):
-            self.image_name = Pathy(self.image_path.path).name
-        elif isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):
-            self.image_name = 'bytes'
         if self.detection_score is not None:
             self.detection_score = float(self.detection_score)
         if self.classification_score is not None:
             self.classification_score = float(self.classification_score)
         if self.classification_scores_top_n is not None:
             self.classification_scores_top_n = list(map(float, self.classification_scores_top_n))
+
+    @property
+    def image_name(self):
+        if isinstance(self.image_path, Pathy):
+            return self.image_path.name
+        elif isinstance(self.image_path, fsspec.core.OpenFile):
+            return Pathy(self.image_path.path).name
+        elif isinstance(self.image_path, str) or isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):  # noqa
+            return 'bytes'
 
     def open_cropped_image(
         self,
@@ -184,7 +187,7 @@ class BboxData:
     def assert_label_is_valid(self):
         assert self.label is not None
 
-    def asdict(self) -> Dict:
+    def json(self) -> Dict:
         if isinstance(self.image_path, fsspec.core.OpenFile):
             protocol = self.image_path.fs.protocol
             if isinstance(protocol, tuple):
@@ -212,12 +215,12 @@ class BboxData:
             ] if self.classification_scores_top_n is not None else None,
             'detection_score': str(round(self.detection_score, 3)) if self.detection_score is not None else None,
             'classification_score': str(
-                round(self.classification_score, 3
-            )) if self.classification_score is not None else None,
+                round(self.classification_score, 3)
+            ) if self.classification_score is not None else None,
             'additional_info': self.additional_info
         }
 
-    def _from_dict(self, d):
+    def _from_json(self, d):
         for key in [
             'image_path', 'image', 'xmin', 'ymin', 'xmax', 'ymax',
             'angle', 'label', 'top_n', 'labels_top_n', 'classification_scores_top_n',
@@ -231,26 +234,32 @@ class BboxData:
         return self
 
     @staticmethod
-    def from_dict(d):
-        return BboxData()._from_dict(d)
+    def from_json(d):
+        if d is None:
+            return ImageData()
+
+        return BboxData()._from_json(d)
 
 
 @dataclass
 class ImageData:
     image_path: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
-    image_name: str = None
     image: np.ndarray = None
     bboxes_data: List[BboxData] = field(default_factory=list)
     additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
-        if isinstance(self.image_path, str) or isinstance(self.image_path, Path):
+        if isinstance(self.image_path, Path) or (isinstance(self.image_path, str) and not is_base64(self.image_path)):
             self.image_path = Pathy(self.image_path)
-            self.image_name = self.image_path.name
+
+    @property
+    def image_name(self):
+        if isinstance(self.image_path, Pathy):
+            return self.image_path.name
         elif isinstance(self.image_path, fsspec.core.OpenFile):
-            self.image_name = Pathy(self.image_path.path).name
-        elif isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):
-            self.image_name = 'bytes'
+            return Pathy(self.image_path.path).name
+        elif isinstance(self.image_path, str) or isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):  # noqa
+            return 'bytes'
 
     def open_image(
         self,
@@ -258,7 +267,7 @@ class ImageData:
     ) -> Union[None, np.ndarray]:
         return open_image_for_object(obj=self, inplace=inplace)
 
-    def asdict(self) -> Dict:
+    def json(self) -> Dict:
         if isinstance(self.image_path, fsspec.core.OpenFile):
             protocol = self.image_path.fs.protocol
             if isinstance(protocol, tuple):
@@ -273,23 +282,29 @@ class ImageData:
         return {
             'image_path': image_path_str,
             'image': image_str,
-            'bboxes_data': [bbox_data.asdict() for bbox_data in self.bboxes_data],
+            'bboxes_data': [bbox_data.json() for bbox_data in self.bboxes_data],
             'additional_info': self.additional_info
         }
 
-    def _from_dict(self, d):
+    def _from_json(self, d):
         for key in ['image_path', 'image', 'additional_info']:
             if key in d:
                 super().__setattr__(key, d[key])
         if 'bboxes_data' in d:
             bboxes_data = [BboxData() for i in range(len(d['bboxes_data']))]
             for bbox_data, d_i in zip(bboxes_data, d['bboxes_data']):
-                bbox_data._from_dict(d_i)
+                bbox_data._from_json(d_i)
             self.bboxes_data = bboxes_data
         self.__post_init__()
 
         return self
 
     @staticmethod
-    def from_dict(d):
-        return ImageData()._from_dict(d)
+    def from_json(d):
+        if d is None:
+            return ImageData()
+
+        return ImageData()._from_json(d)
+
+    def is_empty(self):
+        return self.image_path is None and self.image is None

@@ -1,3 +1,6 @@
+# 0.7.0
+- Apps moved to `epoch8/cv-demostand`
+
 # 0.6.0-0.6.1 (2021-04-01)
 
 - Add Mean Expected Steps metrics

@@ -1,4 +1,4 @@
-VERSION=0.6.1
+VERSION=0.7.0
 
 # APP_IMAGE=eu.gcr.io/e8-gke/cv-pipeliner-app:${VERSION}
 APP_IMAGE=dcr.epoch8.co/cv-pipeliner-app:${VERSION}

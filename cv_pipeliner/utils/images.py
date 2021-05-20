@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 import math
 from pathlib import Path
 from typing import List, Tuple, Union, Literal, Dict
@@ -16,7 +17,6 @@ import imutils
 from pathy import Pathy
 from tqdm import tqdm
 
-from cv_pipeliner.utils.data import get_label_to_description
 from cv_pipeliner.logging import logger
 
 
@@ -69,7 +69,7 @@ def rotate_point(
 def is_base64(s: str):
     try:
         return base64.b64encode(base64.b64decode(s)).decode() == s
-    except Exception as e:
+    except Exception:
         return False
 
 
@@ -321,6 +321,24 @@ def get_base_label_image_with_description(
     )
 
     return base_label_image
+
+
+def get_label_to_description(
+    label_to_description_dict: Union[str, Path, Dict, None],
+    default_description: str = 'No description.'
+) -> Dict[str, str]:
+    if label_to_description_dict is None:
+        label_to_description_dict = {}
+    elif isinstance(label_to_description_dict, str) or isinstance(label_to_description_dict, Path):
+        with fsspec.open(label_to_description_dict, 'r') as src:
+            label_to_description_dict = json.load(src)
+
+    label_to_description = defaultdict(lambda: default_description)
+    label_to_description['unknown'] = default_description
+    for k in label_to_description_dict:
+        label_to_description[k] = label_to_description_dict[k]
+
+    return label_to_description
 
 
 def get_label_to_base_label_image(
