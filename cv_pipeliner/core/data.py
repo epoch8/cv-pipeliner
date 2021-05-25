@@ -64,13 +64,27 @@ class BboxData:
             self.classification_scores_top_n = list(map(float, self.classification_scores_top_n))
 
     @property
-    def image_name(self):
+    def image_name(self) -> str:
         if isinstance(self.image_path, Pathy):
             return self.image_path.name
         elif isinstance(self.image_path, fsspec.core.OpenFile):
             return Pathy(self.image_path.path).name
         elif isinstance(self.image_path, str) or isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):  # noqa
             return 'bytes'
+
+    @property
+    def coords(self) -> Tuple[int, int, int, int]:
+        return (self.xmin, self.ymin, self.xmax, self.ymax)
+
+    @property
+    def coords_after_rotation(self):
+        points = [(self.xmin, self.ymin), (self.xmin, self.ymax), (self.xmax, self.ymin), (self.xmax, self.ymax)]
+        rotated_points = [rotate_point(x=x, y=y, cx=self.xmin, cy=self.ymin, angle=self.angle) for (x, y) in points]
+        xmin = max(0, min([x for (x, y) in rotated_points]))
+        ymin = max(0, min([y for (x, y) in rotated_points]))
+        xmax = max([x for (x, y) in rotated_points])
+        ymax = max([y for (x, y) in rotated_points])
+        return (xmin, ymin, xmax, ymax)
 
     def open_cropped_image(
         self,
@@ -99,13 +113,10 @@ class BboxData:
 
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
+            height, width, _ = image.shape
             points = [(self.xmin, self.ymin), (self.xmin, self.ymax), (self.xmax, self.ymin), (self.xmax, self.ymax)]
             rotated_points = [rotate_point(x=x, y=y, cx=self.xmin, cy=self.ymin, angle=self.angle) for (x, y) in points]
-            xmin = max(0, min([x for (x, y) in rotated_points]))
-            ymin = max(0, min([y for (x, y) in rotated_points]))
-            xmax = max([x for (x, y) in rotated_points])
-            ymax = max([y for (x, y) in rotated_points])
-            height, width, _ = image.shape
+            xmin, ymin, xmax, ymax = self.coords_after_rotation()
             xmin_in_cropped_image = max(0, min(xmin_offset, xmin-xmin_offset))
             ymin_in_cropped_image = max(0, min(ymin_offset, ymin-ymin_offset))
             xmax_in_cropped_image = max(0, min(xmax_offset, width-xmax))

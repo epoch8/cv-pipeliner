@@ -43,9 +43,3 @@ RUN pip3 install -r /app/requirements.txt
 ADD cv_pipeliner /app/cv_pipeliner/
 ADD setup.py /app/setup.py
 RUN pip3 install -e /app/
-
-# Add apps/
-ADD apps /apps/apps/
-WORKDIR /apps/
-ENV PATH=$PATH:/apps/
-ENV PYTHONPATH /apps/

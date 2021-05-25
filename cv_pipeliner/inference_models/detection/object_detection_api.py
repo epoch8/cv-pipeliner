@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import List, Tuple, Union, Type, Literal
 from pathlib import Path
 
-import tensorflow as tf
 import numpy as np
 import fsspec
 import requests
@@ -14,7 +13,7 @@ from pathy import Pathy
 from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
 )
-from cv_pipeliner.utils.images import denormalize_bboxes
+from cv_pipeliner.utils.images import denormalize_bboxes, get_image_b64
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 
 
@@ -40,6 +39,7 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
         from cv_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
         return ObjectDetectionAPI_DetectionModel
+
 
 @dataclass
 class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
@@ -69,6 +69,7 @@ class ObjectDetectionAPI_KFServing(DetectionModelSpec):
 
 class ObjectDetectionAPI_DetectionModel(DetectionModel):
     def _load_object_detection_api(self, model_spec: ObjectDetectionAPI_ModelSpec):
+        import tensorflow as tf
         from object_detection.utils import config_util
         from object_detection.builders import model_builder
         temp_dir = tempfile.TemporaryDirectory()
@@ -105,6 +106,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self,
         model_spec: ObjectDetectionAPI_pb_ModelSpec
     ):
+        import tensorflow as tf
         temp_folder = copy_files_from_directory_to_temp_directory(
             directory=model_spec.saved_model_dir
         )
@@ -124,6 +126,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         temp_folder.cleanup()
 
     def _load_object_detection_api_tflite(self, model_spec: ObjectDetectionAPI_TFLite_ModelSpec):
+        import tensorflow as tf
         temp_file = tempfile.NamedTemporaryFile()
         with fsspec.open(model_spec.model_path, 'rb') as src:
             temp_file.write(src.read())
@@ -176,7 +179,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             self._load_object_detection_api_tflite(model_spec)
             self._raw_predict_single_image = self._raw_predict_single_image_tflite
         elif isinstance(model_spec, ObjectDetectionAPI_KFServing):
-            self.input_dtype = tf.string
+            self.input_dtype = np.dtype('U')
             self._raw_predict_single_image = self._raw_predict_single_image_kfserving
         else:
             raise ValueError(
@@ -187,6 +190,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self,
         image: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        import tensorflow as tf
+
         input_tensor = tf.convert_to_tensor(image, dtype=self.input_dtype)
         if (
             isinstance(self.model_spec, ObjectDetectionAPI_pb_ModelSpec)
@@ -228,7 +233,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self,
         image: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        input_tensor = tf.io.encode_jpeg(image, quality=100)
+        input_tensor = get_image_b64(image, 'JPEG')
         input_tensor_b64 = base64.b64encode(input_tensor.numpy()).decode('utf-8')
         response = requests.post(
             url=self.model_spec.url,

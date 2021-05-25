@@ -1,4 +1,3 @@
-import base64
 import json
 import sys
 import importlib
@@ -6,10 +5,10 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple, Callable, Union, Type, Literal
+from cv_pipeliner.utils.images import get_image_b64
 
 import requests
 import numpy as np
-import tensorflow as tf
 import fsspec
 from pathy import Pathy
 
@@ -24,7 +23,7 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path]
     class_names: Union[List[str], str, Path]
-    model_path: Union[str, Pathy, tf.keras.Model]
+    model_path: Union[str, Pathy, 'tf.keras.Model']  # noqa
     saved_model_type: Literal["tf.saved_model", "tf.keras", "tf.keras.Model", "tflite"]
 
     @property
@@ -71,6 +70,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         self,
         model_spec: TensorFlow_ClassificationModelSpec
     ):
+        import tensorflow as tf
         if model_spec.saved_model_type in ["tf.keras", "tf.saved_model", "tflite"]:
             model_openfile = fsspec.open(model_spec.model_path, 'rb')
             if model_openfile.fs.isdir(model_openfile.path):
@@ -150,6 +150,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         self,
         images: np.ndarray
     ):
+        import tensorflow as tf
         if self.model_spec.saved_model_type == "tf.saved_model":
             input_tensor = tf.convert_to_tensor(images, dtype=self.input_dtype)
             raw_predictions_batch = self.model(input_tensor)
@@ -171,8 +172,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         self,
         images: np.ndarray
     ):
-        images_encoded = [tf.io.encode_jpeg(image, quality=100) for image in images]
-        images_encoded_b64 = [base64.b64encode(image.numpy()).decode('utf-8') for image in images_encoded]
+        images_encoded_b64 = [get_image_b64(image, 'JPEG') for image in images]
         response = requests.post(
             url=self.model_spec.url,
             data=json.dumps({
