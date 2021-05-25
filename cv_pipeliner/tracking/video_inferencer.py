@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 from io import BytesIO
-from typing import Union, List, Tuple, Dict, Callable
+from typing import Union, List, Tuple, Callable
 
 import numpy as np
 import tempfile
@@ -110,8 +110,8 @@ class VideoInferencer:
             bboxes=bboxes, scores=detection_scores
         )
 
-        detection_delay_frames = int(round(detection_delay * fps / 1000))
-        classification_delay_frames = int(round(classification_delay * fps / 1000))
+        # detection_delay_frames = int(round(detection_delay * fps / 1000))
+        # classification_delay_frames = int(round(classification_delay * fps / 1000))
 
         current_tracks_ids = [frame_result.track_id for frame_result in self.current_ready_frames_queue]
         current_not_tracked_items_idxs = [

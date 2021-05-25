@@ -17,7 +17,7 @@ def intersection_over_union(bbox_data1: BboxData, bbox_data2: BboxData) -> float
     inter_area = np.max([0, ymaxs - ymins + 1]) * np.max([0, xmaxs - xmins + 1])
     bbox1_area = (bbox_data1.xmax - bbox_data1.xmin + 1) * (bbox_data1.ymax - bbox_data1.ymin + 1)
     bbox2_area = (bbox_data2.xmax - bbox_data2.xmin + 1) * (bbox_data2.ymax - bbox_data2.ymin + 1)
-    iou = inter_area / np.float(bbox1_area + bbox2_area - inter_area + 1e-9)
+    iou = inter_area / float(bbox1_area + bbox2_area - inter_area + 1e-9)
     return iou
 
 

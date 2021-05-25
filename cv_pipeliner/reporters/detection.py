@@ -13,7 +13,7 @@ from cv_pipeliner.inference_models.detection.core import DetectionModelSpec
 from cv_pipeliner.inferencers.detection import DetectionInferencer
 from cv_pipeliner.metrics.detection import (
     get_df_detection_metrics, get_df_detection_recall_per_class,
-    df_detection_metrics_columns, df_detection_recall_per_class_columns
+    df_detection_recall_per_class_columns
 )
 from cv_pipeliner.visualizers.detection import DetectionVisualizer
 from cv_pipeliner.logging import logger
@@ -210,18 +210,24 @@ detection_interactive_work(
         score_threshold: float,
         minimum_iou: float,
         extra_bbox_label: str = None,
-        batch_size: int = 16,
-        cut_by_bboxes: List[Tuple[int, int, int, int]] = None
+        batch_size: int = 16
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         detection_model = model_spec.load()
         inferencer = DetectionInferencer(detection_model)
         images_data_gen = BatchGeneratorImageData(true_images_data, batch_size=batch_size,
                                                   use_not_caught_elements_as_last_batch=True)
-        pred_images_data = inferencer.predict(images_data_gen, score_threshold=score_threshold)
         raw_pred_images_data = inferencer.predict(images_data_gen, score_threshold=0.)
-        true_images_data = cut_images_data_by_bboxes(true_images_data, cut_by_bboxes)
-        pred_images_data = cut_images_data_by_bboxes(pred_images_data, cut_by_bboxes)
-        raw_pred_images_data = cut_images_data_by_bboxes(raw_pred_images_data, cut_by_bboxes)
+        pred_images_data = [
+            ImageData(
+                image_path=image_data.image_path,
+                bboxes_data=[
+                    bbox_data
+                    for bbox_data in image_data.bboxes_data
+                    if bbox_data.detection_score >= score_threshold
+                ]
+            )
+            for image_data in raw_pred_images_data
+        ]
         df_detection_metrics = get_df_detection_metrics(
             true_images_data=true_images_data,
             pred_images_data=pred_images_data,
@@ -277,8 +283,7 @@ detection_interactive_work(
         output_directory: Union[str, Path],
         true_images_data: List[ImageData],
         minimum_iou: float,
-        batch_size: int = 16,
-        cut_by_bboxes: List[Tuple[int, int, int, int]] = None
+        batch_size: int = 16
     ):
         assert len(models_specs) == len(tags)
         assert len(tags) == len(scores_thresholds)
@@ -292,8 +297,7 @@ detection_interactive_work(
                 true_images_data=true_images_data,
                 score_threshold=score_threshold,
                 minimum_iou=minimum_iou,
-                batch_size=batch_size,
-                cut_by_bboxes=cut_by_bboxes
+                batch_size=batch_size
             )
 
             detections_reports_datas.append(DetectionReportData(

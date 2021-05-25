@@ -1,5 +1,8 @@
 # 0.7.0
 - Apps moved to `epoch8/cv-demostand`
+- Visualizers now have "next/back" buttons
+- Tensorflow is not required
+- Reporter for detection/pipeline works faster
 
 # 0.6.0-0.6.1 (2021-04-01)
 

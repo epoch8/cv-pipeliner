@@ -4,7 +4,6 @@ from typing import Union, Dict, List
 from pathlib import Path
 
 import fsspec
-from pathy import Pathy
 
 from cv_pipeliner.core.data_converter import DataConverter
 from cv_pipeliner.core.data import BboxData, ImageData

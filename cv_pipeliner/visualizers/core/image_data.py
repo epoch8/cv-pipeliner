@@ -1,6 +1,6 @@
 import collections
 import copy
-from typing import Literal, List, Tuple, Dict, Callable
+from typing import Literal, List, Tuple, Callable
 
 import numpy as np
 import imutils
