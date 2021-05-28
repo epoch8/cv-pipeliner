@@ -458,3 +458,29 @@ def get_image_b64(
     image_format = image_io.getvalue()
     image_format_b64 = base64.b64encode(image_format).decode('utf-8')
     return image_format_b64
+
+
+def draw_quadrangle_on_image(
+    image: np.ndarray,
+    points: Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int], Tuple[int, int]],
+    color: Tuple[int, int, int] = None,
+    thickness: int = 3,
+    alpha: float = 0.3,
+) -> np.ndarray:
+    image = image.copy()
+    rect = cv2.minAreaRect(np.array(points))
+    box = cv2.boxPoints(rect)
+    box = np.int0(box)
+    cropped_image_zeros = np.ones_like(image)
+    cv2.drawContours(
+        image=cropped_image_zeros,
+        contours=[box],
+        contourIdx=0,
+        color=color,
+        thickness=thickness
+    )
+    colored_regions = (cropped_image_zeros == color)
+    image[colored_regions] = (
+        (1 - alpha) * image[colored_regions] + alpha * cropped_image_zeros[colored_regions]
+    )
+    return image

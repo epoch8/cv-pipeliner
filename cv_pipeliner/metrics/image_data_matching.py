@@ -60,7 +60,7 @@ class BboxDataMatching:
 
         for bbox_data in [self.true_bbox_data, self.pred_bbox_data]:
             if bbox_data is not None:
-                bbox_data.assert_label_is_valid()
+                assert bbox_data.label is not None
 
         true_label = self.true_bbox_data.label if self.true_bbox_data is not None else None
         pred_label = self.pred_bbox_data.label if self.pred_bbox_data is not None else None
@@ -170,7 +170,8 @@ class ImageDataMatching:
                                  ('pred', pred_bboxes_data)]:
             bboxes_coords = set()
             for bbox_data in bboxes_data:
-                bbox_data.assert_coords_are_valid()
+                assert all(x is not None for x in [bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax])
+                assert bbox_data.xmin <= bbox_data.xmax and bbox_data.ymin <= bbox_data.ymax
                 xmin, ymin, xmax, ymax = bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax
                 if (xmin, ymin, xmax, ymax) in bboxes_coords:
                     logger.warning(

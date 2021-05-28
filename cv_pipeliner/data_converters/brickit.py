@@ -30,17 +30,21 @@ class BrickitDataConverter(DataConverter):
             'objects': []
         }
         for bbox_data in image_data.bboxes_data:
+            bbox_data_json = bbox_data.json()
             obj = {
-                'bbox': [int(bbox_data.xmin), int(bbox_data.ymin), int(bbox_data.xmax), int(bbox_data.ymax)],
-                'label': str(bbox_data.label),
+                'bbox': [
+                    bbox_data_json['xmin'], bbox_data_json['ymin'], bbox_data_json['xmax'], bbox_data_json['ymax']
+                ],
+                'label': bbox_data_json['label'],
                 **{
-                    key: bbox_data.additional_info[key] for key in bbox_data.additional_info
+                    bbox_data_json['additional_info'][key]
+                    for key in bbox_data_json['additional_info']
                 }
             }
             if int(bbox_data.angle) != 0:
-                obj['angle'] = int(bbox_data.angle)
+                obj['angle'] = bbox_data_json['angle']
             if bbox_data.labels_top_n is not None:
-                obj['labels_top_n'] = list(bbox_data.labels_top_n)
+                obj['labels_top_n'] = bbox_data_json['labels_top_n']
 
             annot['objects'].append(obj)
         if len(image_data.additional_info) > 0:
@@ -80,6 +84,7 @@ class BrickitDataConverter(DataConverter):
                 angle = obj['angle'] if 'angle' in obj else 0
                 labels_top_n = obj['labels_top_n'] if 'labels_top_n' in obj else None
                 top_n = len(labels_top_n) if labels_top_n is not None else None
+                keypoints = obj['keypoints'] if 'keypoints' in obj else None
                 bbox_additional_info = {}
                 if isinstance(obj, dict):
                     for key in obj:
@@ -92,6 +97,7 @@ class BrickitDataConverter(DataConverter):
                     xmax=xmax,
                     ymax=ymax,
                     angle=angle,
+                    keypoints=keypoints,
                     label=label,
                     labels_top_n=labels_top_n,
                     top_n=top_n,

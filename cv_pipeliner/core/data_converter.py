@@ -75,9 +75,10 @@ class DataConverter(abc.ABC):
     def assert_image_data(fn):
         def wrapped(
             data_converter: "DataConverter",
+            *args,
             **kwargs
         ) -> ImageData:
-            image_data = fn(data_converter, **kwargs)
+            image_data = fn(data_converter, *args, **kwargs)
             image_data = data_converter.filter_image_data(image_data)
             return image_data
 
@@ -86,9 +87,10 @@ class DataConverter(abc.ABC):
     def assert_images_data(fn):
         def wrapped(
             data_converter: "DataConverter",
+            *args,
             **kwargs
         ) -> List[ImageData]:
-            images_data = fn(data_converter, **kwargs)
+            images_data = fn(data_converter, *args, **kwargs)
             images_data = [
                 data_converter.filter_image_data(image_data) for image_data in images_data
             ]
