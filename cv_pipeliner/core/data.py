@@ -102,8 +102,7 @@ class BboxData:
         if self.classification_scores_top_n is not None:
             self.classification_scores_top_n = list(map(float, self.classification_scores_top_n))
 
-        if len(self.keypoints) > 0:
-            self.keypoints = np.array(self.keypoints).astype(int)
+        self.keypoints = np.array(self.keypoints).astype(int).reshape((-1, 2))
 
     @property
     def image_name(self) -> str:
@@ -121,7 +120,7 @@ class BboxData:
         ymin_offset: int = 0,
         xmax_offset: int = 0,
         ymax_offset: int = 0,
-        return_as_bbox_data_in_cropped_image: bool = False,
+        return_as_image_data: bool = False,
     ) -> Union[None, np.ndarray, 'BboxData']:
 
         if self.cropped_image is not None:
@@ -150,13 +149,33 @@ class BboxData:
         if inplace:
             self.cropped_image = cropped_image
         else:
-            if return_as_bbox_data_in_cropped_image:
-                bbox_data = copy.deepcopy(self)
-                bbox_data.xmin = xmin_in_cropped_image
-                bbox_data.ymin = ymin_in_cropped_image
-                bbox_data.xmax = xmax_in_cropped_image
-                bbox_data.ymax = ymax_in_cropped_image
-                return bbox_data
+            if return_as_image_data:
+                keypoints = self.keypoints.copy()
+                keypoints[:, 0] -= self.xmin-xmin_in_cropped_image
+                keypoints[:, 1] -= self.ymin-ymin_in_cropped_image
+                additional_bboxes_data = copy.deepcopy(self.additional_bboxes_data)
+
+                def crop_additional_bbox_data(bbox_data: BboxData):
+                    bbox_data.image_path = None
+                    bbox_data.image = cropped_image
+                    bbox_data.xmin -= (self.xmin-xmin_in_cropped_image)
+                    bbox_data.ymin -= (self.ymin-ymin_in_cropped_image)
+                    bbox_data.xmax -= (self.xmin-xmin_in_cropped_image)
+                    bbox_data.ymax -= (self.ymin-ymin_in_cropped_image)
+                    for additional_bbox_data in bbox_data.additional_bboxes_data:
+                        crop_additional_bbox_data(additional_bbox_data)
+                for additional_bbox_data in additional_bboxes_data:
+                    crop_additional_bbox_data(additional_bbox_data)
+
+                from cv_pipeliner.core.data import ImageData
+                image_data = ImageData(
+                    image=cropped_image,
+                    bboxes_data=additional_bboxes_data,
+                    label=self.label,
+                    keypoints=keypoints,
+                    additional_info=self.additional_info
+                )
+                return image_data
             else:
                 return cropped_image
 
@@ -177,8 +196,6 @@ class BboxData:
             result_json['image_path'] = get_image_path_as_str(self.image_path)
         if self.label is not None:
             result_json['label'] = str(self.label)
-        if self.angle != 0:
-            result_json['angle'] = int(self.angle)
         if len(self.keypoints) > 0:
             result_json['keypoints'] = np.array(self.keypoints).astype(int).tolist()
         if self.top_n is not None:
@@ -194,18 +211,27 @@ class BboxData:
         if self.classification_score is not None:
             result_json['classification_score'] = str(round(self.classification_score, 3))
         if len(self.additional_bboxes_data) > 0:
-            result_json['additional_bboxes_data'] = [bbox_data.json() for bbox_data in self.additional_bboxes_data]
+            result_json['additional_bboxes_data'] = [
+                bbox_data.json(include_image_path=include_image_path) for bbox_data in self.additional_bboxes_data
+            ]
         if len(self.additional_info) > 0:
             result_json['additional_info'] = self.additional_info
 
         return result_json
 
     def _from_json(self, d: Dict, image_path: ImagePath = None):
-        for main_key in BboxData.__dataclass_fields__:
-            if main_key in d:
-                super().__setattr__(main_key, d[main_key])
+        for key in BboxData.__dataclass_fields__:
+            if key in d:
+                if key == 'additional_bboxes_data':
+                    d[key] = [
+                        BboxData.from_json(bbox_data, image_path=image_path)
+                        for bbox_data in d['additional_bboxes_data']
+                    ]
+                super().__setattr__(key, d[key])
+
         if image_path is not None:
             self.image_path = image_path
+
         self.__post_init__()
 
         return self
@@ -225,15 +251,14 @@ class ImageData:
     bboxes_data: List[BboxData] = field(default_factory=list)
 
     label: str = None
-    keypoints: List[Tuple[int, int]] = field(default_factory=dict)
+    keypoints: List[Tuple[int, int]] = field(default_factory=list)
     additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
         if isinstance(self.image_path, Path) or (isinstance(self.image_path, str) and not is_base64(self.image_path)):
             self.image_path = Pathy(self.image_path)
 
-        if len(self.keypoints) > 0:
-            self.keypoints = np.array(self.keypoints).astype(int)
+        self.keypoints = np.array(self.keypoints).astype(int).reshape((-1, 2))
 
     @property
     def image_name(self):
@@ -260,12 +285,13 @@ class ImageData:
         result_json = {
             'image_path': image_path_str,
             'bboxes_data': [bbox_data.json(include_image_path=False) for bbox_data in self.bboxes_data],
-            'additional_info': self.additional_info
         }
         if self.label is not None:
             result_json['label'] = self.label
-        if self.keypoints is not None:
+        if len(self.keypoints) > 0:
             result_json['keypoints'] = self.keypoints
+        if len(self.additional_info) > 0:
+            result_json['additional_info'] = self.additional_info
 
         return result_json
 

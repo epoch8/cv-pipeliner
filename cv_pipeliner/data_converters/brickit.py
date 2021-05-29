@@ -81,14 +81,13 @@ class BrickitDataConverter(DataConverter):
                     xmin, ymin, xmax, ymax = obj
                 xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(xmax), int(ymax)
                 label = obj['label'] if 'label' in obj else None
-                angle = obj['angle'] if 'angle' in obj else 0
                 labels_top_n = obj['labels_top_n'] if 'labels_top_n' in obj else None
                 top_n = len(labels_top_n) if labels_top_n is not None else None
                 keypoints = obj['keypoints'] if 'keypoints' in obj else None
                 bbox_additional_info = {}
                 if isinstance(obj, dict):
                     for key in obj:
-                        if key not in ['bbox', 'label', 'angle', 'labels_top_n', 'top_n']:
+                        if key not in ['bbox', 'label', 'labels_top_n', 'top_n']:
                             bbox_additional_info[key] = obj[key]
                 bboxes_data.append(BboxData(
                     image_path=images_dir / image_name,
@@ -96,7 +95,6 @@ class BrickitDataConverter(DataConverter):
                     ymin=ymin,
                     xmax=xmax,
                     ymax=ymax,
-                    angle=angle,
                     keypoints=keypoints,
                     label=label,
                     labels_top_n=labels_top_n,

@@ -292,7 +292,7 @@ def visualize_image_data(
         (bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax)
         for bbox_data in bboxes_data
     ])
-    angles = [bbox_data.angle for bbox_data in bboxes_data]
+    angles = np.array([0. for _ in bboxes_data])
     if score_type == 'detection':
         scores = np.array([bbox_data.detection_score for bbox_data in bboxes_data])
         skip_scores = False
