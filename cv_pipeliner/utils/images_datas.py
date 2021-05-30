@@ -5,6 +5,7 @@ import numpy as np
 import cv2
 
 from cv_pipeliner.core.data import ImageData, BboxData
+from PIL import Image
 
 
 def get_image_data_filtered_by_labels(
@@ -83,8 +84,7 @@ def rotate_keypoints90(
 
 def rotate_bbox_data(
     bbox_data: BboxData,
-    rotation_mat: np.ndarray,
-    rotated_image: np.ndarray
+    rotation_mat: np.ndarray
 ) -> BboxData:
     bbox_points = np.array([
         [bbox_data.xmin, bbox_data.ymin],
@@ -98,15 +98,13 @@ def rotate_bbox_data(
     rotated_xmax = np.max(rotated_points[:, 0])
     rotated_ymax = np.max(rotated_points[:, 1])
     rotated_bbox_data = copy.deepcopy(bbox_data)
-    rotated_bbox_data.image_path = None
-    rotated_bbox_data.image = rotated_image
     rotated_bbox_data.xmin = rotated_xmin
     rotated_bbox_data.ymin = rotated_ymin
     rotated_bbox_data.xmax = rotated_xmax
     rotated_bbox_data.ymax = rotated_ymax
     rotated_bbox_data.keypoints = rotate_keypoints(rotated_bbox_data.keypoints, rotation_mat)
     rotated_bbox_data.additional_bboxes_data = [
-        rotate_bbox_data(additional_bbox_data, rotation_mat, rotated_image)
+        rotate_bbox_data(additional_bbox_data, rotation_mat)
         for additional_bbox_data in rotated_bbox_data.additional_bboxes_data
     ]
 
@@ -118,7 +116,6 @@ def rotate_bbox_data90(
     factor: Literal[0, 1, 2, 3],
     width: int,
     height: int,
-    rotated_image: np.ndarray
 ) -> BboxData:
     """Rotates a bounding box by 90 degrees CCW (see np.rot90)"""
     rotated_bbox_data = copy.deepcopy(bbox_data)
@@ -130,14 +127,12 @@ def rotate_bbox_data90(
         xmin, ymin, xmax, ymax = width - xmax, height - ymax, width - xmin, height - ymin
     elif factor == 3:
         xmin, ymin, xmax, ymax = height - ymax, xmin, height - ymin, xmax
-    rotated_bbox_data.image_path = None
-    rotated_bbox_data.image = rotated_image
     rotated_bbox_data.xmin = xmin
     rotated_bbox_data.ymin = ymin
     rotated_bbox_data.xmax = xmax
     rotated_bbox_data.ymax = ymax
     rotated_bbox_data.additional_bboxes_data = [
-        rotate_bbox_data90(additional_bbox_data, factor, width, height, rotated_image)
+        rotate_bbox_data90(additional_bbox_data, factor, width, height)
         for additional_bbox_data in rotated_bbox_data.additional_bboxes_data
     ]
     return rotated_bbox_data
@@ -147,6 +142,9 @@ def rotate_image_data(
     image_data: ImageData,
     angle: float
 ):
+    if angle <= 1e-6:
+        return image_data
+
     image = image_data.open_image()
     height, width, _ = image.shape
     image_center = width // 2, height // 2
@@ -158,17 +156,16 @@ def rotate_image_data(
         270: 3
     }
     angle = angle % 360
+    rotated_image_data = copy.deepcopy(image_data)
+
     if angle in angle_to_factor:
         factor = angle_to_factor[angle]
         rotated_image = np.rot90(image, factor)
-        rotated_image_data = copy.deepcopy(image_data)
-        rotated_image_data.image_path = None
-        rotated_image_data.image = rotated_image
         rotated_image_data.keypoints = rotate_keypoints90(
             image_data.keypoints, factor, width, height
         )
         rotated_image_data.bboxes_data = [
-            rotate_bbox_data90(bbox_data, factor, width, height, rotated_image)
+            rotate_bbox_data90(bbox_data, factor, width, height)
             for bbox_data in image_data.bboxes_data
         ]
     else:
@@ -185,12 +182,40 @@ def rotate_image_data(
 
         rotated_image = cv2.warpAffine(image, rotation_mat, (bound_w, bound_h))
         rotated_image_data = copy.deepcopy(image_data)
-        rotated_image_data.image_path = None
-        rotated_image_data.image = rotated_image
         rotated_image_data.keypoints = rotate_keypoints(image_data.keypoints, rotation_mat)
         rotated_image_data.bboxes_data = [
-            rotate_bbox_data(bbox_data, rotation_mat, rotated_image)
+            rotate_bbox_data(bbox_data, rotation_mat)
             for bbox_data in image_data.bboxes_data
         ]
 
+    rotated_image_data.image_path = None  # It applies to all bboxes_data inside
+    rotated_image_data.image = rotated_image
+
     return rotated_image_data
+
+
+def thumbnail_image_data(
+    image_data: ImageData,
+    size: Tuple[int, int]
+) -> ImageData:
+    image_data = copy.deepcopy(image_data)
+    image = image_data.open_image()
+    old_height, old_width, _ = image.shape
+    image = Image.fromarray(image)
+    image.thumbnail(size)
+    image = np.array(image)
+    new_height, new_width, _ = image.shape
+
+    def resize_coords(bbox_data: BboxData):
+        bbox_data.xmin = int(bbox_data.xmin * (new_width / old_width))
+        bbox_data.ymin = int(bbox_data.ymin * (new_height / old_height))
+        bbox_data.xmax = int(bbox_data.xmax * (new_width / old_width))
+        bbox_data.ymax = int(bbox_data.ymax * (new_height / old_height))
+        for additional_bbox_data in bbox_data.additional_bboxes_data:
+            resize_coords(additional_bbox_data)
+    for bbox_data in image_data.bboxes_data:
+        resize_coords(bbox_data)
+    image_data.image_path = None
+    image_data.image = image
+
+    return image_data

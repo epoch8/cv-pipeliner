@@ -347,6 +347,9 @@ def get_label_to_base_label_image(
     add_label_to_image: bool = False,
     make_labels_for_these_class_names_too: List[str] = []  # add known description to classes without base images
 ) -> Dict[str, np.ndarray]:
+    if base_labels_images is None:
+        return None
+
     base_labels_images_files = fsspec.open_files(str(base_labels_images))
     ann_class_names_files = [
         Pathy(base_label_image_file.path).stem for base_label_image_file in base_labels_images_files

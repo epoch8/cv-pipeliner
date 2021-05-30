@@ -83,7 +83,7 @@ class BrickitDataConverter(DataConverter):
                 label = obj['label'] if 'label' in obj else None
                 labels_top_n = obj['labels_top_n'] if 'labels_top_n' in obj else None
                 top_n = len(labels_top_n) if labels_top_n is not None else None
-                keypoints = obj['keypoints'] if 'keypoints' in obj else None
+                keypoints = obj['keypoints'] if 'keypoints' in obj else []
                 bbox_additional_info = {}
                 if isinstance(obj, dict):
                     for key in obj:
@@ -110,6 +110,7 @@ class BrickitDataConverter(DataConverter):
 
         return images_data
 
+    @DataConverter.assert_image_data
     def get_image_data_from_annot(
         self,
         image_path: Union[str, Path],

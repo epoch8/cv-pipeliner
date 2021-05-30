@@ -7,3 +7,4 @@ from cv_pipeliner.visualizers.core.image_data_matching import visualize_image_da
 from cv_pipeliner.metrics.detection import get_df_detection_metrics, get_df_detection_recall_per_class
 from cv_pipeliner.metrics.classification import get_df_classification_metrics
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics
+from cv_pipeliner.utils.images_datas import rotate_image_data

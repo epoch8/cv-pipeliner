@@ -3,7 +3,8 @@ import io
 
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Union, List, Dict, Tuple
+from typing import Any, Union, List, Dict, Tuple
+from cv_pipeliner.inference_models.detection.core import Bbox
 
 import numpy as np
 import fsspec
@@ -112,6 +113,28 @@ class BboxData:
     def coords(self) -> Tuple[int, int, int, int]:
         return (self.xmin, self.ymin, self.xmax, self.ymax)
 
+    def coords_with_offset(
+        self,
+        xmin_offset: int = 0,
+        ymin_offset: int = 0,
+        xmax_offset: int = 0,
+        ymax_offset: int = 0,
+        source_image: np.ndarray = None
+    ) -> Tuple[int, int, int, int]:
+        if source_image is None:
+            source_image = self.open_image()
+        height, width, _ = source_image.shape
+        xmin_in_cropped_image = max(0, min(xmin_offset, self.xmin-xmin_offset))
+        ymin_in_cropped_image = max(0, min(ymin_offset, self.ymin-ymin_offset))
+        xmax_in_cropped_image = max(0, min(xmax_offset, width-self.xmax))
+        ymax_in_cropped_image = max(0, min(ymax_offset, height-self.ymax))
+        return (
+            self.xmin-xmin_in_cropped_image,
+            self.ymin-ymin_in_cropped_image,
+            self.xmax+xmax_in_cropped_image,
+            self.ymax+ymax_in_cropped_image
+        )
+
     def open_cropped_image(
         self,
         inplace: bool = False,
@@ -137,31 +160,25 @@ class BboxData:
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
             height, width, _ = image.shape
-            xmin_in_cropped_image = max(0, min(xmin_offset, self.xmin-xmin_offset))
-            ymin_in_cropped_image = max(0, min(ymin_offset, self.ymin-ymin_offset))
-            xmax_in_cropped_image = max(0, min(xmax_offset, width-self.xmax))
-            ymax_in_cropped_image = max(0, min(ymax_offset, height-self.ymax))
-            cropped_image = image[
-                self.ymin-ymin_in_cropped_image:self.ymax+ymax_in_cropped_image,
-                self.xmin-xmin_in_cropped_image:self.xmax+xmax_in_cropped_image
-            ]
+            xmin, ymin, xmax, ymax = self.coords_with_offset(xmin_offset, ymin_offset, xmax_offset, ymax_offset)
+            cropped_image = image[ymin:ymax, xmin:xmax]
 
         if inplace:
             self.cropped_image = cropped_image
         else:
             if return_as_image_data:
                 keypoints = self.keypoints.copy()
-                keypoints[:, 0] -= self.xmin-xmin_in_cropped_image
-                keypoints[:, 1] -= self.ymin-ymin_in_cropped_image
+                keypoints[:, 0] -= xmin
+                keypoints[:, 1] -= ymin
                 additional_bboxes_data = copy.deepcopy(self.additional_bboxes_data)
 
                 def crop_additional_bbox_data(bbox_data: BboxData):
                     bbox_data.image_path = None
                     bbox_data.image = cropped_image
-                    bbox_data.xmin -= (self.xmin-xmin_in_cropped_image)
-                    bbox_data.ymin -= (self.ymin-ymin_in_cropped_image)
-                    bbox_data.xmax -= (self.xmin-xmin_in_cropped_image)
-                    bbox_data.ymax -= (self.ymin-ymin_in_cropped_image)
+                    bbox_data.xmin -= xmin
+                    bbox_data.ymin -= ymin
+                    bbox_data.xmax -= xmin
+                    bbox_data.ymax -= ymin
                     for additional_bbox_data in bbox_data.additional_bboxes_data:
                         crop_additional_bbox_data(additional_bbox_data)
                 for additional_bbox_data in additional_bboxes_data:
@@ -289,7 +306,7 @@ class ImageData:
         if self.label is not None:
             result_json['label'] = self.label
         if len(self.keypoints) > 0:
-            result_json['keypoints'] = self.keypoints
+            result_json['keypoints'] = np.array(self.keypoints).astype(int).tolist()
         if len(self.additional_info) > 0:
             result_json['additional_info'] = self.additional_info
 
@@ -298,6 +315,8 @@ class ImageData:
     def _from_json(self, d):
         for key in ImageData.__dataclass_fields__:
             if key in d:
+                if key == 'image_path' and self.image_path is not None:
+                    continue
                 if key == 'bboxes_data':
                     d[key] = [
                         BboxData.from_json(bbox_data, image_path=self.image_path)
@@ -310,11 +329,23 @@ class ImageData:
         return self
 
     @staticmethod
-    def from_json(d):
+    def from_json(d, image_path: ImagePath = None):
         if d is None:
-            return ImageData()
-
-        return ImageData()._from_json(d)
+            return ImageData(image_path=image_path)
+        if 'image_data' in d:
+            d = d['image_data']
+        return ImageData(image_path=image_path)._from_json(d)
 
     def is_empty(self):
         return self.image_path is None and self.image is None
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        super().__setattr__(name, value)
+        if name == 'image_path' or name == 'image':
+            def change_images_in_bbox_data(bbox_data: BboxData):
+                bbox_data.__setattr__(name, value)
+                for additional_bbox_data in bbox_data.additional_bboxes_data:
+                    change_images_in_bbox_data(additional_bbox_data)
+            if hasattr(self, 'bboxes_data'):
+                for bbox_data in self.bboxes_data:
+                    change_images_in_bbox_data(bbox_data)

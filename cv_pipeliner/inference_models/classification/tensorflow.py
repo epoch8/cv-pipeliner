@@ -23,7 +23,7 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path]
     class_names: Union[List[str], str, Path]
-    model_path: Union[str, Pathy, 'tf.keras.Model']  # noqa
+    model_path: Union[str, Pathy]  # can be also tf.keras.Model
     saved_model_type: Literal["tf.saved_model", "tf.keras", "tf.keras.Model", "tflite"]
 
     @property
