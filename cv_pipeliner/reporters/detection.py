@@ -18,7 +18,6 @@ from cv_pipeliner.metrics.detection import (
 from cv_pipeliner.visualizers.detection import DetectionVisualizer
 from cv_pipeliner.logging import logger
 from cv_pipeliner.utils.dataframes import transpose_columns_and_write_diffs_to_df_with_tags
-from cv_pipeliner.utils.images_datas import cut_images_data_by_bboxes
 
 DETECTION_MODEL_SPEC_PREFIX = "detection_model_spec"
 IMAGES_DATA_FILENAME = "images_data.pkl"
