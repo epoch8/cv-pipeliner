@@ -219,3 +219,57 @@ def thumbnail_image_data(
     image_data.image = image
 
     return image_data
+
+
+def crop_image_data(
+    image_data: ImageData,
+    xmin: int,
+    ymin: int,
+    xmax: int,
+    ymax: int
+) -> ImageData:
+
+    assert 0 <= xmin and 0 <= ymin
+    assert xmin <= xmax and ymin <= ymax
+
+    image_data = copy.deepcopy(image_data)
+    image = image_data.open_image()
+    height, width, _ = image.shape
+
+    assert xmax <= width and ymax <= height
+
+    def if_bbox_data_inside_crop(bbox_data: BboxData):
+        bbox_data.additional_bboxes_data = [
+            additional_bbox_data
+            for additional_bbox_data in bbox_data.additional_bboxes_data
+            if if_bbox_data_inside_crop(additional_bbox_data)
+        ]
+        return not (
+            bbox_data.xmin >= xmax or
+            bbox_data.ymin >= ymax or
+            bbox_data.xmax <= xmin or
+            bbox_data.ymax <= ymin
+        )
+
+    image_data.bboxes_data = [
+        bbox_data
+        for bbox_data in image_data.bboxes_data
+        if if_bbox_data_inside_crop(bbox_data)
+    ]
+
+    image = image[ymin:ymax, xmin:xmax]
+
+    def resize_coords(bbox_data: BboxData):
+        bbox_data.xmin = bbox_data.xmin - xmin
+        bbox_data.ymin = bbox_data.ymin - ymin
+        bbox_data.xmax = bbox_data.ymax - xmin
+        bbox_data.ymax = bbox_data.ymax - ymin
+        for additional_bbox_data in bbox_data.additional_bboxes_data:
+            resize_coords(additional_bbox_data)
+    for bbox_data in image_data.bboxes_data:
+        resize_coords(bbox_data)
+
+    image_data.image_path = None
+    image_data.image = image
+
+    return image_data
