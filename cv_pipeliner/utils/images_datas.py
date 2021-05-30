@@ -142,7 +142,7 @@ def rotate_image_data(
     image_data: ImageData,
     angle: float
 ):
-    if angle <= 1e-6:
+    if abs(angle) <= 1e-6:
         return image_data
 
     image = image_data.open_image()
