@@ -351,7 +351,7 @@ def apply_perspective_transform_to_bbox_data(
         transformed_bbox_data.keypoints, perspective_matrix, result_height, result_height
     )
     transformed_bbox_data.additional_bboxes_data = [
-        rotate_bbox_data(additional_bbox_data, perspective_matrix, result_height, result_height)
+        apply_perspective_transform_to_bbox_data(additional_bbox_data, perspective_matrix, result_height, result_height)
         for additional_bbox_data in transformed_bbox_data.additional_bboxes_data
     ]
     transformed_bbox_data.additional_bboxes_data = [
