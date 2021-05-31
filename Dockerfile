@@ -24,7 +24,7 @@ RUN conda install -c anaconda python=3.8
 
 # # Install Object Detection API
 RUN git clone https://github.com/tensorflow/models.git
-RUN cd models/research/ && \
+RUN --mount=type=cache,target=/root/.cache/pip cd models/research/ && \
     protoc object_detection/protos/*.proto --python_out=. && \
     cp object_detection/packages/tf2/setup.py . && \
     pip3 install --use-feature=2020-resolver . && \
@@ -38,7 +38,7 @@ RUN fc-cache
 
 # Install cv_pipeliner
 ADD requirements.txt /app/requirements.txt
-RUN pip3 install -r /app/requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip pip3 install -r /app/requirements.txt
 
 ADD cv_pipeliner /app/cv_pipeliner/
 ADD setup.py /app/setup.py
