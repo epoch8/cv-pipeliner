@@ -166,7 +166,7 @@ def rotate_image_data(
         )
         rotated_image_data.bboxes_data = [
             rotate_bbox_data90(bbox_data, factor, width, height)
-            for bbox_data in image_data.bboxes_data
+            for bbox_data in rotated_image_data.bboxes_data
         ]
     else:
         # grab the rotation matrix
@@ -185,7 +185,7 @@ def rotate_image_data(
         rotated_image_data.keypoints = rotate_keypoints(image_data.keypoints, rotation_mat)
         rotated_image_data.bboxes_data = [
             rotate_bbox_data(bbox_data, rotation_mat)
-            for bbox_data in image_data.bboxes_data
+            for bbox_data in rotated_image_data.bboxes_data
         ]
 
     rotated_image_data.image_path = None  # It applies to all bboxes_data inside
@@ -294,3 +294,116 @@ def crop_image_data(
     image_data.image = image
 
     return image_data
+
+
+def apply_perspective_transform_to_points(
+    points: List[Tuple[int, int]],
+    perspective_matrix: np.ndarray,
+    result_width: int,
+    result_height: int
+):
+    points = np.array(points)
+    transformed_points = cv2.perspectiveTransform(
+        points.reshape(1, -1, 2).astype(np.float32),
+        perspective_matrix
+    ).reshape(-1, 2).astype(int)
+    transformed_points = transformed_points[
+        (transformed_points[:, 0] >= 0) & (transformed_points[:, 1] >= 0) &
+        (transformed_points[:, 0] < result_width) & (transformed_points[:, 1] < result_height)
+    ]
+    return transformed_points
+
+
+def apply_perspective_transform_to_bbox_data(
+    bbox_data: BboxData,
+    perspective_matrix: np.ndarray,
+    result_width: int,
+    result_height: int
+) -> BboxData:
+    bbox_points = np.array([
+        [bbox_data.xmin, bbox_data.ymin],
+        [bbox_data.xmin, bbox_data.ymax],
+        [bbox_data.xmax, bbox_data.ymin],
+        [bbox_data.xmax, bbox_data.ymax]
+    ])
+    transformed_points = cv2.perspectiveTransform(
+        bbox_points.reshape(1, -1, 2).astype(np.float32),
+        perspective_matrix
+    ).reshape(-1, 2).astype(int)
+    transformed_xmin = np.min(transformed_points[:, 0])
+    transformed_ymin = np.min(transformed_points[:, 1])
+    transformed_xmax = np.max(transformed_points[:, 0])
+    transformed_ymax = np.max(transformed_points[:, 1])
+    if not (
+        transformed_xmin >= 0 and transformed_ymin >= 0 and
+        transformed_xmax < result_width and transformed_ymax < result_height
+    ):
+        return None
+
+    transformed_bbox_data = copy.deepcopy(bbox_data)
+    transformed_bbox_data.xmin = transformed_xmin
+    transformed_bbox_data.ymin = transformed_ymin
+    transformed_bbox_data.xmax = transformed_xmax
+    transformed_bbox_data.ymax = transformed_ymax
+    transformed_bbox_data.keypoints = apply_perspective_transform_to_points(
+        transformed_bbox_data.keypoints, perspective_matrix, result_height, result_height
+    )
+    transformed_bbox_data.additional_bboxes_data = [
+        rotate_bbox_data(additional_bbox_data, perspective_matrix, result_height, result_height)
+        for additional_bbox_data in transformed_bbox_data.additional_bboxes_data
+    ]
+    transformed_bbox_data.additional_bboxes_data = [
+        additional_bbox_data
+        for additional_bbox_data in transformed_bbox_data.additional_bboxes_data
+        if additional_bbox_data is not None
+    ]
+    return transformed_bbox_data
+
+
+def perspective_normalize_transform_image_data(
+    image_data: ImageData,
+    base_keypoints: Tuple[
+        Tuple[int, int],
+        Tuple[int, int],
+        Tuple[int, int],
+        Tuple[int, int]
+    ]
+) -> ImageData:
+    image_data = copy.deepcopy(image_data)
+    image = image_data.open_image()
+    height, width, _ = image.shape
+
+    base_keypoints = np.array(base_keypoints, dtype=np.float32)
+    (top_left, top_right, bottom_right, bottom_left) = base_keypoints
+    width_a = np.linalg.norm(bottom_right - bottom_left)
+    width_b = np.linalg.norm(top_right - top_left)
+    result_width = max(int(width_a), int(width_b))
+    height_a = np.linalg.norm(top_right-bottom_right)
+    height_b = np.linalg.norm(top_left-bottom_left)
+    result_height = max(int(height_a), int(height_b))
+    transformed_points = np.array([
+        [0, 0],
+        [result_width - 1, 0],
+        [result_width - 1, result_height - 1],
+        [0, result_height - 1]
+    ], dtype=np.float32)
+    perspective_matrix = cv2.getPerspectiveTransform(base_keypoints, transformed_points)
+
+    transformed_image = cv2.warpAffine(image, perspective_matrix, (result_width, result_height))
+    transformed_image_data = copy.deepcopy(image_data)
+    transformed_image_data.keypoints = apply_perspective_transform_to_points(
+        image_data.keypoints, perspective_matrix, result_width, result_height
+    )
+    transformed_image_data.bboxes_data = [
+        apply_perspective_transform_to_bbox_data(bbox_data, perspective_matrix, result_width, result_height)
+        for bbox_data in transformed_image_data.bboxes_data
+    ]
+    transformed_image_data.bboxes_data = [
+        bbox_data
+        for bbox_data in image_data.bboxes_data
+        if bbox_data is not None
+    ]
+    transformed_image_data.image_path = None
+    transformed_image_data.image = transformed_image
+
+    return transformed_image_data
