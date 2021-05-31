@@ -360,7 +360,7 @@ def apply_perspective_transform_to_bbox_data(
     return transformed_bbox_data
 
 
-def perspective_normalize_transform_image_data(
+def perspective_normalize_image_data(
     image_data: ImageData,
     base_keypoints: Tuple[
         Tuple[int, int],
