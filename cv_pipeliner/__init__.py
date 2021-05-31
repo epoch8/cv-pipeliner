@@ -8,3 +8,15 @@ from cv_pipeliner.metrics.detection import get_df_detection_metrics, get_df_dete
 from cv_pipeliner.metrics.classification import get_df_classification_metrics
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics
 from cv_pipeliner.utils.images_datas import rotate_image_data, crop_image_data
+
+from cv_pipeliner.inference_models.detection.object_detection_api import (
+    ObjectDetectionAPI_KFServing, ObjectDetectionAPI_ModelSpec, ObjectDetectionAPI_TFLite_ModelSpec,
+    ObjectDetectionAPI_pb_ModelSpec
+)
+from cv_pipeliner.inference_models.classification.tensorflow import (
+    TensorFlow_ClassificationModelSpec, TensorFlow_ClassificationModelSpec_TFServing
+)
+from cv_pipeliner.inference_models.pipeline import PipelineModelSpec, PipelineModel
+from cv_pipeliner.inferencers.detection import DetectionInferencer
+from cv_pipeliner.inferencers.classification import ClassificationInferencer
+from cv_pipeliner.inferencers.pipeline import PipelineInferencer

@@ -4,7 +4,6 @@ import io
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Union, List, Dict, Tuple
-from cv_pipeliner.inference_models.detection.core import Bbox
 
 import numpy as np
 import fsspec
