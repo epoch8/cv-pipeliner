@@ -375,9 +375,9 @@ def perspective_normalize_image_data(
     (top_left, top_right, bottom_right, bottom_left) = base_keypoints
     width_a = np.linalg.norm(bottom_right - bottom_left)
     width_b = np.linalg.norm(top_right - top_left)
+    height_a = np.linalg.norm(top_right - bottom_right)
+    height_b = np.linalg.norm(top_left - bottom_left)
     result_width = max(int(width_a), int(width_b))
-    height_a = np.linalg.norm(top_right-bottom_right)
-    height_b = np.linalg.norm(top_left-bottom_left)
     result_height = max(int(height_a), int(height_b))
     transformed_points = np.array([
         [0, 0],
@@ -399,7 +399,7 @@ def perspective_normalize_image_data(
     ]
     transformed_image_data.bboxes_data = [
         bbox_data
-        for bbox_data in image_data.bboxes_data
+        for bbox_data in transformed_image_data.bboxes_data
         if bbox_data is not None
     ]
     transformed_image_data.image_path = None
