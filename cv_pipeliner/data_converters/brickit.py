@@ -37,7 +37,7 @@ class BrickitDataConverter(DataConverter):
                 ],
                 'label': bbox_data_json['label'],
                 **{
-                    bbox_data_json['additional_info'][key]
+                    key: bbox_data_json['additional_info'][key]
                     for key in bbox_data_json['additional_info']
                 }
             }
