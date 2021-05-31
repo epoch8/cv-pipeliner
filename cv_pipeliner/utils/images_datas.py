@@ -303,6 +303,8 @@ def apply_perspective_transform_to_points(
     result_height: int
 ):
     points = np.array(points)
+    if len(points) == 0:
+        return points
     transformed_points = cv2.perspectiveTransform(
         points.reshape(1, -1, 2).astype(np.float32),
         perspective_matrix
@@ -369,8 +371,6 @@ def perspective_normalize_image_data(
         Tuple[int, int]
     ]
 ) -> ImageData:
-    image_data = copy.deepcopy(image_data)
-    image = image_data.open_image()
     base_keypoints = np.array(base_keypoints, dtype=np.float32)
     (top_left, top_right, bottom_right, bottom_left) = base_keypoints
     width_a = np.linalg.norm(bottom_right - bottom_left)
@@ -387,6 +387,7 @@ def perspective_normalize_image_data(
     ], dtype=np.float32)
     perspective_matrix = cv2.getPerspectiveTransform(base_keypoints, transformed_points)
 
+    image = image_data.open_image()
     transformed_image = cv2.warpPerspective(image, perspective_matrix, (result_width, result_height))
     transformed_image_data = copy.deepcopy(image_data)
     transformed_image_data.keypoints = apply_perspective_transform_to_points(
