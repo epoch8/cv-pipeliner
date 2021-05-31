@@ -371,8 +371,6 @@ def perspective_normalize_image_data(
 ) -> ImageData:
     image_data = copy.deepcopy(image_data)
     image = image_data.open_image()
-    height, width, _ = image.shape
-
     base_keypoints = np.array(base_keypoints, dtype=np.float32)
     (top_left, top_right, bottom_right, bottom_left) = base_keypoints
     width_a = np.linalg.norm(bottom_right - bottom_left)
@@ -389,7 +387,7 @@ def perspective_normalize_image_data(
     ], dtype=np.float32)
     perspective_matrix = cv2.getPerspectiveTransform(base_keypoints, transformed_points)
 
-    transformed_image = cv2.warpAffine(image, perspective_matrix, (result_width, result_height))
+    transformed_image = cv2.warpPerspective(image, perspective_matrix, (result_width, result_height))
     transformed_image_data = copy.deepcopy(image_data)
     transformed_image_data.keypoints = apply_perspective_transform_to_points(
         image_data.keypoints, perspective_matrix, result_width, result_height
