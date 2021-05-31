@@ -246,10 +246,10 @@ def crop_image_data(
     def if_bbox_data_inside_crop(bbox_data: BboxData):
         bbox_data.keypoints = bbox_data.keypoints[
             ~(
-                image_data.keypoints[:, 0] >= xmax |
-                image_data.keypoints[:, 1] >= ymax |
-                image_data.keypoints[:, 0] <= xmin |
-                image_data.keypoints[:, 1] <= ymin
+                bbox_data.keypoints[:, 0] >= xmax |
+                bbox_data.keypoints[:, 1] >= ymax |
+                bbox_data.keypoints[:, 0] <= xmin |
+                bbox_data.keypoints[:, 1] <= ymin
             )
         ]
         bbox_data.additional_bboxes_data = [
