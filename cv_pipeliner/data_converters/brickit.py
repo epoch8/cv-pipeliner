@@ -41,8 +41,6 @@ class BrickitDataConverter(DataConverter):
                     for key in bbox_data_json['additional_info']
                 }
             }
-            if int(bbox_data.angle) != 0:
-                obj['angle'] = bbox_data_json['angle']
             if bbox_data.labels_top_n is not None:
                 obj['labels_top_n'] = bbox_data_json['labels_top_n']
 
