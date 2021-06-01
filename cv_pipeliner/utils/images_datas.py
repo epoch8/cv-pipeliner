@@ -256,14 +256,14 @@ def crop_image_data(
         bbox_data.keypoints[:, 0] -= xmin
         bbox_data.keypoints[:, 1] -= ymin
         if not allow_negative_and_large_coords:
-            bbox_data.xmin = max(0, min(bbox_data.xmin, new_width))
-            bbox_data.ymin = max(0, min(bbox_data.ymin, new_height))
-            bbox_data.xmax = max(0, min(bbox_data.xmax, new_width))
-            bbox_data.ymax = max(0, min(bbox_data.ymax, new_height))
+            bbox_data.xmin = max(0, min(bbox_data.xmin, new_width-1))
+            bbox_data.ymin = max(0, min(bbox_data.ymin, new_height-1))
+            bbox_data.xmax = max(0, min(bbox_data.xmax, new_width-1))
+            bbox_data.ymax = max(0, min(bbox_data.ymax, new_height-1))
             keypoints = []
             for (x, y) in bbox_data.keypoints:
-                x = max(0, min(x, new_width))
-                y = max(0, min(y, new_height))
+                x = max(0, min(x, new_width-1))
+                y = max(0, min(y, new_height-1))
                 keypoints.append([x, y])
             bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
         for additional_bbox_data in bbox_data.additional_bboxes_data:
@@ -273,18 +273,18 @@ def crop_image_data(
 
     keypoints = []
     for (x, y) in image_data.keypoints:
-        x = max(0, min(x, new_width))
-        y = max(0, min(y, new_height))
+        x = max(0, min(x, new_width-1))
+        y = max(0, min(y, new_height-1))
         keypoints.append([x, y])
     image_data.keypoints = np.array(keypoints).reshape(-1, 2)
 
     def if_bbox_data_inside_crop(bbox_data: BboxData):
         bbox_data.keypoints = bbox_data.keypoints[
-            ~(
-                (bbox_data.keypoints[:, 0] > new_width) |
-                (bbox_data.keypoints[:, 1] > new_height) |
-                (bbox_data.keypoints[:, 0] < 0) |
-                (bbox_data.keypoints[:, 1] < 0)
+            (
+                (bbox_data.keypoints[:, 0] >= 0) &
+                (bbox_data.keypoints[:, 1] >= 0) &
+                (bbox_data.keypoints[:, 0] < new_height) &
+                (bbox_data.keypoints[:, 1] < new_width)
             )
         ]
         bbox_data.additional_bboxes_data = [
@@ -292,13 +292,13 @@ def crop_image_data(
             for additional_bbox_data in bbox_data.additional_bboxes_data
             if if_bbox_data_inside_crop(additional_bbox_data)
         ]
-        return not (
-            bbox_data.xmin > new_width or
-            bbox_data.ymin > new_height or
-            bbox_data.xmax < 0 or
-            bbox_data.ymax < 0 or
-            bbox_data.xmin >= bbox_data.xmax or
-            bbox_data.ymin >= bbox_data.ymax
+        return (
+            bbox_data.xmin >= 0 and
+            bbox_data.ymin >= 0 and
+            bbox_data.xmax < new_width and
+            bbox_data.ymax < new_height and
+            bbox_data.xmin < bbox_data.xmax and
+            bbox_data.ymin < bbox_data.ymax
         )
 
     if remove_bad_coords:
@@ -308,11 +308,11 @@ def crop_image_data(
             if if_bbox_data_inside_crop(bbox_data)
         ]
         image_data.keypoints = image_data.keypoints[
-            ~(
-                (image_data.keypoints[:, 0] > new_width) |
-                (image_data.keypoints[:, 1] > new_height) |
-                (image_data.keypoints[:, 0] < 0) |
-                (image_data.keypoints[:, 1] < 0)
+            (
+                (image_data.keypoints[:, 0] >= 0) &
+                (image_data.keypoints[:, 1] >= 0) &
+                (image_data.keypoints[:, 0] < new_height) &
+                (image_data.keypoints[:, 1] < new_width)
             )
         ]
 
@@ -340,15 +340,14 @@ def apply_perspective_transform_to_points(
     if not allow_negative_and_large_coords:
         transformed_points_without_bad_coords = []
         for (x, y) in points:
-            x = max(0, min(x, result_width))
-            y = max(0, min(y, result_height))
+            x = max(0, min(x, result_width-1))
+            y = max(0, min(y, result_height-1))
             transformed_points_without_bad_coords.append([x, y])
         transformed_points = np.array(transformed_points_without_bad_coords)
     if remove_bad_coords:
         transformed_points = transformed_points[
             (transformed_points[:, 0] >= 0) & (transformed_points[:, 1] >= 0) &
-            (transformed_points[:, 0] < result_width) & (transformed_points[:, 1] < result_height) &
-            (transformed_points[:, 0] < transformed_points[:, 1])
+            (transformed_points[:, 0] < result_width) & (transformed_points[:, 1] < result_height)
         ]
     return transformed_points
 
@@ -376,10 +375,10 @@ def apply_perspective_transform_to_bbox_data(
     transformed_xmax = np.max(transformed_points[:, 0])
     transformed_ymax = np.max(transformed_points[:, 1])
     if not allow_negative_and_large_coords:
-        transformed_xmin = max(0, min(transformed_xmin, result_width))
-        transformed_ymin = max(0, min(transformed_ymin, result_height))
-        transformed_xmax = max(0, min(transformed_xmax, result_width))
-        transformed_ymax = max(0, min(transformed_ymax, result_height))
+        transformed_xmin = max(0, min(transformed_xmin, result_width-1))
+        transformed_ymin = max(0, min(transformed_ymin, result_height-1))
+        transformed_xmax = max(0, min(transformed_xmax, result_width-1))
+        transformed_ymax = max(0, min(transformed_ymax, result_height-1))
     if remove_bad_coords and not (
         transformed_xmin >= 0 and transformed_ymin >= 0 and
         transformed_xmax < result_width and transformed_ymax < result_height
