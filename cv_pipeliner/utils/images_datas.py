@@ -231,7 +231,8 @@ def crop_image_data(
     xmin: int,
     ymin: int,
     xmax: int,
-    ymax: int
+    ymax: int,
+    remove_bad_coords: bool
 ) -> ImageData:
 
     assert 0 <= xmin and 0 <= ymin
@@ -264,19 +265,20 @@ def crop_image_data(
             bbox_data.ymax < ymin
         )
 
-    image_data.bboxes_data = [
-        bbox_data
-        for bbox_data in image_data.bboxes_data
-        if if_bbox_data_inside_crop(bbox_data)
-    ]
-    image_data.keypoints = image_data.keypoints[
-        ~(
-            (image_data.keypoints[:, 0] > xmax) |
-            (image_data.keypoints[:, 1] > ymax) |
-            (image_data.keypoints[:, 0] < xmin) |
-            (image_data.keypoints[:, 1] < ymin)
-        )
-    ]
+    if remove_bad_coords:
+        image_data.bboxes_data = [
+            bbox_data
+            for bbox_data in image_data.bboxes_data
+            if if_bbox_data_inside_crop(bbox_data)
+        ]
+        image_data.keypoints = image_data.keypoints[
+            ~(
+                (image_data.keypoints[:, 0] > xmax) |
+                (image_data.keypoints[:, 1] > ymax) |
+                (image_data.keypoints[:, 0] < xmin) |
+                (image_data.keypoints[:, 1] < ymin)
+            )
+        ]
 
     image = image[ymin:ymax, xmin:xmax]
 
