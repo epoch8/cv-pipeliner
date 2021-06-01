@@ -446,7 +446,8 @@ def apply_perspective_transform_to_image_data(
     remove_bad_coords: bool
 ) -> ImageData:
     image = image_data.open_image()
-    image_data = cv2.warpPerspective(image, perspective_matrix, (result_width, result_height))
+    image = cv2.warpPerspective(image, perspective_matrix, (result_width, result_height))
+
     image_data = copy.deepcopy(image_data)
     image_data.keypoints = apply_perspective_transform_to_points(
         image_data.keypoints, perspective_matrix, result_width, result_height,
@@ -465,6 +466,6 @@ def apply_perspective_transform_to_image_data(
         if bbox_data is not None
     ]
     image_data.image_path = None
-    image_data.image = image_data
+    image_data.image = image
 
     return image_data
