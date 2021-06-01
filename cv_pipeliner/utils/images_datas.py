@@ -265,11 +265,18 @@ def crop_image_data(
                 x = max(0, min(x, new_width))
                 y = max(0, min(y, new_height))
                 keypoints.append([x, y])
-            bbox_data.keypoints = np.array(keypoints)
+            bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
         for additional_bbox_data in bbox_data.additional_bboxes_data:
             resize_coords(additional_bbox_data)
     for bbox_data in image_data.bboxes_data:
         resize_coords(bbox_data)
+
+    keypoints = []
+    for (x, y) in image_data.keypoints:
+        x = max(0, min(x, new_width))
+        y = max(0, min(y, new_height))
+        keypoints.append([x, y])
+    image_data.keypoints = np.array(keypoints).reshape(-1, 2)
 
     def if_bbox_data_inside_crop(bbox_data: BboxData):
         bbox_data.keypoints = bbox_data.keypoints[
