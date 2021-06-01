@@ -232,7 +232,8 @@ def crop_image_data(
     ymin: int,
     xmax: int,
     ymax: int,
-    remove_bad_coords: bool
+    allow_negative_and_large_coords: bool,
+    remove_bad_coords: bool,
 ) -> ImageData:
 
     assert 0 <= xmin and 0 <= ymin
@@ -244,13 +245,39 @@ def crop_image_data(
 
     assert xmax <= width and ymax <= height
 
+    image = image[ymin:ymax, xmin:xmax]
+    new_height, new_width, _ = image.shape
+
+    def resize_coords(bbox_data: BboxData):
+        bbox_data.xmin = bbox_data.xmin - xmin
+        bbox_data.ymin = bbox_data.ymin - ymin
+        bbox_data.xmax = bbox_data.xmax - xmin
+        bbox_data.ymax = bbox_data.ymax - ymin
+        bbox_data.keypoints[:, 0] -= xmin
+        bbox_data.keypoints[:, 1] -= ymin
+        if not allow_negative_and_large_coords:
+            bbox_data.xmin = max(0, min(bbox_data.xmin, new_width))
+            bbox_data.ymin = max(0, min(bbox_data.ymin, new_height))
+            bbox_data.xmax = max(0, min(bbox_data.xmax, new_width))
+            bbox_data.ymax = max(0, min(bbox_data.ymax, new_height))
+            keypoints = []
+            for (x, y) in bbox_data.keypoints:
+                x = max(0, min(x, new_width))
+                y = max(0, min(y, new_height))
+                keypoints.append([x, y])
+            bbox_data.keypoints = np.array(keypoints)
+        for additional_bbox_data in bbox_data.additional_bboxes_data:
+            resize_coords(additional_bbox_data)
+    for bbox_data in image_data.bboxes_data:
+        resize_coords(bbox_data)
+
     def if_bbox_data_inside_crop(bbox_data: BboxData):
         bbox_data.keypoints = bbox_data.keypoints[
             ~(
-                (bbox_data.keypoints[:, 0] >= xmax) |
-                (bbox_data.keypoints[:, 1] >= ymax) |
-                (bbox_data.keypoints[:, 0] <= xmin) |
-                (bbox_data.keypoints[:, 1] <= ymin)
+                (bbox_data.keypoints[:, 0] > new_width) |
+                (bbox_data.keypoints[:, 1] > new_height) |
+                (bbox_data.keypoints[:, 0] < 0) |
+                (bbox_data.keypoints[:, 1] < 0)
             )
         ]
         bbox_data.additional_bboxes_data = [
@@ -259,10 +286,10 @@ def crop_image_data(
             if if_bbox_data_inside_crop(additional_bbox_data)
         ]
         return not (
-            bbox_data.xmin >= xmax or
-            bbox_data.ymin >= ymax or
-            bbox_data.xmax < xmin or
-            bbox_data.ymax < ymin
+            bbox_data.xmin > new_width or
+            bbox_data.ymin > new_height or
+            bbox_data.xmax < 0 or
+            bbox_data.ymax < 0
         )
 
     if remove_bad_coords:
@@ -273,24 +300,12 @@ def crop_image_data(
         ]
         image_data.keypoints = image_data.keypoints[
             ~(
-                (image_data.keypoints[:, 0] > xmax) |
-                (image_data.keypoints[:, 1] > ymax) |
-                (image_data.keypoints[:, 0] < xmin) |
-                (image_data.keypoints[:, 1] < ymin)
+                (image_data.keypoints[:, 0] > new_width) |
+                (image_data.keypoints[:, 1] > new_height) |
+                (image_data.keypoints[:, 0] < 0) |
+                (image_data.keypoints[:, 1] < 0)
             )
         ]
-
-    image = image[ymin:ymax, xmin:xmax]
-
-    def resize_coords(bbox_data: BboxData):
-        bbox_data.xmin = bbox_data.xmin - xmin
-        bbox_data.ymin = bbox_data.ymin - ymin
-        bbox_data.xmax = bbox_data.xmax - xmin
-        bbox_data.ymax = bbox_data.ymax - ymin
-        for additional_bbox_data in bbox_data.additional_bboxes_data:
-            resize_coords(additional_bbox_data)
-    for bbox_data in image_data.bboxes_data:
-        resize_coords(bbox_data)
 
     image_data.image_path = None
     image_data.image = image
@@ -323,7 +338,7 @@ def apply_perspective_transform_to_points(
     if remove_bad_coords:
         transformed_points = transformed_points[
             (transformed_points[:, 0] >= 0) & (transformed_points[:, 1] >= 0) &
-            (transformed_points[:, 0] < result_width) & (transformed_points[:, 1] < result_height) & 
+            (transformed_points[:, 0] < result_width) & (transformed_points[:, 1] < result_height) &
             (transformed_points[:, 0] < transformed_points[:, 1])
         ]
     return transformed_points
