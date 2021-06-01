@@ -87,7 +87,7 @@ class BboxDataMatching:
 
         for bbox_data in [self.true_bbox_data, self.pred_bbox_data]:
             if bbox_data is not None:
-                bbox_data.assert_label_is_valid()
+                assert bbox_data.label is not None
 
         true_label = self.true_bbox_data.label if self.true_bbox_data is not None else None
         pred_label = self.pred_bbox_data.label if self.pred_bbox_data is not None else None
@@ -197,14 +197,15 @@ class ImageDataMatching:
                                  ('pred', pred_bboxes_data)]:
             bboxes_coords = set()
             for bbox_data in bboxes_data:
-                xmin, ymin, xmax, ymax = bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax
-                if (xmin, ymin, xmax, ymax) in bboxes_coords:
+                assert all(x is not None for x in [bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax])
+                assert bbox_data.xmin <= bbox_data.xmax and bbox_data.ymin <= bbox_data.ymax
+                if bbox_data.coords in bboxes_coords:
                     logger.warning(
                         f'Repeated {tag} BboxData with these coords '
-                        f'(xmin, ymin, xmax, ymax): {xmin, ymin, xmax, ymax}. '
+                        f'(xmin, ymin, xmax, ymax): {bbox_data.coords}. '
                         'All BboxData should contain unique elements.'
                     )
-                bboxes_coords.add((xmin, ymin, xmax, ymax))
+                bboxes_coords.add(bbox_data.coords)
 
         if len(true_bboxes_data) > 0 and len(bboxes_data) > 0:
             pairwise_ious = pairwise_intersection_over_union(true_bboxes_data, bboxes_data)
