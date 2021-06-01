@@ -296,7 +296,9 @@ def crop_image_data(
             bbox_data.xmin > new_width or
             bbox_data.ymin > new_height or
             bbox_data.xmax < 0 or
-            bbox_data.ymax < 0
+            bbox_data.ymax < 0 or
+            bbox_data.xmin >= bbox_data.xmax or
+            bbox_data.ymin >= bbox_data.ymax
         )
 
     if remove_bad_coords:
@@ -409,17 +411,14 @@ def apply_perspective_transform_to_bbox_data(
     return transformed_bbox_data
 
 
-def perspective_normalize_image_data(
-    image_data: ImageData,
+def get_perspective_matrix_for_base_keypoints(
     base_keypoints: Tuple[
         Tuple[int, int],
         Tuple[int, int],
         Tuple[int, int],
         Tuple[int, int]
-    ],
-    allow_negative_and_large_coords: bool,
-    remove_bad_coords: bool
-) -> ImageData:
+    ]
+) -> Tuple[np.ndarray, Tuple[int, int]]:
     base_keypoints = np.array(base_keypoints, dtype=np.float32)
     (top_left, top_right, bottom_right, bottom_left) = base_keypoints
     width_a = np.linalg.norm(bottom_right - bottom_left)
@@ -435,27 +434,37 @@ def perspective_normalize_image_data(
         [0, result_height - 1]
     ], dtype=np.float32)
     perspective_matrix = cv2.getPerspectiveTransform(base_keypoints, transformed_points)
+    return perspective_matrix, (result_width, result_height)
 
+
+def apply_perspective_transform_to_image_data(
+    image_data: ImageData,
+    perspective_matrix: np.ndarray,
+    result_width: int,
+    result_height: int,
+    allow_negative_and_large_coords: bool,
+    remove_bad_coords: bool
+) -> ImageData:
     image = image_data.open_image()
-    transformed_image = cv2.warpPerspective(image, perspective_matrix, (result_width, result_height))
-    transformed_image_data = copy.deepcopy(image_data)
-    transformed_image_data.keypoints = apply_perspective_transform_to_points(
+    image_data = cv2.warpPerspective(image, perspective_matrix, (result_width, result_height))
+    image_data = copy.deepcopy(image_data)
+    image_data.keypoints = apply_perspective_transform_to_points(
         image_data.keypoints, perspective_matrix, result_width, result_height,
         allow_negative_and_large_coords, remove_bad_coords
     )
-    transformed_image_data.bboxes_data = [
+    image_data.bboxes_data = [
         apply_perspective_transform_to_bbox_data(
             bbox_data, perspective_matrix, result_width, result_height,
             allow_negative_and_large_coords, remove_bad_coords
         )
-        for bbox_data in transformed_image_data.bboxes_data
+        for bbox_data in image_data.bboxes_data
     ]
-    transformed_image_data.bboxes_data = [
+    image_data.bboxes_data = [
         bbox_data
-        for bbox_data in transformed_image_data.bboxes_data
+        for bbox_data in image_data.bboxes_data
         if bbox_data is not None
     ]
-    transformed_image_data.image_path = None
-    transformed_image_data.image = transformed_image
+    image_data.image_path = None
+    image_data.image = image_data
 
-    return transformed_image_data
+    return image_data
