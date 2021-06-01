@@ -436,17 +436,6 @@ def get_perspective_matrix_for_base_keypoints(
     return perspective_matrix, (result_width, result_height)
 
 
-'GT'
-'pipeline c normalize()'
-
-'image' -> 'normalize(image)' -> 'pred_bboxes[fields, numbers] on normalized image'
-
-'normalize^(-1)(pred_bboxes[fields, numbers])' --> 'pred_bboxes2[fields, numbers] on orignal image'
-
-
-['pred_bboxes2[fields, numbers] +++ GT[fields, numbers] in original image']
-
-
 def apply_perspective_transform_to_image_data(
     image_data: ImageData,
     perspective_matrix: np.ndarray,
