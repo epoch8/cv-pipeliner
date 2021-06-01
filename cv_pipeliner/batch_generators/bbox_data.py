@@ -10,7 +10,7 @@ class BatchGeneratorBboxData(BatchGenerator):
     def __init__(self,
                  data: List[List[BboxData]],
                  batch_size: int,
-                 use_not_caught_elements_as_last_batch: bool,
+                 use_not_caught_elements_as_last_batch: bool = True,
                  open_cropped_images: bool = True):
         assert all(isinstance(d, list) or isinstance(d, np.ndarray) for d in data)
         assert all(isinstance(item, BboxData) for d in data for item in d)

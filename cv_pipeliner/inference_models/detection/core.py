@@ -12,10 +12,12 @@ Class = str
 Bboxes = List[Bbox]
 Scores = List[Score]
 Classes = List[Class]
+Keypoints = List[Tuple[int, int]]
 
 DetectionInput = List[np.ndarray]
 DetectionOutput = Tuple[
     List[Bboxes],
+    List[Keypoints],
     List[Scores],
     List[Classes],  # Optional exit
     List[Scores]  # Optional exit

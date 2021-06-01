@@ -1,21 +1,20 @@
 import json
-import sys
-import importlib
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple, Callable, Union, Type, Literal
-from cv_pipeliner.utils.images import get_image_b64
 
 import requests
 import numpy as np
 import fsspec
 from pathy import Pathy
 
+from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.classification.core import (
     ClassificationModelSpec, ClassificationModel, ClassificationInput, ClassificationOutput
 )
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
+from cv_pipeliner.utils.images import get_image_b64
 
 
 @dataclass
@@ -47,25 +46,6 @@ class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
 
 
 class Tensorflow_ClassificationModel(ClassificationModel):
-    def _get_preprocess_input_from_script_file(
-        self,
-        script_file: Union[str, Path]
-    ) -> Callable[[List[np.ndarray]], np.ndarray]:
-        with fsspec.open(script_file, 'r') as src:
-            script_code = src.read()
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            tmpdirname = Path(tmpdirname)
-            module_folder = tmpdirname / 'module'
-            module_folder.mkdir()
-            script_file = module_folder / f'preprocess_input_{tmpdirname.name}.py'
-            with open(script_file, 'w') as out:
-                out.write(script_code)
-            sys.path.append(str(script_file.parent.absolute()))
-            module = importlib.import_module(script_file.stem)
-            importlib.reload(module)
-            sys.path.pop()
-        return module.preprocess_input
-
     def _load_tensorflow_classification_model_spec(
         self,
         model_spec: TensorFlow_ClassificationModelSpec
@@ -138,7 +118,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             )
 
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
-            self._preprocess_input = self._get_preprocess_input_from_script_file(
+            self._preprocess_input = get_preprocess_input_from_script_file(
                 script_file=model_spec.preprocess_input
             )
         else:
@@ -202,6 +182,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         input: ClassificationInput,
         top_n: int = 1
     ) -> ClassificationOutput:
+        input = self.preprocess_input(input)
         predictions = self._raw_predict(input)
         max_scores_top_n_idxs = (-np.array(predictions)).argsort(axis=1)[:, :top_n]
         id_to_class_names_repeated = np.repeat(

@@ -10,7 +10,7 @@ class BatchGeneratorImageData(BatchGenerator):
     def __init__(self,
                  data: List[ImageData],
                  batch_size: int,
-                 use_not_caught_elements_as_last_batch: bool):
+                 use_not_caught_elements_as_last_batch: bool = True):
         assert all(isinstance(d, ImageData) for d in data)
         super().__init__(data, batch_size, use_not_caught_elements_as_last_batch)
 

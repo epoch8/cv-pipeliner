@@ -17,17 +17,18 @@ class DetectionInferencer(Inferencer):
         self,
         images_data: List[ImageData],
         n_pred_bboxes: List[List[Tuple[int, int, int, int]]],
+        n_k_pred_keypoints: List[List[List[Tuple[int, int]]]],
         n_pred_scores: List[List[float]],
         open_images_in_images_data: bool,
         open_cropped_images_in_bboxes_data: bool
     ) -> List[ImageData]:
 
         pred_images_data = []
-        for image_data, pred_bboxes, pred_scores in zip(
-            images_data, n_pred_bboxes, n_pred_scores
+        for image_data, pred_bboxes, k_pred_keypoints, pred_scores in zip(
+            images_data, n_pred_bboxes, n_k_pred_keypoints, n_pred_scores
         ):
             bboxes_data = []
-            for (pred_bbox, pred_detection_score) in zip(pred_bboxes, pred_scores):
+            for (pred_bbox, pred_keypoints, pred_detection_score) in zip(pred_bboxes, k_pred_keypoints, pred_scores):
                 xmin, ymin, xmax, ymax = pred_bbox
                 bboxes_data.append(BboxData(
                     image_path=image_data.image_path,
@@ -35,6 +36,7 @@ class DetectionInferencer(Inferencer):
                     ymin=ymin,
                     xmax=xmax,
                     ymax=ymax,
+                    keypoints=pred_keypoints,
                     detection_score=pred_detection_score
                 ))
             if open_cropped_images_in_bboxes_data:
@@ -62,14 +64,14 @@ class DetectionInferencer(Inferencer):
         with tqdm(total=len(images_data_gen.data), disable=disable_tqdm) as pbar:
             for images_data in images_data_gen:
                 input = [image_data.image for image_data in images_data]
-                input = self.model.preprocess_input(input)
-                n_pred_bboxes, n_pred_scores, _, _ = self.model.predict(
+                n_pred_bboxes, n_k_pred_keypoints, n_pred_scores, _, _ = self.model.predict(
                     input=input,
                     score_threshold=score_threshold
                 )
                 pred_images_data_batch = self._postprocess_predictions(
                     images_data=images_data,
                     n_pred_bboxes=n_pred_bboxes,
+                    n_k_pred_keypoints=n_k_pred_keypoints,
                     n_pred_scores=n_pred_scores,
                     open_images_in_images_data=open_images_in_images_data,
                     open_cropped_images_in_bboxes_data=open_cropped_images_in_bboxes_data

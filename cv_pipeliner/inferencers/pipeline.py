@@ -17,6 +17,7 @@ class PipelineInferencer(Inferencer):
         self,
         images_data: List[ImageData],
         n_pred_bboxes: List[List[Tuple[int, int, int, int]]],
+        n_k_pred_keypoints: List[List[Tuple[int, int]]],
         n_pred_detection_scores: List[List[float]],
         n_pred_labels_top_n: List[List[List[str]]],
         n_pred_classification_scores_top_n: List[List[List[float]]],
@@ -24,18 +25,18 @@ class PipelineInferencer(Inferencer):
         open_cropped_images_in_bboxes_data: bool
     ) -> List[ImageData]:
         pred_images_data = []
-        for (image_data, pred_bboxes,
+        for (image_data, pred_bboxes, k_pred_keypoints,
              pred_detection_scores, pred_labels_top_n, pred_classification_scores_top_n) in zip(
-            images_data, n_pred_bboxes,
+            images_data, n_pred_bboxes, n_k_pred_keypoints,
             n_pred_detection_scores, n_pred_labels_top_n,
             n_pred_classification_scores_top_n
         ):
             bboxes_data = []
             for (
-                pred_bbox, pred_detection_score,
+                pred_bbox, pred_keypoints, pred_detection_score,
                 pred_label_top_n, pred_classification_score_top_n
             ) in zip(
-                pred_bboxes, pred_detection_scores,
+                pred_bboxes, k_pred_keypoints, pred_detection_scores,
                 pred_labels_top_n, pred_classification_scores_top_n
             ):
                 xmin, ymin, xmax, ymax = pred_bbox
@@ -45,6 +46,7 @@ class PipelineInferencer(Inferencer):
                     ymin=ymin,
                     xmax=xmax,
                     ymax=ymax,
+                    keypoints=pred_keypoints,
                     detection_score=pred_detection_score,
                     label=pred_label_top_n[0],
                     classification_score=pred_classification_score_top_n[0],
@@ -78,9 +80,9 @@ class PipelineInferencer(Inferencer):
         with tqdm(total=len(images_data_gen.data), disable=disable_tqdm) as pbar:
             for images_data in images_data_gen:
                 input = [image_data.image for image_data in images_data]
-                input = self.model.preprocess_input(input)
                 (
                     n_pred_bboxes,
+                    n_k_pred_keypoints,
                     n_pred_detection_scores,
                     n_pred_labels_top_n,
                     n_pred_classification_scores_top_n
@@ -93,6 +95,7 @@ class PipelineInferencer(Inferencer):
                 pred_images_data_batch = self._postprocess_predictions(
                     images_data=images_data,
                     n_pred_bboxes=n_pred_bboxes,
+                    n_k_pred_keypoints=n_k_pred_keypoints,
                     n_pred_detection_scores=n_pred_detection_scores,
                     n_pred_labels_top_n=n_pred_labels_top_n,
                     n_pred_classification_scores_top_n=n_pred_classification_scores_top_n,

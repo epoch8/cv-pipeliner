@@ -211,15 +211,15 @@ def thumbnail_image_data(
         bbox_data.ymin = int(bbox_data.ymin * (new_height / old_height))
         bbox_data.xmax = int(bbox_data.xmax * (new_width / old_width))
         bbox_data.ymax = int(bbox_data.ymax * (new_height / old_height))
-        bbox_data.keypoints[:, 0] *= (new_width / old_width)
-        bbox_data.keypoints[:, 1] *= (new_height / old_height)
+        bbox_data.keypoints[:, 0] = (bbox_data.keypoints[:, 0] * (new_width / old_width)).astype(int)
+        bbox_data.keypoints[:, 1] = (bbox_data.keypoints[:, 1] * (new_height / old_height)).astype(int)
         bbox_data.keypoints = bbox_data.keypoints.astype(int)
         for additional_bbox_data in bbox_data.additional_bboxes_data:
             resize_coords(additional_bbox_data)
     for bbox_data in image_data.bboxes_data:
         resize_coords(bbox_data)
-    image_data.keypoints[:, 0] *= (new_width / old_width)
-    image_data.keypoints[:, 1] *= (new_height / old_height)
+    image_data.keypoints[:, 0] = (image_data.keypoints[:, 0] * (new_width / old_width)).astype(int)
+    image_data.keypoints[:, 1] = (image_data.keypoints[:, 1] * (new_height / old_height)).astype(int)
     image_data.image_path = None
     image_data.image = image
 

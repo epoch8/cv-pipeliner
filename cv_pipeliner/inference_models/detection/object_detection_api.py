@@ -189,7 +189,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
     def _raw_predict_single_image_default(
         self,
         image: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         import tensorflow as tf
 
         input_tensor = tf.convert_to_tensor(image, dtype=self.input_dtype)
@@ -204,17 +204,18 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
 
         raw_bboxes = detection_output_dict["detection_boxes"][0]  # (ymin, xmin, ymax, xmax)
         raw_bboxes = np.array(raw_bboxes)[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
+        raw_keypoints = np.array([]).reshape(len(raw_bboxes), 0, 2)
         raw_scores = detection_output_dict["detection_scores"][0]
         raw_scores = np.array(raw_scores)
         raw_classes = detection_output_dict["detection_classes"][0]
         raw_classes = np.array(raw_classes)
 
-        return raw_bboxes, raw_scores, raw_classes
+        return raw_bboxes, raw_keypoints, raw_scores, raw_classes
 
     def _raw_predict_single_image_tflite(
         self,
         image: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         height, width, _ = image.shape
         image = np.array(image[None, ...], dtype=np.float32)
         self.model.resize_tensor_input(0, [1, height, width, 3])
@@ -223,11 +224,12 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self.model.invoke()
 
         raw_bboxes = np.array(self.model.get_tensor(self.bboxes_index))[0]  # (ymin, xmin, ymax, xmax)
+        raw_keypoints = np.array([]).reshape(len(raw_bboxes), 0, 2)
         raw_bboxes = raw_bboxes[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
         raw_scores = np.array(self.model.get_tensor(self.scores_index))[0]
         raw_classes = np.array(self.model.get_tensor(self.scores_index))[0]
 
-        return raw_bboxes, raw_scores, raw_classes
+        return raw_bboxes, raw_keypoints, raw_scores, raw_classes
 
     def _raw_predict_single_image_kfserving(
         self,
@@ -255,27 +257,34 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         detection_output_dict = detection_output_dict['outputs']
         raw_bboxes = detection_output_dict["detection_boxes"][0]  # (ymin, xmin, ymax, xmax)
         raw_bboxes = np.array(raw_bboxes)[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
+        raw_keypoints = np.array([]).reshape(len(raw_bboxes), 0, 2)
         raw_scores = detection_output_dict["detection_scores"][0]
         raw_scores = np.array(raw_scores)
         raw_classes = detection_output_dict["detection_classes"][0]
         raw_classes = np.array(raw_classes)
 
-        return raw_bboxes, raw_scores, raw_classes
+        return raw_bboxes, raw_keypoints, raw_scores, raw_classes
 
     def _postprocess_prediction(
         self,
         raw_bboxes: np.ndarray,
+        raw_keypoints: np.ndarray,
         raw_scores: np.ndarray,
         raw_classes: np.ndarray,
         score_threshold: float,
-        height: int,
         width: int,
+        height: int,
         classification_top_n: int
-    ) -> Tuple[List[Tuple[int, int, int, int]], List[float], List[List[str]], List[List[float]]]:
+    ) -> Tuple[
+        List[Tuple[int, int, int, int]],
+        List[List[Tuple[int, int]]],
+        List[float], List[List[str]], List[List[float]]
+    ]:
 
         raw_bboxes = denormalize_bboxes(raw_bboxes, width, height)
         mask = raw_scores > score_threshold
         bboxes = raw_bboxes[mask]
+        keypoints = raw_keypoints[mask]
         scores = raw_scores[mask]
         classes = raw_classes[mask]
 
@@ -288,6 +297,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
                 correct_non_repeated_bboxes_idxs.append(idx)
 
         bboxes = bboxes[correct_non_repeated_bboxes_idxs]
+        keypoints = keypoints[correct_non_repeated_bboxes_idxs]
         scores = scores[correct_non_repeated_bboxes_idxs]
         classes = classes[correct_non_repeated_bboxes_idxs]
         classes_scores = scores.copy()
@@ -310,7 +320,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
                 for score in classes_scores
             ])
 
-        return bboxes, scores, class_names_top_n, classes_scores_top_n
+        return bboxes, keypoints, scores, class_names_top_n, classes_scores_top_n
 
     def predict(
         self,
@@ -318,27 +328,33 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         score_threshold: float,
         classification_top_n: int = 1
     ) -> DetectionOutput:
-        n_pred_bboxes, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k = [], [], [], []
+        input = self.preprocess_input(input)
+        (
+            n_pred_bboxes, n_pred_keypoints, n_pred_scores,
+            n_pred_class_names_top_k, n_pred_scores_top_k
+        ) = [], [], [], [], []
 
         for image in input:
             height, width, _ = image.shape
-            raw_bboxes, raw_scores, raw_classes = self._raw_predict_single_image(image)
-            bboxes, scores, class_names_top_k, classes_scores_top_k = self._postprocess_prediction(
+            raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_single_image(image)
+            bboxes, keypoints, scores, class_names_top_k, classes_scores_top_k = self._postprocess_prediction(
                 raw_bboxes=raw_bboxes,
+                raw_keypoints=raw_keypoints,
                 raw_scores=raw_scores,
                 raw_classes=raw_classes,
                 score_threshold=score_threshold,
-                height=height,
                 width=width,
+                height=height,
                 classification_top_n=classification_top_n
             )
 
             n_pred_bboxes.append(bboxes)
+            n_pred_keypoints.append(keypoints)
             n_pred_scores.append(scores)
             n_pred_class_names_top_k.append(class_names_top_k)
             n_pred_scores_top_k.append(classes_scores_top_k)
 
-        return n_pred_bboxes, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k
+        return n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k
 
     def preprocess_input(self, input: DetectionInput):
         return input
