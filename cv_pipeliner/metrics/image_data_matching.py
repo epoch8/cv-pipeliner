@@ -197,7 +197,6 @@ class ImageDataMatching:
                                  ('pred', pred_bboxes_data)]:
             bboxes_coords = set()
             for bbox_data in bboxes_data:
-                bbox_data.assert_coords_are_valid()
                 xmin, ymin, xmax, ymax = bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax
                 if (xmin, ymin, xmax, ymax) in bboxes_coords:
                     logger.warning(
