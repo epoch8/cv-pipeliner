@@ -207,7 +207,7 @@ def thumbnail_image_data(
     new_height, new_width, _ = image.shape
 
     def resize_coords(bbox_data: BboxData):
-        bbox_data.xmin = max(0, min(int(bbox_data.xmin * (new_width / old_width), new_width-1)))
+        bbox_data.xmin = max(0, min(int(bbox_data.xmin * (new_width / old_width)), new_width-1))
         bbox_data.ymin = max(0, min(int(bbox_data.ymin * (new_height / old_height)), new_height-1))
         bbox_data.xmax = max(0, min(int(bbox_data.xmax * (new_width / old_width)), new_width-1))
         bbox_data.ymax = max(0, min(int(bbox_data.ymax * (new_height / old_height)), new_height-1))
