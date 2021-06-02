@@ -66,7 +66,7 @@ def rotate_keypoints(
     points[:, 2] = 1
     rotated_points = (rotation_mat @ points.T).astype(int).T
     keypoints = []
-    for (x, y, _) in rotated_points.reshape(-1, 3):
+    for (x, y) in rotated_points:
         x = max(0, min(x, new_width-1))
         y = max(0, min(y, new_height-1))
         keypoints.append([x, y])
