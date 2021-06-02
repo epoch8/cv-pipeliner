@@ -305,8 +305,8 @@ def crop_image_data(
 
     keypoints = []
     for (x, y) in image_data.keypoints:
-        x = max(0, min(x, new_width-1))
-        y = max(0, min(y, new_height-1))
+        x = max(0, min(x - xmin, new_width-1))
+        y = max(0, min(y - ymin, new_height-1))
         keypoints.append([x, y])
     image_data.keypoints = np.array(keypoints).reshape(-1, 2)
 
