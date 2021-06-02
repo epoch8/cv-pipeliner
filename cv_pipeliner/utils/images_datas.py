@@ -240,11 +240,11 @@ def thumbnail_image_data(
     image_data.keypoints[:, 0] = (image_data.keypoints[:, 0] * (new_width / old_width)).astype(int)
     image_data.keypoints[:, 1] = (image_data.keypoints[:, 1] * (new_height / old_height)).astype(int)
     keypoints = []
-    for (x, y) in bbox_data.keypoints:
+    for (x, y) in image_data.keypoints:
         x = max(0, min(x, new_width-1))
         y = max(0, min(y, new_height-1))
         keypoints.append([x, y])
-    bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
+    image_data.keypoints = np.array(keypoints).reshape(-1, 2)
     image_data.image_path = None
     image_data.image = image
 
