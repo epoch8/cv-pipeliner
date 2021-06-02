@@ -207,13 +207,19 @@ def thumbnail_image_data(
     new_height, new_width, _ = image.shape
 
     def resize_coords(bbox_data: BboxData):
-        bbox_data.xmin = int(bbox_data.xmin * (new_width / old_width))
-        bbox_data.ymin = int(bbox_data.ymin * (new_height / old_height))
-        bbox_data.xmax = int(bbox_data.xmax * (new_width / old_width))
-        bbox_data.ymax = int(bbox_data.ymax * (new_height / old_height))
+        bbox_data.xmin = max(0, min(int(bbox_data.xmin * (new_width / old_width), new_width-1)))
+        bbox_data.ymin = max(0, min(int(bbox_data.ymin * (new_height / old_height)), new_height-1))
+        bbox_data.xmax = max(0, min(int(bbox_data.xmax * (new_width / old_width)), new_width-1))
+        bbox_data.ymax = max(0, min(int(bbox_data.ymin * (new_height / old_height)), new_height-1))
         bbox_data.keypoints[:, 0] = (bbox_data.keypoints[:, 0] * (new_width / old_width)).astype(int)
         bbox_data.keypoints[:, 1] = (bbox_data.keypoints[:, 1] * (new_height / old_height)).astype(int)
         bbox_data.keypoints = bbox_data.keypoints.astype(int)
+        keypoints = []
+        for (x, y) in bbox_data.keypoints:
+            x = max(0, min(x, new_width-1))
+            y = max(0, min(y, new_height-1))
+            keypoints.append([x, y])
+        bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
         for additional_bbox_data in bbox_data.additional_bboxes_data:
             resize_coords(additional_bbox_data)
     for bbox_data in image_data.bboxes_data:
