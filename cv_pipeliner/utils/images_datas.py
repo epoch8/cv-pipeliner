@@ -53,14 +53,24 @@ def get_n_bboxes_data_filtered_by_labels(
     return n_bboxes_data
 
 
-def rotate_keypoints(keypoints: Tuple[Tuple[int, int]], rotation_mat: np.ndarray):
+def rotate_keypoints(
+    keypoints: Tuple[Tuple[int, int]],
+    rotation_mat: np.ndarray,
+    new_width: int,
+    new_height: int
+):
     keypoints = np.array(keypoints)
     points = np.zeros((len(keypoints), 3))
     points[:, 0] = keypoints[:, 0]
     points[:, 1] = keypoints[:, 1]
     points[:, 2] = 1
     rotated_points = (rotation_mat @ points.T).astype(int).T
-    return rotated_points[:, [0, 1]]
+    keypoints = []
+    for (x, y, _) in rotated_points:
+        x = max(0, min(x, new_width-1))
+        y = max(0, min(y, new_height-1))
+        keypoints.append([x, y])
+    return np.array(keypoints).reshape(-1, 2)
 
 
 def rotate_keypoints90(
@@ -84,7 +94,9 @@ def rotate_keypoints90(
 
 def rotate_bbox_data(
     bbox_data: BboxData,
-    rotation_mat: np.ndarray
+    rotation_mat: np.ndarray,
+    new_width: int,
+    new_height: int
 ) -> BboxData:
     bbox_points = np.array([
         [bbox_data.xmin, bbox_data.ymin],
@@ -92,7 +104,7 @@ def rotate_bbox_data(
         [bbox_data.xmax, bbox_data.ymin],
         [bbox_data.xmax, bbox_data.ymax]
     ])
-    rotated_points = rotate_keypoints(bbox_points, rotation_mat)
+    rotated_points = rotate_keypoints(bbox_points, rotation_mat, new_width, new_height)
     rotated_xmin = np.min(rotated_points[:, 0])
     rotated_ymin = np.min(rotated_points[:, 1])
     rotated_xmax = np.max(rotated_points[:, 0])
@@ -102,7 +114,7 @@ def rotate_bbox_data(
     rotated_bbox_data.ymin = rotated_ymin
     rotated_bbox_data.xmax = rotated_xmax
     rotated_bbox_data.ymax = rotated_ymax
-    rotated_bbox_data.keypoints = rotate_keypoints(rotated_bbox_data.keypoints, rotation_mat)
+    rotated_bbox_data.keypoints = rotate_keypoints(rotated_bbox_data.keypoints, rotation_mat, new_width, new_height)
     rotated_bbox_data.additional_bboxes_data = [
         rotate_bbox_data(additional_bbox_data, rotation_mat)
         for additional_bbox_data in rotated_bbox_data.additional_bboxes_data
@@ -181,10 +193,11 @@ def rotate_image_data(
         rotation_mat[1, 2] += bound_h/2 - image_center[1]
 
         rotated_image = cv2.warpAffine(image, rotation_mat, (bound_w, bound_h))
+        new_height, new_width, _ = rotated_image.shape
         rotated_image_data = copy.deepcopy(image_data)
-        rotated_image_data.keypoints = rotate_keypoints(image_data.keypoints, rotation_mat)
+        rotated_image_data.keypoints = rotate_keypoints(image_data.keypoints, rotation_mat, new_height, new_width)
         rotated_image_data.bboxes_data = [
-            rotate_bbox_data(bbox_data, rotation_mat)
+            rotate_bbox_data(bbox_data, rotation_mat, new_height, new_width)
             for bbox_data in rotated_image_data.bboxes_data
         ]
 
@@ -207,17 +220,17 @@ def thumbnail_image_data(
     new_height, new_width, _ = image.shape
 
     def resize_coords(bbox_data: BboxData):
-        bbox_data.xmin = max(0, min(int(bbox_data.xmin * (new_width / old_width)), new_width-2))
-        bbox_data.ymin = max(0, min(int(bbox_data.ymin * (new_height / old_height)), new_height-2))
-        bbox_data.xmax = max(0, min(int(bbox_data.xmax * (new_width / old_width)), new_width-2))
-        bbox_data.ymax = max(0, min(int(bbox_data.ymax * (new_height / old_height)), new_height-2))
+        bbox_data.xmin = max(0, min(int(bbox_data.xmin * (new_width / old_width)), new_width-1))
+        bbox_data.ymin = max(0, min(int(bbox_data.ymin * (new_height / old_height)), new_height-1))
+        bbox_data.xmax = max(0, min(int(bbox_data.xmax * (new_width / old_width)), new_width-1))
+        bbox_data.ymax = max(0, min(int(bbox_data.ymax * (new_height / old_height)), new_height-1))
         bbox_data.keypoints[:, 0] = (bbox_data.keypoints[:, 0] * (new_width / old_width)).astype(int)
         bbox_data.keypoints[:, 1] = (bbox_data.keypoints[:, 1] * (new_height / old_height)).astype(int)
         bbox_data.keypoints = bbox_data.keypoints.astype(int)
         keypoints = []
         for (x, y) in bbox_data.keypoints:
-            x = max(0, min(x, new_width-2))
-            y = max(0, min(y, new_height-2))
+            x = max(0, min(x, new_width-1))
+            y = max(0, min(y, new_height-1))
             keypoints.append([x, y])
         bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
         for additional_bbox_data in bbox_data.additional_bboxes_data:
@@ -227,11 +240,11 @@ def thumbnail_image_data(
     image_data.keypoints[:, 0] = (image_data.keypoints[:, 0] * (new_width / old_width)).astype(int)
     image_data.keypoints[:, 1] = (image_data.keypoints[:, 1] * (new_height / old_height)).astype(int)
     keypoints = []
-    for (x, y) in image_data.keypoints:
-        x = max(0, min(x, new_width-2))
-        y = max(0, min(y, new_height-2))
+    for (x, y) in bbox_data.keypoints:
+        x = max(0, min(x, new_width-1))
+        y = max(0, min(y, new_height-1))
         keypoints.append([x, y])
-    image_data.keypoints = np.array(keypoints).reshape(-1, 2)
+    bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
     image_data.image_path = None
     image_data.image = image
 
