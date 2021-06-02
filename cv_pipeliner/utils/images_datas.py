@@ -65,12 +65,7 @@ def rotate_keypoints(
     points[:, 1] = keypoints[:, 1]
     points[:, 2] = 1
     rotated_points = (rotation_mat @ points.T).astype(int).T
-    keypoints = []
-    for (x, y) in rotated_points:
-        x = max(0, min(x, new_width-1))
-        y = max(0, min(y, new_height-1))
-        keypoints.append([x, y])
-    return np.array(keypoints).reshape(-1, 2)
+    return np.array(rotated_points).reshape(-1, 2)
 
 
 def rotate_keypoints90(
@@ -105,16 +100,22 @@ def rotate_bbox_data(
         [bbox_data.xmax, bbox_data.ymax]
     ])
     rotated_points = rotate_keypoints(bbox_points, rotation_mat, new_width, new_height)
-    rotated_xmin = np.min(rotated_points[:, 0])
-    rotated_ymin = np.min(rotated_points[:, 1])
-    rotated_xmax = np.max(rotated_points[:, 0])
-    rotated_ymax = np.max(rotated_points[:, 1])
+    rotated_xmin = max(0, min(np.min(rotated_points[:, 0]), new_width))
+    rotated_ymin = max(0, min(np.min(rotated_points[:, 1]), new_height))
+    rotated_xmax = max(0, min(np.max(rotated_points[:, 0]), new_width))
+    rotated_ymax = max(0, min(np.max(rotated_points[:, 1]), new_height))
     rotated_bbox_data = copy.deepcopy(bbox_data)
     rotated_bbox_data.xmin = rotated_xmin
     rotated_bbox_data.ymin = rotated_ymin
     rotated_bbox_data.xmax = rotated_xmax
     rotated_bbox_data.ymax = rotated_ymax
     rotated_bbox_data.keypoints = rotate_keypoints(rotated_bbox_data.keypoints, rotation_mat, new_width, new_height)
+    keypoints = []
+    for (x, y) in rotated_bbox_data.keypoints:
+        x = max(0, min(x, new_width-1))
+        y = max(0, min(y, new_height-1))
+        keypoints.append([x, y])
+    rotated_bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
     rotated_bbox_data.additional_bboxes_data = [
         rotate_bbox_data(additional_bbox_data, rotation_mat)
         for additional_bbox_data in rotated_bbox_data.additional_bboxes_data
@@ -196,6 +197,12 @@ def rotate_image_data(
         new_height, new_width, _ = rotated_image.shape
         rotated_image_data = copy.deepcopy(image_data)
         rotated_image_data.keypoints = rotate_keypoints(image_data.keypoints, rotation_mat, new_height, new_width)
+        keypoints = []
+        for (x, y) in rotated_image_data.keypoints:
+            x = max(0, min(x, new_width-1))
+            y = max(0, min(y, new_height-1))
+            keypoints.append([x, y])
+        rotated_image_data.keypoints = np.array(keypoints).reshape(-1, 2)
         rotated_image_data.bboxes_data = [
             rotate_bbox_data(bbox_data, rotation_mat, new_height, new_width)
             for bbox_data in rotated_image_data.bboxes_data
