@@ -235,8 +235,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self,
         image: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        input_tensor = get_image_b64(image, 'JPEG')
-        input_tensor_b64 = base64.b64encode(input_tensor.numpy()).decode('utf-8')
+        input_tensor_b64 = get_image_b64(image, 'JPEG')
         response = requests.post(
             url=self.model_spec.url,
             data=json.dumps({
