@@ -224,7 +224,7 @@ def resize_image_data(
     image = image_data.open_image()
     old_height, old_width, _ = image.shape
     image = Image.fromarray(image)
-    image.resize(size)
+    image = image.resize(size)
     image = np.array(image)
     new_height, new_width, _ = image.shape
 
