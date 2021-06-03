@@ -14,6 +14,7 @@ from cv_pipeliner.inference_models.detection.core import (
 )
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 
+
 @dataclass
 class PytorchDetection_ModelSpec(DetectionModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
