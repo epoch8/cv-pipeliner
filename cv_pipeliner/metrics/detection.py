@@ -11,18 +11,27 @@ from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
 
 def count_coco_metrics(
     true_images_data: List[ImageData],
-    raw_pred_images_data: List[ImageData] = None
+    raw_pred_images_data: List[ImageData] = None,
+    class_names: List[str] = None
 ) -> Dict:
     from object_detection.metrics import coco_evaluation
     from object_detection.core.standard_fields import (
         InputDataFields, DetectionResultFields
     )
-    cocoevaluator = coco_evaluation.CocoDetectionEvaluator(
-        categories=[{
-            'id': 1,
-            'name': 'Label'
-        }]
-    )
+    if class_names is None:
+        cocoevaluator = coco_evaluation.CocoDetectionEvaluator(
+            categories=[{
+                'id': 1,
+                'name': 'Label'
+            }]
+        )
+    else:
+        cocoevaluator = coco_evaluation.CocoDetectionEvaluator(
+            categories=[{
+                'id': i+1,
+                'name': class_name
+            } for i, class_name in enumerate(class_names)]
+        )
 
     for i, (true_image_data, raw_pred_image_data) in enumerate(zip(
         true_images_data, raw_pred_images_data
@@ -44,7 +53,12 @@ def count_coco_metrics(
         ]
 
         groundtruth_boxes = np.array(true_bboxes, dtype=np.float32).reshape(-1, 4)
-        groundtruth_classes = np.array([1] * len(true_bboxes))
+        if class_names is None:
+            groundtruth_classes = np.array([1] * len(true_bboxes))
+        else:
+            groundtruth_classes = np.array(
+                [class_names.index(bbox_data.label) + 1 for bbox_data in true_bboxes_data]
+            )
         groundtruth_dict = {
             InputDataFields.groundtruth_boxes: groundtruth_boxes,
             InputDataFields.groundtruth_classes: groundtruth_classes
@@ -56,7 +70,12 @@ def count_coco_metrics(
 
         detection_boxes = np.array(raw_pred_bboxes, dtype=np.float32).reshape(-1, 4)
         detection_scores = np.array(raw_pred_scores, dtype=np.float32)
-        detection_classes = np.array([1] * len(detection_boxes))
+        if class_names is None:
+            detection_classes = np.array([1] * len(detection_boxes))
+        else:
+            detection_classes = np.array(
+                [class_names.index(bbox_data.label) + 1 for bbox_data in raw_pred_bboxes_data]
+            )
         detections_dict = {
             DetectionResultFields.detection_boxes: detection_boxes,
             DetectionResultFields.detection_scores: detection_scores,
@@ -70,7 +89,6 @@ def count_coco_metrics(
     with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
         coco_metrics = cocoevaluator.evaluate()
     return coco_metrics
-
 
 df_detection_metrics_columns = ['value']
 

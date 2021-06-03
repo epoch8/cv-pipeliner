@@ -611,8 +611,8 @@ def uncrop_bboxes_data(
         bbox_data.image = None
         bbox_data.image_path = None
         bbox_data.cropped_image = None
-        for bbox_data.additional_bboxes_data in bbox_data.additional_bboxes_data:
-            _append_cropped_bbox_data_to_image_data(bbox_data)
+        for additional_bbox_data in bbox_data.additional_bboxes_data:
+            _append_cropped_bbox_data_to_image_data(additional_bbox_data)
     for bbox_data in bboxes_data:
         _append_cropped_bbox_data_to_image_data(bbox_data)
 
