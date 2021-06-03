@@ -55,7 +55,7 @@ class Pytorch_DetectionModel(DetectionModel):
     def __init__(
         self,
         model_spec: Union[
-            PytorchModelSpec
+            PytorchDetection_ModelSpec
         ],
     ):
         super().__init__(model_spec)
@@ -69,7 +69,7 @@ class Pytorch_DetectionModel(DetectionModel):
         else:
             self.class_names = None
 
-        if isinstance(model_spec, PytorchModelSpec):
+        if isinstance(model_spec, PytorchDetection_ModelSpec):
             self._load_pt_model(model_spec)
             self.device = model_spec.device
             self.input_format = model_spec.device
