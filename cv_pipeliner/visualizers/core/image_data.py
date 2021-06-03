@@ -303,10 +303,9 @@ def visualize_image_data(
     )
     image = image_data.open_image()
     if include_additional_bboxes_data:
-        additional_bboxes_data = []
-
+        bboxes_data = []
         def recursive_get_bboxes_data(bbox_data):
-            additional_bboxes_data.append(bbox_data)
+            bboxes_data.append(bbox_data)
             for bbox_data in bbox_data.additional_bboxes_data:
                 return recursive_get_bboxes_data(bbox_data)
         for bbox_data in image_data.bboxes_data:
