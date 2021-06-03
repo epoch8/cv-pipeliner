@@ -114,15 +114,27 @@ class BboxData:
 
     def coords_with_offset(
         self,
-        xmin_offset: int = 0,
-        ymin_offset: int = 0,
-        xmax_offset: int = 0,
-        ymax_offset: int = 0,
+        xmin_offset: Union[int, float] = 0,
+        ymin_offset: Union[int, float] = 0,
+        xmax_offset: Union[int, float] = 0,
+        ymax_offset: Union[int, float] = 0,
         source_image: np.ndarray = None
     ) -> Tuple[int, int, int, int]:
         if source_image is None:
             source_image = self.open_image()
         height, width, _ = source_image.shape
+        if isinstance(xmin_offset, float):
+            assert 0 < xmin_offset and xmin_offset < 1
+            xmin_offset = int((self.xmax - self.ymax) * width)
+        if isinstance(ymin_offset, float):
+            assert 0 < ymin_offset and ymin_offset < 1
+            ymin_offset = int((self.ymax - self.ymin) * height)
+        if isinstance(xmax_offset, float):
+            assert 0 < xmax_offset and xmax_offset < 1
+            xmax_offset = int((self.xmax - self.ymax) * width)
+        if isinstance(ymax_offset, float):
+            assert 0 < ymax_offset and ymax_offset < 1
+            ymax_offset = int((self.ymax - self.ymin) * height)
         xmin_in_cropped_image = max(0, min(xmin_offset, self.xmin-xmin_offset))
         ymin_in_cropped_image = max(0, min(ymin_offset, self.ymin-ymin_offset))
         xmax_in_cropped_image = max(0, min(xmax_offset, width-self.xmax))
@@ -138,10 +150,10 @@ class BboxData:
         self,
         inplace: bool = False,
         source_image: np.ndarray = None,
-        xmin_offset: int = 0,
-        ymin_offset: int = 0,
-        xmax_offset: int = 0,
-        ymax_offset: int = 0,
+        xmin_offset: Union[int, float] = 0,
+        ymin_offset: Union[int, float] = 0,
+        xmax_offset: Union[int, float] = 0,
+        ymax_offset: Union[int, float] = 0,
         return_as_image_data: bool = False,
     ) -> Union[None, np.ndarray, 'BboxData']:
 
@@ -158,7 +170,6 @@ class BboxData:
 
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
-            height, width, _ = image.shape
             xmin, ymin, xmax, ymax = self.coords_with_offset(xmin_offset, ymin_offset, xmax_offset, ymax_offset)
             cropped_image = image[ymin:ymax, xmin:xmax]
 

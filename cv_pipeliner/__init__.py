@@ -9,7 +9,8 @@ from cv_pipeliner.metrics.classification import get_df_classification_metrics
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics
 from cv_pipeliner.utils.images_datas import (
     rotate_image_data, crop_image_data, get_perspective_matrix_for_base_keypoints,
-    apply_perspective_transform_to_image_data, thumbnail_image_data
+    apply_perspective_transform_to_image_data,
+    thumbnail_image_data
 )
 
 from cv_pipeliner.inference_models.detection.object_detection_api import (
