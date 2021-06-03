@@ -20,10 +20,10 @@ from cv_pipeliner.utils.images import get_image_b64
 @dataclass
 class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
-    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path]
     class_names: Union[List[str], str, Path]
     model_path: Union[str, Pathy]  # can be also tf.keras.Model
     saved_model_type: Literal["tf.saved_model", "tf.keras", "tf.keras.Model", "tflite"]
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
 
     @property
     def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
@@ -36,8 +36,8 @@ class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
     url: str
     input_name: str
     input_size: Union[Tuple[int, int], List[int]]
-    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path]
     class_names: Union[List[str], str, Path]
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
 
     @property
     def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
@@ -122,7 +122,10 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 script_file=model_spec.preprocess_input
             )
         else:
-            self._preprocess_input = model_spec.preprocess_input
+            if model_spec.preprocess_input is None:
+                self._preprocess_input = lambda x: x
+            else:
+                self._preprocess_input = model_spec.preprocess_input
 
         self.id_to_class_name = np.array([class_name for class_name in self._class_names])
 

@@ -17,13 +17,13 @@ from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_f
 @dataclass
 class PytorchModelSpec(DetectionModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
-    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path]
     model_path: Union[str, Pathy]  # can be also tf.keras.Model
 
     bboxes_output_index: int
     scores_output_index: int
     classes_output_index: int
     input_format: Literal['RGB', 'BGR']
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     keypoints_output_index: Union[int, None] = None
     class_names: Union[List[str], str, Path, None] = None
     device: Literal['cpu', 'cuda'] = 'cpu'
@@ -82,7 +82,10 @@ class Pytorch_DetectionModel(DetectionModel):
                 script_file=model_spec.preprocess_input
             )
         else:
-            self._preprocess_input = model_spec.preprocess_input
+            if model_spec.preprocess_input is None:
+                self._preprocess_input = lambda x: x
+            else:
+                self._preprocess_input = model_spec.preprocess_input
 
     def _raw_predict_single_image(
         self,
