@@ -85,7 +85,7 @@ def rotate_keypoints90(
         elif factor == 3:
             x, y = (height - 1) - y, x
         rotated_keypoints.append([x, y])
-    return np.array(rotated_keypoints)
+    return np.array(rotated_keypoints).reshape(-1, 2)
 
 
 def _rotate_bbox_data(
