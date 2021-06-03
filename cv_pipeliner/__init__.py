@@ -17,7 +17,7 @@ from cv_pipeliner.inference_models.detection.object_detection_api import (
     ObjectDetectionAPI_KFServing, ObjectDetectionAPI_ModelSpec, ObjectDetectionAPI_TFLite_ModelSpec,
     ObjectDetectionAPI_pb_ModelSpec
 )
-from cv_pipeliner.inference_models.detection.pytorch import PytorchModelSpec
+from cv_pipeliner.inference_models.detection.pytorch import PytorchDetection_ModelSpec
 from cv_pipeliner.inference_models.classification.tensorflow import (
     TensorFlow_ClassificationModelSpec, TensorFlow_ClassificationModelSpec_TFServing
 )
