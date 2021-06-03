@@ -294,14 +294,25 @@ def visualize_image_data(
     filter_by_labels: List[str] = None,
     known_labels: List[str] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    keypoints_radius: int = 5
+    keypoints_radius: int = 5,
+    include_additional_bboxes_data: bool = True
 ) -> np.ndarray:
     image_data = get_image_data_filtered_by_labels(
         image_data=image_data,
         filter_by_labels=filter_by_labels
     )
     image = image_data.open_image()
-    bboxes_data = image_data.bboxes_data
+    if include_additional_bboxes_data:
+        additional_bboxes_data = []
+
+        def recursive_get_bboxes_data(bbox_data):
+            additional_bboxes_data.append(bbox_data)
+            for bbox_data in bbox_data.additional.bboxes_data:
+                return recursive_get_bboxes_data(bbox_data)
+        for bbox_data in image_data.bboxes_data:
+            recursive_get_bboxes_data(bbox_data)
+    else:
+        bboxes_data = image_data.bboxes_data
     labels = [bbox_data.label for bbox_data in bboxes_data]
     k_keypoints = [bbox_data.keypoints for bbox_data in bboxes_data]
     bboxes = np.array([
