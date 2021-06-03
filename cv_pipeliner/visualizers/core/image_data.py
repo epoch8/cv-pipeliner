@@ -295,7 +295,7 @@ def visualize_image_data(
     known_labels: List[str] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     keypoints_radius: int = 5,
-    include_additional_bboxes_data: bool = True
+    include_additional_bboxes_data: bool = False
 ) -> np.ndarray:
     image_data = get_image_data_filtered_by_labels(
         image_data=image_data,
@@ -308,7 +308,7 @@ def visualize_image_data(
         def recursive_get_bboxes_data(bbox_data):
             bboxes_data.append(bbox_data)
             for bbox_data in bbox_data.additional_bboxes_data:
-                return recursive_get_bboxes_data(bbox_data)
+                recursive_get_bboxes_data(bbox_data)
         for bbox_data in image_data.bboxes_data:
             recursive_get_bboxes_data(bbox_data)
     else:
@@ -377,7 +377,8 @@ def visualize_images_data_side_by_side(
     filter_by_labels2: List[str] = None,
     known_labels: List[str] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    overlay: bool = False
+    overlay: bool = False,
+    include_additional_bboxes_data: bool = False
 ) -> np.ndarray:
 
     if overlay:
@@ -394,6 +395,7 @@ def visualize_images_data_side_by_side(
         filter_by_labels=filter_by_labels1,
         known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+        include_additional_bboxes_data=include_additional_bboxes_data
     )
     pred_ann_image = visualize_image_data(
         image_data=image_data2,
@@ -402,6 +404,7 @@ def visualize_images_data_side_by_side(
         filter_by_labels=filter_by_labels2,
         known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+        include_additional_bboxes_data=include_additional_bboxes_data
     )
 
     if overlay:

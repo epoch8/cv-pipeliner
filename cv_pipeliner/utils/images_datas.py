@@ -604,6 +604,8 @@ def uncrop_bboxes_data(
     bboxes_data = copy.deepcopy(bboxes_data)
 
     def _append_cropped_bbox_data_to_image_data(bbox_data: BboxData):
+        bbox_data.keypoints[:, 0] += src_xmin
+        bbox_data.keypoints[:, 1] += src_ymin
         bbox_data.xmin += src_xmin
         bbox_data.ymin += src_ymin
         bbox_data.xmax += src_xmin
