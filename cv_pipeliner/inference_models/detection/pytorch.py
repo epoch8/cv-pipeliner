@@ -39,7 +39,7 @@ class PytorchDetection_ModelSpec(DetectionModelSpec):
 class Pytorch_DetectionModel(DetectionModel):
     def _load_pt_model(
         self,
-        model_spec: PytorchModelSpec
+        model_spec: PytorchDetection_ModelSpec
     ):
         import torch
         temp_dir = tempfile.TemporaryDirectory()
