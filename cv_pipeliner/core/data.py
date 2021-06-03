@@ -125,13 +125,13 @@ class BboxData:
         height, width, _ = source_image.shape
         if isinstance(xmin_offset, float):
             assert 0 < xmin_offset and xmin_offset < 1
-            xmin_offset = int((self.xmax - self.ymax) * width)
+            xmin_offset = int((self.xmax - self.xmin) * width)
         if isinstance(ymin_offset, float):
             assert 0 < ymin_offset and ymin_offset < 1
             ymin_offset = int((self.ymax - self.ymin) * height)
         if isinstance(xmax_offset, float):
             assert 0 < xmax_offset and xmax_offset < 1
-            xmax_offset = int((self.xmax - self.ymax) * width)
+            xmax_offset = int((self.xmax - self.xmin) * width)
         if isinstance(ymax_offset, float):
             assert 0 < ymax_offset and ymax_offset < 1
             ymax_offset = int((self.ymax - self.ymin) * height)
