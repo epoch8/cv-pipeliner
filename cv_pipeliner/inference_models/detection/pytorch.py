@@ -26,6 +26,7 @@ class PytorchDetection_ModelSpec(DetectionModelSpec):
     input_format: Literal['RGB', 'BGR']
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     keypoints_output_index: Union[int, None] = None
+    keypoints_heatmap_index: Union[int, None] = None
     class_names: Union[List[str], str, Path, None] = None
     device: Literal['cpu', 'cuda'] = 'cpu'
     input_type: Literal['detectron2', 'caffe2'] = 'detectron2'
@@ -34,6 +35,82 @@ class PytorchDetection_ModelSpec(DetectionModelSpec):
     def inference_model_cls(self) -> Type['Pytorch_DetectionModel']:
         from cv_pipeliner.inference_models.detection.pytorch import Pytorch_DetectionModel
         return Pytorch_DetectionModel
+
+
+def heatmaps_to_keypoints(maps: 'torch.Tensor', rois: 'torch.Tensor') -> 'torch.Tensor':
+    """
+    Extract predicted keypoint locations from heatmaps.
+    Args:
+        maps (Tensor): (#ROIs, #keypoints, POOL_H, POOL_W). The predicted heatmap of logits for
+            each ROI and each keypoint.
+        rois (Tensor): (#ROIs, 4). The box of each ROI.
+    Returns:
+        Tensor of shape (#ROIs, #keypoints, 4) with the last dimension corresponding to
+        (x, y, logit, score) for each keypoint.
+    When converting discrete pixel indices in an NxN image to a continuous keypoint coordinate,
+    we maintain consistency with :meth:`Keypoints.to_heatmap` by using the conversion from
+    Heckbert 1990: c = d + 0.5, where d is a discrete coordinate and c is a continuous coordinate.
+    """
+    import torch
+    from torch.nn import functional as F
+    # The decorator use of torch.no_grad() was not supported by torchscript.
+    # https://github.com/pytorch/pytorch/issues/44768
+    maps = maps.detach()
+    rois = rois.detach()
+
+    offset_x = rois[:, 0]
+    offset_y = rois[:, 1]
+
+    widths = (rois[:, 2] - rois[:, 0]).clamp(min=1)
+    heights = (rois[:, 3] - rois[:, 1]).clamp(min=1)
+    widths_ceil = widths.ceil()
+    heights_ceil = heights.ceil()
+
+    num_rois, num_keypoints = maps.shape[:2]
+    xy_preds = maps.new_zeros(rois.shape[0], num_keypoints, 4)
+
+    width_corrections = widths / widths_ceil
+    height_corrections = heights / heights_ceil
+
+    keypoints_idx = torch.arange(num_keypoints, device=maps.device)
+
+    for i in range(num_rois):
+        outsize = (int(heights_ceil[i]), int(widths_ceil[i]))
+        roi_map = F.interpolate(
+            maps[[i]], size=outsize, mode="bicubic", align_corners=False
+        ).squeeze(
+            0
+        )  # #keypoints x H x W
+
+        # softmax over the spatial region
+        max_score, _ = roi_map.view(num_keypoints, -1).max(1)
+        max_score = max_score.view(num_keypoints, 1, 1)
+        tmp_full_resolution = (roi_map - max_score).exp_()
+        tmp_pool_resolution = (maps[i] - max_score).exp_()
+        # Produce scores over the region H x W, but normalize with POOL_H x POOL_W,
+        # so that the scores of objects of different absolute sizes will be more comparable
+        roi_map_scores = tmp_full_resolution / tmp_pool_resolution.sum((1, 2), keepdim=True)
+
+        w = roi_map.shape[2]
+        pos = roi_map.view(num_keypoints, -1).argmax(1)
+
+        x_int = pos % w
+        y_int = (pos - x_int) // w
+
+        assert (
+            roi_map_scores[keypoints_idx, y_int, x_int]
+            == roi_map_scores.view(num_keypoints, -1).max(1)[0]
+        ).all()
+
+        x = (x_int.float() + 0.5) * width_corrections[i]
+        y = (y_int.float() + 0.5) * height_corrections[i]
+
+        xy_preds[i, :, 0] = x + offset_x[i]
+        xy_preds[i, :, 1] = y + offset_y[i]
+        xy_preds[i, :, 2] = roi_map[keypoints_idx, y_int, x_int]
+        xy_preds[i, :, 3] = roi_map_scores[keypoints_idx, y_int, x_int]
+
+    return xy_preds
 
 
 class Pytorch_DetectionModel(DetectionModel):
@@ -107,7 +184,13 @@ class Pytorch_DetectionModel(DetectionModel):
 
         raw_bboxes = predictions[self.model_spec.bboxes_output_index].detach().cpu().numpy()
         if self.model_spec.keypoints_output_index is None:
-            raw_keypoints = np.array([]).reshape(len(raw_bboxes), 0, 2)
+            if self.model_spec.keypoints_heatmap_index is not None:
+                raw_keypoints_heatmaps = predictions[
+                    self.model_spec.keypoints_heatmap_indexd
+                ].detach().cpu().numpy()
+                raw_keypoints = heatmaps_to_keypoints(raw_keypoints_heatmaps, raw_bboxes)
+            else:
+                raw_keypoints = np.array([]).reshape(len(raw_bboxes), 0, 2)
         else:
             raw_keypoints = predictions[
                 self.model_spec.keypoints_output_index
