@@ -182,19 +182,20 @@ class Pytorch_DetectionModel(DetectionModel):
             im_info = torch.tensor([[*self.input_size, 1.]])
             predictions = self.model((image, im_info))
 
-        raw_bboxes = predictions[self.model_spec.bboxes_output_index].detach().cpu().numpy()
+        raw_bboxes = predictions[self.model_spec.bboxes_output_index]
         if self.model_spec.keypoints_output_index is None:
             if self.model_spec.keypoints_heatmap_index is not None:
                 raw_keypoints_heatmaps = predictions[
                     self.model_spec.keypoints_heatmap_index
-                ].detach().cpu().numpy()
+                ]
                 raw_keypoints = heatmaps_to_keypoints(raw_keypoints_heatmaps, raw_bboxes)
             else:
                 raw_keypoints = np.array([]).reshape(len(raw_bboxes), 0, 2)
         else:
-            raw_keypoints = predictions[
-                self.model_spec.keypoints_output_index
-            ].detach().cpu().numpy()[:, :, :2]
+            raw_keypoints = predictions[self.model_spec.keypoints_output_index]
+
+        raw_bboxes = raw_bboxes.detach().cpu().numpy()
+        raw_keypoints = raw_keypoints.detach().cpu().numpy()
         raw_scores = predictions[self.model_spec.scores_output_index].detach().cpu().numpy()
         raw_classes = predictions[self.model_spec.classes_output_index].detach().cpu().numpy()
 
