@@ -195,7 +195,7 @@ class Pytorch_DetectionModel(DetectionModel):
             raw_keypoints = predictions[self.model_spec.keypoints_output_index]
 
         raw_bboxes = raw_bboxes.detach().cpu().numpy()
-        raw_keypoints = raw_keypoints.detach().cpu().numpy()
+        raw_keypoints = raw_keypoints.detach().cpu().numpy()[:, :, :2]
         raw_scores = predictions[self.model_spec.scores_output_index].detach().cpu().numpy()
         raw_classes = predictions[self.model_spec.classes_output_index].detach().cpu().numpy()
 
