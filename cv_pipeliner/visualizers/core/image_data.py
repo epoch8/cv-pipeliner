@@ -184,10 +184,8 @@ def visualize_boxes_and_labels_on_image_array(
     labels = np.array(labels)
     scores = np.array(scores)
 
-    if known_labels is not None:
+    if len(known_labels) > 0:
         assert all(label in known_labels for label in labels)
-    else:
-        known_labels = sorted(list(set(labels)))
 
     label_to_id = {label: id_ for id_, label in enumerate(known_labels)}
     bbox_to_display_str = collections.defaultdict(list)
@@ -292,7 +290,7 @@ def visualize_image_data(
     use_labels: bool = False,
     score_type: Literal['detection', 'classification'] = None,
     filter_by_labels: List[str] = None,
-    known_labels: List[str] = None,
+    known_labels: List[str] = [],
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     keypoints_radius: int = 5,
     include_additional_bboxes_data: bool = False
