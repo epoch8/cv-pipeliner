@@ -73,7 +73,7 @@ class Pytorch_DetectionModel(DetectionModel):
             self._load_pt_model(model_spec)
             self.device = model_spec.device
             self.input_format = model_spec.device
-            self.inference_type = model_spec.inference_type
+            self.input_type = model_spec.input_type
         else:
             raise ValueError(
                 f"{Pytorch_DetectionModel.__name__} got unknown DetectionModelSpec: {type(model_spec)}"
@@ -98,9 +98,9 @@ class Pytorch_DetectionModel(DetectionModel):
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         image = torch.tensor(image).permute(2, 1, 0).to(self.device)
 
-        if self.inference_type == 'detectron2':
+        if self.input_type == 'detectron2':
             predictions = self.model(image)
-        elif self.inference_type == 'caffe2':
+        elif self.input_type == 'caffe2':
             image = image[None, ...]
             im_info = torch.tensor([[*self.input_size, 1.]])
             predictions = self.model((image, im_info))
