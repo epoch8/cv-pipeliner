@@ -28,7 +28,7 @@ class PytorchDetection_ModelSpec(DetectionModelSpec):
     keypoints_output_index: Union[int, None] = None
     class_names: Union[List[str], str, Path, None] = None
     device: Literal['cpu', 'cuda'] = 'cpu'
-    inference_type: Literal['detectron2', 'caffe2'] = 'detectron2'
+    input_type: Literal['detectron2', 'caffe2'] = 'detectron2'
 
     @property
     def inference_model_cls(self) -> Type['Pytorch_DetectionModel']:
