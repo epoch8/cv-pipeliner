@@ -186,7 +186,7 @@ class Pytorch_DetectionModel(DetectionModel):
         if self.model_spec.keypoints_output_index is None:
             if self.model_spec.keypoints_heatmap_index is not None:
                 raw_keypoints_heatmaps = predictions[
-                    self.model_spec.keypoints_heatmap_indexd
+                    self.model_spec.keypoints_heatmap_index
                 ].detach().cpu().numpy()
                 raw_keypoints = heatmaps_to_keypoints(raw_keypoints_heatmaps, raw_bboxes)
             else:
