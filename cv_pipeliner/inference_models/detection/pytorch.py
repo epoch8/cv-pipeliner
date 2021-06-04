@@ -28,7 +28,7 @@ class PytorchDetection_ModelSpec(DetectionModelSpec):
     keypoints_output_index: Union[int, None] = None
     class_names: Union[List[str], str, Path, None] = None
     device: Literal['cpu', 'cuda'] = 'cpu'
-
+    inference_type: Literal['detectron2', 'caffe2'] = 'detectron2'
 
     @property
     def inference_model_cls(self) -> Type['Pytorch_DetectionModel']:
@@ -73,6 +73,7 @@ class Pytorch_DetectionModel(DetectionModel):
             self._load_pt_model(model_spec)
             self.device = model_spec.device
             self.input_format = model_spec.device
+            self.inference_type = model_spec.inference_type
         else:
             raise ValueError(
                 f"{Pytorch_DetectionModel.__name__} got unknown DetectionModelSpec: {type(model_spec)}"
@@ -96,7 +97,13 @@ class Pytorch_DetectionModel(DetectionModel):
         if self.input_format == 'BGR':
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         image = torch.tensor(image).permute(2, 1, 0).to(self.device)
-        predictions = self.model(image)
+
+        if self.inference_type == 'detectron2':
+            predictions = self.model(image)
+        elif self.inference_type == 'caffe2':
+            image = image[None, ...]
+            im_info = torch.tensor([[*self.input_size, 1.]])
+            predictions = self.model((image, im_info))
 
         raw_bboxes = predictions[self.model_spec.bboxes_output_index].detach().cpu().numpy()
         if self.model_spec.keypoints_output_index is None:
