@@ -46,7 +46,7 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     model_path: Union[str, Path]
     bboxes_output_index: int
     scores_output_index: int
-    classes_output_index: Union[None, int] = None
+    classes_output_index: Union[None, int]
     class_names: Union[None, List[str]] = None
     input_type: Literal["image_tensor", "float_image_tensor"] = "image_tensor"
 
@@ -236,7 +236,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         raw_keypoints = np.array([]).reshape(len(raw_bboxes), 0, 2)
         raw_bboxes = raw_bboxes[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
         raw_scores = np.array(self.model.get_tensor(self.scores_index))[0]
-        raw_classes = np.array(self.model.get_tensor(self.scores_index))[0]
+        raw_classes = np.array(self.model.get_tensor(self.classes_output_index))[0]
 
         return raw_bboxes, raw_keypoints, raw_scores, raw_classes
 
