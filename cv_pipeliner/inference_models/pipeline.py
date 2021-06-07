@@ -26,6 +26,7 @@ class PipelineModelSpec(ModelSpec):
 Bbox = Tuple[int, int, int, int]  # (ymin, xmin, ymax, xmax)
 Score = float
 Label = str
+Keypoints = List[Tuple[int, int]]
 
 Bboxes = List[Bbox]
 DetectionScores = List[Score]
@@ -36,6 +37,7 @@ PipelineInput = List[np.ndarray]
 PipelineOutput = List[
     Tuple[
         List[Bboxes],
+        List[Keypoints],
         List[DetectionScores],
         List[Labels],
         List[ClassificationScores]
@@ -88,7 +90,7 @@ class PipelineModel(InferenceModel):
         logger.info("Running detection...")
         detection_input = self.detection_model.preprocess_input(input)
         (
-            n_pred_bboxes, n_pred_detection_scores,
+            n_pred_bboxes, n_pred_keypoints, n_pred_detection_scores,
             n_pred_class_names_top_k, n_pred_classification_scores_top_k
         ) = self.detection_model.predict(
             detection_input,
@@ -104,6 +106,7 @@ class PipelineModel(InferenceModel):
             # Detector is the pipeline itself
             return (
                 n_pred_bboxes,
+                n_pred_keypoints,
                 n_pred_detection_scores,
                 n_pred_class_names_top_k,
                 n_pred_classification_scores_top_k
@@ -129,6 +132,7 @@ class PipelineModel(InferenceModel):
         logger.info("Classification end!")
         return (
             n_pred_bboxes,
+            n_pred_keypoints,
             n_pred_detection_scores,
             n_pred_labels_top_n,
             n_pred_classification_scores_top_n

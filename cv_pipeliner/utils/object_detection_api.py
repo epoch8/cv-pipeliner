@@ -72,7 +72,7 @@ def tf_record_from_image_data(
     true_bboxes = np.array([
         [bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]
         for bbox_data in image_data.bboxes_data
-    ], dtype=np.float)
+    ], dtype=float)
     image = image_data.open_image()
     height, width, _ = image.shape
     if len(true_bboxes) > 0:

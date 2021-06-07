@@ -42,8 +42,8 @@ def transpose_columns_and_write_diffs_to_df_with_tags(
                 continue
             tag_values = transposed_df_with_tags[f'{column} [{tag}]']
             tag_diffs = (
-                tag_values.astype(np.float) - compare_tag_values.astype(np.float)
-            ) * np.reciprocal(compare_tag_values.astype(np.float))
+                tag_values.astype(float) - compare_tag_values.astype(float)
+            ) * np.reciprocal(compare_tag_values.astype(float))
 
             tag_values = [round_nan(tag_value, 3) for tag_value in tag_values]
             tag_signs = ['+' if tag_diff > 0 else '' for tag_diff in tag_diffs]

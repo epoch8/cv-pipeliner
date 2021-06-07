@@ -1,7 +1,4 @@
-import base64
 import json
-import sys
-import importlib
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,23 +6,24 @@ from typing import List, Tuple, Callable, Union, Type, Literal
 
 import requests
 import numpy as np
-import tensorflow as tf
 import fsspec
 from pathy import Pathy
 
+from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.classification.core import (
     ClassificationModelSpec, ClassificationModel, ClassificationInput, ClassificationOutput
 )
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
+from cv_pipeliner.utils.images import get_image_b64
 
 
 @dataclass
 class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
-    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path]
     class_names: Union[List[str], str, Path]
-    model_path: Union[str, Pathy, tf.keras.Model]
+    model_path: Union[str, Pathy]  # can be also tf.keras.Model
     saved_model_type: Literal["tf.saved_model", "tf.keras", "tf.keras.Model", "tflite"]
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
 
     @property
     def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
@@ -38,8 +36,8 @@ class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
     url: str
     input_name: str
     input_size: Union[Tuple[int, int], List[int]]
-    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path]
     class_names: Union[List[str], str, Path]
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
 
     @property
     def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
@@ -48,29 +46,11 @@ class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
 
 
 class Tensorflow_ClassificationModel(ClassificationModel):
-    def _get_preprocess_input_from_script_file(
-        self,
-        script_file: Union[str, Path]
-    ) -> Callable[[List[np.ndarray]], np.ndarray]:
-        with fsspec.open(script_file, 'r') as src:
-            script_code = src.read()
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            tmpdirname = Path(tmpdirname)
-            module_folder = tmpdirname / 'module'
-            module_folder.mkdir()
-            script_file = module_folder / f'preprocess_input_{tmpdirname.name}.py'
-            with open(script_file, 'w') as out:
-                out.write(script_code)
-            sys.path.append(str(script_file.parent.absolute()))
-            module = importlib.import_module(script_file.stem)
-            importlib.reload(module)
-            sys.path.pop()
-        return module.preprocess_input
-
     def _load_tensorflow_classification_model_spec(
         self,
         model_spec: TensorFlow_ClassificationModelSpec
     ):
+        import tensorflow as tf
         if model_spec.saved_model_type in ["tf.keras", "tf.saved_model", "tflite"]:
             model_openfile = fsspec.open(model_spec.model_path, 'rb')
             if model_openfile.fs.isdir(model_openfile.path):
@@ -138,11 +118,14 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             )
 
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
-            self._preprocess_input = self._get_preprocess_input_from_script_file(
+            self._preprocess_input = get_preprocess_input_from_script_file(
                 script_file=model_spec.preprocess_input
             )
         else:
-            self._preprocess_input = model_spec.preprocess_input
+            if model_spec.preprocess_input is None:
+                self._preprocess_input = lambda x: x
+            else:
+                self._preprocess_input = model_spec.preprocess_input
 
         self.id_to_class_name = np.array([class_name for class_name in self._class_names])
 
@@ -150,6 +133,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         self,
         images: np.ndarray
     ):
+        import tensorflow as tf
         if self.model_spec.saved_model_type == "tf.saved_model":
             input_tensor = tf.convert_to_tensor(images, dtype=self.input_dtype)
             raw_predictions_batch = self.model(input_tensor)
@@ -171,8 +155,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         self,
         images: np.ndarray
     ):
-        images_encoded = [tf.io.encode_jpeg(image, quality=100) for image in images]
-        images_encoded_b64 = [base64.b64encode(image.numpy()).decode('utf-8') for image in images_encoded]
+        images_encoded_b64 = [get_image_b64(image, 'JPEG') for image in images]
         response = requests.post(
             url=self.model_spec.url,
             data=json.dumps({
@@ -202,6 +185,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         input: ClassificationInput,
         top_n: int = 1
     ) -> ClassificationOutput:
+        input = self.preprocess_input(input)
         predictions = self._raw_predict(input)
         max_scores_top_n_idxs = (-np.array(predictions)).argsort(axis=1)[:, :top_n]
         id_to_class_names_repeated = np.repeat(

@@ -236,7 +236,7 @@ classification_interactive_work(
         bboxes_data_filepath = output_directory / BBOXES_DATA_FILENAME
         with open(bboxes_data_filepath, 'wb') as out:
             pickle.dump(n_true_bboxes_data, out)
-            
+
         classification_reports_data_filepath = output_directory / CLASSIFICATIONS_REPORTS_DATAS_FILENAME
         with open(classification_reports_data_filepath, "wb") as out:
             pickle.dump(classifications_reports_datas, out)
@@ -365,4 +365,3 @@ classification_interactive_work(
         )
 
         return classifications_reports_datas
-

@@ -10,7 +10,6 @@ from cv_pipeliner.visualizers.core.image_data_matching import visualize_image_da
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics
 
 test_dir = Path(__file__).parent / 'images'
-test_dir.mkdir(exist_ok=True, parents=True)
 image_path = Path(__file__).parent / 'original.jpg'
 
 # Banana
@@ -226,6 +225,7 @@ def test_image_data_matching_detection():
 
 
 def test_image_data_matching_pipeline():
+
     minimum_iou = 0.5
     tag_default = 'all'
     tag_with_extra_bbox_label_other = 'all_with_extra_bbox_label_other'
@@ -382,12 +382,12 @@ def test_image_data_matching_pipeline():
         assert df_pipeline_metrics.loc['mango', 'FN (extra bbox)'] == 0
 
         if tag in [tag_with_extra_bbox_label_other, tag_known_banana_apple_with_extra_bbox_label_other]:
-            df_pipeline_metrics.loc['other (pseudo-class)', 'TP'] == 0
-            df_pipeline_metrics.loc['other (pseudo-class)', 'FP'] == 0
-            df_pipeline_metrics.loc['other (pseudo-class)', 'FN'] == 0
-            df_pipeline_metrics.loc['other (pseudo-class)', 'TP (extra bbox)'] == 0
-            df_pipeline_metrics.loc['other (pseudo-class)', 'FP (extra bbox)'] == 0
-            df_pipeline_metrics.loc['other (pseudo-class)', 'FN (extra bbox)'] == 0
+            df_pipeline_metrics.loc['other', 'TP'] == 0
+            df_pipeline_metrics.loc['other', 'FP'] == 0
+            df_pipeline_metrics.loc['other', 'FN'] == 0
+            df_pipeline_metrics.loc['other', 'TP (extra bbox)'] == 0
+            df_pipeline_metrics.loc['other', 'FP (extra bbox)'] == 0
+            df_pipeline_metrics.loc['other', 'FN (extra bbox)'] == 0
             df_pipeline_metrics.loc['other (extra bbox)', 'TP'] == 0
             df_pipeline_metrics.loc['other (extra bbox)', 'FP'] == 0
             df_pipeline_metrics.loc['other (extra bbox)', 'FN'] == 0
@@ -404,7 +404,7 @@ def test_image_data_matching_pipeline():
                     pred_use_labels=True,
                     label=label
                 )
-            ).save(test_dir / f'df_metrics_pipeline_{tag=}_{label=}.jpg')
+            ).save(test_dir / f'pipeline_{tag=}_{label=}.jpg')
         dfi.export(
             obj=df_pipeline_metrics,
             filename=str(test_dir / f"df_metrics_pipeline_{tag=}.png"),

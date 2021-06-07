@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 import math
 from pathlib import Path
 from typing import List, Tuple, Union, Literal, Dict
@@ -16,7 +17,6 @@ import imutils
 from pathy import Pathy
 from tqdm import tqdm
 
-from cv_pipeliner.utils.data import get_label_to_description
 from cv_pipeliner.logging import logger
 
 
@@ -69,7 +69,7 @@ def rotate_point(
 def is_base64(s: str):
     try:
         return base64.b64encode(base64.b64decode(s)).decode() == s
-    except Exception as e:
+    except Exception:
         return False
 
 
@@ -323,12 +323,33 @@ def get_base_label_image_with_description(
     return base_label_image
 
 
+def get_label_to_description(
+    label_to_description_dict: Union[str, Path, Dict, None],
+    default_description: str = 'No description.'
+) -> Dict[str, str]:
+    if label_to_description_dict is None:
+        label_to_description_dict = {}
+    elif isinstance(label_to_description_dict, str) or isinstance(label_to_description_dict, Path):
+        with fsspec.open(label_to_description_dict, 'r') as src:
+            label_to_description_dict = json.load(src)
+
+    label_to_description = defaultdict(lambda: default_description)
+    label_to_description['unknown'] = default_description
+    for k in label_to_description_dict:
+        label_to_description[k] = label_to_description_dict[k]
+
+    return label_to_description
+
+
 def get_label_to_base_label_image(
     base_labels_images: Union[str, Path],
     label_to_description: Union[str, Path, Dict[str, str]] = None,
     add_label_to_image: bool = False,
     make_labels_for_these_class_names_too: List[str] = []  # add known description to classes without base images
 ) -> Dict[str, np.ndarray]:
+    if base_labels_images is None:
+        return None
+
     base_labels_images_files = fsspec.open_files(str(base_labels_images))
     ann_class_names_files = [
         Pathy(base_label_image_file.path).stem for base_label_image_file in base_labels_images_files
@@ -440,3 +461,29 @@ def get_image_b64(
     image_format = image_io.getvalue()
     image_format_b64 = base64.b64encode(image_format).decode('utf-8')
     return image_format_b64
+
+
+def draw_quadrangle_on_image(
+    image: np.ndarray,
+    points: Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int], Tuple[int, int]],
+    color: Tuple[int, int, int] = None,
+    thickness: int = 3,
+    alpha: float = 0.3,
+) -> np.ndarray:
+    image = image.copy()
+    rect = cv2.minAreaRect(np.array(points))
+    box = cv2.boxPoints(rect)
+    box = np.int0(box)
+    cropped_image_zeros = np.ones_like(image)
+    cv2.drawContours(
+        image=cropped_image_zeros,
+        contours=[box],
+        contourIdx=0,
+        color=color,
+        thickness=thickness
+    )
+    colored_regions = (cropped_image_zeros == color)
+    image[colored_regions] = (
+        (1 - alpha) * image[colored_regions] + alpha * cropped_image_zeros[colored_regions]
+    )
+    return image

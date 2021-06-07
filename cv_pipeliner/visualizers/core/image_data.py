@@ -1,6 +1,6 @@
 import collections
 import copy
-from typing import Literal, List, Tuple, Dict, Callable
+from typing import Literal, List, Tuple, Callable
 
 import numpy as np
 import imutils
@@ -38,6 +38,8 @@ STANDARD_COLORS = [
     'Teal', 'Thistle', 'Tomato', 'Turquoise', 'Violet', 'Wheat', 'White',
     'WhiteSmoke', 'Yellow', 'YellowGreen'
 ]
+STANDARD_COLORS_RGB = ['Red', 'Green', 'Blue', 'Yellow']
+STANDARD_COLORS_RGB = STANDARD_COLORS_RGB + [x for x in STANDARD_COLORS if x not in STANDARD_COLORS_RGB]
 
 
 # Taken from object_detection.utils.visualization_utils
@@ -47,11 +49,13 @@ def draw_bounding_box_on_image(
     xmin: int,
     ymax: int,
     xmax: int,
+    keypoints: np.ndarray = [],
     angle: int = 0,
     color='red',
     thickness=4,
     display_str_list=(),
-    use_normalized_coordinates=True
+    use_normalized_coordinates=True,
+    keypoints_radius: int = 5
 ):
     """Adds a bounding box to an image.
 
@@ -124,6 +128,13 @@ def draw_bounding_box_on_image(
         )
         text_bottom -= text_height - 2 * margin
 
+    keypoints = np.array(keypoints).reshape(len(keypoints), 2)
+    for idx, (x, y) in enumerate(keypoints):
+        draw.pieslice(
+            [(x-keypoints_radius, y-keypoints_radius), (x+keypoints_radius, y+keypoints_radius)], start=0, end=360,
+            fill=STANDARD_COLORS_RGB[idx % len(STANDARD_COLORS_RGB)]
+        )
+
 
 # Taken from object_detection.utils.visualization_utils
 def visualize_boxes_and_labels_on_image_array(
@@ -132,13 +143,14 @@ def visualize_boxes_and_labels_on_image_array(
     angles: List[int],
     labels: List[str],
     scores: List[float],
+    k_keypoints: List[List[Tuple[int, int]]],
     use_normalized_coordinates=False,
     line_thickness=4,
     groundtruth_box_visualization_color='black',
     known_labels: List[str] = None,
-    skip_boxes=False,
     skip_scores=False,
     skip_labels=False,
+    keypoints_radius: int = 5
 ):
     """Overlay labeled boxes on an image with formatted scores and label names.
 
@@ -172,12 +184,10 @@ def visualize_boxes_and_labels_on_image_array(
     labels = np.array(labels)
     scores = np.array(scores)
 
-    if known_labels is not None:
+    if len(known_labels) > 0:
         assert all(label in known_labels for label in labels)
-    else:
-        known_labels = sorted(list(set(labels)))
-
-    label_to_id = {label: id_ for id_, label in enumerate(known_labels)}
+        labels = np.array(known_labels)
+    label_to_id = {label: id_ for id_, label in enumerate(labels)}
     bbox_to_display_str = collections.defaultdict(list)
     bbox_to_color = collections.defaultdict(str)
 
@@ -199,7 +209,7 @@ def visualize_boxes_and_labels_on_image_array(
 
     # Draw all boxes onto image.
     image_pil = Image.fromarray(np.uint8(image)).convert('RGB')
-    for bbox, angle in zip(bboxes, angles):
+    for bbox, angle, keypoints in zip(bboxes, angles, k_keypoints):
         bbox = tuple(bbox.tolist())
         ymin, xmin, ymax, xmax = bbox
         draw_bounding_box_on_image(
@@ -208,11 +218,13 @@ def visualize_boxes_and_labels_on_image_array(
             xmin=xmin,
             ymax=ymax,
             xmax=xmax,
+            keypoints=keypoints,
             angle=angle,
             color=bbox_to_color[bbox],
             thickness=line_thickness,
             display_str_list=bbox_to_display_str[bbox],
-            use_normalized_coordinates=use_normalized_coordinates
+            use_normalized_coordinates=use_normalized_coordinates,
+            keypoints_radius=keypoints_radius
         )
     image = np.array(image_pil)
     return image
@@ -278,22 +290,34 @@ def visualize_image_data(
     use_labels: bool = False,
     score_type: Literal['detection', 'classification'] = None,
     filter_by_labels: List[str] = None,
-    known_labels: List[str] = None,
+    known_labels: List[str] = [],
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    groundtruth_box_visualization_color: str = 'lime'
+    keypoints_radius: int = 5,
+    include_additional_bboxes_data: bool = False
 ) -> np.ndarray:
     image_data = get_image_data_filtered_by_labels(
         image_data=image_data,
         filter_by_labels=filter_by_labels
     )
     image = image_data.open_image()
-    bboxes_data = image_data.bboxes_data
+    if include_additional_bboxes_data:
+        bboxes_data = []
+
+        def recursive_get_bboxes_data(bbox_data):
+            bboxes_data.append(bbox_data)
+            for bbox_data in bbox_data.additional_bboxes_data:
+                recursive_get_bboxes_data(bbox_data)
+        for bbox_data in image_data.bboxes_data:
+            recursive_get_bboxes_data(bbox_data)
+    else:
+        bboxes_data = image_data.bboxes_data
     labels = [bbox_data.label for bbox_data in bboxes_data]
+    k_keypoints = [bbox_data.keypoints for bbox_data in bboxes_data]
     bboxes = np.array([
         (bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax)
         for bbox_data in bboxes_data
     ])
-    angles = [bbox_data.angle for bbox_data in bboxes_data]
+    angles = np.array([0. for _ in bboxes_data])
     if score_type == 'detection':
         scores = np.array([bbox_data.detection_score for bbox_data in bboxes_data])
         skip_scores = False
@@ -309,13 +333,24 @@ def visualize_image_data(
         bboxes=bboxes,
         angles=angles,
         scores=scores,
+        k_keypoints=k_keypoints,
         labels=labels,
         use_normalized_coordinates=False,
         skip_scores=skip_scores,
         skip_labels=not use_labels,
-        groundtruth_box_visualization_color=groundtruth_box_visualization_color,
-        known_labels=known_labels
+        groundtruth_box_visualization_color='lime',
+        known_labels=known_labels,
+        keypoints_radius=keypoints_radius
     )
+    if len(image_data.keypoints) > 0:
+        image_pil = Image.fromarray(image)
+        draw = ImageDraw.Draw(image_pil)
+        for idx, (x, y) in enumerate(image_data.keypoints):
+            draw.pieslice(
+                [(x-keypoints_radius, y-keypoints_radius), (x+keypoints_radius, y+keypoints_radius)], start=0, end=360,
+                fill=STANDARD_COLORS_RGB[idx % len(STANDARD_COLORS_RGB)]
+            )
+        image = np.array(image_pil)
     if draw_base_labels_with_given_label_to_base_label_image is not None:
         for bbox_data in image_data.bboxes_data:
             base_label_image = draw_base_labels_with_given_label_to_base_label_image(bbox_data.label)
@@ -338,9 +373,10 @@ def visualize_images_data_side_by_side(
     score_type2: Literal['detection', 'classification'] = None,
     filter_by_labels1: List[str] = None,
     filter_by_labels2: List[str] = None,
-    known_labels: List[str] = None,
+    known_labels: List[str] = [],
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    overlay: bool = False
+    overlay: bool = False,
+    include_additional_bboxes_data: bool = False
 ) -> np.ndarray:
 
     if overlay:
@@ -357,6 +393,7 @@ def visualize_images_data_side_by_side(
         filter_by_labels=filter_by_labels1,
         known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+        include_additional_bboxes_data=include_additional_bboxes_data
     )
     pred_ann_image = visualize_image_data(
         image_data=image_data2,
@@ -365,6 +402,7 @@ def visualize_images_data_side_by_side(
         filter_by_labels=filter_by_labels2,
         known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+        include_additional_bboxes_data=include_additional_bboxes_data
     )
 
     if overlay:

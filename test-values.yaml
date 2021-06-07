@@ -1,3 +1,0 @@
-virtualService:
-  enabled: true
-  uri: /project-test-app/demostand/

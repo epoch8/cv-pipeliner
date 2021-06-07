@@ -171,7 +171,7 @@ def get_mean_expected_steps(
         steps = min(step_penalty, np.min(steps) + 1) if len(steps) > 0 else nth_step_penalty
         if steps is not None:
             n_steps.append(steps)
-    mean_expected_steps = np.mean(n_steps)
+    mean_expected_steps = np.mean(n_steps) if len(n_steps) > 0 else 0
     return mean_expected_steps
 
 
@@ -308,7 +308,9 @@ def get_df_classification_metrics(
     df_classification_metrics_MES_column = (
         ['mean_expected_steps'] if 'mean_expected_steps' in df_classification_metrics.columns else []
     )
-    df_classification_metrics_columns = ['support'] + df_classification_metrics_MES_column + ['precision', 'recall', 'f1_score', 'value'] + [
+    df_classification_metrics_columns = ['support'] + df_classification_metrics_MES_column + [
+        'precision', 'recall', 'f1_score', 'value'
+    ] + [
         item for sublist in [[f'precision@{top_n}', f'recall@{top_n}'] for top_n in tops_n if top_n > 1]
         for item in sublist
     ] + ['TP', 'FP', 'FN']

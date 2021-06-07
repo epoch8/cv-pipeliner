@@ -221,8 +221,8 @@ def get_df_pipeline_metrics(
     true_images_data: List[ImageData],
     pred_images_data: List[ImageData],
     minimum_iou: float,
-    extra_bbox_label: str,
-    pseudo_class_names: List[str],
+    extra_bbox_label: str = 'trash (extra bbox)',
+    pseudo_class_names: List[str] = [],
     known_class_names: List[str] = None
 ) -> pd.DataFrame:
     '''

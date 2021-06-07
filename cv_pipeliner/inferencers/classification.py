@@ -64,7 +64,6 @@ class ClassificationInferencer(Inferencer):
         with tqdm(total=len(n_bboxes_data_gen.data), disable=disable_tqdm) as pbar:
             for bboxes_data in n_bboxes_data_gen:
                 input = [bbox_data.cropped_image for bbox_data in bboxes_data]
-                input = self.model.preprocess_input(input)
                 pred_labels_top_n, pred_scores_top_n = self.model.predict(
                     input=input,
                     top_n=top_n

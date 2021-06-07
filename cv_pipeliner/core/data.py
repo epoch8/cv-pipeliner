@@ -1,14 +1,15 @@
+import copy
 import io
+
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Union, List, Dict, Tuple
+from typing import Any, Union, List, Dict, Tuple
 
 import numpy as np
-import cv2
 import fsspec
 from pathy import Pathy
 
-from cv_pipeliner.utils.images import rotate_point, open_image
+from cv_pipeliner.utils.images import is_base64, open_image
 
 
 def open_image_for_object(
@@ -33,35 +34,67 @@ def open_image_for_object(
         return image
 
 
+ImagePath = Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO]
+
+
+def get_image_name(image_path) -> str:
+    if isinstance(image_path, Pathy):
+        return image_path.name
+    elif isinstance(image_path, fsspec.core.OpenFile):
+        return Pathy(image_path.path).name
+    elif isinstance(image_path, str) or isinstance(image_path, bytes) or isinstance(image_path, io.BytesIO):
+        return 'bytes'
+
+
+def get_image_path_as_str(image_path) -> str:
+    if isinstance(image_path, fsspec.core.OpenFile):
+        protocol = image_path.fs.protocol
+        if isinstance(protocol, tuple):
+            protocol = protocol[0]
+        prefix = f"{protocol}://"
+        if protocol == 'file':
+            prefix = ''
+        image_path_str = f"{prefix}{str(image_path.path)}"
+    else:
+        image_path_str = str(image_path) if image_path is not None else None
+
+    return image_path_str
+
+
 @dataclass
 class BboxData:
-    image_path: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
-    image_name: str = None
+    image_path: ImagePath = None
     image: np.ndarray = None
     cropped_image: np.ndarray = None
     xmin: int = None
     ymin: int = None
     xmax: int = None
     ymax: int = None
-    angle: int = 0
+    keypoints: List[Tuple[int, int]] = field(default_factory=list)
+
     detection_score: float = None
     label: str = None
     classification_score: float = None
-
     top_n: int = None
     labels_top_n: List[str] = None
     classification_scores_top_n: List[float] = None
 
+    additional_bboxes_data: List['BboxData'] = field(default_factory=list)
     additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
-        if isinstance(self.image_path, str) or isinstance(self.image_path, Path):
+        if isinstance(self.image_path, Path) or (isinstance(self.image_path, str) and not is_base64(self.image_path)):
             self.image_path = Pathy(self.image_path)
-            self.image_name = self.image_path.name
-        elif isinstance(self.image_path, fsspec.core.OpenFile):
-            self.image_name = Pathy(self.image_path.path).name
-        elif isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):
-            self.image_name = 'bytes'
+
+        if self.xmin is not None:
+            self.xmin = max(0, int(self.xmin))
+        if self.ymin is not None:
+            self.ymin = max(0, int(self.ymin))
+        if self.xmax is not None:
+            self.xmax = int(self.xmax)
+        if self.ymax is not None:
+            self.ymax = int(self.ymax)
+
         if self.detection_score is not None:
             self.detection_score = float(self.detection_score)
         if self.classification_score is not None:
@@ -69,18 +102,59 @@ class BboxData:
         if self.classification_scores_top_n is not None:
             self.classification_scores_top_n = list(map(float, self.classification_scores_top_n))
 
+        self.keypoints = np.array(self.keypoints).astype(int).reshape((-1, 2))
+
+    @property
+    def image_name(self) -> str:
+        return get_image_name(self.image_path)
+
+    @property
+    def coords(self) -> Tuple[int, int, int, int]:
+        return (self.xmin, self.ymin, self.xmax, self.ymax)
+
+    def coords_with_offset(
+        self,
+        xmin_offset: Union[int, float] = 0,
+        ymin_offset: Union[int, float] = 0,
+        xmax_offset: Union[int, float] = 0,
+        ymax_offset: Union[int, float] = 0,
+        source_image: np.ndarray = None
+    ) -> Tuple[int, int, int, int]:
+        if source_image is None:
+            source_image = self.open_image()
+        height, width, _ = source_image.shape
+        if isinstance(xmin_offset, float):
+            assert 0 < xmin_offset and xmin_offset < 1
+            xmin_offset = int((self.xmax - self.xmin) * xmin_offset)
+        if isinstance(ymin_offset, float):
+            assert 0 < ymin_offset and ymin_offset < 1
+            ymin_offset = int((self.ymax - self.ymin) * ymin_offset)
+        if isinstance(xmax_offset, float):
+            assert 0 < xmax_offset and xmax_offset < 1
+            xmax_offset = int((self.xmax - self.xmin) * xmax_offset)
+        if isinstance(ymax_offset, float):
+            assert 0 < ymax_offset and ymax_offset < 1
+            ymax_offset = int((self.ymax - self.ymin) * ymax_offset)
+        xmin_in_cropped_image = max(0, min(xmin_offset, self.xmin-xmin_offset))
+        ymin_in_cropped_image = max(0, min(ymin_offset, self.ymin-ymin_offset))
+        xmax_in_cropped_image = max(0, min(xmax_offset, width-self.xmax))
+        ymax_in_cropped_image = max(0, min(ymax_offset, height-self.ymax))
+        return (
+            self.xmin-xmin_in_cropped_image,
+            self.ymin-ymin_in_cropped_image,
+            self.xmax+xmax_in_cropped_image,
+            self.ymax+ymax_in_cropped_image
+        )
+
     def open_cropped_image(
         self,
         inplace: bool = False,
         source_image: np.ndarray = None,
-        xmin_offset: int = 0,
-        ymin_offset: int = 0,
-        xmax_offset: int = 0,
-        ymax_offset: int = 0,
-        draw_rectangle_with_color: Tuple[int, int, int] = None,
-        thickness: int = 3,
-        alpha: float = 0.3,
-        return_as_bbox_data_in_cropped_image: bool = False,
+        xmin_offset: Union[int, float] = 0,
+        ymin_offset: Union[int, float] = 0,
+        xmax_offset: Union[int, float] = 0,
+        ymax_offset: Union[int, float] = 0,
+        return_as_image_data: bool = False,
     ) -> Union[None, np.ndarray, 'BboxData']:
 
         if self.cropped_image is not None:
@@ -96,78 +170,39 @@ class BboxData:
 
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
-            points = [(self.xmin, self.ymin), (self.xmin, self.ymax), (self.xmax, self.ymin), (self.xmax, self.ymax)]
-            rotated_points = [rotate_point(x=x, y=y, cx=self.xmin, cy=self.ymin, angle=self.angle) for (x, y) in points]
-            xmin = max(0, min([x for (x, y) in rotated_points]))
-            ymin = max(0, min([y for (x, y) in rotated_points]))
-            xmax = max([x for (x, y) in rotated_points])
-            ymax = max([y for (x, y) in rotated_points])
-            height, width, _ = image.shape
-            xmin_in_cropped_image = max(0, min(xmin_offset, xmin-xmin_offset))
-            ymin_in_cropped_image = max(0, min(ymin_offset, ymin-ymin_offset))
-            xmax_in_cropped_image = max(0, min(xmax_offset, width-xmax))
-            ymax_in_cropped_image = max(0, min(ymax_offset, height-ymax))
-            cropped_image = image[ymin-ymin_in_cropped_image:ymax+ymax_in_cropped_image,
-                                  xmin-xmin_in_cropped_image:xmax+xmax_in_cropped_image]
-            rotated_points_in_cropped_image = [
-                [x-(xmin-xmin_in_cropped_image), y-(ymin-ymin_in_cropped_image)]
-                for (x, y) in rotated_points
-            ]
-            if draw_rectangle_with_color is not None:
-                cropped_image = cropped_image.copy()
-                height, width, colors = cropped_image.shape
-                rect = cv2.minAreaRect(np.array(rotated_points_in_cropped_image))
-                box = cv2.boxPoints(rect)
-                box = np.int0(box)
-                cropped_image_zeros = np.ones_like(cropped_image)
-                cv2.drawContours(
-                    image=cropped_image_zeros,
-                    contours=[box],
-                    contourIdx=0,
-                    color=draw_rectangle_with_color,
-                    thickness=thickness
-                )
-                colored_regions = (cropped_image_zeros == draw_rectangle_with_color)
-                cropped_image[colored_regions] = (
-                    (1 - alpha) * cropped_image[colored_regions] + alpha * cropped_image_zeros[colored_regions]
-                )
+            xmin, ymin, xmax, ymax = self.coords_with_offset(xmin_offset, ymin_offset, xmax_offset, ymax_offset, source_image)
+            cropped_image = image[ymin:ymax, xmin:xmax]
 
         if inplace:
             self.cropped_image = cropped_image
         else:
-            if return_as_bbox_data_in_cropped_image:
-                cx = rotated_points_in_cropped_image[0][0]
-                cy = rotated_points_in_cropped_image[0][1]
-                unrotated_points_in_cropped_image = [
-                    rotate_point(x=x, y=y, cx=cx, cy=cy, angle=-self.angle)
-                    for (x, y) in rotated_points_in_cropped_image
-                ]
-                unrotated_xmin_in_cropped_image = max(0, min([x for (x, y) in unrotated_points_in_cropped_image]))
-                unrotated_ymin_in_cropped_image = max(0, min([y for (x, y) in unrotated_points_in_cropped_image]))
-                unrotated_xmax_in_cropped_image = max([x for (x, y) in unrotated_points_in_cropped_image])
-                unrotated_ymax_in_cropped_image = max([y for (x, y) in unrotated_points_in_cropped_image])
-                return BboxData(
-                    image_path=self.image_path,
+            if return_as_image_data:
+                keypoints = self.keypoints.copy()
+                keypoints[:, 0] -= xmin
+                keypoints[:, 1] -= ymin
+                additional_bboxes_data = copy.deepcopy(self.additional_bboxes_data)
+
+                def crop_additional_bbox_data(bbox_data: BboxData):
+                    bbox_data.image_path = None
+                    bbox_data.image = cropped_image
+                    bbox_data.xmin -= xmin
+                    bbox_data.ymin -= ymin
+                    bbox_data.xmax -= xmin
+                    bbox_data.ymax -= ymin
+                    for additional_bbox_data in bbox_data.additional_bboxes_data:
+                        crop_additional_bbox_data(additional_bbox_data)
+                for additional_bbox_data in additional_bboxes_data:
+                    crop_additional_bbox_data(additional_bbox_data)
+
+                from cv_pipeliner.core.data import ImageData
+                image_data = ImageData(
                     image=cropped_image,
-                    xmin=unrotated_xmin_in_cropped_image,
-                    ymin=unrotated_ymin_in_cropped_image,
-                    xmax=unrotated_xmax_in_cropped_image,
-                    ymax=unrotated_ymax_in_cropped_image,
-                    angle=self.angle,
+                    bboxes_data=additional_bboxes_data,
                     label=self.label,
-                    detection_score=self.detection_score,
-                    classification_score=self.classification_score,
-                    top_n=self.top_n,
-                    labels_top_n=self.labels_top_n,
-                    classification_scores_top_n=self.classification_scores_top_n,
-                    additional_info={
-                        **self.additional_info,
-                        **{
-                            'src_xmin': xmin-xmin_in_cropped_image,
-                            'src_ymin': ymin-ymin_in_cropped_image
-                        }
-                    }
+                    keypoints=keypoints,
+                    additional_info=self.additional_info
                 )
+                return image_data
             else:
                 return cropped_image
 
@@ -177,80 +212,84 @@ class BboxData:
     ) -> Union[None, np.ndarray]:
         return open_image_for_object(obj=self, inplace=inplace)
 
-    def assert_coords_are_valid(self):
-        assert all(x is not None for x in [self.xmin, self.ymin, self.xmax, self.ymax])
-        assert self.xmin <= self.xmax and self.ymin <= self.ymax
-
-    def assert_label_is_valid(self):
-        assert self.label is not None
-
-    def asdict(self) -> Dict:
-        if isinstance(self.image_path, fsspec.core.OpenFile):
-            protocol = self.image_path.fs.protocol
-            if isinstance(protocol, tuple):
-                protocol = protocol[0]
-            prefix = f"{protocol}://"
-            if protocol == 'file':
-                prefix = ''
-            image_path_str = f"{prefix}{str(self.image_path.path)}"
-        else:
-            image_path_str = str(self.image_path) if self.image_path is not None else None
-        image_str = self.image if isinstance(self.image, str) else None
-        return {
-            'image_path': image_path_str,
-            'image': image_str,
+    def json(self, include_image_path: bool = True) -> Dict:
+        result_json = {
             'xmin': int(self.xmin),
             'ymin': int(self.ymin),
             'xmax': int(self.xmax),
-            'ymax': int(self.ymax),
-            'angle': int(self.angle),
-            'label': str(self.label),
-            'top_n': int(self.top_n) if self.top_n is not None else None,
-            'labels_top_n': [str(label) for label in self.labels_top_n] if self.labels_top_n is not None else None,
-            'classification_scores_top_n': [
-                str(round(score, 3)) for score in self.classification_scores_top_n
-            ] if self.classification_scores_top_n is not None else None,
-            'detection_score': str(round(self.detection_score, 3)) if self.detection_score is not None else None,
-            'classification_score': str(
-                round(self.classification_score, 3
-            )) if self.classification_score is not None else None,
-            'additional_info': self.additional_info
+            'ymax': int(self.ymax)
         }
+        if include_image_path:
+            result_json['image_path'] = get_image_path_as_str(self.image_path)
+        if self.label is not None:
+            result_json['label'] = str(self.label)
+        if len(self.keypoints) > 0:
+            result_json['keypoints'] = np.array(self.keypoints).astype(int).tolist()
+        if self.top_n is not None:
+            result_json['top_n'] = int(self.top_n)
+        if self.labels_top_n is not None:
+            result_json['labels_top_n'] = [str(label) for label in self.labels_top_n]
+        if self.classification_scores_top_n is not None:
+            result_json['classification_scores_top_n'] = [
+                str(round(score, 3)) for score in self.classification_scores_top_n
+            ]
+        if self.detection_score is not None:
+            result_json['detection_score'] = str(round(self.detection_score, 3))
+        if self.classification_score is not None:
+            result_json['classification_score'] = str(round(self.classification_score, 3))
+        if len(self.additional_bboxes_data) > 0:
+            result_json['additional_bboxes_data'] = [
+                bbox_data.json(include_image_path=include_image_path) for bbox_data in self.additional_bboxes_data
+            ]
+        if len(self.additional_info) > 0:
+            result_json['additional_info'] = self.additional_info
 
-    def _from_dict(self, d):
-        for key in [
-            'image_path', 'image', 'xmin', 'ymin', 'xmax', 'ymax',
-            'angle', 'label', 'top_n', 'labels_top_n', 'classification_scores_top_n',
-            'detection_score', 'classification_score',
-            'additional_info',
-        ]:
+        return result_json
+
+    def _from_json(self, d: Dict, image_path: ImagePath = None):
+        for key in BboxData.__dataclass_fields__:
             if key in d:
+                if key == 'additional_bboxes_data':
+                    d[key] = [
+                        BboxData.from_json(bbox_data, image_path=image_path)
+                        for bbox_data in d['additional_bboxes_data']
+                    ]
                 super().__setattr__(key, d[key])
+
+        if image_path is not None:
+            self.image_path = image_path
+
         self.__post_init__()
 
         return self
 
     @staticmethod
-    def from_dict(d):
-        return BboxData()._from_dict(d)
+    def from_json(d: Dict, image_path: ImagePath = None):
+        if d is None:
+            return ImageData()
+
+        return BboxData()._from_json(d=d, image_path=image_path)
 
 
 @dataclass
 class ImageData:
-    image_path: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO] = None
-    image_name: str = None
+    image_path: ImagePath = None
     image: np.ndarray = None
     bboxes_data: List[BboxData] = field(default_factory=list)
+
+    label: str = None
+    keypoints: List[Tuple[int, int]] = field(default_factory=list)
     additional_info: Dict = field(default_factory=dict)
 
     def __post_init__(self):
-        if isinstance(self.image_path, str) or isinstance(self.image_path, Path):
+        if isinstance(self.image_path, Path) or (isinstance(self.image_path, str) and not is_base64(self.image_path)):
             self.image_path = Pathy(self.image_path)
-            self.image_name = self.image_path.name
-        elif isinstance(self.image_path, fsspec.core.OpenFile):
-            self.image_name = Pathy(self.image_path.path).name
-        elif isinstance(self.image_path, bytes) or isinstance(self.image_path, io.BytesIO):
-            self.image_name = 'bytes'
+
+        self.keypoints = np.array(self.keypoints).astype(int).reshape((-1, 2))
+
+    @property
+    def image_name(self):
+        return get_image_name(self.image_path)
 
     def open_image(
         self,
@@ -258,7 +297,7 @@ class ImageData:
     ) -> Union[None, np.ndarray]:
         return open_image_for_object(obj=self, inplace=inplace)
 
-    def asdict(self) -> Dict:
+    def json(self) -> Dict:
         if isinstance(self.image_path, fsspec.core.OpenFile):
             protocol = self.image_path.fs.protocol
             if isinstance(protocol, tuple):
@@ -269,27 +308,55 @@ class ImageData:
             image_path_str = f"{prefix}{str(self.image_path.path)}"
         else:
             image_path_str = str(self.image_path) if self.image_path is not None else None
-        image_str = self.image if isinstance(self.image, str) else None
-        return {
-            'image_path': image_path_str,
-            'image': image_str,
-            'bboxes_data': [bbox_data.asdict() for bbox_data in self.bboxes_data],
-            'additional_info': self.additional_info
-        }
 
-    def _from_dict(self, d):
-        for key in ['image_path', 'image', 'additional_info']:
+        result_json = {
+            'image_path': image_path_str,
+            'bboxes_data': [bbox_data.json(include_image_path=False) for bbox_data in self.bboxes_data],
+        }
+        if self.label is not None:
+            result_json['label'] = self.label
+        if len(self.keypoints) > 0:
+            result_json['keypoints'] = np.array(self.keypoints).astype(int).tolist()
+        if len(self.additional_info) > 0:
+            result_json['additional_info'] = self.additional_info
+
+        return result_json
+
+    def _from_json(self, d):
+        for key in ImageData.__dataclass_fields__:
             if key in d:
+                if key == 'image_path' and self.image_path is not None:
+                    continue
+                if key == 'bboxes_data':
+                    d[key] = [
+                        BboxData.from_json(bbox_data, image_path=self.image_path)
+                        for bbox_data in d['bboxes_data']
+                    ]
                 super().__setattr__(key, d[key])
-        if 'bboxes_data' in d:
-            bboxes_data = [BboxData() for i in range(len(d['bboxes_data']))]
-            for bbox_data, d_i in zip(bboxes_data, d['bboxes_data']):
-                bbox_data._from_dict(d_i)
-            self.bboxes_data = bboxes_data
+
         self.__post_init__()
 
         return self
 
     @staticmethod
-    def from_dict(d):
-        return ImageData()._from_dict(d)
+    def from_json(d, image_path: ImagePath = None):
+        if d is None:
+            return ImageData(image_path=image_path)
+        if 'image_data' in d:
+            d = d['image_data']
+        return ImageData(image_path=image_path)._from_json(d)
+
+    def is_empty(self):
+        return self.image_path is None and self.image is None
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        super().__setattr__(name, value)
+        if name == 'image_path' or name == 'image':
+            def change_images_in_bbox_data(bbox_data: BboxData):
+                bbox_data.__setattr__(name, value)
+                for additional_bbox_data in bbox_data.additional_bboxes_data:
+                    change_images_in_bbox_data(additional_bbox_data)
+
+            if hasattr(self, 'bboxes_data'):
+                for bbox_data in self.bboxes_data:
+                    change_images_in_bbox_data(bbox_data)
