@@ -37,7 +37,7 @@ class PytorchDetection_ModelSpec(DetectionModelSpec):
         return Pytorch_DetectionModel
 
 
-def heatmaps_to_keypoints(maps: 'torch.Tensor', rois: 'torch.Tensor') -> 'torch.Tensor':
+def heatmaps_to_keypoints(maps: 'torch.Tensor', rois: 'torch.Tensor') -> 'torch.Tensor':  # noqa: F821
     """
     Extract predicted keypoint locations from heatmaps.
     Args:
