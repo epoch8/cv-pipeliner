@@ -48,6 +48,7 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     scores_output_index: int
     classes_output_index: Union[None, int] = None
     class_names: Union[None, List[str]] = None
+    input_type: Literal["image_tensor", "float_image_tensor"] = "image_tensor"
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -140,6 +141,14 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         output_details = self.model.get_output_details()
         self.bboxes_index = output_details[model_spec.bboxes_output_index]['index']
         self.scores_index = output_details[model_spec.scores_output_index]['index']
+        if model_spec.input_type in ["image_tensor"]:
+            self.input_dtype = np.uint8
+        elif model_spec.input_type == "float_image_tensor":
+            self.input_dtype = np.float32
+        else:
+            raise ValueError(
+                "input_type of ObjectDetectionAPI_pb_ModelSpec can be image_tensor or float_image_tensor"
+            )
 
         temp_file.close()
 
@@ -217,7 +226,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         image: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         height, width, _ = image.shape
-        image = np.array(image[None, ...], dtype=np.float32)
+        image = np.array(image[None, ...], dtype=self.input_dtype)
         self.model.resize_tensor_input(0, [1, height, width, 3])
         self.model.allocate_tensors()
         self.model.set_tensor(self.input_index, image)
