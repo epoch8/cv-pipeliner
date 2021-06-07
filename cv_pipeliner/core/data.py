@@ -170,7 +170,7 @@ class BboxData:
 
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
-            xmin, ymin, xmax, ymax = self.coords_with_offset(xmin_offset, ymin_offset, xmax_offset, ymax_offset)
+            xmin, ymin, xmax, ymax = self.coords_with_offset(xmin_offset, ymin_offset, xmax_offset, ymax_offset, source_image)
             cropped_image = image[ymin:ymax, xmin:xmax]
 
         if inplace:
