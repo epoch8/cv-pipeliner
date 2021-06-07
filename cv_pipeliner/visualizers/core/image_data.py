@@ -186,8 +186,8 @@ def visualize_boxes_and_labels_on_image_array(
 
     if len(known_labels) > 0:
         assert all(label in known_labels for label in labels)
-
-    label_to_id = {label: id_ for id_, label in enumerate(known_labels)}
+        labels = np.array(known_labels)
+    label_to_id = {label: id_ for id_, label in enumerate(labels)}
     bbox_to_display_str = collections.defaultdict(list)
     bbox_to_color = collections.defaultdict(str)
 
@@ -373,7 +373,7 @@ def visualize_images_data_side_by_side(
     score_type2: Literal['detection', 'classification'] = None,
     filter_by_labels1: List[str] = None,
     filter_by_labels2: List[str] = None,
-    known_labels: List[str] = None,
+    known_labels: List[str] = [],
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     overlay: bool = False,
     include_additional_bboxes_data: bool = False

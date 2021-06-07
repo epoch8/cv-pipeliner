@@ -80,7 +80,7 @@ def visualize_image_data_matching_side_by_side(
     true_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
     pred_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    known_labels: List[str] = None,
+    known_labels: List[str] = [],
     label: str = None
 ) -> np.ndarray:
 
