@@ -141,6 +141,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         output_details = self.model.get_output_details()
         self.bboxes_index = output_details[model_spec.bboxes_output_index]['index']
         self.scores_index = output_details[model_spec.scores_output_index]['index']
+        self.classes_index = output_details[model_spec.classes_output_index]['index']
         if model_spec.input_type in ["image_tensor"]:
             self.input_dtype = np.uint8
         elif model_spec.input_type == "float_image_tensor":
@@ -236,7 +237,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         raw_keypoints = np.array([]).reshape(len(raw_bboxes), 0, 2)
         raw_bboxes = raw_bboxes[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
         raw_scores = np.array(self.model.get_tensor(self.scores_index))[0]
-        raw_classes = np.array(self.model.get_tensor(self.classes_output_index))[0]
+        raw_classes = np.array(self.model.get_tensor(self.classes_index))[0]
 
         return raw_bboxes, raw_keypoints, raw_scores, raw_classes
 
