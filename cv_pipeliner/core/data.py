@@ -287,6 +287,10 @@ class ImageData:
 
         self.keypoints = np.array(self.keypoints).astype(int).reshape((-1, 2))
 
+        # Apply these to all bboxes_data (look __setattr__)
+        self.image_path = self.image_path
+        self.image = self.image
+
     @property
     def image_name(self):
         return get_image_name(self.image_path)
@@ -360,3 +364,7 @@ class ImageData:
             if hasattr(self, 'bboxes_data'):
                 for bbox_data in self.bboxes_data:
                     change_images_in_bbox_data(bbox_data)
+
+    def find_bbox_data_by_coords(self, xmin: int, ymin: int, xmax: int, ymax: int) -> BboxData:
+        bboxes_data_coords = [bbox_data.coords for bbox_data in self.bboxes_data]
+        return self.bboxes_data[bboxes_data_coords.index((xmin, ymin, xmax, ymax))]
