@@ -54,6 +54,7 @@ def convert_image_data_to_rectangle_labels(
                 "rectanglelabels": [bbox_data.label]
             },
             "from_name": from_name,
+            "to_name": "image",
             "type": "rectanglelabels"
         })
     return rectangle_labels
@@ -101,6 +102,7 @@ def convert_image_data_to_polygon_label(
             "polygonlabels": [image_data.label]
         },
         "from_name": from_name,
+        "to_name": "image",
         "type": "polygonlabels"
     }]
     return rectangle_labels
