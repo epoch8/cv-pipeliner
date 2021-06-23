@@ -34,6 +34,7 @@ def parse_rectangle_labels_to_bbox_data(
 def convert_image_data_to_rectangle_labels(
     image_data: ImageData,
     from_name: str,
+    to_name: str
 ) -> Dict:
     if image_data.image_path is not None:
         im_width, im_height = imagesize.get(image_data.image_path)
@@ -54,7 +55,7 @@ def convert_image_data_to_rectangle_labels(
                 "rectanglelabels": [bbox_data.label]
             },
             "from_name": from_name,
-            "to_name": "image",
+            "to_name": to_name,
             "type": "rectanglelabels"
         })
     return rectangle_labels
