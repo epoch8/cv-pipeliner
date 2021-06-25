@@ -1,6 +1,5 @@
 import json
 import tempfile
-import base64
 from dataclasses import dataclass
 from typing import List, Tuple, Union, Type, Literal
 from pathlib import Path
@@ -190,6 +189,14 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             self._raw_predict_single_image = self._raw_predict_single_image_tflite
         elif isinstance(model_spec, ObjectDetectionAPI_KFServing):
             self.input_dtype = np.dtype('U')
+            # Wake up the service
+            try:
+                self._raw_predict_single_image_kfserving(
+                    image=np.zeros((128, 128, 3)),
+                    timeout=0.0000000001
+                )
+            except requests.exceptions.ReadTimeout:
+                pass
             self._raw_predict_single_image = self._raw_predict_single_image_kfserving
         else:
             raise ValueError(
@@ -243,7 +250,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
 
     def _raw_predict_single_image_kfserving(
         self,
-        image: np.ndarray
+        image: np.ndarray,
+        timeout: Union[float, None] = None
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         input_tensor_b64 = get_image_b64(image, 'JPEG')
         response = requests.post(
@@ -254,7 +262,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
                         'b64': input_tensor_b64
                     }
                 }
-            })
+            }),
+            timeout=timeout
         )
         detection_output_dict = json.loads(response.content)
         if not response.ok:

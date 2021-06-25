@@ -14,6 +14,7 @@ import cv2
 import numpy as np
 import fsspec
 import imutils
+import PIL
 from pathy import Pathy
 from tqdm import tqdm
 
@@ -74,7 +75,7 @@ def is_base64(s: str):
 
 
 def open_image(
-    image: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO],
+    image: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image],
     open_as_rgb: bool = False
 ) -> np.ndarray:
     if isinstance(image, str) or isinstance(image, Path):
@@ -90,9 +91,14 @@ def open_image(
         image_bytes = image
     elif isinstance(image, io.BytesIO):
         image_bytes = image.getvalue()
+    elif isinstance(image, PIL.Image.Image):
+        image_bytes = np.array(image)
     else:
         raise ValueError(f'Got unknown type: {type(image)}.')
-    image = np.array(imageio.imread(image_bytes))
+    if not isinstance(image_bytes, np.ndarray):
+        image = np.array(imageio.imread(image_bytes))
+    else:
+        image = image_bytes
     if open_as_rgb:
         if image.shape[-1] == 4:
             image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)

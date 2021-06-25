@@ -7,6 +7,8 @@ from typing import Any, Union, List, Dict, Tuple
 
 import numpy as np
 import fsspec
+import PIL
+
 from pathy import Pathy
 
 from cv_pipeliner.utils.images import is_base64, open_image
@@ -34,7 +36,7 @@ def open_image_for_object(
         return image
 
 
-ImagePath = Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO]
+ImagePath = Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]
 
 
 def get_image_name(image_path) -> str:
@@ -44,6 +46,8 @@ def get_image_name(image_path) -> str:
         return Pathy(image_path.path).name
     elif isinstance(image_path, str) or isinstance(image_path, bytes) or isinstance(image_path, io.BytesIO):
         return 'bytes'
+    elif isinstance(image_path, PIL.Image.Image):
+        return 'PIL.Image.Image'
 
 
 def get_image_path_as_str(image_path) -> str:
