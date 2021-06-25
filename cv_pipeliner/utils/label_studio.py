@@ -90,19 +90,21 @@ def convert_image_data_to_polygon_label(
         im_width, im_height = imagesize.get(image_data.image_path)
     else:
         im_height, im_width, _ = image_data.open_image().shape
-    rectangle_labels = [{
-        "original_width": im_width,
-        "original_height": im_height,
-        "image_rotation": 0,
-        "value": {
-            "points": [
-                [x * 100 / im_width, y * 100 / im_height]
-                for x, y in image_data.keypoints
-            ],
-            "polygonlabels": [image_data.label]
-        },
-        "from_name": from_name,
-        "to_name": "image",
-        "type": "polygonlabels"
-    }]
+    rectangle_labels = []
+    for bbox_data in image_data.bboxes_data:
+        rectangle_labels.append({
+            "original_width": im_width,
+            "original_height": im_height,
+            "image_rotation": 0,
+            "value": {
+                "points": [
+                    [x * 100 / im_width, y * 100 / im_height]
+                    for x, y in bbox_data.keypoints
+                ],
+                "polygonlabels": [bbox_data.label]
+            },
+            "from_name": from_name,
+            "to_name": "image",
+            "type": "polygonlabels"
+        })
     return rectangle_labels
