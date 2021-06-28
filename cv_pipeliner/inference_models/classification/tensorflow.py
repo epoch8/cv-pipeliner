@@ -111,6 +111,14 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self._load_tensorflow_classification_model_spec(model_spec)
             self._raw_predict = self._raw_predict_tensorflow
         elif isinstance(model_spec, TensorFlow_ClassificationModelSpec_TFServing):
+            # Wake up the service
+            try:
+                self._raw_predict_kfserving(
+                    images=np.zeros((1, *self.input_size, 3)),
+                    timeout=1.
+                )
+            except requests.exceptions.ReadTimeout:
+                pass
             self._raw_predict = self._raw_predict_kfserving
         else:
             raise ValueError(
@@ -153,7 +161,8 @@ class Tensorflow_ClassificationModel(ClassificationModel):
 
     def _raw_predict_kfserving(
         self,
-        images: np.ndarray
+        images: np.ndarray,
+        timeout: Union[float, None] = None
     ):
         images_encoded_b64 = [get_image_b64(image, 'JPEG') for image in images]
         response = requests.post(
@@ -167,7 +176,8 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                     }
                     for image in images_encoded_b64
                 ]
-            })
+            }),
+            timeout=timeout
         )
         output_dict = json.loads(response.content)
         if not response.ok:

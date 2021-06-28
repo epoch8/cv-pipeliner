@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Dict
 
 import imagesize
@@ -34,28 +35,28 @@ def parse_rectangle_labels_to_bbox_data(
 def convert_image_data_to_rectangle_labels(
     image_data: ImageData,
     from_name: str,
+    to_name: str
 ) -> Dict:
-    if image_data.image_path is not None:
+    if image_data.image_path is not None and isinstance(image_data.image_path, Path):
         im_width, im_height = imagesize.get(image_data.image_path)
     else:
         im_height, im_width, _ = image_data.open_image().shape
-    rectangle_labels = []
-    for bbox_data in image_data.bboxes_data:
-        rectangle_labels.append({
-            "original_width": im_width,
-            "original_height": im_height,
-            "image_rotation": 0,
-            "value": {
-                "x": bbox_data.xmin / im_width * 100,
-                "y": bbox_data.ymin / im_height * 100,
-                "width": (bbox_data.xmax - bbox_data.xmin) / im_width * 100,
-                "height": (bbox_data.ymax - bbox_data.ymin) / im_height * 100,
-                "rotation": 0,
-                "rectanglelabels": [bbox_data.label]
-            },
-            "from_name": from_name,
-            "type": "rectanglelabels"
-        })
+    rectangle_labels = [{
+        "original_width": im_width,
+        "original_height": im_height,
+        "image_rotation": 0,
+        "value": {
+            "x": bbox_data.xmin / im_width * 100,
+            "y": bbox_data.ymin / im_height * 100,
+            "width": (bbox_data.xmax - bbox_data.xmin) / im_width * 100,
+            "height": (bbox_data.ymax - bbox_data.ymin) / im_height * 100,
+            "rotation": 0,
+            "rectanglelabels": [bbox_data.label]
+        },
+        "from_name": from_name,
+        "to_name": to_name,
+        "type": "rectanglelabels"
+    } for bbox_data in image_data.bboxes_data]
     return rectangle_labels
 
 
@@ -85,22 +86,25 @@ def convert_image_data_to_polygon_label(
     image_data: ImageData,
     from_name: str,
 ) -> Dict:
-    if image_data.image_path is not None:
+    if image_data.image_path is not None and isinstance(image_data.image_path, Path):
         im_width, im_height = imagesize.get(image_data.image_path)
     else:
         im_height, im_width, _ = image_data.open_image().shape
-    rectangle_labels = [{
-        "original_width": im_width,
-        "original_height": im_height,
-        "image_rotation": 0,
-        "value": {
-            "points": [
-                [x * 100 / im_width, y * 100 / im_height]
-                for x, y in image_data.keypoints
-            ],
-            "polygonlabels": [image_data.label]
-        },
-        "from_name": from_name,
-        "type": "polygonlabels"
-    }]
+    rectangle_labels = []
+    for bbox_data in image_data.bboxes_data:
+        rectangle_labels.append({
+            "original_width": im_width,
+            "original_height": im_height,
+            "image_rotation": 0,
+            "value": {
+                "points": [
+                    [x * 100 / im_width, y * 100 / im_height]
+                    for x, y in bbox_data.keypoints
+                ],
+                "polygonlabels": [bbox_data.label]
+            },
+            "from_name": from_name,
+            "to_name": "image",
+            "type": "polygonlabels"
+        })
     return rectangle_labels
