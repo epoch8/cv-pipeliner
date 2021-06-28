@@ -41,24 +41,22 @@ def convert_image_data_to_rectangle_labels(
         im_width, im_height = imagesize.get(image_data.image_path)
     else:
         im_height, im_width, _ = image_data.open_image().shape
-    rectangle_labels = []
-    for bbox_data in image_data.bboxes_data:
-        rectangle_labels.append({
-            "original_width": im_width,
-            "original_height": im_height,
-            "image_rotation": 0,
-            "value": {
-                "x": bbox_data.xmin / im_width * 100,
-                "y": bbox_data.ymin / im_height * 100,
-                "width": (bbox_data.xmax - bbox_data.xmin) / im_width * 100,
-                "height": (bbox_data.ymax - bbox_data.ymin) / im_height * 100,
-                "rotation": 0,
-                "rectanglelabels": [bbox_data.label]
-            },
-            "from_name": from_name,
-            "to_name": to_name,
-            "type": "rectanglelabels"
-        })
+    rectangle_labels = [{
+        "original_width": im_width,
+        "original_height": im_height,
+        "image_rotation": 0,
+        "value": {
+            "x": bbox_data.xmin / im_width * 100,
+            "y": bbox_data.ymin / im_height * 100,
+            "width": (bbox_data.xmax - bbox_data.xmin) / im_width * 100,
+            "height": (bbox_data.ymax - bbox_data.ymin) / im_height * 100,
+            "rotation": 0,
+            "rectanglelabels": [bbox_data.label]
+        },
+        "from_name": from_name,
+        "to_name": to_name,
+        "type": "rectanglelabels"
+    } for bbox_data in image_data.bboxes_data]
     return rectangle_labels
 
 
