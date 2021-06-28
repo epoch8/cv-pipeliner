@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Dict
 
 import imagesize
@@ -36,7 +37,7 @@ def convert_image_data_to_rectangle_labels(
     from_name: str,
     to_name: str
 ) -> Dict:
-    if image_data.image_path is not None:
+    if image_data.image_path is not None and isinstance(image_data.image_path, Path):
         im_width, im_height = imagesize.get(image_data.image_path)
     else:
         im_height, im_width, _ = image_data.open_image().shape
@@ -87,7 +88,7 @@ def convert_image_data_to_polygon_label(
     image_data: ImageData,
     from_name: str,
 ) -> Dict:
-    if image_data.image_path is not None:
+    if image_data.image_path is not None and isinstance(image_data.image_path, Path):
         im_width, im_height = imagesize.get(image_data.image_path)
     else:
         im_height, im_width, _ = image_data.open_image().shape

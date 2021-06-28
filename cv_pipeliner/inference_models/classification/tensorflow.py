@@ -115,7 +115,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             try:
                 self._raw_predict_kfserving(
                     images=np.zeros((1, *self.input_size, 3)),
-                    timeout=0.0000000001
+                    timeout=1.
                 )
             except requests.exceptions.ReadTimeout:
                 pass

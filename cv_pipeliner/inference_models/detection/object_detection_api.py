@@ -193,7 +193,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             try:
                 self._raw_predict_single_image_kfserving(
                     image=np.zeros((128, 128, 3)),
-                    timeout=0.0000000001
+                    timeout=1.
                 )
             except requests.exceptions.ReadTimeout:
                 pass

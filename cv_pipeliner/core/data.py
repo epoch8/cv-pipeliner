@@ -60,7 +60,9 @@ def get_image_path_as_str(image_path) -> str:
             prefix = ''
         image_path_str = f"{prefix}{str(image_path.path)}"
     else:
-        image_path_str = str(image_path) if image_path is not None else None
+        image_path_str = str(image_path) if (
+            image_path is not None and not isinstance(image_path, PIL.Image.Image)
+        ) else None
 
     return image_path_str
 
@@ -295,6 +297,9 @@ class ImageData:
         self.image_path = self.image_path
         self.image = self.image
 
+        if self.image is not None:
+            self.image = np.array(self.image)
+
     @property
     def image_name(self):
         return get_image_name(self.image_path)
@@ -306,19 +311,8 @@ class ImageData:
         return open_image_for_object(obj=self, inplace=inplace)
 
     def json(self) -> Dict:
-        if isinstance(self.image_path, fsspec.core.OpenFile):
-            protocol = self.image_path.fs.protocol
-            if isinstance(protocol, tuple):
-                protocol = protocol[0]
-            prefix = f"{protocol}://"
-            if protocol == 'file':
-                prefix = ''
-            image_path_str = f"{prefix}{str(self.image_path.path)}"
-        else:
-            image_path_str = str(self.image_path) if self.image_path is not None else None
-
         result_json = {
-            'image_path': image_path_str,
+            'image_path': get_image_path_as_str(self.image_path),
             'bboxes_data': [bbox_data.json(include_image_path=False) for bbox_data in self.bboxes_data],
         }
         if self.label is not None:
