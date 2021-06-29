@@ -146,8 +146,7 @@ def parse_keypoint_label_to_keypoint(
 ) -> list:
     original_height = keypoint_label['original_height']
     original_width = keypoint_label['original_width']
-    keypoints = []
     x, y = keypoint_label['value']['x'], keypoint_label['value']['y']
-    x = x / 100 * keypoint_label['original_width']
-    y = y / 100 * keypoint_label['original_height']
+    x = x / 100 * original_width
+    y = y / 100 * original_height
     return [x, y]
