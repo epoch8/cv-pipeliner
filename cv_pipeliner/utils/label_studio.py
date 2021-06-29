@@ -1,5 +1,4 @@
 from typing import Dict
-
 import imagesize
 from cv_pipeliner.core.data import BboxData, ImageData
 import numpy as np
@@ -35,8 +34,6 @@ def convert_image_data_to_rectangle_labels(
     image_data: ImageData,
     from_name: str,
     to_name: str,
-    labels_list = None,
-    labels_dict = None,
 ) -> Dict:
     if image_data.image_path is not None:
         im_width, im_height = imagesize.get(image_data.image_path)
@@ -44,14 +41,6 @@ def convert_image_data_to_rectangle_labels(
         im_height, im_width, _ = image_data.open_image().shape
     rectangle_labels = []
     for bbox_data in image_data.bboxes_data:
-        if labels_dict != None:
-            if bbox_data.label in labels_dict.keys():
-                label = labels_dict[bbox_data.label]
-        else:
-            label = bbox_data.label
-        if labels_list != None:
-            if label not in labels_list:
-                continue
         rectangle_labels.append({
             "original_width": im_width,
             "original_height": im_height,
@@ -62,7 +51,7 @@ def convert_image_data_to_rectangle_labels(
                 "width": (bbox_data.xmax - bbox_data.xmin) / im_width * 100,
                 "height": (bbox_data.ymax - bbox_data.ymin) / im_height * 100,
                 "rotation": 0,
-                "rectanglelabels": [label]
+                "rectanglelabels": [bbox_data.label]
             },
             "from_name": from_name,
             "to_name": "image",
@@ -121,6 +110,7 @@ def convert_image_data_to_polygon_label(
         })
     return rectangle_labels
 
+
 def convert_image_data_to_keypoint_label(
     image_data: ImageData,
     from_name: str,
@@ -133,7 +123,7 @@ def convert_image_data_to_keypoint_label(
     rectangle_labels = []
     for bbox_data in image_data.bboxes_data:
         for keypoint in bbox_data.keypoints:
-            x, y = keypoint[0],keypoint[1]
+            x, y = keypoint[0], keypoint[1]
             rectangle_labels.append({
                 "original_width": im_width,
                 "original_height": im_height,
@@ -141,7 +131,7 @@ def convert_image_data_to_keypoint_label(
                 "value": {
                     "x": x * 100 / im_width,
                     "y": y * 100 / im_height,
-                    "width":0.55,
+                    "width": 0.55,
                     "keypointlabels": [keypointlabels]
                 },
                 "from_name": from_name,
@@ -151,14 +141,13 @@ def convert_image_data_to_keypoint_label(
     return rectangle_labels
 
 
-def parse_keypoint_label_to_bbox_data(
+def parse_keypoint_label_to_keypoint(
     keypoint_label: Dict
-) -> BboxData:
+) -> list:
     original_height = keypoint_label['original_height']
     original_width = keypoint_label['original_width']
     keypoints = []
-    x,y=keypoint_label['value']['x'],keypoint_label['value']['y']
+    x, y = keypoint_label['value']['x'], keypoint_label['value']['y']
     x = x / 100 * keypoint_label['original_width']
     y = y / 100 * keypoint_label['original_height']
-    
-    return [x,y]
+    return [x, y]
