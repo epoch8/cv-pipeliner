@@ -7,7 +7,6 @@ from cv_pipeliner.inference_models.embedder.core import (
     EmbedderModelSpec, EmbedderModel, EmbedderInput, EmbedderOutput
 )
 from pathy import Pathy
-from torch.utils.data import DataLoader
 from dataclasses import dataclass
 from typing import List, Tuple, Callable, Union, Type
 from pathlib import Path
@@ -56,15 +55,14 @@ class PyTorch_EmbedderModel(EmbedderModel):
 
     def _raw_predict_pytorch(
         self,
-        loader: DataLoader
+        images: np.ndarray
     ):
         outputs = []
         self.model.cuda()
-        for images, image_names in loader:
-            with torch.no_grad():
-                images = images.cuda().float()
-                prediction = self.model(images).cpu().detach().numpy()
-                outputs.extend(prediction)
+        with torch.no_grad():
+            images = images.cuda().float()
+            prediction = self.model(images).cpu().detach().numpy()
+            outputs.extend(prediction)
         return outputs
 
     def preprocess_input(self, input: EmbedderInput):

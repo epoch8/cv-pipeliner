@@ -3,7 +3,7 @@ from typing import List
 from tqdm import tqdm
 from cv_pipeliner.inference_models.embedder.core import EmbedderModel
 from cv_pipeliner.core.inferencer import Inferencer
-from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
+from torch.utils.data import DataLoader
 
 
 class EmbedderInferencer(Inferencer):
@@ -13,19 +13,13 @@ class EmbedderInferencer(Inferencer):
 
     def predict(
         self,
-        image_data_gen: BatchGeneratorImageData,
+        loader: DataLoader,
         disable_tqdm: bool = False
     ) -> List[np.ndarray]:
 
         pred_embeddings = []
-        with tqdm(total=len(image_data_gen.data),
-                  disable=disable_tqdm) as pbar:
-            for image_data in image_data_gen:
-                input = image_data
-                embedding = self.model.predict(
-                    input=input,
-                )
-                pred_embeddings.extend(embedding)
-                pbar.update(len(image_data))
+        for images, _ in tqdm(loader, total=len(loader)):
 
+            embedding = self.model.predict(input=images)
+            pred_embeddings.extend(embedding)
         return pred_embeddings
