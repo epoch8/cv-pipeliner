@@ -88,12 +88,11 @@ class PipelineModel(InferenceModel):
         classification_batch_size: int = 16
     ) -> PipelineOutput:
         logger.info("Running detection...")
-        detection_input = self.detection_model.preprocess_input(input)
         (
             n_pred_bboxes, n_pred_keypoints, n_pred_detection_scores,
             n_pred_class_names_top_k, n_pred_classification_scores_top_k
         ) = self.detection_model.predict(
-            detection_input,
+            input,
             score_threshold=detection_score_threshold,
             classification_top_n=classification_top_n
         )
@@ -118,8 +117,7 @@ class PipelineModel(InferenceModel):
             for image, pred_bboxes in zip(input, n_pred_bboxes):
                 pred_bboxes_batches = np.array_split(pred_bboxes, max(1, len(pred_bboxes) // classification_batch_size))
                 for pred_bboxes_batch in pred_bboxes_batches:
-                    pred_cropped_images_batch = cut_bboxes_from_image(image, pred_bboxes_batch)
-                    classification_input_batch = self.classification_model.preprocess_input(pred_cropped_images_batch)
+                    classification_input_batch = cut_bboxes_from_image(image, pred_bboxes_batch)
                     pred_labels_top_n_batch, pred_classification_scores_top_n_batch = self.classification_model.predict(
                         input=classification_input_batch,
                         top_n=classification_top_n
