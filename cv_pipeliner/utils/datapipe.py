@@ -1,5 +1,5 @@
 import json
-
+import numpy as np
 from typing import Any, Dict, IO
 from datapipe.store.filedir import ItemStoreFileAdapter
 from cv_pipeliner.core.data import ImageData
@@ -19,3 +19,19 @@ class ImageDataFile(ItemStoreFileAdapter):
     def dump(self, obj: Dict[str, Any], f: IO) -> None:
         image_data: ImageData = obj['image_data']
         return json.dump(image_data.json(), f, indent=4, ensure_ascii=False)
+
+    
+class EmbeddingDataFile(ItemStoreFileAdapter):
+    '''
+    Converts each embedding npy file into Pandas record
+    '''
+    
+    mode = 'b'
+
+    def load(self, f: IO) -> np.ndarray:
+        embedding = np.load(f)
+        return {'embedding': embedding}
+
+    def dump(self, obj: Dict[str, Any], f: IO) -> None:
+        embedding: np.ndarray = obj['embedding']
+        return np.save(f, embedding)
