@@ -1,5 +1,5 @@
 import copy
-from typing import List, Literal, Tuple
+from typing import List, Literal, Tuple, Union
 
 import numpy as np
 import cv2
@@ -7,6 +7,7 @@ from PIL import Image
 
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.metrics.image_data_matching import intersection_over_union
+from cv_pipeliner.utils.images import concat_images
 
 
 def get_image_data_filtered_by_labels(
@@ -619,3 +620,159 @@ def uncrop_bboxes_data(
         _append_cropped_bbox_data_to_image_data(bbox_data)
 
     return bboxes_data
+
+
+def concat_images_data(
+    image_data_a: ImageData,
+    image_data_b: ImageData,
+    background_color_a: Tuple[int, int, int, int] = None,
+    background_color_b: Tuple[int, int, int, int] = None,
+    how: Literal['horizontally', 'vertically'] = 'horizontally',
+    mode: Literal['L', 'RGB', 'RGBA'] = 'RGBA',
+    background_edge_width: int = 3
+) -> ImageData:
+
+    image_data_a = copy.deepcopy(image_data_a)
+    image_data_b = copy.deepcopy(image_data_b)
+
+    if image_data_a is None and image_data_b is not None:
+        return image_data_b
+    if image_data_a is not None and image_data_b is None:
+        return image_data_a
+
+    image_a = image_data_a.open_image()
+    image_b = image_data_b.open_image()
+
+    ha, wa = image_a.shape[:2]
+    hb, wb = image_b.shape[:2]
+
+    image = concat_images(
+        image_a=image_a,
+        image_b=image_b,
+        background_color_a=background_color_a,
+        background_color_b=background_color_b,
+        how=how,
+        mode=mode,
+        background_edge_width=background_edge_width
+    )
+    image_data_a_new_xmin, image_data_a_new_ymin = None, None
+    image_data_b_new_xmin, image_data_b_new_ymin = None, None
+
+    if how == 'horizontally':
+        max_height = np.max([ha, hb])
+        min_ha = max_height // 2 - ha // 2
+        max_ha = max_height // 2 + ha // 2
+        min_hb = max_height // 2 - hb // 2
+        max_hb = max_height // 2 + hb // 2
+        image_data_a_new_xmin = 0
+        image_data_a_new_ymin = min_ha
+        image_data_a_new_xmax = wa
+        image_data_a_new_ymax = max_ha
+        image_data_b_new_xmin = wa
+        image_data_b_new_ymin = min_hb
+        image_data_b_new_xmax = wa+wb
+        image_data_b_new_ymax = max_hb
+
+    elif how == 'vertically':
+        max_width = np.max([wa, wb])
+        min_wa = max_width // 2 - wa // 2
+        max_wa = max_width // 2 + wa // 2
+        min_wb = max_width // 2 - wb // 2
+        max_wb = max_width // 2 + wb // 2
+        image_data_a_new_xmin = min_wa
+        image_data_a_new_ymin = 0
+        image_data_a_new_xmax = max_wa
+        image_data_a_new_ymax = ha
+        image_data_b_new_xmin = min_wb
+        image_data_b_new_ymin = ha
+        image_data_b_new_xmax = max_wb
+        image_data_b_new_ymax = ha+hb
+
+    keypoints_a = image_data_a.keypoints
+    keypoints_b = image_data_a.keypoints
+    keypoints_a[:, 0] += image_data_a_new_xmin
+    keypoints_a[:, 1] += image_data_a_new_ymin
+    keypoints_b[:, 0] += image_data_b_new_xmin
+    keypoints_b[:, 1] += image_data_b_new_ymin
+
+    def _get_new_coords_for_bbox_data(bbox_data: BboxData, xmin: int, ymin: int):
+        bbox_data.keypoints[:, 0] += xmin
+        bbox_data.keypoints[:, 1] += ymin
+        bbox_data.xmin += xmin
+        bbox_data.ymin += ymin
+        bbox_data.xmax += xmin
+        bbox_data.ymax += ymin
+        bbox_data.image = None
+        bbox_data.image_path = None
+        bbox_data.cropped_image = None
+        for additional_bbox_data in bbox_data.additional_bboxes_data:
+            _get_new_coords_for_bbox_data(additional_bbox_data, xmin, ymin)
+
+    for bbox_data in image_data_a.bboxes_data:
+        _get_new_coords_for_bbox_data(bbox_data, image_data_a_new_xmin, image_data_a_new_ymin)
+
+    if len([
+        bbox_data
+        for bbox_data in image_data_a.bboxes_data
+        if 'concat_images_data__image_data' != bbox_data.label
+    ]) > 0:
+        bbox_data_a_into = [BboxData(
+            xmin=image_data_a_new_xmin,
+            ymin=image_data_a_new_ymin,
+            xmax=image_data_a_new_xmax,
+            ymax=image_data_a_new_ymax,
+            label='concat_images_data__image_data',
+            additional_bboxes_data=[
+                bbox_data
+                for bbox_data in image_data_a.bboxes_data
+                if 'concat_images_data__image_data' != bbox_data.label
+            ]
+        )]
+    else:
+        bbox_data_a_into = []
+    image_data_a.bboxes_data = [
+        bbox_data
+        for bbox_data in image_data_a.bboxes_data
+        if 'concat_images_data__image_data' == bbox_data.label
+    ] + bbox_data_a_into
+
+    for bbox_data in image_data_b.bboxes_data:
+        _get_new_coords_for_bbox_data(bbox_data, image_data_b_new_xmin, image_data_b_new_ymin)
+    if len([
+        bbox_data
+        for bbox_data in image_data_b.bboxes_data
+        if 'concat_images_data__image_data' != bbox_data.label
+    ]) > 0:
+        bbox_data_b_into = [BboxData(
+            xmin=image_data_b_new_xmin,
+            ymin=image_data_b_new_ymin,
+            xmax=image_data_b_new_xmax,
+            ymax=image_data_b_new_ymax,
+            label='concat_images_data__image_data',
+            additional_bboxes_data=[
+                bbox_data
+                for bbox_data in image_data_b.bboxes_data
+                if 'concat_images_data__image_data' != bbox_data.label
+            ]
+        )]
+    else:
+        bbox_data_b_into = []
+    image_data_b.bboxes_data = [
+        bbox_data
+        for bbox_data in image_data_b.bboxes_data
+        if 'concat_images_data__image_data' == bbox_data.label
+    ] + bbox_data_b_into
+
+    image_data = ImageData(
+        image_path=None,
+        image=image,
+        bboxes_data=image_data_a.bboxes_data+image_data_b.bboxes_data,
+        label=None,
+        keypoints=np.concatenate([keypoints_a, keypoints_b], axis=0),
+        additional_info={
+            **image_data_a.additional_info,
+            **image_data_b.additional_info
+        }
+    )
+
+    return image_data

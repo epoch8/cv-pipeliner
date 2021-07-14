@@ -146,13 +146,13 @@ def visualize_boxes_and_labels_on_image_array(
     scores: List[float],
     k_keypoints: List[List[Tuple[int, int]]],
     use_normalized_coordinates=False,
-    line_thickness=4,
     groundtruth_box_visualization_color='black',
     known_labels: List[str] = [],
     skip_scores=False,
     skip_labels=False,
     keypoints_radius: int = 5,
-    fontsize: int = 24
+    fontsize: int = 24,
+    thickness: int = 4
 ):
     """Overlay labeled boxes on an image with formatted scores and label names.
 
@@ -225,7 +225,7 @@ def visualize_boxes_and_labels_on_image_array(
             keypoints=keypoints,
             angle=angle,
             color=bbox_to_color[bbox],
-            thickness=line_thickness,
+            thickness=thickness,
             display_str_list=bbox_to_display_str[bbox],
             use_normalized_coordinates=use_normalized_coordinates,
             keypoints_radius=keypoints_radius,
@@ -299,7 +299,8 @@ def visualize_image_data(
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     keypoints_radius: int = 5,
     include_additional_bboxes_data: bool = False,
-    fontsize: int = 24
+    fontsize: int = 24,
+    thickness: int = 4
 ) -> np.ndarray:
     image_data = get_image_data_filtered_by_labels(
         image_data=image_data,
@@ -349,7 +350,8 @@ def visualize_image_data(
         groundtruth_box_visualization_color='lime',
         known_labels=known_labels,
         keypoints_radius=keypoints_radius,
-        fontsize=fontsize
+        fontsize=fontsize,
+        thickness=thickness
     )
     if len(image_data.keypoints) > 0:
         image_pil = Image.fromarray(image)
@@ -386,7 +388,8 @@ def visualize_images_data_side_by_side(
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     overlay: bool = False,
     include_additional_bboxes_data: bool = False,
-    fontsize: int = 24
+    fontsize: int = 24,
+    thickness: int = 4
 ) -> np.ndarray:
 
     if overlay:
@@ -404,7 +407,8 @@ def visualize_images_data_side_by_side(
         known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
         include_additional_bboxes_data=include_additional_bboxes_data,
-        fontsize=fontsize
+        fontsize=fontsize,
+        thickness=thickness
     )
     pred_ann_image = visualize_image_data(
         image_data=image_data2,
@@ -414,7 +418,8 @@ def visualize_images_data_side_by_side(
         known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
         include_additional_bboxes_data=include_additional_bboxes_data,
-        fontsize=fontsize
+        fontsize=fontsize,
+        thickness=thickness
     )
 
     if overlay:

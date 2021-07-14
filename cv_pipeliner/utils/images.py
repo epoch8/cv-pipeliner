@@ -116,8 +116,13 @@ def concat_images(
     thumbnail_size_a: Tuple[int, int] = None,
     thumbnail_size_b: Tuple[int, int] = None,
     how: Literal['horizontally', 'vertically'] = 'horizontally',
-    mode: Literal['L', 'RGB', 'RGBA'] = 'RGBA'
+    mode: Literal['L', 'RGB', 'RGBA'] = 'RGBA',
+    background_edge_width: int = 3
 ) -> np.ndarray:
+    if image_a is None and image_b is not None:
+        return image_b
+    if image_a is not None and image_b is None:
+        return image_a
     if len(image_a.shape) == 2 or image_a.shape[-1] == 1:
         image_a = cv2.cvtColor(image_a, cv2.COLOR_GRAY2RGBA)
     elif image_a.shape[-1] == 3:
@@ -152,15 +157,15 @@ def concat_images(
         new_image[min_hb:max_hb, wa:wa+wb, :] = image_b[0:(max_hb-min_hb), :]
 
         if background_color_a is not None:
-            new_image[:3, :wa, :] = background_color_a
-            new_image[-3:, :wa, :] = background_color_a
-            new_image[:, :3, :] = background_color_a
-            new_image[:, wa-2:wa, :] = background_color_a
+            new_image[:background_edge_width, :wa, :] = background_color_a
+            new_image[-background_edge_width:, :wa, :] = background_color_a
+            new_image[:, :background_edge_width, :] = background_color_a
+            new_image[:, wa-(background_edge_width-1):wa, :] = background_color_a
         if background_color_b is not None:
-            new_image[:3, wa:, :] = background_color_b
-            new_image[-3:, wa:, :] = background_color_b
-            new_image[:, -3:, :] = background_color_b
-            new_image[:, wa:wa+2, :] = background_color_b
+            new_image[:background_edge_width, wa:, :] = background_color_b
+            new_image[-background_edge_width:, wa:, :] = background_color_b
+            new_image[:, -background_edge_width:, :] = background_color_b
+            new_image[:, wa:wa+(background_edge_width-1), :] = background_color_b
     elif how == 'vertically':
         max_width = np.max([wa, wb])
         total_height = ha + hb
@@ -175,15 +180,15 @@ def concat_images(
         new_image[ha:ha+hb, min_wb:max_wb, :] = image_b[:, 0:(max_wb-min_wb)]
 
         if background_color_a is not None:
-            new_image[:ha, :3, :] = background_color_a
-            new_image[:ha, -3:, :] = background_color_a
-            new_image[:3, :, :] = background_color_a
-            new_image[ha-2:ha:, :, :] = background_color_a
+            new_image[:ha, :background_edge_width, :] = background_color_a
+            new_image[:ha, -background_edge_width:, :] = background_color_a
+            new_image[:background_edge_width, :, :] = background_color_a
+            new_image[ha-(background_edge_width-1):ha:, :, :] = background_color_a
         if background_color_b is not None:
-            new_image[ha:, :3, :] = background_color_b
-            new_image[ha:, -3:, :] = background_color_b
-            new_image[-3:, :, :] = background_color_b
-            new_image[ha:ha+2, :, :] = background_color_b
+            new_image[ha:, :background_edge_width, :] = background_color_b
+            new_image[ha:, -background_edge_width:, :] = background_color_b
+            new_image[-background_edge_width:, :, :] = background_color_b
+            new_image[ha:ha+(background_edge_width-1), :, :] = background_color_b
     else:
         raise ValueError(
             "Parametr how must be 'horizontally' or 'vertically'"
