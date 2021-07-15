@@ -13,8 +13,7 @@ class EmbedderInferencer(Inferencer):
 
     def predict(
         self,
-        loader: DataLoader,
-        disable_tqdm: bool = False
+        loader: DataLoader
     ) -> List[np.ndarray]:
 
         pred_embeddings = []
