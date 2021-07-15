@@ -1,5 +1,5 @@
 import copy
-from typing import List, Literal, Tuple, Union
+from typing import List, Literal, Tuple
 
 import numpy as np
 import cv2
@@ -627,9 +627,12 @@ def concat_images_data(
     image_data_b: ImageData,
     background_color_a: Tuple[int, int, int, int] = None,
     background_color_b: Tuple[int, int, int, int] = None,
+    thumbnail_size_a: Tuple[int, int] = None,
+    thumbnail_size_b: Tuple[int, int] = None,
     how: Literal['horizontally', 'vertically'] = 'horizontally',
     mode: Literal['L', 'RGB', 'RGBA'] = 'RGBA',
-    background_edge_width: int = 3
+    background_edge_width: int = 3,
+    between_edge_width: int = 0
 ) -> ImageData:
 
     image_data_a = copy.deepcopy(image_data_a)
@@ -651,9 +654,12 @@ def concat_images_data(
         image_b=image_b,
         background_color_a=background_color_a,
         background_color_b=background_color_b,
+        thumbnail_size_a=thumbnail_size_a,
+        thumbnail_size_b=thumbnail_size_b,
         how=how,
         mode=mode,
-        background_edge_width=background_edge_width
+        background_edge_width=background_edge_width,
+        between_edge_width=between_edge_width
     )
     image_data_a_new_xmin, image_data_a_new_ymin = None, None
     image_data_b_new_xmin, image_data_b_new_ymin = None, None
@@ -668,9 +674,9 @@ def concat_images_data(
         image_data_a_new_ymin = min_ha
         image_data_a_new_xmax = wa
         image_data_a_new_ymax = max_ha
-        image_data_b_new_xmin = wa
+        image_data_b_new_xmin = wa + between_edge_width
         image_data_b_new_ymin = min_hb
-        image_data_b_new_xmax = wa+wb
+        image_data_b_new_xmax = wa + between_edge_width + wb
         image_data_b_new_ymax = max_hb
 
     elif how == 'vertically':
@@ -684,9 +690,9 @@ def concat_images_data(
         image_data_a_new_xmax = max_wa
         image_data_a_new_ymax = ha
         image_data_b_new_xmin = min_wb
-        image_data_b_new_ymin = ha
+        image_data_b_new_ymin = ha + between_edge_width
         image_data_b_new_xmax = max_wb
-        image_data_b_new_ymax = ha+hb
+        image_data_b_new_ymax = ha + between_edge_width + hb
 
     keypoints_a = image_data_a.keypoints
     keypoints_b = image_data_a.keypoints
