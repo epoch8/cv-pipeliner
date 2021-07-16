@@ -20,18 +20,18 @@ class ImageDataFile(ItemStoreFileAdapter):
         image_data: ImageData = obj['image_data']
         return json.dump(image_data.json(), f, indent=4, ensure_ascii=False)
 
-    
-class EmbeddingDataFile(ItemStoreFileAdapter):
+
+class NumpyDataFile(ItemStoreFileAdapter):
     '''
-    Converts each embedding npy file into Pandas record
+    Converts each npy file into Pandas record
     '''
-    
+
     mode = 'b'
 
     def load(self, f: IO) -> np.ndarray:
-        embedding = np.load(f)
-        return {'embedding': embedding}
+        ndarray = np.load(f)
+        return {'ndarray': ndarray}
 
     def dump(self, obj: Dict[str, Any], f: IO) -> None:
-        embedding: np.ndarray = obj['embedding']
-        return np.save(f, embedding)
+        ndarray: np.ndarray = obj['ndarray']
+        return np.save(f, ndarray)

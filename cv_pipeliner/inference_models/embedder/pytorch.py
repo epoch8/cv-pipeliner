@@ -15,8 +15,7 @@ from pathlib import Path
 @dataclass
 class PyTorch_EmbedderModelSpec(EmbedderModelSpec):
     model_path: Union[str, Pathy]
-    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str,
-                            Path, None] = None
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
 
     @property
     def inference_model_cls(self) -> Type['PyTorch_EmbedderModel']:
