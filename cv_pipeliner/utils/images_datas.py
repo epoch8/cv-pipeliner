@@ -717,11 +717,10 @@ def concat_images_data(
     for bbox_data in image_data_a.bboxes_data:
         _get_new_coords_for_bbox_data(bbox_data, image_data_a_new_xmin, image_data_a_new_ymin)
 
-    if len([
-        bbox_data
+    if 'concat_images_data__image_data' not in [
+        bbox_data.label
         for bbox_data in image_data_a.bboxes_data
-        if 'concat_images_data__image_data' != bbox_data.label
-    ]) > 0:
+    ]:
         bbox_data_a_into = [BboxData(
             xmin=image_data_a_new_xmin,
             ymin=image_data_a_new_ymin,
@@ -744,11 +743,10 @@ def concat_images_data(
 
     for bbox_data in image_data_b.bboxes_data:
         _get_new_coords_for_bbox_data(bbox_data, image_data_b_new_xmin, image_data_b_new_ymin)
-    if len([
-        bbox_data
+    if 'concat_images_data__image_data' not in [
+        bbox_data.label
         for bbox_data in image_data_b.bboxes_data
-        if 'concat_images_data__image_data' != bbox_data.label
-    ]) > 0:
+    ]:
         bbox_data_b_into = [BboxData(
             xmin=image_data_b_new_xmin,
             ymin=image_data_b_new_ymin,
