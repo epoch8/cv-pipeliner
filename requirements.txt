@@ -18,3 +18,4 @@ Pillow>=7.2.0
 scikit_learn>=0.24.2
 dataframe-image>=0.1.1
 lxml>=4.6.3
+typing-extensions==3.10.0.0
