@@ -1,4 +1,4 @@
-# import dataframe_image as dfi
+import dataframe_image as dfi
 from pathlib import Path
 from PIL import Image
 
@@ -404,9 +404,9 @@ def test_image_data_matching_pipeline():
                     pred_use_labels=True,
                     label=label
                 )
-            ).save(test_dir / f'pipeline_{tag=}_{label=}.jpg')
-        # dfi.export(
-        #     obj=df_pipeline_metrics,
-        #     filename=str(test_dir / f"df_metrics_pipeline_{tag=}.png"),
-        #     table_conversion='matplotlib'
-        # )
+            ).save(test_dir / f'pipeline_tag={tag}_label={label}.jpg')
+        dfi.export(
+            obj=df_pipeline_metrics,
+            filename=str(test_dir / f"df_metrics_pipeline_tag={tag}.png"),
+            table_conversion='matplotlib'
+        )

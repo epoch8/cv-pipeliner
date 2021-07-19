@@ -1,4 +1,5 @@
-from typing import List, Literal, Callable
+from typing import List, Callable
+from typing_extensions import Literal
 
 import numpy as np
 

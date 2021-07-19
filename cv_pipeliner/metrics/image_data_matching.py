@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Literal, List
+from typing import List
+from typing_extensions import Literal
 
 import numpy as np
 

@@ -1,5 +1,6 @@
 import copy
-from typing import List, Literal, Tuple
+from typing import List, Tuple
+from typing_extensions import Literal
 
 import numpy as np
 import cv2

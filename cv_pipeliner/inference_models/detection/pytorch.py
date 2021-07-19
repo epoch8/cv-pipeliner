@@ -1,7 +1,8 @@
 import json
 import tempfile
 from dataclasses import dataclass
-from typing import Callable, List, Tuple, Union, Type, Literal
+from typing import Callable, List, Tuple, Union, Type
+from typing_extensions import Literal
 from pathlib import Path
 
 import numpy as np

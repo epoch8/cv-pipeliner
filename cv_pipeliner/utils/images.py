@@ -3,8 +3,9 @@ import io
 import json
 import math
 from pathlib import Path
-from typing import List, Tuple, Union, Literal, Dict
+from typing import List, Tuple, Union, Dict
 from collections import defaultdict
+from typing_extensions import Literal
 
 import imageio
 from matplotlib.figure import Figure
