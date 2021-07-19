@@ -2,7 +2,7 @@ from pathlib import Path
 from io import BytesIO
 
 import imageio
-import dataframe_image as dfi
+# import dataframe_image as dfi
 from PIL import Image
 
 from cv_pipeliner.core.data import BboxData, ImageData
@@ -226,12 +226,12 @@ def test_pipeline_metrics():
         ]
     ]
     image_bytes = BytesIO()
-    dfi.export(
-        obj=df_pipeline_metrics,
-        fontsize=10,
-        filename=image_bytes,
-        table_conversion='matplotlib',
-    )
+    # dfi.export(
+    #     obj=df_pipeline_metrics,
+    #     fontsize=10,
+    #     filename=image_bytes,
+    #     table_conversion='matplotlib',
+    # )
     df_image = imageio.imread(image_bytes.getvalue())
 
     total_image = concat_images(
