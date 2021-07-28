@@ -1,4 +1,4 @@
-# 0.7.0
+# 0.7.0+
 
 - Apps moved to `epoch8/cv-demostand`
 - Tensorflow is not required
