@@ -3,6 +3,8 @@ import imagesize
 from cv_pipeliner.core.data import BboxData, ImageData
 import numpy as np
 
+from cv_pipeliner.utils.images import rotate_point
+
 
 def parse_rectangle_labels_to_bbox_data(
     rectangle_label: Dict
@@ -20,6 +22,17 @@ def parse_rectangle_labels_to_bbox_data(
     ymin = max(0, min(original_height - 1, ymin / 100 * original_height))
     xmax = max(0, min(original_width - 1, xmax / 100 * original_width))
     ymax = max(0, min(original_height - 1, ymax / 100 * original_height))
+    angle = rectangle_label['value']['rotation']
+    points = [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
+    rotated_points = [rotate_point(x=x, y=y, cx=xmin, cy=ymin, angle=angle) for (x, y) in points]
+    xmin = max(0, min([x for (x, y) in rotated_points]))
+    ymin = max(0, min([y for (x, y) in rotated_points]))
+    xmax = max([x for (x, y) in rotated_points])
+    ymax = max([y for (x, y) in rotated_points])
+    xmin = max(0, min(original_width, xmin))
+    ymin = max(0, min(original_height, ymin))
+    xmax = max(0, min(original_width, xmax))
+    ymax = max(0, min(original_height, ymax))
     bbox_data = BboxData(
         xmin=xmin,
         ymin=ymin,

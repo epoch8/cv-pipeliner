@@ -258,7 +258,7 @@ def get_df_classification_metrics(
 
     if known_class_names is not None:
         len_known_class_names = len(known_class_names)
-        count_mean_expected_steps = min_tops_n_from_pred_bboxes_data == len_known_class_names
+        count_mean_expected_steps = min_tops_n_from_pred_bboxes_data >= len_known_class_names
         known_class_names = list(set(all_class_names).intersection(set(known_class_names)))
         known_class_names_without_pseudo_classes = list(set(known_class_names) - set(pseudo_class_names))
         if count_mean_expected_steps:

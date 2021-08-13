@@ -15,6 +15,7 @@ from pathlib import Path
 @dataclass
 class PyTorch_EmbedderModelSpec(EmbedderModelSpec):
     model_path: Union[str, Pathy]
+    device: str
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
 
     @property
@@ -29,7 +30,8 @@ class PyTorch_EmbedderModel(EmbedderModel):
         self,
         model_spec: PyTorch_EmbedderModelSpec
     ):
-        self.model = torch.jit.load(str(model_spec.model_path))
+        self.device = torch.device(model_spec.device)
+        self.model = torch.jit.load(str(model_spec.model_path)).to(self.device)
         self.model.eval()
 
     def __init__(
@@ -41,8 +43,7 @@ class PyTorch_EmbedderModel(EmbedderModel):
         self._load_pytorch_model_spec(model_spec)
         self._raw_predict = self._raw_predict_pytorch
 
-        if isinstance(model_spec.preprocess_input, str) or isinstance(
-                        model_spec.preprocess_input, Path):
+        if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
             self._preprocess_input = get_preprocess_input_from_script_file(
                 script_file=model_spec.preprocess_input
             )
@@ -57,9 +58,8 @@ class PyTorch_EmbedderModel(EmbedderModel):
         images: np.ndarray
     ):
         outputs = []
-        self.model.cuda()
         with torch.no_grad():
-            images = images.cuda().float()
+            images = images.float().to(self.device)
             prediction = self.model(images).cpu().detach().numpy()
             outputs.extend(prediction)
         return outputs
