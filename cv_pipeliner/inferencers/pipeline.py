@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 from tqdm import tqdm
 
 from cv_pipeliner.core.data import BboxData, ImageData
@@ -73,7 +73,9 @@ class PipelineInferencer(Inferencer):
         open_images_in_images_data: bool = False,  # Warning: hard memory use
         open_cropped_images_in_bboxes_data: bool = False,
         disable_tqdm: bool = False,
-        classification_batch_size: int = 16
+        classification_batch_size: int = 16,
+        detection_kwargs: Dict[str, Any] = {},
+        classification_kwargs: Dict[str, Any] = {}
     ) -> List[ImageData]:
         assert isinstance(images_data_gen, BatchGeneratorImageData)
         pred_images_data = []
@@ -90,7 +92,9 @@ class PipelineInferencer(Inferencer):
                     input=input,
                     detection_score_threshold=detection_score_threshold,
                     classification_top_n=classification_top_n,
-                    classification_batch_size=classification_batch_size
+                    classification_batch_size=classification_batch_size,
+                    detection_kwargs=detection_kwargs,
+                    classification_kwargs=classification_kwargs
                 )
                 pred_images_data_batch = self._postprocess_predictions(
                     images_data=images_data,

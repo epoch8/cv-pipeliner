@@ -1,13 +1,15 @@
 import json
 import tempfile
 from dataclasses import dataclass
-from typing import List, Tuple, Union, Type, Literal
+from typing import Any, Dict, List, Tuple, Union, Type, Literal
 from pathlib import Path
 
 import numpy as np
 import fsspec
 import requests
 from pathy import Pathy
+from joblib import Parallel, delayed
+
 
 from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
@@ -60,6 +62,7 @@ class ObjectDetectionAPI_KFServing(DetectionModelSpec):
     url: str
     input_name: str
     class_names: Union[None, List[str]] = None
+    input_type: Literal["float_image_tensor", "encoded_b64_image_string_tensor"] = "encoded_b64_image_string_tensor"
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -188,7 +191,6 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             self._load_object_detection_api_tflite(model_spec)
             self._raw_predict_single_image = self._raw_predict_single_image_tflite
         elif isinstance(model_spec, ObjectDetectionAPI_KFServing):
-            self.input_dtype = np.dtype('U')
             # Wake up the service
             try:
                 self._raw_predict_single_image_kfserving(
@@ -202,6 +204,19 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             raise ValueError(
                 f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}"
             )
+
+    def _parse_detection_output_dict(
+        self,
+        detection_output_dict: Dict[str, Any]
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        raw_bboxes = detection_output_dict["detection_boxes"][0]  # (ymin, xmin, ymax, xmax)
+        raw_bboxes = np.array(raw_bboxes)[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
+        raw_keypoints = np.array([]).reshape(len(raw_bboxes), 0, 2)
+        raw_scores = detection_output_dict["detection_scores"][0]
+        raw_scores = np.array(raw_scores)
+        raw_classes = detection_output_dict["detection_classes"][0]
+        raw_classes = np.array(raw_classes)
+        return raw_bboxes, raw_keypoints, raw_scores, raw_classes
 
     def _raw_predict_single_image_default(
         self,
@@ -219,15 +234,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         input_tensor = input_tensor[None, ...]
         detection_output_dict = self.model(input_tensor)
 
-        raw_bboxes = detection_output_dict["detection_boxes"][0]  # (ymin, xmin, ymax, xmax)
-        raw_bboxes = np.array(raw_bboxes)[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
-        raw_keypoints = np.array([]).reshape(len(raw_bboxes), 0, 2)
-        raw_scores = detection_output_dict["detection_scores"][0]
-        raw_scores = np.array(raw_scores)
-        raw_classes = detection_output_dict["detection_classes"][0]
-        raw_classes = np.array(raw_classes)
-
-        return raw_bboxes, raw_keypoints, raw_scores, raw_classes
+        return self._parse_detection_output_dict(detection_output_dict)
 
     def _raw_predict_single_image_tflite(
         self,
@@ -253,14 +260,17 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         image: np.ndarray,
         timeout: Union[float, None] = None
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        input_tensor_b64 = get_image_b64(image, 'JPEG')
+        if self.model_spec.input_type == "float_image_tensor":
+            input_tensor = [np.array(image).astype(np.uint8).tolist()]
+        elif self.model_spec.input_type == "encoded_b64_image_string_tensor":
+            input_tensor = {
+                'b64': get_image_b64(image, 'JPEG')
+            }
         response = requests.post(
             url=self.model_spec.url,
             data=json.dumps({
                 'inputs': {
-                    self.model_spec.input_name: {
-                        'b64': input_tensor_b64
-                    }
+                    self.model_spec.input_name: input_tensor
                 }
             }),
             timeout=timeout
@@ -273,15 +283,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
                 error = response.response
             raise ValueError(error)
         detection_output_dict = detection_output_dict['outputs']
-        raw_bboxes = detection_output_dict["detection_boxes"][0]  # (ymin, xmin, ymax, xmax)
-        raw_bboxes = np.array(raw_bboxes)[:, [1, 0, 3, 2]]  # (xmin, ymin, xmax, ymax)
-        raw_keypoints = np.array([]).reshape(len(raw_bboxes), 0, 2)
-        raw_scores = detection_output_dict["detection_scores"][0]
-        raw_scores = np.array(raw_scores)
-        raw_classes = detection_output_dict["detection_classes"][0]
-        raw_classes = np.array(raw_classes)
 
-        return raw_bboxes, raw_keypoints, raw_scores, raw_classes
+        return self._parse_detection_output_dict(detection_output_dict)
 
     def _postprocess_prediction(
         self,
@@ -340,38 +343,47 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
 
         return bboxes, keypoints, scores, class_names_top_n, classes_scores_top_n
 
+    def _predict_single_image(
+        self,
+        image: np.ndarray,
+        score_threshold: float,
+        classification_top_n: int = 1
+    ) -> DetectionOutput:
+        height, width, _ = image.shape
+        raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_single_image(image)
+        bboxes, keypoints, scores, class_names_top_k, classes_scores_top_k = self._postprocess_prediction(
+            raw_bboxes=raw_bboxes,
+            raw_keypoints=raw_keypoints,
+            raw_scores=raw_scores,
+            raw_classes=raw_classes,
+            score_threshold=score_threshold,
+            width=width,
+            height=height,
+            classification_top_n=classification_top_n
+        )
+        return bboxes, keypoints, scores, class_names_top_k, classes_scores_top_k
+
     def predict(
         self,
         input: DetectionInput,
         score_threshold: float,
-        classification_top_n: int = 1
+        classification_top_n: int = 1,
+        n_jobs: int = 1
     ) -> DetectionOutput:
         input = self.preprocess_input(input)
+
+        results = Parallel(n_jobs=n_jobs, prefer="threads")(
+            delayed(self._predict_single_image)(
+                image=image,
+                score_threshold=score_threshold,
+                classification_top_n=classification_top_n,
+            )
+            for image in input
+        )
         (
             n_pred_bboxes, n_pred_keypoints, n_pred_scores,
             n_pred_class_names_top_k, n_pred_scores_top_k
-        ) = [], [], [], [], []
-
-        for image in input:
-            height, width, _ = image.shape
-            raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_single_image(image)
-            bboxes, keypoints, scores, class_names_top_k, classes_scores_top_k = self._postprocess_prediction(
-                raw_bboxes=raw_bboxes,
-                raw_keypoints=raw_keypoints,
-                raw_scores=raw_scores,
-                raw_classes=raw_classes,
-                score_threshold=score_threshold,
-                width=width,
-                height=height,
-                classification_top_n=classification_top_n
-            )
-
-            n_pred_bboxes.append(bboxes)
-            n_pred_keypoints.append(keypoints)
-            n_pred_scores.append(scores)
-            n_pred_class_names_top_k.append(class_names_top_k)
-            n_pred_scores_top_k.append(classes_scores_top_k)
-
+        ) = ([res[i] for res in results] for i in range(5))
         return n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k
 
     def preprocess_input(self, input: DetectionInput):
