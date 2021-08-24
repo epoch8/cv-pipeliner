@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
 from tqdm import tqdm
 
@@ -58,7 +58,8 @@ class DetectionInferencer(Inferencer):
         score_threshold: float,
         open_images_in_images_data: bool = False,  # Warning: hard memory use
         open_cropped_images_in_bboxes_data: bool = False,
-        disable_tqdm: bool = False
+        disable_tqdm: bool = False,
+        progress_callback: Callable[[int], None] = lambda progress: None
     ) -> List[ImageData]:
         assert isinstance(images_data_gen, BatchGeneratorImageData)
         pred_images_data = []
@@ -79,5 +80,7 @@ class DetectionInferencer(Inferencer):
                 )
                 pred_images_data.extend(pred_images_data_batch)
                 pbar.update(len(images_data))
+                if progress_callback is not None:
+                    progress_callback(pbar.n)
 
         return pred_images_data

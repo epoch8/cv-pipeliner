@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Callable, List, Union
 from tqdm import tqdm
 
 from cv_pipeliner.core.data import BboxData, ImageData
@@ -45,7 +45,8 @@ class ClassificationInferencer(Inferencer):
         images_data_gen: BatchGeneratorImageData,
         top_n: int = 1,
         open_images_in_images_data: bool = False,
-        disable_tqdm: bool = False
+        disable_tqdm: bool = False,
+        progress_callback: Callable[[int], None] = lambda progress: None
     ):
         pred_images_data = []
         with tqdm(total=len(images_data_gen.data), disable=disable_tqdm) as pbar:
@@ -62,6 +63,7 @@ class ClassificationInferencer(Inferencer):
                     open_images_in_images_data=open_images_in_images_data
                 ))
                 pbar.update(len(images_data))
+                progress_callback(pbar.n)
 
         return pred_images_data
 
@@ -110,7 +112,8 @@ class ClassificationInferencer(Inferencer):
         n_bboxes_data_gen: BatchGeneratorBboxData,
         top_n: int = 1,
         open_images_in_bboxes_data: bool = False,
-        disable_tqdm: bool = False
+        disable_tqdm: bool = False,
+        progress_callback: Callable[[int], None] = None
     ):
         pred_bboxes_data = []
         with tqdm(total=len(n_bboxes_data_gen.data), disable=disable_tqdm) as pbar:
@@ -127,6 +130,8 @@ class ClassificationInferencer(Inferencer):
                     open_cropped_images_in_bboxes_data=open_images_in_bboxes_data
                 ))
                 pbar.update(len(bboxes_data))
+                if progress_callback is not None:
+                    progress_callback(pbar.n)
 
         n_pred_bboxes_data = self._split_chunks(pred_bboxes_data, n_bboxes_data_gen.shapes)
         return n_pred_bboxes_data
@@ -136,21 +141,24 @@ class ClassificationInferencer(Inferencer):
         data_gen: Union[BatchGeneratorImageData, BatchGeneratorBboxData],
         top_n: int = 1,
         open_images_in_data: bool = False,
-        disable_tqdm: bool = False
+        disable_tqdm: bool = False,
+        progress_callback: Callable[[int], None] = None
     ) -> Union[List[ImageData], List[List[BboxData]]]:
         if isinstance(data_gen, BatchGeneratorImageData):
             return self._predict_images_data(
                 images_data_gen=data_gen,
                 top_n=top_n,
                 open_images_in_images_data=open_images_in_data,
-                disable_tqdm=disable_tqdm
+                disable_tqdm=disable_tqdm,
+                progress_callback=progress_callback
             )
         elif isinstance(data_gen, BatchGeneratorBboxData):
             return self._predict_bboxes_data(
                 n_bboxes_data_gen=data_gen,
                 top_n=top_n,
                 open_images_in_bboxes_data=open_images_in_data,
-                disable_tqdm=disable_tqdm
+                disable_tqdm=disable_tqdm,
+                progress_callback=progress_callback
             )
         else:
             raise TypeError(f"Unknown type of data_gen: {type(data_gen)}")

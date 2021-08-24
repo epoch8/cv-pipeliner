@@ -1,3 +1,7 @@
+# 0.7.6
+
+- Add callbacks arguments in Inferencers for progress bars
+
 # 0.7.5
 
 - Add parallel inference for object detection (need joblib)

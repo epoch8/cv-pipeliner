@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 from tqdm import tqdm
 
 from cv_pipeliner.core.data import BboxData, ImageData
@@ -76,7 +76,8 @@ class PipelineInferencer(Inferencer):
         disable_tqdm: bool = False,
         classification_batch_size: int = 16,
         detection_kwargs: Dict[str, Any] = {},
-        classification_kwargs: Dict[str, Any] = {}
+        classification_kwargs: Dict[str, Any] = {},
+        progress_callback: Callable[[int], None] = lambda progress: None
     ) -> List[ImageData]:
         assert isinstance(images_data_gen, BatchGeneratorImageData)
         pred_images_data = []
@@ -109,6 +110,7 @@ class PipelineInferencer(Inferencer):
                 )
                 pred_images_data.extend(pred_images_data_batch)
                 pbar.update(len(images_data))
+                progress_callback(pbar.n)
 
         return pred_images_data
 
