@@ -1,4 +1,4 @@
-from typing import List, Tuple, Type, Union
+from typing import Any, Dict, List, Tuple, Type, Union
 from dataclasses import dataclass
 import numpy as np
 from tqdm import tqdm
@@ -85,7 +85,9 @@ class PipelineModel(InferenceModel):
         input: PipelineInput,
         detection_score_threshold: float,
         classification_top_n: int = 1,
-        classification_batch_size: int = 16
+        classification_batch_size: int = 16,
+        detection_kwargs: Dict[str, Any] = {},
+        classification_kwargs: Dict[str, Any] = {}
     ) -> PipelineOutput:
         logger.info("Running detection...")
         (
@@ -94,7 +96,8 @@ class PipelineModel(InferenceModel):
         ) = self.detection_model.predict(
             input,
             score_threshold=detection_score_threshold,
-            classification_top_n=classification_top_n
+            classification_top_n=classification_top_n,
+            **detection_kwargs
         )
         logger.info(
             f"Detection: found {np.sum([len(pred_bboxes) for pred_bboxes in n_pred_bboxes])} bboxes!"
@@ -120,7 +123,8 @@ class PipelineModel(InferenceModel):
                     classification_input_batch = cut_bboxes_from_image(image, pred_bboxes_batch)
                     pred_labels_top_n_batch, pred_classification_scores_top_n_batch = self.classification_model.predict(
                         input=classification_input_batch,
-                        top_n=classification_top_n
+                        top_n=classification_top_n,
+                        **classification_kwargs
                     )
                     pred_labels_top_n.extend(pred_labels_top_n_batch)
                     pred_classification_scores_top_n.extend(pred_classification_scores_top_n_batch)
