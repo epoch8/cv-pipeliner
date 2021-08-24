@@ -46,7 +46,8 @@ class DetectionInferencer(Inferencer):
             pred_images_data.append(ImageData(
                 image_path=image_data.image_path,
                 image=image,
-                bboxes_data=bboxes_data
+                bboxes_data=bboxes_data,
+                additional_info=image_data.additional_info,
             ))
 
         return pred_images_data

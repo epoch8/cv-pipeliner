@@ -1,3 +1,8 @@
+# 0.7.5
+
+- Add parallel inference for object detection (need joblib)
+- Classification Inferencer now accept ImageData generators
+
 # 0.7.0+
 
 - Apps moved to `epoch8/cv-demostand`
