@@ -80,7 +80,6 @@ class DetectionInferencer(Inferencer):
                 )
                 pred_images_data.extend(pred_images_data_batch)
                 pbar.update(len(images_data))
-                if progress_callback is not None:
-                    progress_callback(pbar.n)
+                progress_callback(pbar.n)
 
         return pred_images_data
