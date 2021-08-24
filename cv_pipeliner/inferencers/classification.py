@@ -120,7 +120,7 @@ class ClassificationInferencer(Inferencer):
                     input=input,
                     top_n=top_n
                 )
-                pred_bboxes_data.extend(self._postprocess_predictions(
+                pred_bboxes_data.extend(self._postprocess_predictions_bboxes_data(
                     bboxes_data=bboxes_data,
                     pred_labels_top_n=pred_labels_top_n,
                     pred_scores_top_n=pred_scores_top_n,
