@@ -1,4 +1,5 @@
 import json
+from json.decoder import JSONDecodeError
 import tempfile
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Union, Type, Literal
@@ -275,7 +276,10 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             }),
             timeout=timeout
         )
-        detection_output_dict = json.loads(response.content)
+        try:
+            detection_output_dict = json.loads(response.content)
+        except JSONDecodeError:
+            raise ValueError(f"Failed to decode JSON. Response content: {response.content}")
         if not response.ok:
             if 'error' in detection_output_dict:
                 error = detection_output_dict['error']
