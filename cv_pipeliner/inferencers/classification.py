@@ -113,7 +113,7 @@ class ClassificationInferencer(Inferencer):
         top_n: int = 1,
         open_images_in_bboxes_data: bool = False,
         disable_tqdm: bool = False,
-        progress_callback: Callable[[int], None] = None
+        progress_callback: Callable[[int], None] = lambda progress: None
     ):
         pred_bboxes_data = []
         with tqdm(total=len(n_bboxes_data_gen.data), disable=disable_tqdm) as pbar:
@@ -142,7 +142,7 @@ class ClassificationInferencer(Inferencer):
         top_n: int = 1,
         open_images_in_data: bool = False,
         disable_tqdm: bool = False,
-        progress_callback: Callable[[int], None] = None
+        progress_callback: Callable[[int], None] = lambda progress: None
     ) -> Union[List[ImageData], List[List[BboxData]]]:
         if isinstance(data_gen, BatchGeneratorImageData):
             return self._predict_images_data(
