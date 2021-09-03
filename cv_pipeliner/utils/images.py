@@ -463,14 +463,23 @@ def draw_n_base_labels_images(
     return total_image
 
 
-def get_image_b64(
+def get_image_binary_format(
     image: np.ndarray,
-    format: str
+    format: str,
+    **kwargs
 ) -> str:
     image_io = io.BytesIO()
     image = np.array(image, dtype=np.uint8)
-    Image.fromarray(image).save(image_io, format=format)
-    image_format = image_io.getvalue()
+    Image.fromarray(image).save(image_io, format=format, **kwargs)
+    return image_io.getvalue()
+
+
+def get_image_b64(
+    image: np.ndarray,
+    format: str,
+    **kwargs
+) -> str:
+    image_format = get_image_binary_format(image, format, **kwargs)
     image_format_b64 = base64.b64encode(image_format).decode('utf-8')
     return image_format_b64
 

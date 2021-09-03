@@ -15,7 +15,7 @@ from joblib import Parallel, delayed
 from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
 )
-from cv_pipeliner.utils.images import denormalize_bboxes, get_image_b64
+from cv_pipeliner.utils.images import denormalize_bboxes, get_image_b64, get_image_binary_format
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 
 
@@ -62,8 +62,8 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
 class ObjectDetectionAPI_KFServing(DetectionModelSpec):
     url: str
     input_name: str
+    input_type: Literal["float_image_tensor", "encoded_b64_image_string_tensor", "encoded_image_string_tensor"]
     class_names: Union[None, List[str]] = None
-    input_type: Literal["float_image_tensor", "encoded_b64_image_string_tensor"] = "encoded_b64_image_string_tensor"
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -263,9 +263,11 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         if self.model_spec.input_type == "float_image_tensor":
             input_tensor = [np.array(image).astype(np.uint8).tolist()]
+        elif self.model_spec.input_type == "encoded_image_string_tensor":
+            input_tensor = [get_image_binary_format(image, 'JPEG', quality=95)]
         elif self.model_spec.input_type == "encoded_b64_image_string_tensor":
             input_tensor = {
-                'b64': get_image_b64(image, 'JPEG')
+                'b64': get_image_b64(image, 'JPEG', quality=95)
             }
         response = requests.post(
             url=self.model_spec.url,
