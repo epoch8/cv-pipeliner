@@ -202,7 +202,10 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             raise ValueError(f"Failed to decode JSON. Response content: {response.content}")
         if not response.ok:
             raise ValueError(f"Response is not ok: {response.status_code=}; {response.content=}")
-        raw_predictions_batch = np.array(output_dict['predictions'])
+        if 'outputs' in output_dict:
+            raw_predictions_batch = output_dict['outputs']
+        elif 'predictions' in output_dict:
+            raw_predictions_batch = output_dict['predictions']
 
         return raw_predictions_batch
 

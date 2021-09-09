@@ -277,8 +277,15 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             raise ValueError(f"Failed to decode JSON. Response content: {response.content}")
         if not response.ok:
             raise ValueError(f"Response is not ok: {response.status_code=}; {response.content=}")
-        detection_output_dict = detection_output_dict['outputs']
-
+        if 'outputs' in detection_output_dict:
+            detection_output_dict = detection_output_dict['outputs']
+        elif 'predictions' in detection_output_dict:
+            detection_output_dict = detection_output_dict['predictions']
+            detection_output_dict = {
+                'detection_boxes': [detection_output_dict[0]['detection_boxes']],
+                'detection_scores': [detection_output_dict[0]['detection_scores']],
+                'detection_classes': [detection_output_dict[0]['detection_classes']]
+            }
         return self._parse_detection_output_dict(detection_output_dict)
 
     def _postprocess_prediction(
