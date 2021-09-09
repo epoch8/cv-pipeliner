@@ -62,7 +62,7 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
 class ObjectDetectionAPI_KFServing(DetectionModelSpec):
     url: str
     input_name: str
-    input_type: Literal["float_image_tensor", "encoded_b64_image_string_tensor", "encoded_image_string_tensor"]
+    input_type: Literal["float_image_tensor", "encoded_b64_jpeg_image_string_tensor"]
     class_names: Union[None, List[str]] = None
 
     @property
@@ -262,32 +262,30 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         timeout: Union[float, None] = None
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         if self.model_spec.input_type == "float_image_tensor":
-            input_tensor = [np.array(image).astype(np.uint8).tolist()]
-        elif self.model_spec.input_type == "encoded_image_string_tensor":
-            input_tensor = [get_image_binary_format(image, 'JPEG', quality=95)]
-        elif self.model_spec.input_type == "encoded_b64_image_string_tensor":
-            input_tensor = {
-                'b64': get_image_b64(image, 'JPEG', quality=95)
+            input_data = {
+                'inputs': {
+                    self.model_spec.input_name: [np.array(image).astype(np.uint8).tolist()]
+                }
+            }
+        elif self.model_spec.input_type == "encoded_b64_jpeg_image_string_tensor":
+            input_data = {
+                'instances': [{
+                    'input_tensor': {
+                        'b64': get_image_b64(image, 'JPEG', quality=95)
+                    }
+                }]
             }
         response = requests.post(
             url=self.model_spec.url,
-            data=json.dumps({
-                'inputs': {
-                    self.model_spec.input_name: input_tensor
-                }
-            }),
+            json=input_data,
             timeout=timeout
         )
         try:
-            detection_output_dict = json.loads(response.content)
+            detection_output_dict = response.json()
         except JSONDecodeError:
             raise ValueError(f"Failed to decode JSON. Response content: {response.content}")
         if not response.ok:
-            if 'error' in detection_output_dict:
-                error = detection_output_dict['error']
-            else:
-                error = response.response
-            raise ValueError(error)
+            raise ValueError(f"Response is not ok: {response.status_code=}; {response.content=}")
         detection_output_dict = detection_output_dict['outputs']
 
         return self._parse_detection_output_dict(detection_output_dict)
