@@ -1,3 +1,7 @@
+# 0.7.8
+
+- Add changes in KFServing inferences.
+
 # 0.7.6
 
 - Add callbacks arguments in Inferencers for progress bars

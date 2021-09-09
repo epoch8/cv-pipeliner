@@ -15,7 +15,7 @@ from joblib import Parallel, delayed
 from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
 )
-from cv_pipeliner.utils.images import denormalize_bboxes, get_image_b64
+from cv_pipeliner.utils.images import denormalize_bboxes, get_image_b64, get_image_binary_format
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 
 
@@ -62,13 +62,20 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
 class ObjectDetectionAPI_KFServing(DetectionModelSpec):
     url: str
     input_name: str
+    input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
     class_names: Union[None, List[str]] = None
-    input_type: Literal["float_image_tensor", "encoded_b64_image_string_tensor"] = "encoded_b64_image_string_tensor"
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
         from cv_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
         return ObjectDetectionAPI_DetectionModel
+
+
+INPUT_TYPE_TO_DTYPE = {
+    "image_tensor": np.uint8,
+    "float_image_tensor": np.float32,
+    "encoded_image_string_tensor": np.uint8
+}
 
 
 class ObjectDetectionAPI_DetectionModel(DetectionModel):
@@ -117,16 +124,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         temp_folder_path = Path(temp_folder.name)
         self.loaded_model = tf.saved_model.load(str(temp_folder_path))
         self.model = self.loaded_model.signatures["serving_default"]
-        if model_spec.input_type in ["image_tensor", "encoded_image_string_tensor"]:
-            self.input_dtype = np.uint8
-        elif model_spec.input_type == "float_image_tensor":
-            self.input_dtype = np.float32
-        else:
-            raise ValueError(
-                "input_type of ObjectDetectionAPI_pb_ModelSpec can be image_tensor, float_image_tensor "
-                "or encoded_image_string_tensor."
-            )
-
+        self.input_dtype = INPUT_TYPE_TO_DTYPE[model_spec.input_type]
         temp_folder.cleanup()
 
     def _load_object_detection_api_tflite(self, model_spec: ObjectDetectionAPI_TFLite_ModelSpec):
@@ -145,15 +143,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         self.bboxes_index = output_details[model_spec.bboxes_output_index]['index']
         self.scores_index = output_details[model_spec.scores_output_index]['index']
         self.classes_index = output_details[model_spec.classes_output_index]['index']
-        if model_spec.input_type in ["image_tensor"]:
-            self.input_dtype = np.uint8
-        elif model_spec.input_type == "float_image_tensor":
-            self.input_dtype = np.float32
-        else:
-            raise ValueError(
-                "input_type of ObjectDetectionAPI_pb_ModelSpec can be image_tensor or float_image_tensor"
-            )
-
+        self.input_dtype = INPUT_TYPE_TO_DTYPE[model_spec.input_type]
         temp_file.close()
 
     def __init__(
@@ -192,6 +182,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             self._load_object_detection_api_tflite(model_spec)
             self._raw_predict_single_image = self._raw_predict_single_image_tflite
         elif isinstance(model_spec, ObjectDetectionAPI_KFServing):
+            self.input_dtype = INPUT_TYPE_TO_DTYPE[model_spec.input_type]
             # Wake up the service
             try:
                 self._raw_predict_single_image_kfserving(
@@ -261,33 +252,40 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         image: np.ndarray,
         timeout: Union[float, None] = None
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        if self.model_spec.input_type == "float_image_tensor":
-            input_tensor = [np.array(image).astype(np.uint8).tolist()]
-        elif self.model_spec.input_type == "encoded_b64_image_string_tensor":
-            input_tensor = {
-                'b64': get_image_b64(image, 'JPEG')
+        if self.model_spec.input_type in ["float_image_tensor", "image_tensor"]:
+            input_data = {
+                'inputs': {
+                    self.model_spec.input_name: [np.array(image).astype(self.input_dtype).tolist()]
+                }
+            }
+        elif self.model_spec.input_type == "encoded_image_string_tensor":
+            input_data = {
+                'instances': [{
+                    'input_tensor': {
+                        'b64': get_image_b64(image, 'JPEG', quality=95)
+                    }
+                }]
             }
         response = requests.post(
             url=self.model_spec.url,
-            data=json.dumps({
-                'inputs': {
-                    self.model_spec.input_name: input_tensor
-                }
-            }),
+            json=input_data,
             timeout=timeout
         )
         try:
-            detection_output_dict = json.loads(response.content)
+            detection_output_dict = response.json()
         except JSONDecodeError:
             raise ValueError(f"Failed to decode JSON. Response content: {response.content}")
         if not response.ok:
-            if 'error' in detection_output_dict:
-                error = detection_output_dict['error']
-            else:
-                error = response.response
-            raise ValueError(error)
-        detection_output_dict = detection_output_dict['outputs']
-
+            raise ValueError(f"Response is not ok: {response.status_code=}; {response.content=}")
+        if 'outputs' in detection_output_dict:
+            detection_output_dict = detection_output_dict['outputs']
+        elif 'predictions' in detection_output_dict:
+            detection_output_dict = detection_output_dict['predictions']
+            detection_output_dict = {
+                'detection_boxes': [detection_output_dict[0]['detection_boxes']],
+                'detection_scores': [detection_output_dict[0]['detection_scores']],
+                'detection_classes': [detection_output_dict[0]['detection_classes']]
+            }
         return self._parse_detection_output_dict(detection_output_dict)
 
     def _postprocess_prediction(

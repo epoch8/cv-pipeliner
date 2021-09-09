@@ -1,4 +1,5 @@
 import json
+from json.decoder import JSONDecodeError
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,6 +35,7 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
 @dataclass
 class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
     url: str
+    input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
     input_name: str
     input_size: Union[Tuple[int, int], List[int]]
     class_names: Union[List[str], str, Path]
@@ -43,6 +45,13 @@ class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
     def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
         from cv_pipeliner.inference_models.classification.tensorflow import Tensorflow_ClassificationModel
         return Tensorflow_ClassificationModel
+
+
+INPUT_TYPE_TO_DTYPE = {
+    "image_tensor": np.uint8,
+    "float_image_tensor": np.float32,
+    "encoded_image_string_tensor": np.uint8
+}
 
 
 class Tensorflow_ClassificationModel(ClassificationModel):
@@ -111,6 +120,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self._load_tensorflow_classification_model_spec(model_spec)
             self._raw_predict = self._raw_predict_tensorflow
         elif isinstance(model_spec, TensorFlow_ClassificationModelSpec_TFServing):
+            self.input_dtype = INPUT_TYPE_TO_DTYPE(model_spec.input_type)
             # Wake up the service
             try:
                 self._raw_predict_kfserving(
@@ -164,29 +174,38 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         images: np.ndarray,
         timeout: Union[float, None] = None
     ):
-        images_encoded_b64 = [get_image_b64(image, 'JPEG') for image in images]
+        if self.model_spec.input_type in ["float_image_tensor", "image_tensor"]:
+            input_data = {
+                'inputs': {
+                    self.model_spec.input_name: [
+                        np.array(image).astype(self.input_dtype).tolist()
+                        for image in images
+                    ]
+                }
+            }
+        elif self.model_spec.input_type == "encoded_b64_jpeg_image_string_tensor":
+            input_data = {
+                'instances': [{
+                    'input_tensor': {
+                        'b64': get_image_b64(image, 'JPEG', quality=95)
+                    }
+                } for image in images]
+            }
         response = requests.post(
             url=self.model_spec.url,
-            data=json.dumps({
-                'instances': [
-                    {
-                        self.model_spec.input_name: {
-                            'b64': image
-                        }
-                    }
-                    for image in images_encoded_b64
-                ]
-            }),
+            json=input_data,
             timeout=timeout
         )
-        output_dict = json.loads(response.content)
+        try:
+            output_dict = response.json()
+        except JSONDecodeError:
+            raise ValueError(f"Failed to decode JSON. Response content: {response.content}")
         if not response.ok:
-            if 'error' in output_dict:
-                error = output_dict['error']
-            else:
-                error = response.response
-            raise ValueError(error)
-        raw_predictions_batch = np.array(output_dict['predictions'])
+            raise ValueError(f"Response is not ok: {response.status_code=}; {response.content=}")
+        if 'outputs' in output_dict:
+            raw_predictions_batch = output_dict['outputs']
+        elif 'predictions' in output_dict:
+            raw_predictions_batch = output_dict['predictions']
 
         return raw_predictions_batch
 
