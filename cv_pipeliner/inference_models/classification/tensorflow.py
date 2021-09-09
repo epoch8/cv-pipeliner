@@ -35,7 +35,7 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
 @dataclass
 class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
     url: str
-    input_type: Literal["float_image_tensor", "encoded_b64_jpeg_image_string_tensor"]
+    input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
     input_name: str
     input_size: Union[Tuple[int, int], List[int]]
     class_names: Union[List[str], str, Path]
@@ -45,6 +45,13 @@ class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
     def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
         from cv_pipeliner.inference_models.classification.tensorflow import Tensorflow_ClassificationModel
         return Tensorflow_ClassificationModel
+
+
+INPUT_TYPE_TO_DTYPE = {
+    "image_tensor": np.uint8,
+    "float_image_tensor": np.float32,
+    "encoded_image_string_tensor": np.uint8
+}
 
 
 class Tensorflow_ClassificationModel(ClassificationModel):
@@ -113,6 +120,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self._load_tensorflow_classification_model_spec(model_spec)
             self._raw_predict = self._raw_predict_tensorflow
         elif isinstance(model_spec, TensorFlow_ClassificationModelSpec_TFServing):
+            self.input_dtype = INPUT_TYPE_TO_DTYPE(model_spec.input_type)
             # Wake up the service
             try:
                 self._raw_predict_kfserving(
@@ -166,11 +174,11 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         images: np.ndarray,
         timeout: Union[float, None] = None
     ):
-        if self.model_spec.input_type == "float_image_tensor":
+        if self.model_spec.input_type in ["float_image_tensor", "image_tensor"]:
             input_data = {
                 'inputs': {
                     self.model_spec.input_name: [
-                        np.array(image).astype(np.uint8).tolist()
+                        np.array(image).astype(self.input_dtype).tolist()
                         for image in images
                     ]
                 }
