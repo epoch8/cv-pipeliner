@@ -87,7 +87,8 @@ class PipelineModel(InferenceModel):
         classification_top_n: int = 1,
         classification_batch_size: int = 16,
         detection_kwargs: Dict[str, Any] = {},
-        classification_kwargs: Dict[str, Any] = {}
+        classification_kwargs: Dict[str, Any] = {},
+        disable_tqdm_classification: bool = False
     ) -> PipelineOutput:
         logger.info("Running detection...")
         (
@@ -116,17 +117,19 @@ class PipelineModel(InferenceModel):
 
         shapes = [len(pred_bboxes) for pred_bboxes in n_pred_bboxes]
         pred_labels_top_n, pred_classification_scores_top_n = [], []
-        for image, pred_bboxes in zip(input, n_pred_bboxes):
-            pred_bboxes_batches = np.array_split(pred_bboxes, max(1, len(pred_bboxes) // classification_batch_size))
-            for pred_bboxes_batch in pred_bboxes_batches:
-                classification_input_batch = cut_bboxes_from_image(image, pred_bboxes_batch)
-                pred_labels_top_n_batch, pred_classification_scores_top_n_batch = self.classification_model.predict(
-                    input=classification_input_batch,
-                    top_n=classification_top_n,
-                    **classification_kwargs
-                )
-                pred_labels_top_n.extend(pred_labels_top_n_batch)
-                pred_classification_scores_top_n.extend(pred_classification_scores_top_n_batch)
+        with tqdm(total=np.sum(shapes), disable=disable_tqdm_classification) as pbar:
+            for image, pred_bboxes in zip(input, n_pred_bboxes):
+                pred_bboxes_batches = np.array_split(pred_bboxes, max(1, len(pred_bboxes) // classification_batch_size))
+                for pred_bboxes_batch in pred_bboxes_batches:
+                    classification_input_batch = cut_bboxes_from_image(image, pred_bboxes_batch)
+                    pred_labels_top_n_batch, pred_classification_scores_top_n_batch = self.classification_model.predict(
+                        input=classification_input_batch,
+                        top_n=classification_top_n,
+                        **classification_kwargs
+                    )
+                    pred_labels_top_n.extend(pred_labels_top_n_batch)
+                    pred_classification_scores_top_n.extend(pred_classification_scores_top_n_batch)
+                    pbar.update(len(pred_bboxes_batch))
         n_pred_labels_top_n = self._split_chunks(pred_labels_top_n, shapes)
         n_pred_classification_scores_top_n = self._split_chunks(pred_classification_scores_top_n, shapes)
         logger.info("Classification end!")
