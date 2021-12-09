@@ -67,7 +67,7 @@ def convert_image_data_to_rectangle_labels(
                 "rectanglelabels": [bbox_data.label]
             },
             "from_name": from_name,
-            "to_name": "image",
+            "to_name": to_name,
             "type": "rectanglelabels"
         })
     return rectangle_labels
