@@ -261,7 +261,7 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         elif self.model_spec.input_type == "encoded_image_string_tensor":
             input_data = {
                 'instances': [{
-                    'input_tensor': {
+                    self.model_spec.input_name: {
                         'b64': get_image_b64(image, 'JPEG', quality=95)
                     }
                 }]

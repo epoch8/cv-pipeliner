@@ -120,7 +120,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self._load_tensorflow_classification_model_spec(model_spec)
             self._raw_predict = self._raw_predict_tensorflow
         elif isinstance(model_spec, TensorFlow_ClassificationModelSpec_TFServing):
-            self.input_dtype = INPUT_TYPE_TO_DTYPE(model_spec.input_type)
+            self.input_dtype = INPUT_TYPE_TO_DTYPE[model_spec.input_type]
             # Wake up the service
             try:
                 self._raw_predict_kfserving(
@@ -198,10 +198,10 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                     ]
                 }
             }
-        elif self.model_spec.input_type == "encoded_b64_jpeg_image_string_tensor":
+        elif self.model_spec.input_type == "encoded_image_string_tensor":
             input_data = {
                 'instances': [{
-                    'input_tensor': {
+                    self.model_spec.input_name: {
                         'b64': get_image_b64(image, 'JPEG', quality=95)
                     }
                 } for image in images]
@@ -218,9 +218,9 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         if not response.ok:
             raise ValueError(f"Response is not ok: {response.status_code=}; {response.content=}")
         if 'outputs' in output_dict:
-            raw_predictions_batch = output_dict['outputs']
+            raw_predictions_batch = np.array(output_dict['outputs'])
         elif 'predictions' in output_dict:
-            raw_predictions_batch = output_dict['predictions']
+            raw_predictions_batch = np.array(output_dict['predictions'])
 
         return raw_predictions_batch
 
