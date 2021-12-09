@@ -36,10 +36,10 @@ class BrickitDataConverter(DataConverter):
                     bbox_data_json['xmin'], bbox_data_json['ymin'], bbox_data_json['xmax'], bbox_data_json['ymax']
                 ],
                 'label': bbox_data_json['label'],
-                **{
+                **({
                     key: bbox_data_json['additional_info'][key]
                     for key in bbox_data_json['additional_info']
-                }
+                } if 'additional_info' in bbox_data_json else {})
             }
             if bbox_data.labels_top_n is not None:
                 obj['labels_top_n'] = bbox_data_json['labels_top_n']
