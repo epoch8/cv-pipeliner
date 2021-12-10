@@ -190,8 +190,15 @@ def set_config(
     label_map: Dict[str, int],
     label_map_filepath: Union[str, Path],
     batch_size: int,
-    fine_tune_checkpoint_type: str = 'fine_tune',
-    augment_path: str = None
+    max_box_predictions: int,
+    max_number_of_boxes: int,
+    fine_tune_checkpoint_type: str = 'detection',
+    augment_path: str = None,
+    min_dimension: int = None,
+    max_dimension: int = None,
+    total_steps: int = None,
+    warmup_steps: int = None,
+    num_steps: int = None
 ):
     logger.info(f"Set configs {config_path}...")
 
@@ -202,10 +209,25 @@ def set_config(
     num_classes = len(set(label_map.values()))
     _, config_model = configs['model'].ListFields()[0]
     config_model.num_classes = num_classes
+    
+    configs['model'].center_net.object_center_params.max_box_predictions = max_box_predictions
+    if min_dimension is not None:
+        configs['model'].center_net.image_resizer.keep_aspect_ratio_resizer.min_dimension = min_dimension
+    if max_dimension is not None:
+        configs['model'].center_net.image_resizer.keep_aspect_ratio_resizer.max_dimension = max_dimension
 
     configs['train_config'].fine_tune_checkpoint_type = fine_tune_checkpoint_type
     configs['train_config'].fine_tune_checkpoint = str(checkpoint_path)
     configs['train_config'].batch_size = batch_size
+    
+    configs['train_config'].max_number_of_boxes = max_number_of_boxes
+    if total_steps is not None:
+        configs['train_config'].optimizer.adam_optimizer.learning_rate.cosine_decay_learning_rate.total_steps = total_steps
+    if warmup_steps is not None:
+        configs['train_config'].optimizer.adam_optimizer.learning_rate.cosine_decay_learning_rate.warmup_steps = warmup_steps
+    if num_steps is not None:
+        configs['train_config'].num_steps = num_steps
+        
     if augment_path is not None:
         augment_config = configs['train_config'].data_augmentation_options
         for _ in augment_config:
