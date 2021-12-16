@@ -521,9 +521,9 @@ def apply_perspective_transform_to_image_data(
     return image_data
 
 
-def non_max_suppression_image_data_by_iou(
+def non_max_suppression_image_data(
     image_data: ImageData,
-    overlap: float
+    iou: float
 ):
     image_data = copy.deepcopy(image_data)
     current_bboxes_data = image_data.bboxes_data.copy()
@@ -535,11 +535,14 @@ def non_max_suppression_image_data_by_iou(
             for idx, bbox_data in enumerate(current_bboxes_data):
                 if idx == 0:
                     continue
-                iou = intersection_over_union(current_bbox_data, bbox_data)
+                bbox_iou = intersection_over_union(current_bbox_data, bbox_data)
 
-                if iou >= overlap:
+                if bbox_iou >= iou:
                     pairs_bboxes_data = [bbox_data, current_bbox_data]
-                    pairs_scores = [possible_bbox_data.detection_score for possible_bbox_data in pairs_bboxes_data]
+                    pairs_scores = [
+                        possible_bbox_data.detection_score if possible_bbox_data.detection_score is not None else 1.
+                        for possible_bbox_data in pairs_bboxes_data
+                    ]
                     top_score_idx = np.argmax(pairs_scores)
                     current_bboxes_data.pop(idx)
                     current_bboxes_data.pop(0)
@@ -551,7 +554,8 @@ def non_max_suppression_image_data_by_iou(
                         detection_score=pairs_bboxes_data[top_score_idx].detection_score,
                         label=pairs_bboxes_data[top_score_idx].label,
                         keypoints=pairs_bboxes_data[top_score_idx].keypoints,
-                        additional_bboxes_data=pairs_bboxes_data[top_score_idx].additional_bboxes_data
+                        additional_bboxes_data=pairs_bboxes_data[top_score_idx].additional_bboxes_data,
+                        additional_info=pairs_bboxes_data[top_score_idx].additional_info
                     ))
                     success = False
                     break

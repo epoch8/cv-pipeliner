@@ -1,3 +1,11 @@
+# 0.8.2
+- Change function `cv_pipeliner.utils.images_datas.non_max_suppression_image_data_iou` -> `cv_pipeliner.utils.images_datas.non_max_suppression_image_data`
+- Fix bugs in `non_max_suppression_image_data` when detection_score is None, additional_info is not updated
+
+# 0.8.0-0.8.1
+
+- Fix bugs
+
 # 0.7.8
 
 - Add changes in KFServing inferences.
