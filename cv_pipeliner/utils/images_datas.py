@@ -524,7 +524,7 @@ def apply_perspective_transform_to_image_data(
 def non_max_suppression_image_data(
     image_data: ImageData,
     iou: float
-):
+) -> ImageData:
     image_data = copy.deepcopy(image_data)
     current_bboxes_data = image_data.bboxes_data.copy()
     new_bboxes_data = []
@@ -565,6 +565,22 @@ def non_max_suppression_image_data(
     image_data.bboxes_data = new_bboxes_data
     image_data.image_path = image_data.image_path
     image_data.image = image_data.image
+    return image_data
+
+
+def non_max_suppression_image_data_using_tf(
+    image_data: ImageData,
+    iou: float
+) -> ImageData:
+    import tensorflow as tf
+    image_data = copy.deepcopy(image_data)
+    bboxes = [
+        (bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax)
+        for bbox_data in image_data.bboxes_data
+    ]
+    scores = [bbox_data.detection_score if bbox_data.detection_score is not None else 1. for bbox_data in image_data.bboxes_data]
+    result = tf.image.non_max_suppression(bboxes, scores, len(image_data.bboxes_data), iou_threshold=iou)
+    image_data.bboxes_data = [image_data.bboxes_data[i] for i in result.numpy()]
     return image_data
 
 
