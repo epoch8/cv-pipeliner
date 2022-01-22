@@ -1,6 +1,6 @@
 import collections
 import copy
-from typing import Literal, List, Tuple, Callable
+from typing import Literal, List, Tuple, Callable, Optional
 
 import numpy as np
 import imutils
@@ -299,6 +299,7 @@ def visualize_image_data(
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     keypoints_radius: int = 5,
     include_additional_bboxes_data: bool = False,
+    additional_bboxes_data_depth: Optional[int] = None,
     fontsize: int = 24,
     thickness: int = 4
 ) -> np.ndarray:
@@ -310,12 +311,14 @@ def visualize_image_data(
     if include_additional_bboxes_data:
         bboxes_data = []
 
-        def recursive_get_bboxes_data(bbox_data):
+        def recursive_get_bboxes_data(bbox_data, depth):
+            if additional_bboxes_data_depth is not None and depth > additional_bboxes_data_depth:
+                return
             bboxes_data.append(bbox_data)
             for bbox_data in bbox_data.additional_bboxes_data:
-                recursive_get_bboxes_data(bbox_data)
+                recursive_get_bboxes_data(bbox_data, depth=depth+1)
         for bbox_data in image_data.bboxes_data:
-            recursive_get_bboxes_data(bbox_data)
+            recursive_get_bboxes_data(bbox_data, depth=0)
     else:
         bboxes_data = image_data.bboxes_data
     labels = [bbox_data.label for bbox_data in bboxes_data]
@@ -388,6 +391,7 @@ def visualize_images_data_side_by_side(
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     overlay: bool = False,
     include_additional_bboxes_data: bool = False,
+    additional_bboxes_data_depth: Optional[int] = None,
     fontsize: int = 24,
     thickness: int = 4
 ) -> np.ndarray:
@@ -407,6 +411,7 @@ def visualize_images_data_side_by_side(
         known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
         include_additional_bboxes_data=include_additional_bboxes_data,
+        additional_bboxes_data_depth=additional_bboxes_data_depth,
         fontsize=fontsize,
         thickness=thickness
     )
@@ -418,6 +423,7 @@ def visualize_images_data_side_by_side(
         known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
         include_additional_bboxes_data=include_additional_bboxes_data,
+        additional_bboxes_data_depth=additional_bboxes_data_depth,
         fontsize=fontsize,
         thickness=thickness
     )

@@ -2,7 +2,7 @@ import json
 from json.decoder import JSONDecodeError
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, Union, Type, Literal
+from typing import Any, Dict, List, Tuple, Union, Type, Literal, Callable
 from pathlib import Path
 
 import numpy as np
@@ -11,11 +11,11 @@ import requests
 from pathy import Pathy
 from joblib import Parallel, delayed
 
-
+from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
 )
-from cv_pipeliner.utils.images import denormalize_bboxes, get_image_b64, get_image_binary_format
+from cv_pipeliner.utils.images import denormalize_bboxes, get_image_b64
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 
 
@@ -24,6 +24,8 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
     config_path: Union[str, Path]
     checkpoint_path: Union[str, Path]
     class_names: Union[None, List[str]] = None
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
+    input_size: Union[Tuple[int, int], List[int]] = (None, None)
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -36,6 +38,8 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
     saved_model_dir: Union[str, Path]
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
     class_names: Union[None, List[str]] = None
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
+    input_size: Union[Tuple[int, int], List[int]] = (None, None)
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -51,6 +55,8 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     classes_output_index: Union[None, int]
     class_names: Union[None, List[str]] = None
     input_type: Literal["image_tensor", "float_image_tensor"] = "image_tensor"
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
+    input_size: Union[Tuple[int, int], List[int]] = (None, None)
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -164,10 +170,10 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             else:
                 self.class_names = np.array(model_spec.class_names)
 
-            if isinstance(model_spec, ObjectDetectionAPI_ModelSpec):
-                self.class_names_coef = 0  # saved_model.pb returns from 0
-            else:
+            if isinstance(model_spec, ObjectDetectionAPI_pb_ModelSpec):
                 self.class_names_coef = -1  # saved_model.pb returns from 1
+            else:
+                self.class_names_coef = 0
         else:
             self.class_names = None
             self.coef = -1
@@ -196,6 +202,16 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             raise ValueError(
                 f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}"
             )
+
+        if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
+            self._preprocess_input = get_preprocess_input_from_script_file(
+                script_file=model_spec.preprocess_input
+            )
+        else:
+            if model_spec.preprocess_input is None:
+                self._preprocess_input = lambda x: x
+            else:
+                self._preprocess_input = model_spec.preprocess_input
 
     def _parse_detection_output_dict(
         self,
@@ -352,7 +368,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         classification_top_n: int = 1
     ) -> DetectionOutput:
         height, width, _ = image.shape
-        raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_single_image(image)
+        input_image = self.preprocess_input([image])[0]
+        raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_single_image(input_image)
         bboxes, keypoints, scores, class_names_top_k, classes_scores_top_k = self._postprocess_prediction(
             raw_bboxes=raw_bboxes,
             raw_keypoints=raw_keypoints,
@@ -372,8 +389,6 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         classification_top_n: int = 1,
         n_jobs: int = 1
     ) -> DetectionOutput:
-        input = self.preprocess_input(input)
-
         results = Parallel(n_jobs=n_jobs, prefer="threads")(
             delayed(self._predict_single_image)(
                 image=image,
@@ -389,8 +404,8 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         return n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k
 
     def preprocess_input(self, input: DetectionInput):
-        return input
+        return self._preprocess_input(input)
 
     @property
     def input_size(self) -> Tuple[int, int]:
-        return (None, None)
+        return self.model_spec.input_size
