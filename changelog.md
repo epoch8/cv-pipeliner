@@ -1,3 +1,9 @@
+# 0.9.0
+- Added `preprocess_input` and `input_size` for Object Detection API detectors;
+- Fix exception bug in `non_max_suppression_image_data_using_tf` when `image_data.bboxes_data` are empty
+- Added argument `additional_bboxes_data_depth` to `visualize_image_data` to display only first `depth` additional_bboxes_data
+- Add variable `__version__` to package 
+
 # 0.8.2
 - Change function `cv_pipeliner.utils.images_datas.non_max_suppression_image_data_iou` -> `cv_pipeliner.utils.images_datas.non_max_suppression_image_data`
 - Fix bugs in `non_max_suppression_image_data` when detection_score is None, additional_info is not updated
