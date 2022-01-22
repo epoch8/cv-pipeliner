@@ -574,6 +574,8 @@ def non_max_suppression_image_data_using_tf(
 ) -> ImageData:
     import tensorflow as tf
     image_data = copy.deepcopy(image_data)
+    if len(image_data.bboxes_data) <= 1:
+        return image_data
     bboxes = [
         (bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax)
         for bbox_data in image_data.bboxes_data
