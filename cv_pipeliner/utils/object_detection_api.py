@@ -108,7 +108,7 @@ def tf_record_from_image_data(
         height=height,
         width=width,
         encoded_filename=encoded_filename,
-        encoded_jpg=encoded_jpg,
+        encoded_jpg=cv2_enc,
         image_format=image_format,
         xmins=xmins,
         ymins=ymins,
