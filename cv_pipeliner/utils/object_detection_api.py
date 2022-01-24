@@ -6,6 +6,7 @@ from typing import Dict, List, Union, Tuple
 import contextlib2
 import tensorflow as tf
 import numpy as np
+import cv2
 
 from PIL import Image
 from tqdm import tqdm
@@ -88,11 +89,16 @@ def tf_record_from_image_data(
 
     encoded_jpg = BytesIO()
     image = Image.fromarray(image)
+    
     if use_thumbnail:
         image.thumbnail(use_thumbnail)
-    image.save(encoded_jpg, format='JPEG')
-    encoded_jpg = encoded_jpg.getvalue()
-    image_format = b'jpg'
+    
+    
+    is_success, buffer = cv2.imencode('.png',  np.array(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))/51-2.5)# )
+
+    io_buf = BytesIO(buffer)
+    cv2_enc = io_buf.getvalue() 
+    image_format = b'png'
 
     class_names = [bbox_data.label for bbox_data in image_data.bboxes_data]
     encoded_class_names = [class_name.encode('utf-8') for class_name in class_names]
