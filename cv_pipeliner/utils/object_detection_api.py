@@ -31,7 +31,7 @@ from cv_pipeliner.core.data import ImageData
 
 logger = logging.getLogger(__name__)
 
-
+APPEND_COEFFS = np.array([[x*0.001 for x in range(512)] for y in range(512)])
 def create_tf_record(
     height: int,
     width: int,
@@ -91,10 +91,13 @@ def tf_record_from_image_data(
     image = Image.fromarray(image)
     
     if use_thumbnail:
-        image.thumbnail(use_thumbnail)
+        image = image.resize(use_thumbnail)
     
+    image = np.array(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
     
-    is_success, buffer = cv2.imencode('.png',  np.array(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))/51-2.5)# )
+    add_image = np.concatenate([np.array(image),np.expand_dims(APPEND_COEFFS, axis=2)],2)
+    
+    is_success, buffer = cv2.imencode('.png', add_image)# )
 
     io_buf = BytesIO(buffer)
     cv2_enc = io_buf.getvalue() 
