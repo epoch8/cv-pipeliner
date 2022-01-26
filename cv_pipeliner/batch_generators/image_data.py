@@ -19,4 +19,6 @@ class BatchGeneratorImageData(BatchGenerator):
         for image_data in batch:
             if image_data.image is None or not isinstance(image_data.image, np.ndarray):
                 image_data.open_image(inplace=True)
+            image_data.image = image_data.image/51-2.5
+                
         return batch
