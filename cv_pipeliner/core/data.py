@@ -1,5 +1,6 @@
 import copy
 import io
+import json
 
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -12,6 +13,7 @@ import PIL
 from pathy import Pathy
 
 from cv_pipeliner.utils.images import is_base64, open_image
+from cv_pipeliner.utils.imagesize import get_image_size
 
 
 def open_image_for_object(
@@ -72,10 +74,10 @@ class BboxData:
     image_path: ImagePath = None
     image: np.ndarray = None
     cropped_image: np.ndarray = None
-    xmin: int = None
-    ymin: int = None
-    xmax: int = None
-    ymax: int = None
+    xmin: Union[int, float] = None
+    ymin: Union[int, float] = None
+    xmax: Union[int, float] = None
+    ymax: Union[int, float] = None
     keypoints: List[Tuple[int, int]] = field(default_factory=list)
 
     detection_score: float = None
@@ -93,13 +95,9 @@ class BboxData:
             self.image_path = Pathy(self.image_path)
 
         if self.xmin is not None:
-            self.xmin = max(0, int(self.xmin))
+            self.xmin = max(0, self.xmin)
         if self.ymin is not None:
-            self.ymin = max(0, int(self.ymin))
-        if self.xmax is not None:
-            self.xmax = int(self.xmax)
-        if self.ymax is not None:
-            self.ymax = int(self.ymax)
+            self.ymin = max(0, self.ymin)
 
         if self.detection_score is not None:
             self.detection_score = float(self.detection_score)
@@ -116,7 +114,7 @@ class BboxData:
 
     @property
     def coords(self) -> Tuple[int, int, int, int]:
-        return (self.xmin, self.ymin, self.xmax, self.ymax)
+        return (round(self.xmin), round(self.ymin), round(self.xmax), round(self.ymax))
 
     def coords_with_offset(
         self,
@@ -126,9 +124,10 @@ class BboxData:
         ymax_offset: Union[int, float] = 0,
         source_image: np.ndarray = None
     ) -> Tuple[int, int, int, int]:
-        if source_image is None:
-            source_image = self.open_image()
-        height, width, _ = source_image.shape
+        if source_image is not None:
+            height, width, _ = source_image.shape
+        else:
+            width, height = self.get_image_size()
         if isinstance(xmin_offset, float):
             assert 0 < xmin_offset and xmin_offset < 1
             xmin_offset = int((self.xmax - self.xmin) * xmin_offset)
@@ -146,10 +145,10 @@ class BboxData:
         xmax_in_cropped_image = max(0, min(xmax_offset, width-self.xmax))
         ymax_in_cropped_image = max(0, min(ymax_offset, height-self.ymax))
         return (
-            self.xmin-xmin_in_cropped_image,
-            self.ymin-ymin_in_cropped_image,
-            self.xmax+xmax_in_cropped_image,
-            self.ymax+ymax_in_cropped_image
+            round(self.xmin-xmin_in_cropped_image),
+            round(self.ymin-ymin_in_cropped_image),
+            round(self.xmax+xmax_in_cropped_image),
+            round(self.ymax+ymax_in_cropped_image)
         )
 
     def open_cropped_image(
@@ -218,12 +217,22 @@ class BboxData:
     ) -> Union[None, np.ndarray]:
         return open_image_for_object(obj=self, inplace=inplace)
 
+    def get_image_size(self) -> Tuple[int, int]:
+        """
+            Returns (width, height) of image without opening it fully.
+        """
+        if self.image is not None:
+            height, width, _ = self.image.shape
+        else:
+            width, height = get_image_size(self.image_path)
+        return width, height
+
     def json(self, include_image_path: bool = True) -> Dict:
         result_json = {
-            'xmin': int(self.xmin),
-            'ymin': int(self.ymin),
-            'xmax': int(self.xmax),
-            'ymax': int(self.ymax)
+            'xmin': self.xmin if isinstance(self.xmin, int) else round(self.xmin, 6),
+            'ymin': self.ymin if isinstance(self.ymin, int) else round(self.ymin, 6),
+            'xmax': self.xmax if isinstance(self.xmax, int) else round(self.xmax, 6),
+            'ymax': self.ymax if isinstance(self.ymax, int) else round(self.ymax, 6),
         }
         if include_image_path:
             result_json['image_path'] = get_image_path_as_str(self.image_path)
@@ -270,9 +279,14 @@ class BboxData:
         return self
 
     @staticmethod
-    def from_json(d: Dict, image_path: ImagePath = None):
+    def from_json(d: Union[None, Path, str, Dict[str, Any], fsspec.core.OpenFile], image_path: ImagePath = None):
         if d is None:
-            return ImageData()
+            return BboxData(image_path=image_path)
+        if isinstance(d, str) or isinstance(d, Path):
+            d = json.load(fsspec.open(d, 'r'))
+        if isinstance(d, fsspec.core.OpenFile):
+            with d as f:
+                d = json.load(f)
 
         return BboxData()._from_json(d=d, image_path=image_path)
 
@@ -309,6 +323,16 @@ class ImageData:
         inplace: bool = False
     ) -> Union[None, np.ndarray]:
         return open_image_for_object(obj=self, inplace=inplace)
+    
+    def get_image_size(self) -> Tuple[int, int]:
+        """
+            Returns (width, height) of image without opening it fully.
+        """
+        if self.image is not None:
+            height, width, _ = self.image.shape
+        else:
+            width, height = get_image_size(self.image_path)
+        return width, height
 
     def json(self) -> Dict:
         result_json = {
@@ -324,7 +348,7 @@ class ImageData:
 
         return result_json
 
-    def _from_json(self, d):
+    def _from_json(self, d: Union[str, Path, Dict]):
         for key in ImageData.__dataclass_fields__:
             if key in d:
                 if key == 'image_path' and self.image_path is not None:
@@ -341,9 +365,14 @@ class ImageData:
         return self
 
     @staticmethod
-    def from_json(d, image_path: ImagePath = None):
+    def from_json(d: Union[None, Path, str, Dict[str, Any], fsspec.core.OpenFile], image_path: ImagePath = None):
         if d is None:
             return ImageData(image_path=image_path)
+        if isinstance(d, str) or isinstance(d, Path):
+            d = json.load(fsspec.open(d, 'r'))
+        if isinstance(d, fsspec.core.OpenFile):
+            with d as f:
+                d = json.load(f)
         if 'image_data' in d:
             d = d['image_data']
         return ImageData(image_path=image_path)._from_json(d)
