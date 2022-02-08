@@ -12,15 +12,8 @@ from cv_pipeliner.core.data import BboxData, ImageData
 
 
 class DataConverter(abc.ABC):
-    def __init__(
-        self,
-        class_names: List[str] = None,
-        class_mapper: Dict[str, str] = None,
-        skip_nonexists: bool = False
-    ):
-        self.class_names = class_names
-        self.class_mapper = class_mapper
-        self.skip_nonexists = skip_nonexists
+    def __init__(self):
+        pass
 
     def filter_image_data(
         self,
@@ -49,17 +42,6 @@ class DataConverter(abc.ABC):
                     f"incorrect bbox (xmin, ymin, xmax, ymax): {(xmin, ymin, xmax, ymax)} "
                     "(xmin >= xmax or ymin >= ymax or xmin < 0 or ymin < 0). Skipping."
                 )
-                continue
-
-            if self.class_mapper is not None:
-                if bbox_data.label in self.class_mapper:
-                    bbox_data.label = self.class_mapper[bbox_data.label]
-            if (
-                self.class_names is not None and
-                (
-                    bbox_data.label not in self.class_names and self.skip_nonexists
-                )
-            ):
                 continue
 
             new_bboxes_data.append(bbox_data)
