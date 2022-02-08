@@ -50,7 +50,7 @@ class BrickitDataConverter(DataConverter):
         if isinstance(annots, str) or isinstance(annots, Path):
             with fsspec.open(annots, 'r', encoding='utf8') as f:
                 annots = json.load(f)
-        if isinstance(annots, fsspec.core.OpenFile):
+        elif isinstance(annots, fsspec.core.OpenFile):
             with annots as f:
                 annots = json.load(f)
         images_dir = Pathy(images_dir)
