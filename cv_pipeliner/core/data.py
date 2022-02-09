@@ -116,6 +116,11 @@ class BboxData:
     def coords(self) -> Tuple[int, int, int, int]:
         return (round(self.xmin), round(self.ymin), round(self.xmax), round(self.ymax))
 
+    @property
+    def coords_n(self) -> Tuple[int, int, int, int]:
+        width, height = self.get_image_size()
+        return self.xmin / width, self.ymin / height, self.xmax / width, self.ymax / height
+
     def coords_with_offset(
         self,
         xmin_offset: Union[int, float] = 0,
@@ -283,8 +288,9 @@ class BboxData:
         if d is None:
             return BboxData(image_path=image_path)
         if isinstance(d, str) or isinstance(d, Path):
-            d = json.load(fsspec.open(d, 'r'))
-        if isinstance(d, fsspec.core.OpenFile):
+            with fsspec.open(d, 'r') as f:
+                d = json.loads(f.read())
+        elif isinstance(d, fsspec.core.OpenFile):
             with d as f:
                 d = json.load(f)
 
@@ -369,8 +375,9 @@ class ImageData:
         if d is None:
             return ImageData(image_path=image_path)
         if isinstance(d, str) or isinstance(d, Path):
-            d = json.load(fsspec.open(d, 'r'))
-        if isinstance(d, fsspec.core.OpenFile):
+            with fsspec.open(d, 'r') as f:
+                d = json.loads(f.read())
+        elif isinstance(d, fsspec.core.OpenFile):
             with d as f:
                 d = json.load(f)
         if 'image_data' in d:
