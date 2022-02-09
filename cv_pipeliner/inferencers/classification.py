@@ -142,8 +142,14 @@ class ClassificationInferencer(Inferencer):
         top_n: int = 1,
         open_images_in_data: bool = False,
         disable_tqdm: bool = False,
-        progress_callback: Callable[[int], None] = lambda progress: None
+        progress_callback: Callable[[int], None] = lambda progress: None,
+        batch_size_default: int = 32
     ) -> Union[List[ImageData], List[List[BboxData]]]:
+        if isinstance(data_gen, list):
+            if all(isinstance(d, ImageData) for d in data_gen):
+                data_gen = BatchGeneratorImageData(data_gen, batch_size=batch_size_default)
+            elif all(isinstance(d, BboxData) for d in data_gen):
+                data_gen = BatchGeneratorBboxData(data_gen, batch_size=batch_size_default)
         if isinstance(data_gen, BatchGeneratorImageData):
             return self._predict_images_data(
                 images_data_gen=data_gen,

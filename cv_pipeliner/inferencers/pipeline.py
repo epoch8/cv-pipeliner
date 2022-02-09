@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple, Union
 from tqdm import tqdm
 
 from cv_pipeliner.core.data import BboxData, ImageData
@@ -68,7 +68,7 @@ class PipelineInferencer(Inferencer):
 
     def predict(
         self,
-        images_data_gen: BatchGeneratorImageData,
+        images_data_gen: Union[List[ImageData], BatchGeneratorImageData],
         detection_score_threshold: float,
         classification_top_n: int = 1,
         open_images_in_images_data: bool = False,  # Warning: hard memory use
@@ -78,8 +78,11 @@ class PipelineInferencer(Inferencer):
         classification_batch_size: int = 16,
         detection_kwargs: Dict[str, Any] = {},
         classification_kwargs: Dict[str, Any] = {},
-        progress_callback: Callable[[int], None] = lambda progress: None
+        progress_callback: Callable[[int], None] = lambda progress: None,
+        batch_size_default: int = 16
     ) -> List[ImageData]:
+        if isinstance(images_data_gen, list):
+            images_data_gen = BatchGeneratorImageData(images_data_gen, batch_size=batch_size_default)
         assert isinstance(images_data_gen, BatchGeneratorImageData)
         pred_images_data = []
         with tqdm(total=len(images_data_gen.data), disable=disable_tqdm) as pbar:

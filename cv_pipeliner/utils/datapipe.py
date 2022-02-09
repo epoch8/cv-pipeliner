@@ -1,6 +1,7 @@
 import json
 import numpy as np
 from typing import Any, Dict, IO
+
 from datapipe.store.filedir import ItemStoreFileAdapter
 from cv_pipeliner.core.data import ImageData
 

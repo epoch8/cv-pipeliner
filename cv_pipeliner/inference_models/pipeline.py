@@ -15,12 +15,16 @@ from cv_pipeliner.logging import logger
 @dataclass
 class PipelineModelSpec(ModelSpec):
     detection_model_spec: DetectionModelSpec
-    classification_model_spec: Union[ClassificationModelSpec, None]
+    classification_model_spec: Union[ClassificationModelSpec, None] = None
 
     @property
     def inference_model_cls(self) -> Type['PipelineModel']:
         from cv_pipeliner.inference_models.pipeline import PipelineModel
         return PipelineModel
+
+    def load_pipeline_inferencer(self) -> 'PipelineInferencer':
+        from cv_pipeliner.inferencers.pipeline import PipelineInferencer
+        return PipelineInferencer(self.load())
 
 
 Bbox = Tuple[int, int, int, int]  # (ymin, xmin, ymax, xmax)

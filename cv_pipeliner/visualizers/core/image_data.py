@@ -1,6 +1,6 @@
 import collections
 import copy
-from typing import Literal, List, Tuple, Callable, Optional
+from typing import Literal, List, Tuple, Callable, Optional, Union
 
 import numpy as np
 import imutils
@@ -301,8 +301,9 @@ def visualize_image_data(
     include_additional_bboxes_data: bool = False,
     additional_bboxes_data_depth: Optional[int] = None,
     fontsize: int = 24,
-    thickness: int = 4
-) -> np.ndarray:
+    thickness: int = 4,
+    return_as_pil_image: bool = False
+) -> Union[np.ndarray, Image.Image]:
     image_data = get_image_data_filtered_by_labels(
         image_data=image_data,
         filter_by_labels=filter_by_labels
@@ -375,6 +376,9 @@ def visualize_image_data(
                 inplace=True
             )
 
+    if return_as_pil_image:
+        return Image.fromarray(image)
+
     return image
 
 
@@ -393,8 +397,9 @@ def visualize_images_data_side_by_side(
     include_additional_bboxes_data: bool = False,
     additional_bboxes_data_depth: Optional[int] = None,
     fontsize: int = 24,
-    thickness: int = 4
-) -> np.ndarray:
+    thickness: int = 4,
+    return_as_pil_image: bool = False
+) -> Union[np.ndarray, Image.Image]:
 
     if overlay:
         image_data1 = copy.deepcopy(image_data1)
@@ -432,5 +437,8 @@ def visualize_images_data_side_by_side(
         image = cv2.addWeighted(src1=true_ann_image, alpha=1., src2=pred_ann_image, beta=1., gamma=0.)
     else:
         image = cv2.hconcat([true_ann_image, pred_ann_image])
+
+    if return_as_pil_image:
+        return Image.fromarray(image)
 
     return image

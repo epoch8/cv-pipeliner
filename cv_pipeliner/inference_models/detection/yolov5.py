@@ -16,7 +16,9 @@ from cv_pipeliner.utils.images import denormalize_bboxes
 
 @dataclass
 class YOLOv5_ModelSpec(DetectionModelSpec):
-    # Can be loaded as torch.hub.load('ultralytics/yolov5', 'yolov5s')
+    """
+    note: model_path can be set as torch.hub.load('ultralytics/yolov5', 'yolov5s')
+    """
     model_path: Union[None, str, Path, 'torch.nn.Module']  # noqa: F821
 
     class_names: Union[None, List[str]]

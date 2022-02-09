@@ -20,6 +20,10 @@ class ClassificationModelSpec(ModelSpec):
     def inference_model_cls(self) -> Type['ClassificationModel']:
         pass
 
+    def load_detection_inferencer(self) -> 'ClassificationInferencer':
+        from cv_pipeliner.inferencers.classification import ClassificationInferencer
+        return ClassificationInferencer(self.load())
+
 
 class ClassificationModel(InferenceModel):
     def __init__(self, model_spec: ClassificationModelSpec):

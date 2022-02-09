@@ -13,7 +13,7 @@ from cv_pipeliner.utils.images_datas import (
     rotate_image_data, crop_image_data, get_perspective_matrix_for_base_keypoints,
     apply_perspective_transform_to_image_data,
     thumbnail_image_data, non_max_suppression_image_data, uncrop_bboxes_data,
-    resize_image_data
+    resize_image_data, split_image_by_grid, flatten_additional_bboxes_data_in_image_data
 )
 from cv_pipeliner.inference_models.detection.object_detection_api import (
     ObjectDetectionAPI_KFServing, ObjectDetectionAPI_ModelSpec, ObjectDetectionAPI_TFLite_ModelSpec,
@@ -28,9 +28,8 @@ from cv_pipeliner.inference_models.pipeline import PipelineModelSpec, PipelineMo
 from cv_pipeliner.inferencers.detection import DetectionInferencer
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
-
-
 from cv_pipeliner.data_converters.coco import COCODataConverter
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.data_converters.json import JSONDataConverter
 from cv_pipeliner.data_converters.supervisely import SuperviselyDataConverter
+from cv_pipeliner.utils.imagesize import get_image_size

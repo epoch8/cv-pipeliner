@@ -1,5 +1,5 @@
 import copy
-from typing import List, Literal, Tuple
+from typing import List, Literal, Optional, Tuple
 
 import numpy as np
 import cv2
@@ -801,4 +801,26 @@ def concat_images_data(
         }
     )
 
+    return image_data
+
+
+def flatten_additional_bboxes_data_in_image_data(
+    image_data: ImageData,
+    additional_bboxes_data_depth: Optional[int] = None,
+) -> ImageData:
+    image_data = copy.deepcopy(image_data)
+    bboxes_data = []
+
+    def _append_bbox_data(bbox_data: BboxData, depth: int):
+        if additional_bboxes_data_depth is not None and depth > additional_bboxes_data_depth:
+            return
+        bboxes_data.append(bbox_data)
+        for additional_bbox_data in bbox_data.additional_bboxes_data:
+            _append_bbox_data(additional_bbox_data)
+        bbox_data.additional_bboxes_data = []
+
+    for bbox_data in bboxes_data:
+        _append_bbox_data(bbox_data, depth=0)
+
+    image_data.bboxes_data = bboxes_data
     return image_data
