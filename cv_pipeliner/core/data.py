@@ -323,7 +323,7 @@ class ImageData:
         inplace: bool = False
     ) -> Union[None, np.ndarray]:
         return open_image_for_object(obj=self, inplace=inplace)
-    
+
     def get_image_size(self) -> Tuple[int, int]:
         """
             Returns (width, height) of image without opening it fully.

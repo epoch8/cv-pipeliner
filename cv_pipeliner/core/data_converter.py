@@ -48,6 +48,7 @@ class DataConverter(abc.ABC):
 
         image_data = ImageData(
             image_path=image_data.image_path,
+            image=image_data.image,
             bboxes_data=new_bboxes_data,
             additional_info=image_data.additional_info
         )

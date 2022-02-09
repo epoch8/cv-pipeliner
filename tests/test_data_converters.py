@@ -3,7 +3,7 @@ from pathlib import Path
 import fsspec
 import json
 from cv_pipeliner.core.data import ImageData, BboxData
-from cv_pipeliner.data_converters.coco import COCO_LabelsDataConverter
+from cv_pipeliner.data_converters.coco import COCODataConverter
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.data_converters.json import JSONDataConverter
 from cv_pipeliner.data_converters.supervisely import SuperviselyDataConverter
@@ -72,11 +72,11 @@ coco_class_names = [
 
 @pytest.mark.parametrize(
     "data_convertor_cls",
-    [COCO_LabelsDataConverter, BrickitDataConverter, JSONDataConverter, SuperviselyDataConverter],
+    [COCODataConverter, BrickitDataConverter, JSONDataConverter, SuperviselyDataConverter],
 )
 def test_data_convertor(tmp_dir, data_convertor_cls):
     kwargs = {}
-    if data_convertor_cls == COCO_LabelsDataConverter:
+    if data_convertor_cls == COCODataConverter:
         kwargs = {'class_names': coco_class_names}
     data_converter = data_convertor_cls(**kwargs)
     annots = data_converter.get_annot_from_images_data(images_data)
@@ -84,7 +84,7 @@ def test_data_convertor(tmp_dir, data_convertor_cls):
     extenstion = "json"
     images_paths = []
     annots_paths = []
-    if data_convertor_cls == COCO_LabelsDataConverter:
+    if data_convertor_cls == COCODataConverter:
         annots = ['\n'.join(annot) for annot in annots]
         extenstion = "txt"
 
@@ -94,7 +94,7 @@ def test_data_convertor(tmp_dir, data_convertor_cls):
             image_path = image_data.image_path
             annot_path = tmp_dir / f"{image_data.image_path.name}.{extenstion}"
             with fsspec.open(annot_path, "w") as out:
-                if data_convertor_cls == COCO_LabelsDataConverter:
+                if data_convertor_cls == COCODataConverter:
                     out.write(annot)
                 else:
                     json.dump(annot, out)

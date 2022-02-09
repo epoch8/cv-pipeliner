@@ -1,8 +1,10 @@
 # 0.10.0
 - `ImageData.from_json()` can now be used on paths to json files
-- Added `COCO_LabelsDataConverter` for COCO annotations
+- Added `COCODataConverter` for COCO annotations
 - Added tests for `DataConverter`
 - Added `utils.imagesize` (taken from https://github.com/shibukawa/imagesize_py), with support of fsspec file-like objects
+- Added DetectionModel for YOLOv5 in `inference_models.detection.yolov5`
+- Pipeline's model logging level changed from INFO to DEBUG.
 
 # 0.9.0
 - Added `preprocess_input` and `input_size` for Object Detection API detectors;
