@@ -1,6 +1,6 @@
 import json
 
-from typing import Union, Dict, List
+from typing import Union, Dict
 from pathlib import Path
 from pathy import Pathy
 
@@ -11,20 +11,14 @@ from cv_pipeliner.core.data import ImageData
 
 
 class JSONDataConverter(DataConverter):
-    def __init__(self,
-                 class_names: List[str] = None,
-                 class_mapper: Dict[str, str] = None,
-                 skip_nonexists: bool = False):
-        super().__init__(
-            class_names=class_names,
-            class_mapper=class_mapper,
-            skip_nonexists=skip_nonexists
-        )
+    def __init__(self):
+        pass
 
     def get_annot_from_image_data(
         self,
         image_data: ImageData
     ) -> Dict:
+        image_data = self.filter_image_data(image_data)
         return image_data.json()
 
     @DataConverter.assert_image_data
@@ -36,8 +30,10 @@ class JSONDataConverter(DataConverter):
         if isinstance(annot, str) or isinstance(annot, Path):
             with fsspec.open(annot, 'r', encoding='utf8') as f:
                 annots = json.load(f)
-        if isinstance(annot, fsspec.core.OpenFile):
+        elif isinstance(annot, fsspec.core.OpenFile):
             with annot as f:
                 annots = json.load(f)
+        else:
+            annots = annot
         image_path = Pathy(image_path)
         return ImageData.from_json(annots, image_path=image_path)

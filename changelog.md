@@ -1,3 +1,21 @@
+# 0.10.0
+- `ImageData.from_json()` can now be used on paths to json files
+- Added `COCODataConverter` for COCO annotations
+- Added tests for `DataConverter`
+- Added `utils.imagesize` (taken from https://github.com/shibukawa/imagesize_py), with support of fsspec file-like objects
+- Added DetectionModel for YOLOv5 in `inference_models.detection.yolov5`
+- Pipeline's model logging level changed from INFO to DEBUG.
+- Add `FiftyOneSession` for simplier using with FiftyOne (in `utils.fiftyone`)
+- Added function `utils.images_data.flatten_additional_bboxes_data_in_image_data`
+- `DetectionInferencer`, `ClassificationInferencer` and `PipelineInferencer` now can accept list of `ImageData` (of `BboxData` for `ClassificationInferencer`), with `batch_size_default=16` for Detection/Pipeline and `batch_size_default=32` for Classification
+- Add method `.load_detection_inferencer()` to class `DetectionModelSpec` that loads model and returns corresponding `cv_pipeliner.inferencers.DetectionInferencer`
+- Add method `.load_classification_inferencer()` to class `ClassificationModelSpec` that loads model and returns corresponding `cv_pipeliner.inferencers.ClassificationInferencer`
+- Add method `.load_pipeline_inferencer()` to class `PipelineModelSpec` that loads model and returns corresponding `cv_pipeliner.inferencers.PipelineInferencer`
+- Argument `classification_model_spec` is now `None` by default for `PipelineModelSpec`
+
+- Add argument `return_as_pil_image: bool` set default as `False` in `visualize_image_data`, `visualize_images_data_side_by_side` and `visualize_image_data_matching_side_by_side`, that returns images as `PIL.Image.Image`
+
+
 # 0.9.0
 - Added `preprocess_input` and `input_size` for Object Detection API detectors;
 - Fix exception bug in `non_max_suppression_image_data_using_tf` when `image_data.bboxes_data` are empty

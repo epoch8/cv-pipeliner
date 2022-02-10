@@ -15,12 +15,16 @@ from cv_pipeliner.logging import logger
 @dataclass
 class PipelineModelSpec(ModelSpec):
     detection_model_spec: DetectionModelSpec
-    classification_model_spec: Union[ClassificationModelSpec, None]
+    classification_model_spec: Union[ClassificationModelSpec, None] = None
 
     @property
     def inference_model_cls(self) -> Type['PipelineModel']:
         from cv_pipeliner.inference_models.pipeline import PipelineModel
         return PipelineModel
+
+    def load_pipeline_inferencer(self) -> 'PipelineInferencer':
+        from cv_pipeliner.inferencers.pipeline import PipelineInferencer
+        return PipelineInferencer(self.load())
 
 
 Bbox = Tuple[int, int, int, int]  # (ymin, xmin, ymax, xmax)
@@ -90,7 +94,7 @@ class PipelineModel(InferenceModel):
         classification_kwargs: Dict[str, Any] = {},
         disable_tqdm_classification: bool = False
     ) -> PipelineOutput:
-        logger.info("Running detection...")
+        logger.debug("Running detection...")
         (
             n_pred_bboxes, n_pred_keypoints, n_pred_detection_scores,
             n_pred_class_names_top_k, n_pred_classification_scores_top_k
@@ -100,11 +104,11 @@ class PipelineModel(InferenceModel):
             classification_top_n=classification_top_n,
             **detection_kwargs
         )
-        logger.info(
+        logger.debug(
             f"Detection: found {np.sum([len(pred_bboxes) for pred_bboxes in n_pred_bboxes])} bboxes!"
         )
 
-        logger.info("Running classification...")
+        logger.debug("Running classification...")
         if self.classification_model is None:
             # Detector is the pipeline itself
             return (
@@ -132,7 +136,7 @@ class PipelineModel(InferenceModel):
                     pbar.update(len(pred_bboxes_batch))
         n_pred_labels_top_n = self._split_chunks(pred_labels_top_n, shapes)
         n_pred_classification_scores_top_n = self._split_chunks(pred_classification_scores_top_n, shapes)
-        logger.info("Classification end!")
+        logger.debug("Classification end!")
         return (
             n_pred_bboxes,
             n_pred_keypoints,

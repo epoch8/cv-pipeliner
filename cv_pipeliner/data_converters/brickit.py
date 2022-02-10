@@ -11,16 +11,6 @@ from cv_pipeliner.core.data import BboxData, ImageData
 
 
 class BrickitDataConverter(DataConverter):
-    def __init__(self,
-                 class_names: List[str] = None,
-                 class_mapper: Dict[str, str] = None,
-                 skip_nonexists: bool = False):
-        super().__init__(
-            class_names=class_names,
-            class_mapper=class_mapper,
-            skip_nonexists=skip_nonexists
-        )
-
     def get_annot_from_image_data(
         self,
         image_data: ImageData
@@ -29,6 +19,7 @@ class BrickitDataConverter(DataConverter):
             'filename': image_data.image_name,
             'objects': []
         }
+        image_data = self.filter_image_data(image_data)
         for bbox_data in image_data.bboxes_data:
             bbox_data_json = bbox_data.json()
             obj = {
@@ -59,7 +50,7 @@ class BrickitDataConverter(DataConverter):
         if isinstance(annots, str) or isinstance(annots, Path):
             with fsspec.open(annots, 'r', encoding='utf8') as f:
                 annots = json.load(f)
-        if isinstance(annots, fsspec.core.OpenFile):
+        elif isinstance(annots, fsspec.core.OpenFile):
             with annots as f:
                 annots = json.load(f)
         images_dir = Pathy(images_dir)
@@ -117,9 +108,13 @@ class BrickitDataConverter(DataConverter):
         if isinstance(annot, str) or isinstance(annot, Path):
             with fsspec.open(annot, 'r', encoding='utf8') as f:
                 annots = json.load(f)
-        if isinstance(annot, fsspec.core.OpenFile):
+        elif isinstance(annot, fsspec.core.OpenFile):
             with annot as f:
                 annots = json.load(f)
+        elif isinstance(annot, dict):
+            annots = [annot]
+        else:
+            annots = annot
         image_path = Pathy(image_path)
         annots = [annot for annot in annots if annot['filename'] == image_path.name]
 

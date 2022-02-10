@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Union
 
 from tqdm import tqdm
 
@@ -54,13 +54,16 @@ class DetectionInferencer(Inferencer):
 
     def predict(
         self,
-        images_data_gen: BatchGeneratorImageData,
+        images_data_gen: Union[List[ImageData], BatchGeneratorImageData],
         score_threshold: float,
         open_images_in_images_data: bool = False,  # Warning: hard memory use
         open_cropped_images_in_bboxes_data: bool = False,
         disable_tqdm: bool = False,
-        progress_callback: Callable[[int], None] = lambda progress: None
+        progress_callback: Callable[[int], None] = lambda progress: None,
+        batch_size_default: int = 16
     ) -> List[ImageData]:
+        if isinstance(images_data_gen, list):
+            images_data_gen = BatchGeneratorImageData(images_data_gen, batch_size=batch_size_default)
         assert isinstance(images_data_gen, BatchGeneratorImageData)
         pred_images_data = []
         with tqdm(total=len(images_data_gen.data), disable=disable_tqdm) as pbar:

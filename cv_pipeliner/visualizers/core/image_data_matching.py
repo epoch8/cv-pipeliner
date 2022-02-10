@@ -1,6 +1,7 @@
-from typing import List, Literal, Callable
+from typing import List, Literal, Callable, Union
 
 import numpy as np
+from PIL import Image
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
@@ -81,8 +82,9 @@ def visualize_image_data_matching_side_by_side(
     pred_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     known_labels: List[str] = [],
-    label: str = None
-) -> np.ndarray:
+    label: str = None,
+    return_as_pil_image: bool = False
+) -> Union[np.ndarray, Image.Image]:
 
     (true_image_data_with_visualized_labels,
      pred_image_data_with_visualized_labels) = get_true_and_pred_images_data_with_visualized_labels(
@@ -102,7 +104,7 @@ def visualize_image_data_matching_side_by_side(
         if any(f"[{matching_error_type}]" in label for matching_error_type in pred_filter_by_error_types)
     ]
 
-    image = visualize_images_data_side_by_side(
+    return visualize_images_data_side_by_side(
         image_data1=true_image_data_with_visualized_labels,
         image_data2=pred_image_data_with_visualized_labels,
         use_labels1=true_use_labels, use_labels2=pred_use_labels,
@@ -111,5 +113,5 @@ def visualize_image_data_matching_side_by_side(
         filter_by_labels2=pred_filter_by_labels,
         known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+        return_as_pil_image=return_as_pil_image
     )
-    return image

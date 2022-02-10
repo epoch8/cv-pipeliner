@@ -31,6 +31,10 @@ class DetectionModelSpec(ModelSpec):
     def inference_model_cls(self) -> Type['DetectionModel']:
         pass
 
+    def load_detection_inferencer(self) -> 'DetectionInferencer':
+        from cv_pipeliner.inferencers.detection import DetectionInferencer
+        return DetectionInferencer(self.load())
+
 
 class DetectionModel(InferenceModel):
     @abc.abstractmethod

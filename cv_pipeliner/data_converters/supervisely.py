@@ -10,16 +10,6 @@ from cv_pipeliner.core.data import BboxData, ImageData
 
 
 class SuperviselyDataConverter(DataConverter):
-    def __init__(self,
-                 class_names: List[str] = None,
-                 class_mapper: Dict[str, str] = None,
-                 skip_nonexists: bool = False):
-        super().__init__(
-            class_names=class_names,
-            class_mapper=class_mapper,
-            skip_nonexists=skip_nonexists
-        )
-
     @DataConverter.assert_image_data
     def get_image_data_from_annot(
         self,
@@ -57,6 +47,7 @@ class SuperviselyDataConverter(DataConverter):
         self,
         image_data: ImageData
     ) -> Dict:
+        image_data = self.filter_image_data(image_data)
         image = image_data.open_image()
         height, width, _ = image.shape
         annot = {
