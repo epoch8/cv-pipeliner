@@ -34,7 +34,7 @@ class EmbedderInferencer(Inferencer):
             assert isinstance(images_data_gen, BatchGeneratorImageData)
 
         pred_embeddings = []
-        for images in tqdm(images_data_gen, total=len(images_data_gen), disable_tqdm=disable_tqdm):
+        for images in tqdm(images_data_gen, total=len(images_data_gen), disable=disable_tqdm):
             if use_dataloader_torch:
                 images = images[0]
             else:
