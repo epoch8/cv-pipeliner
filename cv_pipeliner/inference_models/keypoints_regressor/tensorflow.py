@@ -142,7 +142,7 @@ class Tensorflow_KeypointsRegressorModel(KeypointsRegressorModel):
     ):
         import tensorflow as tf
         if self.model_spec.saved_model_type == "tf.saved_model":
-            input_tensor = tf.convert_to_tensor(images, dtype=self.input_dtype)
+            input_tensor = tf.convert_to_tensor(np.array(images), dtype=self.input_dtype)
             raw_predictions_batch = self.model(input_tensor)
             if isinstance(raw_predictions_batch, dict):
                 key = list(raw_predictions_batch)[0]
@@ -153,7 +153,7 @@ class Tensorflow_KeypointsRegressorModel(KeypointsRegressorModel):
             else:
                 raw_predictions_batch = []
         elif self.model_spec.saved_model_type == 'tflite':
-            images = tf.convert_to_tensor(images, dtype=self.input_dtype)
+            images = tf.convert_to_tensor(np.array(images), dtype=self.input_dtype)
             self.model.resize_tensor_input(0, [len(images), *self.input_size, 3])
             self.model.allocate_tensors()
             self.model.set_tensor(self.input_index, images)

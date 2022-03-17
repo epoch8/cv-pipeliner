@@ -53,7 +53,7 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     bboxes_output_index: Union[int, str]
     scores_output_index: Union[int, str]
     classes_output_index: Optional[Union[int, str]]
-    multiclasses_scores_output_index: Optional[Union[int, str]]
+    multiclasses_scores_output_index: Optional[Union[int, str]] = None
     class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
@@ -156,13 +156,13 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         else:
             self.bboxes_index = output_details[model_spec.bboxes_output_index]['index']
         if isinstance(model_spec.bboxes_output_index, str):
-            self.scores_index = output_name_to_index[model_spec.bboxes_output_index]
+            self.scores_index = output_name_to_index[model_spec.scores_output_index]
         else:
-            self.scores_index = output_details[model_spec.bboxes_output_index]['index']
+            self.scores_index = output_details[model_spec.scores_output_index]['index']
         if isinstance(model_spec.classes_output_index, str):
-            self.classes_index = output_name_to_index[model_spec.bboxes_output_index]
+            self.classes_index = output_name_to_index[model_spec.classes_output_index]
         else:
-            self.classes_index = output_details[model_spec.bboxes_output_index]['index']
+            self.classes_index = output_details[model_spec.classes_output_index]['index']
         self.input_dtype = input_detail['dtype']
         temp_file.close()
 

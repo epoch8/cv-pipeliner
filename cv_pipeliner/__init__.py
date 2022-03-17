@@ -24,6 +24,8 @@ from cv_pipeliner.inference_models.detection.yolov5 import YOLOv5_ModelSpec, YOL
 from cv_pipeliner.inference_models.classification.tensorflow import (
     TensorFlow_ClassificationModelSpec, TensorFlow_ClassificationModelSpec_TFServing
 )
+from cv_pipeliner.inference_models.embedder.pytorch import PyTorch_EmbedderModelSpec
+from cv_pipeliner.inference_models.embedder.tensorflow import TensorFlow_EmbedderModelSpec
 from cv_pipeliner.inference_models.keypoints_regressor.tensorflow import (
     TensorFlow_KeypointsRegressorModelSpec, TensorFlow_KeypointsRegressorModelSpec_TFServing
 )

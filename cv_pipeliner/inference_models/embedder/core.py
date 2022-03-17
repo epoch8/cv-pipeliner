@@ -14,6 +14,10 @@ class EmbedderModelSpec(ModelSpec):
     def inference_model_cls(self) -> Type['EmbedderModel']:
         pass
 
+    def load_embedder_inferencer(self) -> 'EmbedderInferencer':
+        from cv_pipeliner.inferencers.embedder import EmbedderInferencer
+        return EmbedderInferencer(self.load())
+
 
 class EmbedderModel(InferenceModel):
     def __init__(self, model_spec: EmbedderModelSpec):
