@@ -19,3 +19,4 @@ my_exports*.sh
 notebooks/reports/
 result*/
 tests/tmp/
+charts/

@@ -17,7 +17,8 @@ class EmbedderInferencer(Inferencer):
     def predict(
         self,
         images_data_gen: Union[ImageData, BatchGeneratorImageData, 'DataLoader'],
-        batch_size_default: int = 16
+        batch_size_default: int = 16,
+        disable_tqdm: bool = False
     ) -> List[np.ndarray]:
         try:
             from torch.utils.data import DataLoader
@@ -33,7 +34,7 @@ class EmbedderInferencer(Inferencer):
             assert isinstance(images_data_gen, BatchGeneratorImageData)
 
         pred_embeddings = []
-        for images in tqdm(images_data_gen, total=len(images_data_gen)):
+        for images in tqdm(images_data_gen, total=len(images_data_gen), disable_tqdm=disable_tqdm):
             if use_dataloader_torch:
                 images = images[0]
             else:
