@@ -7,7 +7,7 @@ from PIL import Image
 
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.metrics.image_data_matching import intersection_over_union
-from cv_pipeliner.utils.images import concat_images
+from cv_pipeliner.utils.images import concat_images, get_thumbnail_resize
 
 
 def get_image_data_filtered_by_labels(
@@ -156,7 +156,9 @@ def _rotate_bbox_data90(
 
 def rotate_image_data(
     image_data: ImageData,
-    angle: float
+    angle: float,
+    border_mode: Optional[int] = None,
+    border_value: Tuple[int, int, int] = None
 ):
     if abs(angle) <= 1e-6:
         return image_data
@@ -196,7 +198,9 @@ def rotate_image_data(
         rotation_mat[0, 2] += bound_w/2 - image_center[0]
         rotation_mat[1, 2] += bound_h/2 - image_center[1]
 
-        rotated_image = cv2.warpAffine(image, rotation_mat, (bound_w, bound_h))
+        rotated_image = cv2.warpAffine(
+            image, rotation_mat, (bound_w, bound_h), borderMode=border_mode, borderValue=border_value
+        )
         new_height, new_width, _ = rotated_image.shape
         rotated_image_data = copy.deepcopy(image_data)
         rotated_image_data.keypoints = rotate_keypoints(image_data.keypoints, rotation_mat, new_height, new_width)
@@ -219,13 +223,14 @@ def rotate_image_data(
 
 def resize_image_data(
     image_data: ImageData,
-    size: Tuple[int, int]
+    size: Tuple[int, int],
+    resample: Optional[int] = None
 ) -> ImageData:
     image_data = copy.deepcopy(image_data)
     image = image_data.open_image()
     old_height, old_width, _ = image.shape
     image = Image.fromarray(image)
-    image = image.resize(size)
+    image = image.resize(size, resample=resample)
     image = np.array(image)
     new_height, new_width, _ = image.shape
 
@@ -264,15 +269,12 @@ def resize_image_data(
 
 def thumbnail_image_data(
     image_data: ImageData,
-    size: Tuple[int, int]
+    size: Tuple[int, int],
+    resample: Optional[int] = None
 ) -> ImageData:
     image = image_data.open_image()
-    image = Image.fromarray(image)
-    image.thumbnail(size)
-    image = np.array(image)
-    new_height, new_width, _ = image.shape
-
-    return resize_image_data(image_data, (new_width, new_height))
+    new_width, new_height = get_thumbnail_resize(Image.fromarray(image), size)
+    return resize_image_data(image_data, (new_width, new_height), resample=resample)
 
 
 def crop_image_data(

@@ -1,7 +1,7 @@
 import json
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, Union, Type, Callable
+from typing import Any, Dict, List, Optional, Tuple, Union, Type, Callable
 from pathlib import Path
 
 import numpy as np
@@ -19,9 +19,24 @@ class YOLOv5_ModelSpec(DetectionModelSpec):
     """
     note: model_path can be set as torch.hub.load('ultralytics/yolov5', 'yolov5s')
     """
-    model_path: Union[None, str, Path, 'torch.nn.Module']  # noqa: F821
+    model_path: Optional[Union[str, Path, 'torch.nn.Module']]  # noqa: F821
+    class_names: Optional[List[str]] = None
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
+    input_size: Union[Tuple[int, int], List[int]] = (None, None)
 
-    class_names: Union[None, List[str]]
+    @property
+    def inference_model_cls(self) -> Type['YOLOv5_DetectionModel']:
+        from cv_pipeliner.inference_models.detection.yolov5 import YOLOv5_DetectionModel
+        return YOLOv5_DetectionModel
+
+
+@dataclass
+class YOLOv5_TFLite_ModelSpec(DetectionModelSpec):
+    """
+    note: model_path can be set as torch.hub.load('ultralytics/yolov5', 'yolov5s')
+    """
+    model_path: Union[str, Path]
+    class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
 
@@ -48,7 +63,7 @@ class YOLOv5_DetectionModel(DetectionModel):
 
     def __init__(
         self,
-        model_spec: YOLOv5_ModelSpec
+        model_spec: Union[YOLOv5_ModelSpec, YOLOv5_TFLite_ModelSpec]
     ):
         super().__init__(model_spec)
 
@@ -61,7 +76,6 @@ class YOLOv5_DetectionModel(DetectionModel):
         else:
             self.class_names = None
 
-        self._load_yolov5_model(model_spec)
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
             self._preprocess_input = get_preprocess_input_from_script_file(
                 script_file=model_spec.preprocess_input
@@ -71,15 +85,40 @@ class YOLOv5_DetectionModel(DetectionModel):
                 self._preprocess_input = lambda x: x
             else:
                 self._preprocess_input = model_spec.preprocess_input
+        if isinstance(model_spec, YOLOv5_ModelSpec):
+            self._load_yolov5_model(model_spec)
+            self._raw_predict_images = self._raw_predict_images_torch
+        elif isinstance(model_spec, YOLOv5_TFLite_ModelSpec):
+            self._load_yolov5_tflite(model_spec)
+            self._raw_predict_images = self._raw_predict_images_tflite
+        else:
+            raise ValueError(
+                f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}"
+            )
 
-    def _raw_predict_images(
+    def _load_yolov5_tflite(self, model_spec: YOLOv5_TFLite_ModelSpec):
+        import tensorflow as tf
+        temp_file = tempfile.NamedTemporaryFile()
+        with fsspec.open(model_spec.model_path, 'rb') as src:
+            temp_file.write(src.read())
+        model_path = Path(temp_file.name)
+
+        self.model = tf.lite.Interpreter(
+            model_path=str(model_path)
+        )
+        self.model.allocate_tensors()
+        self.input_detail = self.model.get_input_details()[0]
+        self.output_detail = self.model.get_output_details()[0]
+        self.input_dtype = self.input_detail['dtype']
+        temp_file.close()
+
+    def _raw_predict_images_torch(
         self,
         input: DetectionInput,
-        score_threshold: float,
-        size: int
+        score_threshold: float
     ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
         self.model.conf = score_threshold
-        results = self.model(input, size=size)
+        results = self.model(input)
         results_pd = results.pandas()
 
         n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = [], [], [], []
@@ -88,6 +127,56 @@ class YOLOv5_DetectionModel(DetectionModel):
             n_raw_keypoints.append(np.array([]).reshape(len(result_pd), 0, 2))
             n_raw_scores.append(np.array(result_pd["confidence"]))
             n_raw_classes.append(np.array(result_pd["class"]))
+        return n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes
+
+    def _post_process_raw_predictions_yolov5(self, raw_pred, score_threshold) -> 'CombinedNonMaxSuppression':
+        import tensorflow as tf
+
+        def _xywh2xyxy_tf(xywh):
+            x, y, w, h = tf.split(xywh, num_or_size_splits=4, axis=-1)
+            return tf.concat([x - w / 2, y - h / 2, x + w / 2, y + h / 2], axis=-1)
+
+        boxes = _xywh2xyxy_tf(raw_pred[..., :4])
+        probs = raw_pred[:, :, 4:5]
+        classes = raw_pred[:, :, 5:]
+        scores = probs * classes
+
+        boxes = tf.expand_dims(boxes, 2)
+        nms = tf.image.combined_non_max_suppression(
+            boxes, scores,
+            max_output_size_per_class=2000, max_total_size=2000, iou_threshold=0.45,
+            score_threshold=score_threshold, clip_boxes=False
+        )
+        return nms
+
+    def _raw_predict_images_tflite(
+        self,
+        input: DetectionInput,
+        score_threshold: float
+    ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
+        n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = [], [], [], []
+        for image in input:
+            image = image[None].astype(np.float32)
+            image /= 255
+            int8 = self.input_dtype == np.uint8
+            if int8:
+                scale, zero_point = self.input_detail['quantization']
+                image = (image / scale + zero_point).astype(np.uint8)  # de-scale
+            self.model.set_tensor(self.input_detail['index'], image)
+            self.model.invoke()
+            y = self.model.get_tensor(self.output_detail['index'])
+            if int8:
+                scale, zero_point = self.output_detail['quantization']
+                y = (y.astype(np.float32) - zero_point) * scale  # re-scale
+            nms_res = self._post_process_raw_predictions_yolov5(y, score_threshold)
+            raw_bboxes = np.array(nms_res.nmsed_boxes[0])  # (ymin, xmin, ymax, xmax)
+            nonzero_idxs = (raw_bboxes > 0).all(axis=1)
+            raw_bboxes = raw_bboxes[nonzero_idxs]
+            n_raw_bboxes.append(raw_bboxes)
+            n_raw_keypoints.append(np.array([]).reshape(len(raw_bboxes), 0, 2))
+            n_raw_scores.append(np.array(nms_res.nmsed_scores[0][nonzero_idxs]))
+            n_raw_classes.append(np.array(nms_res.nmsed_classes[0][nonzero_idxs]))
+
         return n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes
 
     def _postprocess_prediction(
@@ -151,11 +240,10 @@ class YOLOv5_DetectionModel(DetectionModel):
         self,
         input: DetectionInput,
         score_threshold: float,
-        classification_top_n: int = 1,
-        size: int = 640  # Custom resize image
+        classification_top_n: int = 1
     ) -> DetectionOutput:
         input = self.preprocess_input(input)
-        n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = self._raw_predict_images(input, score_threshold, size)
+        n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = self._raw_predict_images(input, score_threshold)
         results = [
             self._postprocess_prediction(
                 raw_bboxes=raw_bboxes,

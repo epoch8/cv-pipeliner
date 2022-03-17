@@ -30,6 +30,8 @@ class ClassificationInferencer(Inferencer):
                 image_path=image_data.image_path,
                 image=image,
                 label=pred_label_top_n[0],
+                bboxes_data=image_data.bboxes_data,
+                keypoints=image_data.keypoints,
                 additional_info={
                     **image_data.additional_info,
                     'pred_classification_score': pred_classification_score_top_n[0],
@@ -88,6 +90,7 @@ class ClassificationInferencer(Inferencer):
                 ymax=bbox_data.ymax,
                 detection_score=bbox_data.detection_score,
                 label=pred_label_top_n[0],
+                keypoints=bbox_data.keypoints,
                 classification_score=pred_classification_score_top_n[0],
                 top_n=len(pred_label_top_n),
                 labels_top_n=pred_label_top_n,

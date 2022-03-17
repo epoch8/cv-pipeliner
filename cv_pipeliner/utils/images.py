@@ -508,3 +508,21 @@ def draw_quadrangle_on_image(
         (1 - alpha) * image[colored_regions] + alpha * cropped_image_zeros[colored_regions]
     )
     return image
+
+
+def get_thumbnail_resize(image: Image, size: Tuple[int, int]) -> Tuple[int, int]:
+    x, y = map(math.floor, size)
+
+    def round_aspect(number, key):
+        return max(min(math.floor(number), math.ceil(number), key=key), 1)
+
+    # preserve aspect ratio
+    aspect = image.width / image.height
+    if x / y >= aspect:
+        x = round_aspect(y * aspect, key=lambda n: abs(aspect - n / y))
+    else:
+        y = round_aspect(
+            x / aspect, key=lambda n: 0 if n == 0 else abs(aspect - x / n)
+        )
+    size = (x, y)
+    return size

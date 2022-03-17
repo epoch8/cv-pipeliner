@@ -16,7 +16,7 @@ from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_f
 
 
 @dataclass
-class PytorchDetection_ModelSpec(DetectionModelSpec):
+class Detectron2_ModelSpec(DetectionModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
     model_path: Union[str, Pathy]  # can be also tf.keras.Model
 
@@ -32,9 +32,9 @@ class PytorchDetection_ModelSpec(DetectionModelSpec):
     input_type: Literal['detectron2', 'caffe2'] = 'detectron2'
 
     @property
-    def inference_model_cls(self) -> Type['Pytorch_DetectionModel']:
-        from cv_pipeliner.inference_models.detection.pytorch import Pytorch_DetectionModel
-        return Pytorch_DetectionModel
+    def inference_model_cls(self) -> Type['Detectron2_DetectionModel']:
+        from cv_pipeliner.inference_models.detection.detectron2 import Detectron2_DetectionModel
+        return Detectron2_DetectionModel
 
 
 def heatmaps_to_keypoints(maps: 'torch.Tensor', rois: 'torch.Tensor') -> 'torch.Tensor':  # noqa: F821
@@ -113,10 +113,10 @@ def heatmaps_to_keypoints(maps: 'torch.Tensor', rois: 'torch.Tensor') -> 'torch.
     return xy_preds
 
 
-class Pytorch_DetectionModel(DetectionModel):
+class Detectron2_DetectionModel(DetectionModel):
     def _load_pt_model(
         self,
-        model_spec: PytorchDetection_ModelSpec
+        model_spec: Detectron2_ModelSpec
     ):
         import torch
         temp_dir = tempfile.TemporaryDirectory()
@@ -131,9 +131,7 @@ class Pytorch_DetectionModel(DetectionModel):
 
     def __init__(
         self,
-        model_spec: Union[
-            PytorchDetection_ModelSpec
-        ],
+        model_spec: Detectron2_ModelSpec
     ):
         super().__init__(model_spec)
 
@@ -146,14 +144,14 @@ class Pytorch_DetectionModel(DetectionModel):
         else:
             self.class_names = None
 
-        if isinstance(model_spec, PytorchDetection_ModelSpec):
+        if isinstance(model_spec, Detectron2_ModelSpec):
             self._load_pt_model(model_spec)
             self.device = model_spec.device
             self.input_format = model_spec.device
             self.input_type = model_spec.input_type
         else:
             raise ValueError(
-                f"{Pytorch_DetectionModel.__name__} got unknown DetectionModelSpec: {type(model_spec)}"
+                f"{Detectron2_DetectionModel.__name__} got unknown DetectionModelSpec: {type(model_spec)}"
             )
 
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):

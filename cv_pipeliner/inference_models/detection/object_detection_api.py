@@ -2,7 +2,7 @@ import json
 from json.decoder import JSONDecodeError
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, Union, Type, Literal, Callable
+from typing import Any, Dict, List, Optional, Tuple, Union, Type, Literal, Callable
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +23,7 @@ from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
     config_path: Union[str, Path]
     checkpoint_path: Union[str, Path]
-    class_names: Union[None, List[str]] = None
+    class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
 
@@ -37,7 +37,7 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
 class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
     saved_model_dir: Union[str, Path]
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
-    class_names: Union[None, List[str]] = None
+    class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
 
@@ -50,11 +50,11 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
 @dataclass
 class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     model_path: Union[str, Path]
-    bboxes_output_index: int
-    scores_output_index: int
-    classes_output_index: Union[None, int]
-    class_names: Union[None, List[str]] = None
-    input_type: Literal["image_tensor", "float_image_tensor"] = "image_tensor"
+    bboxes_output_index: Union[int, str]
+    scores_output_index: Union[int, str]
+    classes_output_index: Optional[Union[int, str]]
+    multiclasses_scores_output_index: Optional[Union[int, str]]
+    class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
 
@@ -69,7 +69,7 @@ class ObjectDetectionAPI_KFServing(DetectionModelSpec):
     url: str
     input_name: str
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
-    class_names: Union[None, List[str]] = None
+    class_names: Optional[List[str]] = None
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -144,12 +144,26 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             model_path=str(model_path)
         )
         self.model.allocate_tensors()
-        self.input_index = self.model.get_input_details()[0]['index']
+        input_detail = self.model.get_input_details()[0]
+        self.input_index = input_detail['index']
         output_details = self.model.get_output_details()
-        self.bboxes_index = output_details[model_spec.bboxes_output_index]['index']
-        self.scores_index = output_details[model_spec.scores_output_index]['index']
-        self.classes_index = output_details[model_spec.classes_output_index]['index']
-        self.input_dtype = INPUT_TYPE_TO_DTYPE[model_spec.input_type]
+        output_name_to_index = {
+            output_detail['name']: output_detail['index']
+            for output_detail in output_details
+        }
+        if isinstance(model_spec.bboxes_output_index, str):
+            self.bboxes_index = output_name_to_index[model_spec.bboxes_output_index]
+        else:
+            self.bboxes_index = output_details[model_spec.bboxes_output_index]['index']
+        if isinstance(model_spec.bboxes_output_index, str):
+            self.scores_index = output_name_to_index[model_spec.bboxes_output_index]
+        else:
+            self.scores_index = output_details[model_spec.bboxes_output_index]['index']
+        if isinstance(model_spec.classes_output_index, str):
+            self.classes_index = output_name_to_index[model_spec.bboxes_output_index]
+        else:
+            self.classes_index = output_details[model_spec.bboxes_output_index]['index']
+        self.input_dtype = input_detail['dtype']
         temp_file.close()
 
     def __init__(

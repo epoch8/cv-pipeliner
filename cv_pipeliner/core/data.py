@@ -4,7 +4,7 @@ import json
 
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any, Union, List, Dict, Tuple
+from typing import Any, Union, List, Dict, Tuple, Optional
 
 import numpy as np
 import fsspec
@@ -19,7 +19,7 @@ from cv_pipeliner.utils.imagesize import get_image_size
 def open_image_for_object(
     obj: Union['ImageData', 'BboxData'],
     inplace: bool = False
-) -> Union[None, np.ndarray]:
+) -> Optional[np.ndarray]:
     if obj.image is not None and isinstance(obj.image, np.ndarray):
         if not inplace:
             return obj.image
@@ -38,7 +38,7 @@ def open_image_for_object(
         return image
 
 
-ImagePath = Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]
+ImagePath = Optional[Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]]
 
 
 def get_image_name(image_path) -> str:
@@ -130,7 +130,7 @@ class BboxData:
         source_image: np.ndarray = None
     ) -> Tuple[int, int, int, int]:
         if source_image is not None:
-            height, width, _ = source_image.shape
+            height, width = source_image.shape[0], source_image.shape[1]
         else:
             width, height = self.get_image_size()
         if isinstance(xmin_offset, float):
@@ -165,7 +165,7 @@ class BboxData:
         xmax_offset: Union[int, float] = 0,
         ymax_offset: Union[int, float] = 0,
         return_as_image_data: bool = False,
-    ) -> Union[None, np.ndarray, 'BboxData']:
+    ) -> Optional[Union[np.ndarray, 'BboxData']]:
 
         if self.cropped_image is not None:
             if not inplace:
@@ -219,7 +219,7 @@ class BboxData:
     def open_image(
         self,
         inplace: bool = False
-    ) -> Union[None, np.ndarray]:
+    ) -> Optional[np.ndarray]:
         return open_image_for_object(obj=self, inplace=inplace)
 
     def get_image_size(self) -> Tuple[int, int]:
@@ -227,7 +227,7 @@ class BboxData:
             Returns (width, height) of image without opening it fully.
         """
         if self.image is not None:
-            height, width, _ = self.image.shape
+            height, width = self.image.shape[0], self.image.shape[1]
         else:
             width, height = get_image_size(self.image_path)
         return width, height
@@ -284,7 +284,10 @@ class BboxData:
         return self
 
     @staticmethod
-    def from_json(d: Union[None, Path, str, Dict[str, Any], fsspec.core.OpenFile], image_path: ImagePath = None):
+    def from_json(
+        d: Optional[Union[Path, str, Dict[str, Any], fsspec.core.OpenFile]],
+        image_path: ImagePath = None
+    ):
         if d is None:
             return BboxData(image_path=image_path)
         if isinstance(d, str) or isinstance(d, Path):
@@ -327,7 +330,7 @@ class ImageData:
     def open_image(
         self,
         inplace: bool = False
-    ) -> Union[None, np.ndarray]:
+    ) -> Optional[np.ndarray]:
         return open_image_for_object(obj=self, inplace=inplace)
 
     def get_image_size(self) -> Tuple[int, int]:
@@ -371,7 +374,10 @@ class ImageData:
         return self
 
     @staticmethod
-    def from_json(d: Union[None, Path, str, Dict[str, Any], fsspec.core.OpenFile], image_path: ImagePath = None):
+    def from_json(
+        d: Optional[Union[Path, str, Dict[str, Any], fsspec.core.OpenFile]],
+        image_path: ImagePath = None
+    ):
         if d is None:
             return ImageData(image_path=image_path)
         if isinstance(d, str) or isinstance(d, Path):

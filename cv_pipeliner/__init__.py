@@ -19,15 +19,19 @@ from cv_pipeliner.inference_models.detection.object_detection_api import (
     ObjectDetectionAPI_KFServing, ObjectDetectionAPI_ModelSpec, ObjectDetectionAPI_TFLite_ModelSpec,
     ObjectDetectionAPI_pb_ModelSpec
 )
-from cv_pipeliner.inference_models.detection.pytorch import PytorchDetection_ModelSpec
-from cv_pipeliner.inference_models.detection.yolov5 import YOLOv5_ModelSpec
+from cv_pipeliner.inference_models.detection.detectron2 import Detectron2_ModelSpec
+from cv_pipeliner.inference_models.detection.yolov5 import YOLOv5_ModelSpec, YOLOv5_TFLite_ModelSpec
 from cv_pipeliner.inference_models.classification.tensorflow import (
     TensorFlow_ClassificationModelSpec, TensorFlow_ClassificationModelSpec_TFServing
+)
+from cv_pipeliner.inference_models.keypoints_regressor.tensorflow import (
+    TensorFlow_KeypointsRegressorModelSpec, TensorFlow_KeypointsRegressorModelSpec_TFServing
 )
 from cv_pipeliner.inference_models.pipeline import PipelineModelSpec, PipelineModel
 from cv_pipeliner.inferencers.detection import DetectionInferencer
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
+from cv_pipeliner.inferencers.keypoints_regressor import KeypointsRegressorInferencer
 from cv_pipeliner.data_converters.coco import COCODataConverter
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.data_converters.json import JSONDataConverter
