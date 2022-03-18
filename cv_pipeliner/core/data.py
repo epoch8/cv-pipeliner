@@ -72,20 +72,20 @@ def get_image_path_as_str(image_path) -> str:
 @dataclass
 class BboxData:
     image_path: ImagePath = None
-    image: np.ndarray = None
-    cropped_image: np.ndarray = None
+    image: np.ndarray = field(default=None, repr=False)
+    cropped_image: np.ndarray = field(default=None, repr=False)
     xmin: Union[int, float] = None
     ymin: Union[int, float] = None
     xmax: Union[int, float] = None
     ymax: Union[int, float] = None
     keypoints: List[Tuple[int, int]] = field(default_factory=list)
 
-    detection_score: float = None
+    detection_score: float = field(default=None, repr=False)
     label: str = None
-    classification_score: float = None
-    top_n: int = None
-    labels_top_n: List[str] = None
-    classification_scores_top_n: List[float] = None
+    classification_score: float = field(default=None, repr=False)
+    top_n: int = field(default=None, repr=False)
+    labels_top_n: List[str] = field(default=None, repr=False)
+    classification_scores_top_n: List[float] = field(default=None, repr=False)
 
     additional_bboxes_data: List['BboxData'] = field(default_factory=list)
     additional_info: Dict = field(default_factory=dict)
@@ -303,7 +303,7 @@ class BboxData:
 @dataclass
 class ImageData:
     image_path: ImagePath = None
-    image: np.ndarray = None
+    image: np.ndarray = field(default=None, repr=False)
     bboxes_data: List[BboxData] = field(default_factory=list)
 
     label: str = None

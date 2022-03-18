@@ -5,6 +5,7 @@
 - `rotate_image_data` have 2 more arguments: `border_mode` and `border_value`
 - Fix bug when `ImageData.from_json` doesn't give keypoints
 - (FIXME) Added module `cv_pipeliner.utils.export` to export main models (Object Detection API, YOLOv5) to fixed `saved_model` and `.tflite` for mobile developments.
+- Added better `__repr__` for `ImageData` and `BboxData` (removed `image` and `cropped_image` from them)
 
 
 # 0.10.0
