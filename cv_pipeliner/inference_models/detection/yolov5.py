@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union, Type, Callable
 from pathlib import Path
 
+import cv2
 import numpy as np
 import fsspec
 
@@ -36,9 +37,10 @@ class YOLOv5_TFLite_ModelSpec(DetectionModelSpec):
     note: model_path can be set as torch.hub.load('ultralytics/yolov5', 'yolov5s')
     """
     model_path: Union[str, Path]
+    input_size: Union[Tuple[int, int], List[int]]
     class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
-    input_size: Union[Tuple[int, int], List[int]] = (None, None)
+
 
     @property
     def inference_model_cls(self) -> Type['YOLOv5_DetectionModel']:
@@ -149,14 +151,69 @@ class YOLOv5_DetectionModel(DetectionModel):
         )
         return nms
 
+    def _resize_with_pad(
+        self,
+        image: np.ndarray,
+        target_width: int,
+        target_height: int
+    ) -> Tuple[np.ndarray, float, Tuple[int, int]]:
+        # Resize and pad image while meeting stride-multiple constraints
+        # Taken from https://github.com/ultralytics/yolov5/blob/master/utils/datasets.py
+        height, width = image.shape[:2]  # current shape [height, width]
+        # Scale ratio (new / old)
+        ratio = min(target_height / height, target_width / width)
+        # Compute padding
+        new_unpad_width, new_unpad_height = int(round(width * ratio)), int(round(height * ratio))
+        dw, dh = target_width - new_unpad_width, target_height - new_unpad_height  # wh padding
+        dw /= 2  # divide padding into 2 sides
+        dh /= 2
+        if (width, height) != (new_unpad_width, new_unpad_height):  # resize
+            image = cv2.resize(image, (new_unpad_width, new_unpad_height), interpolation=cv2.INTER_LINEAR)
+        top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+        left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+        image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))  # add border
+
+        # Alternative: import tensorflow as tf
+        # image = tf.image.resize_with_pad([image], target_height, target_width).numpy()[0]
+        # if dh > 0:
+        #     image[0:dh//2, :, :] = 114
+        #     image[-dh//2:, :, :] = 114
+        # if dw > 0:
+        #     image[:, :dw//2, :] = 114
+        #     image[:, -dw//2:, :] = 114
+        return image
+
+    def _scale_coords(
+        self,
+        img1_size: Tuple[int, int],
+        img0_size: Tuple[int, int],
+        bboxes: List[Tuple[float, float, float, float]],
+    ) -> List[Tuple[float, float, float, float]]:
+        # Taken from https://github.com/ultralytics/yolov5/blob/master/utils/general.py
+        # Rescale coords (xyxy) from img1_shape to img0_shape
+        width1, height1 = img1_size
+        width0, height0 = img0_size
+        gain = min(height1 / height0, width1 / width0)  # gain  = old / new
+        pad = (width1 - width0 * gain) / 2, (height1 - height0 * gain) / 2  # wh padding
+        bboxes[:, [0, 2]] -= pad[0]  # x padding
+        bboxes[:, [1, 3]] -= pad[1]  # y padding
+        bboxes[:, :4] /= gain
+        bboxes[:, [0, 2]] = bboxes[:, [0, 2]].clip(0, width0)  # x1, x2
+        bboxes[:, [1, 3]] = bboxes[:, [1, 3]].clip(0, height0)  # y1, y2
+        return bboxes
+
     def _raw_predict_images_tflite(
         self,
         input: DetectionInput,
         score_threshold: float
     ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
+        model_width, model_height = self.input_size
         n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = [], [], [], []
         for image in input:
-            image = image[None].astype(np.float32)
+            height, width = image.shape[:2]
+            image = image.astype(np.float32)
+            image = self._resize_with_pad(image, target_width=model_width, target_height=model_height)
+            image = image[None]
             image /= 255
             int8 = self.input_dtype == np.uint8
             if int8:
@@ -172,6 +229,12 @@ class YOLOv5_DetectionModel(DetectionModel):
             raw_bboxes = np.array(nms_res.nmsed_boxes[0])  # (ymin, xmin, ymax, xmax)
             nonzero_idxs = (raw_bboxes > 0).all(axis=1)
             raw_bboxes = raw_bboxes[nonzero_idxs]
+            raw_bboxes[:, [0, 2]] *= model_width
+            raw_bboxes[:, [1, 3]] *= model_height
+            raw_bboxes = self._scale_coords((model_width, model_height), (width, height), raw_bboxes)
+            raw_bboxes[:, [0, 2]] /= width
+            raw_bboxes[:, [1, 3]] /= height
+
             n_raw_bboxes.append(raw_bboxes)
             n_raw_keypoints.append(np.array([]).reshape(len(raw_bboxes), 0, 2))
             n_raw_scores.append(np.array(nms_res.nmsed_scores[0][nonzero_idxs]))
@@ -273,4 +336,4 @@ class YOLOv5_DetectionModel(DetectionModel):
 
     @property
     def input_size(self) -> Tuple[int, int]:
-        return (None, None)
+        return self.model_spec.input_size

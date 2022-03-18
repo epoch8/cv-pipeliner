@@ -9,11 +9,15 @@ from cv_pipeliner.visualizers.core.image_data_matching import visualize_image_da
 from cv_pipeliner.metrics.detection import get_df_detection_metrics, get_df_detection_recall_per_class
 from cv_pipeliner.metrics.classification import get_df_classification_metrics
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics
+from cv_pipeliner.utils.images import (
+    concat_images, put_text_on_image, draw_rectangle, thumbnail_image
+)
 from cv_pipeliner.utils.images_datas import (
     rotate_image_data, crop_image_data, get_perspective_matrix_for_base_keypoints,
     apply_perspective_transform_to_image_data,
     thumbnail_image_data, non_max_suppression_image_data, uncrop_bboxes_data,
-    resize_image_data, split_image_by_grid, flatten_additional_bboxes_data_in_image_data
+    resize_image_data, split_image_by_grid, flatten_additional_bboxes_data_in_image_data,
+    non_max_suppression_image_data_using_tf
 )
 from cv_pipeliner.inference_models.detection.object_detection_api import (
     ObjectDetectionAPI_KFServing, ObjectDetectionAPI_ModelSpec, ObjectDetectionAPI_TFLite_ModelSpec,

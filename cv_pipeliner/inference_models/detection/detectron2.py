@@ -214,11 +214,12 @@ class Detectron2_DetectionModel(DetectionModel):
         List[List[Tuple[int, int]]],
         List[float], List[List[str]], List[List[float]]
     ]:
-        raw_bboxes[:, [0, 2]] = (raw_bboxes[:, [0, 2]] / self.input_size[0] * width).astype(int)
-        raw_bboxes[:, [1, 3]] = (raw_bboxes[:, [1, 3]] / self.input_size[1] * height).astype(int)
-        raw_keypoints[:, :, 0] = (raw_keypoints[:, :, 0] / self.input_size[0] * width).astype(int)
-        raw_keypoints[:, :, 1] = (raw_keypoints[:, :, 1] / self.input_size[1] * height).astype(int)
-
+        raw_bboxes[:, [0, 2]] = (raw_bboxes[:, [0, 2]] / self.input_size[0] * width)
+        raw_bboxes[:, [1, 3]] = (raw_bboxes[:, [1, 3]] / self.input_size[1] * height)
+        raw_bboxes = raw_bboxes.round().astype(int)
+        raw_keypoints[:, :, 0] = (raw_keypoints[:, :, 0] / self.input_size[0] * width)
+        raw_keypoints[:, :, 1] = (raw_keypoints[:, :, 1] / self.input_size[1] * height)
+        raw_keypoints = raw_keypoints.round().astype(int)
         mask = raw_scores > score_threshold
         bboxes = raw_bboxes[mask]
         keypoints = raw_keypoints[mask]
