@@ -229,7 +229,11 @@ class Detectron2_DetectionModel(DetectionModel):
         bboxes_set = set()
         for idx, bbox in enumerate(bboxes):
             xmin, ymin, xmax, ymax = bbox
-            if xmax - xmin > 0 and ymax - ymin > 0 and (xmin, ymin, xmax, ymax) not in bboxes_set:
+            if (
+                xmax - xmin > 0 and ymax - ymin > 0 and
+                xmin >= 0 and ymin >= 0 and xmax <= width-1 and ymax <= height-1 and
+                (xmin, ymin, xmax, ymax) not in bboxes_set
+            ):
                 bboxes_set.add((xmin, ymin, xmax, ymax))
                 correct_non_repeated_bboxes_idxs.append(idx)
 

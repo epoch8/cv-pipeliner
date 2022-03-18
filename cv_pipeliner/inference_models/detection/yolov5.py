@@ -194,7 +194,6 @@ class YOLOv5_DetectionModel(DetectionModel):
         List[List[Tuple[int, int]]],
         List[float], List[List[str]], List[List[float]]
     ]:
-
         raw_bboxes = denormalize_bboxes(raw_bboxes, width, height)
         mask = raw_scores > score_threshold
         bboxes = raw_bboxes[mask]
@@ -206,7 +205,11 @@ class YOLOv5_DetectionModel(DetectionModel):
         bboxes_set = set()
         for idx, bbox in enumerate(bboxes):
             xmin, ymin, xmax, ymax = bbox
-            if xmax - xmin > 0 and ymax - ymin > 0 and (xmin, ymin, xmax, ymax) not in bboxes_set:
+            if (
+                xmax - xmin > 0 and ymax - ymin > 0 and
+                xmin >= 0 and ymin >= 0 and xmax <= width-1 and ymax <= height-1 and
+                (xmin, ymin, xmax, ymax) not in bboxes_set
+            ):
                 bboxes_set.add((xmin, ymin, xmax, ymax))
                 correct_non_repeated_bboxes_idxs.append(idx)
 
@@ -233,7 +236,6 @@ class YOLOv5_DetectionModel(DetectionModel):
                 [score for _ in range(classification_top_n)]
                 for score in classes_scores
             ])
-
         return bboxes, keypoints, scores, class_names_top_n, classes_scores_top_n
 
     def predict(
@@ -242,6 +244,7 @@ class YOLOv5_DetectionModel(DetectionModel):
         score_threshold: float,
         classification_top_n: int = 1
     ) -> DetectionOutput:
+        heights_widths = [image.shape[:2] for image in input]
         input = self.preprocess_input(input)
         n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = self._raw_predict_images(input, score_threshold)
         results = [
@@ -251,12 +254,12 @@ class YOLOv5_DetectionModel(DetectionModel):
                 raw_scores=raw_scores,
                 raw_classes=raw_classes,
                 score_threshold=score_threshold,
-                width=image.shape[1],
-                height=image.shape[0],
+                width=width,
+                height=height,
                 classification_top_n=classification_top_n
             )
-            for image, raw_bboxes, raw_keypoints, raw_scores, raw_classes in zip(
-                input, n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes
+            for (height, width), raw_bboxes, raw_keypoints, raw_scores, raw_classes in zip(
+                heights_widths, n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes
             )
         ]
         n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k = [
