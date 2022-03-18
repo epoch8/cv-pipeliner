@@ -1,10 +1,9 @@
 import abc
 import numpy as np
 from typing import List, Type
-from torch.utils.data import DataLoader
 from cv_pipeliner.core.inference_model import ModelSpec, InferenceModel
 
-EmbedderInput = DataLoader
+EmbedderInput = List[np.ndarray]
 EmbedderOutput = List[np.ndarray]
 
 

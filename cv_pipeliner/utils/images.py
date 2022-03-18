@@ -3,7 +3,7 @@ import io
 import json
 import math
 from pathlib import Path
-from typing import List, Tuple, Union, Literal, Dict
+from typing import List, Tuple, Union, Literal, Dict, Optional
 from collections import defaultdict
 
 import imageio
@@ -526,3 +526,11 @@ def get_thumbnail_resize(image: Image, size: Tuple[int, int]) -> Tuple[int, int]
         )
     size = (x, y)
     return size
+
+
+def thumbnail_image(image: np.ndarray, size: Tuple[int, int], resample: Optional[int] = None) -> np.ndarray:
+    image = Image.fromarray(image)
+    new_width, new_height = get_thumbnail_resize(image, size)
+    image = image.resize((new_width, new_height), resample=resample)
+    image = np.array(image)
+    return image
