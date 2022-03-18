@@ -1,10 +1,9 @@
 import abc
 import numpy as np
 from typing import List, Type
-from torch.utils.data import DataLoader
 from cv_pipeliner.core.inference_model import ModelSpec, InferenceModel
 
-EmbedderInput = DataLoader
+EmbedderInput = List[np.ndarray]
 EmbedderOutput = List[np.ndarray]
 
 
@@ -13,6 +12,10 @@ class EmbedderModelSpec(ModelSpec):
     @abc.abstractproperty
     def inference_model_cls(self) -> Type['EmbedderModel']:
         pass
+
+    def load_embedder_inferencer(self) -> 'EmbedderInferencer':
+        from cv_pipeliner.inferencers.embedder import EmbedderInferencer
+        return EmbedderInferencer(self.load())
 
 
 class EmbedderModel(InferenceModel):

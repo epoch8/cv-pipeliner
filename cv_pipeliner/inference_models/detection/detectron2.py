@@ -16,7 +16,7 @@ from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_f
 
 
 @dataclass
-class PytorchDetection_ModelSpec(DetectionModelSpec):
+class Detectron2_ModelSpec(DetectionModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
     model_path: Union[str, Pathy]  # can be also tf.keras.Model
 
@@ -32,9 +32,9 @@ class PytorchDetection_ModelSpec(DetectionModelSpec):
     input_type: Literal['detectron2', 'caffe2'] = 'detectron2'
 
     @property
-    def inference_model_cls(self) -> Type['Pytorch_DetectionModel']:
-        from cv_pipeliner.inference_models.detection.pytorch import Pytorch_DetectionModel
-        return Pytorch_DetectionModel
+    def inference_model_cls(self) -> Type['Detectron2_DetectionModel']:
+        from cv_pipeliner.inference_models.detection.detectron2 import Detectron2_DetectionModel
+        return Detectron2_DetectionModel
 
 
 def heatmaps_to_keypoints(maps: 'torch.Tensor', rois: 'torch.Tensor') -> 'torch.Tensor':  # noqa: F821
@@ -113,10 +113,10 @@ def heatmaps_to_keypoints(maps: 'torch.Tensor', rois: 'torch.Tensor') -> 'torch.
     return xy_preds
 
 
-class Pytorch_DetectionModel(DetectionModel):
+class Detectron2_DetectionModel(DetectionModel):
     def _load_pt_model(
         self,
-        model_spec: PytorchDetection_ModelSpec
+        model_spec: Detectron2_ModelSpec
     ):
         import torch
         temp_dir = tempfile.TemporaryDirectory()
@@ -131,9 +131,7 @@ class Pytorch_DetectionModel(DetectionModel):
 
     def __init__(
         self,
-        model_spec: Union[
-            PytorchDetection_ModelSpec
-        ],
+        model_spec: Detectron2_ModelSpec
     ):
         super().__init__(model_spec)
 
@@ -146,14 +144,14 @@ class Pytorch_DetectionModel(DetectionModel):
         else:
             self.class_names = None
 
-        if isinstance(model_spec, PytorchDetection_ModelSpec):
+        if isinstance(model_spec, Detectron2_ModelSpec):
             self._load_pt_model(model_spec)
             self.device = model_spec.device
             self.input_format = model_spec.device
             self.input_type = model_spec.input_type
         else:
             raise ValueError(
-                f"{Pytorch_DetectionModel.__name__} got unknown DetectionModelSpec: {type(model_spec)}"
+                f"{Detectron2_DetectionModel.__name__} got unknown DetectionModelSpec: {type(model_spec)}"
             )
 
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
@@ -216,11 +214,12 @@ class Pytorch_DetectionModel(DetectionModel):
         List[List[Tuple[int, int]]],
         List[float], List[List[str]], List[List[float]]
     ]:
-        raw_bboxes[:, [0, 2]] = (raw_bboxes[:, [0, 2]] / self.input_size[0] * width).astype(int)
-        raw_bboxes[:, [1, 3]] = (raw_bboxes[:, [1, 3]] / self.input_size[1] * height).astype(int)
-        raw_keypoints[:, :, 0] = (raw_keypoints[:, :, 0] / self.input_size[0] * width).astype(int)
-        raw_keypoints[:, :, 1] = (raw_keypoints[:, :, 1] / self.input_size[1] * height).astype(int)
-
+        raw_bboxes[:, [0, 2]] = (raw_bboxes[:, [0, 2]] / self.input_size[0] * width)
+        raw_bboxes[:, [1, 3]] = (raw_bboxes[:, [1, 3]] / self.input_size[1] * height)
+        raw_bboxes = raw_bboxes.round().astype(int)
+        raw_keypoints[:, :, 0] = (raw_keypoints[:, :, 0] / self.input_size[0] * width)
+        raw_keypoints[:, :, 1] = (raw_keypoints[:, :, 1] / self.input_size[1] * height)
+        raw_keypoints = raw_keypoints.round().astype(int)
         mask = raw_scores > score_threshold
         bboxes = raw_bboxes[mask]
         keypoints = raw_keypoints[mask]
@@ -231,7 +230,11 @@ class Pytorch_DetectionModel(DetectionModel):
         bboxes_set = set()
         for idx, bbox in enumerate(bboxes):
             xmin, ymin, xmax, ymax = bbox
-            if xmax - xmin > 0 and ymax - ymin > 0 and (xmin, ymin, xmax, ymax) not in bboxes_set:
+            if (
+                xmax - xmin > 0 and ymax - ymin > 0 and
+                xmin >= 0 and ymin >= 0 and xmax <= width-1 and ymax <= height-1 and
+                (xmin, ymin, xmax, ymax) not in bboxes_set
+            ):
                 bboxes_set.add((xmin, ymin, xmax, ymax))
                 correct_non_repeated_bboxes_idxs.append(idx)
 

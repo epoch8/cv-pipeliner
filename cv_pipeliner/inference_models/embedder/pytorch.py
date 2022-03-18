@@ -1,4 +1,3 @@
-import torch
 import numpy as np
 from cv_pipeliner.core.inference_model import (
     get_preprocess_input_from_script_file
@@ -30,6 +29,7 @@ class PyTorch_EmbedderModel(EmbedderModel):
         self,
         model_spec: PyTorch_EmbedderModelSpec
     ):
+        import torch
         self.device = torch.device(model_spec.device)
         self.model = torch.jit.load(str(model_spec.model_path)).to(self.device)
         self.model.eval()
@@ -57,6 +57,7 @@ class PyTorch_EmbedderModel(EmbedderModel):
         self,
         images: np.ndarray
     ):
+        import torch
         outputs = []
         with torch.no_grad():
             images = images.float().to(self.device)

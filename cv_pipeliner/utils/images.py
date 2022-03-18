@@ -3,7 +3,7 @@ import io
 import json
 import math
 from pathlib import Path
-from typing import List, Tuple, Union, Literal, Dict
+from typing import List, Tuple, Union, Literal, Dict, Optional
 from collections import defaultdict
 
 import imageio
@@ -507,4 +507,30 @@ def draw_quadrangle_on_image(
     image[colored_regions] = (
         (1 - alpha) * image[colored_regions] + alpha * cropped_image_zeros[colored_regions]
     )
+    return image
+
+
+def get_thumbnail_resize(image: Image, size: Tuple[int, int]) -> Tuple[int, int]:
+    x, y = map(math.floor, size)
+
+    def round_aspect(number, key):
+        return max(min(math.floor(number), math.ceil(number), key=key), 1)
+
+    # preserve aspect ratio
+    aspect = image.width / image.height
+    if x / y >= aspect:
+        x = round_aspect(y * aspect, key=lambda n: abs(aspect - n / y))
+    else:
+        y = round_aspect(
+            x / aspect, key=lambda n: 0 if n == 0 else abs(aspect - x / n)
+        )
+    size = (x, y)
+    return size
+
+
+def thumbnail_image(image: np.ndarray, size: Tuple[int, int], resample: Optional[int] = None) -> np.ndarray:
+    image = Image.fromarray(image)
+    new_width, new_height = get_thumbnail_resize(image, size)
+    image = image.resize((new_width, new_height), resample=resample)
+    image = np.array(image)
     return image

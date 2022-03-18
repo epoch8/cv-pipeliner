@@ -50,7 +50,9 @@ class DataConverter(abc.ABC):
             image_path=image_data.image_path,
             image=image_data.image,
             bboxes_data=new_bboxes_data,
-            additional_info=image_data.additional_info
+            additional_info=image_data.additional_info,
+            keypoints=image_data.keypoints,
+            label=image_data.label
         )
 
         return image_data

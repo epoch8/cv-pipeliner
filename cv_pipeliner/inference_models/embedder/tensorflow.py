@@ -1,4 +1,3 @@
-import json
 from json.decoder import JSONDecodeError
 import tempfile
 from dataclasses import dataclass
@@ -11,40 +10,38 @@ import fsspec
 from pathy import Pathy
 
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
-from cv_pipeliner.inference_models.classification.core import (
-    ClassificationModelSpec, ClassificationModel, ClassificationInput, ClassificationOutput
+from cv_pipeliner.inference_models.embedder.core import (
+    EmbedderInput, EmbedderModel, EmbedderModelSpec, EmbedderOutput
 )
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 from cv_pipeliner.utils.images import get_image_b64
 
 
 @dataclass
-class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
+class TensorFlow_EmbedderModelSpec(EmbedderModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
-    class_names: Union[List[str], str, Path]
     model_path: Union[str, Pathy]  # can be also tf.keras.Model
     saved_model_type: Literal["tf.saved_model", "tf.keras", "tf.keras.Model", "tflite", "tflite_one_image_per_batch"]
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
 
     @property
-    def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
-        from cv_pipeliner.inference_models.classification.tensorflow import Tensorflow_ClassificationModel
-        return Tensorflow_ClassificationModel
+    def inference_model_cls(self) -> Type['Tensorflow_EmbedderModel']:
+        from cv_pipeliner.inference_models.embedder.tensorflow import Tensorflow_EmbedderModel
+        return Tensorflow_EmbedderModel
 
 
 @dataclass
-class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
+class TensorFlow_EmbedderModelSpec_TFServing(EmbedderModelSpec):
     url: str
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
     input_name: str
     input_size: Union[Tuple[int, int], List[int]]
-    class_names: Union[List[str], str, Path]
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
 
     @property
-    def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
-        from cv_pipeliner.inference_models.classification.tensorflow import Tensorflow_ClassificationModel
-        return Tensorflow_ClassificationModel
+    def inference_model_cls(self) -> Type['Tensorflow_EmbedderModel']:
+        from cv_pipeliner.inference_models.embedder.tensorflow import Tensorflow_EmbedderModel
+        return Tensorflow_EmbedderModel
 
 
 INPUT_TYPE_TO_DTYPE = {
@@ -54,10 +51,10 @@ INPUT_TYPE_TO_DTYPE = {
 }
 
 
-class Tensorflow_ClassificationModel(ClassificationModel):
-    def _load_tensorflow_classification_model_spec(
+class Tensorflow_EmbedderModel(EmbedderModel):
+    def _load_tensorflow_embedder_model_spec(
         self,
-        model_spec: TensorFlow_ClassificationModelSpec
+        model_spec: TensorFlow_EmbedderModelSpec
     ):
         import tensorflow as tf
         if model_spec.saved_model_type in ["tf.keras", "tf.saved_model", "tflite", "tflite_one_image_per_batch"]:
@@ -96,29 +93,23 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self.input_dtype = np.float32
         else:
             raise ValueError(
-                "Tensorflow_ClassificationModel got unknown saved_model_type "
-                f"in TensorFlow_ClassificationModelSpec: {model_spec.saved_model_type}"
+                "Tensorflow_EmbedderModel got unknown saved_model_type "
+                f"in TensorFlow_EmbedderModelSpec: {model_spec.saved_model_type}"
             )
 
     def __init__(
         self,
         model_spec: Union[
-            TensorFlow_ClassificationModelSpec,
-            TensorFlow_ClassificationModelSpec_TFServing
+            TensorFlow_EmbedderModelSpec,
+            TensorFlow_EmbedderModelSpec_TFServing
         ]
     ):
         super().__init__(model_spec)
 
-        if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
-            with fsspec.open(model_spec.class_names, 'r', encoding='utf-8') as out:
-                self._class_names = json.load(out)
-        else:
-            self._class_names = model_spec.class_names
-
-        if isinstance(model_spec, TensorFlow_ClassificationModelSpec):
-            self._load_tensorflow_classification_model_spec(model_spec)
+        if isinstance(model_spec, TensorFlow_EmbedderModelSpec):
+            self._load_tensorflow_embedder_model_spec(model_spec)
             self._raw_predict = self._raw_predict_tensorflow
-        elif isinstance(model_spec, TensorFlow_ClassificationModelSpec_TFServing):
+        elif isinstance(model_spec, TensorFlow_EmbedderModelSpec_TFServing):
             self.input_dtype = INPUT_TYPE_TO_DTYPE[model_spec.input_type]
             # Wake up the service
             try:
@@ -131,7 +122,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
             self._raw_predict = self._raw_predict_kfserving
         else:
             raise ValueError(
-                f"Tensorflow_ClassificationModel got unknown ClassificationModelSpec: {type(model_spec)}"
+                f"Tensorflow_EmbedderModel got unknown EmbedderModelSpec: {type(model_spec)}"
             )
 
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
@@ -143,8 +134,6 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 self._preprocess_input = lambda x: x
             else:
                 self._preprocess_input = model_spec.preprocess_input
-
-        self.id_to_class_name = np.array([class_name for class_name in self._class_names])
 
     def _raw_predict_tensorflow(
         self,
@@ -180,7 +169,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 self.model.invoke()
                 raw_predictions_batch.append(self.model.get_tensor(self.output_index)[0])
 
-        raw_predictions_batch = np.array(raw_predictions_batch).reshape(-1, len(self.class_names))
+        raw_predictions_batch = np.array(raw_predictions_batch)
         return raw_predictions_batch
 
     def _raw_predict_kfserving(
@@ -225,29 +214,15 @@ class Tensorflow_ClassificationModel(ClassificationModel):
 
     def predict(
         self,
-        input: ClassificationInput,
-        top_n: int = 1
-    ) -> ClassificationOutput:
+        input: EmbedderInput
+    ) -> EmbedderOutput:
         input = self.preprocess_input(input)
         predictions = self._raw_predict(input)
-        max_scores_top_n_idxs = (-np.array(predictions)).argsort(axis=1)[:, :top_n]
-        id_to_class_names_repeated = np.repeat(
-            a=self.id_to_class_name[None, ...],
-            repeats=len(input),
-            axis=0
-        )
-        pred_labels_top_n = np.take_along_axis(id_to_class_names_repeated, max_scores_top_n_idxs, axis=1)
-        pred_scores_top_n = np.take_along_axis(predictions, max_scores_top_n_idxs, axis=1)
+        return predictions
 
-        return pred_labels_top_n, pred_scores_top_n
-
-    def preprocess_input(self, input: ClassificationInput):
+    def preprocess_input(self, input: EmbedderInput):
         return self._preprocess_input(input)
 
     @property
     def input_size(self) -> Tuple[int, int]:
         return self.model_spec.input_size
-
-    @property
-    def class_names(self) -> List[str]:
-        return self._class_names

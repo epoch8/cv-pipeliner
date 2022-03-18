@@ -27,13 +27,4 @@ class JSONDataConverter(DataConverter):
         image_path: Union[str, Path],
         annot: Union[Path, str, Dict, fsspec.core.OpenFile]
     ) -> ImageData:
-        if isinstance(annot, str) or isinstance(annot, Path):
-            with fsspec.open(annot, 'r', encoding='utf8') as f:
-                annots = json.load(f)
-        elif isinstance(annot, fsspec.core.OpenFile):
-            with annot as f:
-                annots = json.load(f)
-        else:
-            annots = annot
-        image_path = Pathy(image_path)
-        return ImageData.from_json(annots, image_path=image_path)
+        return ImageData.from_json(annot, image_path=image_path)

@@ -1,9 +1,10 @@
 import json
 import numpy as np
-from typing import Any, Dict, IO
+from typing import Any, Dict, IO, Tuple
 
 from datapipe.store.filedir import ItemStoreFileAdapter
 from cv_pipeliner.core.data import ImageData
+from cv_pipeliner.utils.imagesize import get_image_size
 
 
 class ImageDataFile(ItemStoreFileAdapter):
@@ -37,3 +38,14 @@ class NumpyDataFile(ItemStoreFileAdapter):
     def dump(self, obj: Dict[str, Any], f: IO) -> None:
         ndarray: np.ndarray = obj['ndarray']
         return np.save(f, ndarray)
+
+
+class GetImageSizeFile(ItemStoreFileAdapter):
+    mode = 'b'
+
+    def load(self, f: IO) -> Dict[str, Tuple[int, int]]:
+        image_size = get_image_size(f)
+        return {'image_size': image_size}
+
+    def dump(self, obj: Dict[str, Tuple[int, int]], f: IO) -> None:
+        raise NotImplementedError

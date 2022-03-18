@@ -47,6 +47,8 @@ class DetectionInferencer(Inferencer):
                 image_path=image_data.image_path,
                 image=image,
                 bboxes_data=bboxes_data,
+                label=image_data.label,
+                keypoints=image_data.keypoints,
                 additional_info=image_data.additional_info,
             ))
 

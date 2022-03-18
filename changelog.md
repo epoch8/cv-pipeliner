@@ -1,4 +1,15 @@
+# 0.11.0
+- Added new inference models: `KeypointsRegressorModel`, `YOLOv5_DetectionModel` and `Tensorflow_EmbedderModel`
+- Name of detectron2's models `Pytorch_DetectionModel` changed to `Detectron2_DetectionModel`
+- `thumbnail_image_data` now works when image size need to be increased while aspecting ratio.
+- `rotate_image_data` have 2 more arguments: `border_mode` and `border_value`
+- Fix bug when `ImageData.from_json` doesn't give keypoints
+- (FIXME) Added module `cv_pipeliner.utils.export` to export main models (Object Detection API, YOLOv5) to fixed `saved_model` and `.tflite` for mobile developments.
+- Added better `__repr__` for `ImageData` and `BboxData` (removed `image` and `cropped_image` from them)
+
+
 # 0.10.0
+- `BboxData` now accepts floats xmin, ymin, xmax, ymax
 - `ImageData.from_json()` can now be used on paths to json files
 - Added `COCODataConverter` for COCO annotations
 - Added tests for `DataConverter`
@@ -12,7 +23,6 @@
 - Add method `.load_classification_inferencer()` to class `ClassificationModelSpec` that loads model and returns corresponding `cv_pipeliner.inferencers.ClassificationInferencer`
 - Add method `.load_pipeline_inferencer()` to class `PipelineModelSpec` that loads model and returns corresponding `cv_pipeliner.inferencers.PipelineInferencer`
 - Argument `classification_model_spec` is now `None` by default for `PipelineModelSpec`
-
 - Add argument `return_as_pil_image: bool` set default as `False` in `visualize_image_data`, `visualize_images_data_side_by_side` and `visualize_image_data_matching_side_by_side`, that returns images as `PIL.Image.Image`
 
 
