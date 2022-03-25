@@ -228,7 +228,7 @@ class YOLOv5_DetectionModel(DetectionModel):
             nms_res = self._post_process_raw_predictions_yolov5(y, score_threshold)
             raw_bboxes = np.array(nms_res.nmsed_boxes[0])  # (ymin, xmin, ymax, xmax)
             raw_scores = np.array(nms_res.nmsed_scores[0])
-            nonzero_idxs = (raw_scores > score_threshold)
+            nonzero_idxs = (raw_scores > 0)
             raw_bboxes = raw_bboxes[nonzero_idxs]
             raw_bboxes[:, [0, 2]] *= model_width
             raw_bboxes[:, [1, 3]] *= model_height
