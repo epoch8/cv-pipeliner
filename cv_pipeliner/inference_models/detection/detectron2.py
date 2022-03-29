@@ -232,7 +232,6 @@ class Detectron2_DetectionModel(DetectionModel):
             xmin, ymin, xmax, ymax = bbox
             if (
                 xmax - xmin > 0 and ymax - ymin > 0 and
-                xmin >= 0 and ymin >= 0 and xmax <= width-1 and ymax <= height-1 and
                 (xmin, ymin, xmax, ymax) not in bboxes_set
             ):
                 bboxes_set.add((xmin, ymin, xmax, ymax))

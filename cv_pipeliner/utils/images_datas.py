@@ -157,6 +157,7 @@ def _rotate_bbox_data90(
 def rotate_image_data(
     image_data: ImageData,
     angle: float,
+    warp_flags: Optional[int] = None,
     border_mode: Optional[int] = None,
     border_value: Tuple[int, int, int] = None
 ):
@@ -199,7 +200,8 @@ def rotate_image_data(
         rotation_mat[1, 2] += bound_h/2 - image_center[1]
 
         rotated_image = cv2.warpAffine(
-            image, rotation_mat, (bound_w, bound_h), borderMode=border_mode, borderValue=border_value
+            image, rotation_mat, (bound_w, bound_h), flags=warp_flags,
+            borderMode=border_mode, borderValue=border_value
         )
         new_height, new_width, _ = rotated_image.shape
         rotated_image_data = copy.deepcopy(image_data)

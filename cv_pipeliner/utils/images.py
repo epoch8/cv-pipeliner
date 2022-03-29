@@ -32,6 +32,8 @@ def denormalize_bboxes(bboxes: List[Tuple[float, float, float, float]],
     bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * image_width
     bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * image_height
     bboxes = bboxes.round().astype(int)
+    bboxes[:, [0, 2]] = np.clip(bboxes[:, [0, 2]], 0, image_width-1)
+    bboxes[:, [1, 3]] = np.clip(bboxes[:, [1, 3]], 0, image_height-1)
     return bboxes
 
 
