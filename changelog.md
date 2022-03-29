@@ -1,3 +1,7 @@
+# 0.11.1
+- Add argument `warp_flags` in `cv_pipeliner.utils.images_data.rotate_image_data`
+- Add cliping when `cv_pipeliner.utils.images.denormalize_bboxes`
+
 # 0.11.0
 - Added new inference models: `KeypointsRegressorModel`, `YOLOv5_DetectionModel` and `Tensorflow_EmbedderModel`
 - Name of detectron2's models `Pytorch_DetectionModel` changed to `Detectron2_DetectionModel`
