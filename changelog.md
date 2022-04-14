@@ -1,6 +1,7 @@
 # 0.12.0
 - Fix `bbox_data.json()` when values are written as np.int64
-- Add `COCOLabelsFile` for datapipe
+- Add `utils.datapipe.COCOLabelsFile` for datapipe
+- Add argument `score_threshold` in `utils.images_datas.non_max_suppression_image_data_using_tf`
 
 # 0.11.1
 - Add argument `warp_flags` in `cv_pipeliner.utils.images_data.rotate_image_data`
