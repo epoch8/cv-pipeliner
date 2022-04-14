@@ -234,10 +234,10 @@ class BboxData:
 
     def json(self, include_image_path: bool = True) -> Dict:
         result_json = {
-            'xmin': self.xmin if isinstance(self.xmin, int) else round(self.xmin, 6),
-            'ymin': self.ymin if isinstance(self.ymin, int) else round(self.ymin, 6),
-            'xmax': self.xmax if isinstance(self.xmax, int) else round(self.xmax, 6),
-            'ymax': self.ymax if isinstance(self.ymax, int) else round(self.ymax, 6),
+            'xmin': int(self.xmin) if isinstance(self.xmin, (int, np.int64)) else round(self.xmin, 6),
+            'ymin': int(self.ymin) if isinstance(self.ymin, (int, np.int64)) else round(self.ymin, 6),
+            'xmax': int(self.xmax) if isinstance(self.xmax, (int, np.int64)) else round(self.xmax, 6),
+            'ymax': int(self.ymax) if isinstance(self.ymax, (int, np.int64)) else round(self.ymax, 6),
         }
         if include_image_path:
             result_json['image_path'] = get_image_path_as_str(self.image_path)
