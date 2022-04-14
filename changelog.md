@@ -1,3 +1,7 @@
+# 0.12.0
+- Fix `bbox_data.json()` when values are written as np.int64
+- Add `COCOLabelsFile` for datapipe
+
 # 0.11.1
 - Add argument `warp_flags` in `cv_pipeliner.utils.images_data.rotate_image_data`
 - Add cliping when `cv_pipeliner.utils.images.denormalize_bboxes`
