@@ -8,7 +8,9 @@ import cv2
 from PIL import Image, ImageDraw, ImageFont
 
 from cv_pipeliner.core.data import BboxData, ImageData
-from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
+from cv_pipeliner.utils.images_datas import (
+    flatten_additional_bboxes_data_in_image_data, get_image_data_filtered_by_labels
+)
 from cv_pipeliner.utils.images import rotate_point
 
 
@@ -302,24 +304,23 @@ def visualize_image_data(
     additional_bboxes_data_depth: Optional[int] = None,
     fontsize: int = 24,
     thickness: int = 4,
-    return_as_pil_image: bool = False
+    return_as_pil_image: bool = False,
+    thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None
 ) -> Union[np.ndarray, Image.Image]:
+
+    if thumbnail_size is not None:
+        from cv_pipeliner.utils.images_datas import thumbnail_image_data
+        image_data = thumbnail_image_data(image_data, thumbnail_size)
+
     image_data = get_image_data_filtered_by_labels(
         image_data=image_data,
         filter_by_labels=filter_by_labels
     )
     image = image_data.open_image()
     if include_additional_bboxes_data:
-        bboxes_data = []
-
-        def recursive_get_bboxes_data(bbox_data, depth):
-            if additional_bboxes_data_depth is not None and depth > additional_bboxes_data_depth:
-                return
-            bboxes_data.append(bbox_data)
-            for bbox_data in bbox_data.additional_bboxes_data:
-                recursive_get_bboxes_data(bbox_data, depth=depth+1)
-        for bbox_data in image_data.bboxes_data:
-            recursive_get_bboxes_data(bbox_data, depth=0)
+        bboxes_data = flatten_additional_bboxes_data_in_image_data(
+            image_data, additional_bboxes_data_depth=additional_bboxes_data_depth
+        ).bboxes_data
     else:
         bboxes_data = image_data.bboxes_data
     labels = [bbox_data.label for bbox_data in bboxes_data]

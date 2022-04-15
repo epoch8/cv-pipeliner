@@ -1,5 +1,5 @@
 import copy
-from typing import List, Literal, Optional, Tuple
+from typing import List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import cv2
@@ -271,11 +271,12 @@ def resize_image_data(
 
 def thumbnail_image_data(
     image_data: ImageData,
-    size: Tuple[int, int],
+    size: Optional[Union[int, Tuple[int, int]]] = None,
     resample: Optional[int] = None
 ) -> ImageData:
-    image = image_data.open_image()
-    new_width, new_height = get_thumbnail_resize(Image.fromarray(image), size)
+    if isinstance(size, int):
+        size = (size, size)
+    new_width, new_height = get_thumbnail_resize(image_data.get_image_size(), size)
     return resize_image_data(image_data, (new_width, new_height), resample=resample)
 
 
@@ -585,8 +586,14 @@ def non_max_suppression_image_data_using_tf(
         (bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax)
         for bbox_data in image_data.bboxes_data
     ]
-    scores = [bbox_data.detection_score if bbox_data.detection_score is not None else 1. for bbox_data in image_data.bboxes_data]
-    result = tf.image.non_max_suppression(bboxes, scores, len(image_data.bboxes_data), iou_threshold=iou, score_threshold=score_threshold)
+    scores = [
+        bbox_data.detection_score if bbox_data.detection_score is not None else 1.
+        for bbox_data in image_data.bboxes_data
+    ]
+    result = tf.image.non_max_suppression(
+        bboxes, scores, len(image_data.bboxes_data),
+        iou_threshold=iou, score_threshold=score_threshold
+    )
     image_data.bboxes_data = [image_data.bboxes_data[i] for i in result.numpy()]
     return image_data
 
@@ -821,10 +828,10 @@ def flatten_additional_bboxes_data_in_image_data(
             return
         bboxes_data.append(bbox_data)
         for additional_bbox_data in bbox_data.additional_bboxes_data:
-            _append_bbox_data(additional_bbox_data)
+            _append_bbox_data(additional_bbox_data, depth+1)
         bbox_data.additional_bboxes_data = []
 
-    for bbox_data in bboxes_data:
+    for bbox_data in image_data.bboxes_data:
         _append_bbox_data(bbox_data, depth=0)
 
     image_data.bboxes_data = bboxes_data
