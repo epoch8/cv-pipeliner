@@ -4,7 +4,7 @@ import json
 
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal, Union, List, Dict, Tuple, Optional, Type
+from typing import Any, Union, List, Dict, Tuple, Optional, Type
 
 import numpy as np
 import fsspec
@@ -269,17 +269,13 @@ class BboxData:
 
     def _from_json(
         self, d: Dict,
-        image_path: ImagePath = None,
-        bbox_data_cls: Type['BboxData'] = None
+        image_path: ImagePath = None
     ):
-        if bbox_data_cls is None:
-            bbox_data_cls = BboxData
-
-        for key in bbox_data_cls.__dataclass_fields__:
+        for key in self.__dataclass_fields__:
             if key in d:
                 if key == 'additional_bboxes_data':
                     d[key] = [
-                        bbox_data_cls.from_json(bbox_data, image_path=image_path, bbox_data_cls=bbox_data_cls)
+                        type(self).from_json(bbox_data, image_path=image_path, bbox_data_cls=type(self))
                         for bbox_data in d['additional_bboxes_data']
                     ]
                 super().__setattr__(key, d[key])
@@ -295,7 +291,8 @@ class BboxData:
     def from_json(
         d: Optional[Union[Path, str, Dict[str, Any], fsspec.core.OpenFile]],
         image_path: ImagePath = None,
-        bbox_data_cls: Type['BboxData'] = None
+        bbox_data_cls: Type['BboxData'] = None,
+        **kwargs
     ):
         if bbox_data_cls is None:
             bbox_data_cls = BboxData
@@ -307,7 +304,7 @@ class BboxData:
         elif isinstance(d, fsspec.core.OpenFile):
             with d as f:
                 d = json.load(f)
-        return bbox_data_cls()._from_json(d=d, image_path=image_path, bbox_data_cls=bbox_data_cls)
+        return bbox_data_cls(**kwargs)._from_json(d=d, image_path=image_path)
 
 
 @dataclass
@@ -368,13 +365,11 @@ class ImageData:
         return result_json
 
     def _from_json(
-        self, d: Union[str, Path, Dict],
-        image_data_cls: Type['ImageData'] = None,
+        self,
+        d: Union[str, Path, Dict],
         bbox_data_cls: Type[BboxData] = None
     ):
-        if image_data_cls is None:
-            image_data_cls = ImageData
-        for key in image_data_cls.__dataclass_fields__:
+        for key in self.__dataclass_fields__:
             if key in d:
                 if key == 'image_path' and self.image_path is not None:
                     continue
@@ -393,10 +388,14 @@ class ImageData:
     def from_json(
         d: Optional[Union[Path, str, Dict[str, Any], fsspec.core.OpenFile]],
         image_path: ImagePath = None,
-        bbox_data_cls: Type[BboxData] = BboxData
+        image_data_cls: Type['ImageData'] = 'ImageData',
+        bbox_data_cls: Type[BboxData] = BboxData,
+        **kwargs
     ):
+        if image_data_cls is None or image_data_cls == 'ImageData':
+            image_data_cls = ImageData
         if d is None:
-            return ImageData(image_path=image_path)
+            return image_data_cls(image_path=image_path)
         if isinstance(d, str) or isinstance(d, Path):
             with fsspec.open(d, 'r') as f:
                 d = json.loads(f.read())
@@ -405,7 +404,7 @@ class ImageData:
                 d = json.load(f)
         if 'image_data' in d:
             d = d['image_data']
-        return ImageData(image_path=image_path)._from_json(d, bbox_data_cls)
+        return image_data_cls(image_path=image_path, **kwargs)._from_json(d, bbox_data_cls)
 
     def is_empty(self):
         return self.image_path is None and self.image is None
