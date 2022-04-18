@@ -1,4 +1,4 @@
-from typing import List, Literal, Callable, Union
+from typing import List, Literal, Callable, Optional, Tuple, Union
 
 import numpy as np
 from PIL import Image
@@ -80,9 +80,15 @@ def visualize_image_data_matching_side_by_side(
     pred_score_type: Literal['detection', 'classification'] = None,
     true_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
     pred_filter_by_error_types: List[error_type] = ['TP', 'FP', 'FN', 'TP (extra bbox)', 'FP (extra bbox)'],
+    known_labels: Optional[List[str]] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    known_labels: List[str] = [],
-    label: str = None,
+    overlay: bool = False,
+    keypoints_radius: int = 5,
+    include_additional_bboxes_data: bool = False,
+    additional_bboxes_data_depth: Optional[int] = None,
+    fontsize: int = 24,
+    thickness: int = 4,
+    thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None,    label: str = None,
     return_as_pil_image: bool = False
 ) -> Union[np.ndarray, Image.Image]:
 
@@ -113,5 +119,12 @@ def visualize_image_data_matching_side_by_side(
         filter_by_labels2=pred_filter_by_labels,
         known_labels=known_labels,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+        overlay=overlay,
+        keypoints_radius=keypoints_radius,
+        include_additional_bboxes_data=include_additional_bboxes_data,
+        additional_bboxes_data_depth=additional_bboxes_data_depth,
+        fontsize=fontsize,
+        thickness=thickness,
+        thumbnail_size=thumbnail_size,
         return_as_pil_image=return_as_pil_image
     )

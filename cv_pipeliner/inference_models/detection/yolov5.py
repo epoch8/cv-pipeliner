@@ -37,10 +37,12 @@ class YOLOv5_TFLite_ModelSpec(DetectionModelSpec):
     note: model_path can be set as torch.hub.load('ultralytics/yolov5', 'yolov5s')
     """
     model_path: Union[str, Path]
-    input_size: Union[Tuple[int, int], List[int]]
+    bboxes_output_index: Union[int, str]
+    scores_output_index: Union[int, str]
+    classes_output_index: Union[int, str]
     class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
-
+    input_size: Union[Tuple[int, int], List[int]] = (None, None)
 
     @property
     def inference_model_cls(self) -> Type['YOLOv5_DetectionModel']:
@@ -111,7 +113,25 @@ class YOLOv5_DetectionModel(DetectionModel):
         self.model.allocate_tensors()
         self.input_detail = self.model.get_input_details()[0]
         self.output_detail = self.model.get_output_details()[0]
+        self.input_index = self.input_detail['index']
         self.input_dtype = self.input_detail['dtype']
+        output_details = self.model.get_output_details()
+        output_name_to_index = {
+            output_detail['name']: output_detail['index']
+            for output_detail in output_details
+        }
+        if isinstance(model_spec.bboxes_output_index, str):
+            self.bboxes_index = output_name_to_index[model_spec.bboxes_output_index]
+        else:
+            self.bboxes_index = output_details[model_spec.bboxes_output_index]['index']
+        if isinstance(model_spec.bboxes_output_index, str):
+            self.scores_index = output_name_to_index[model_spec.scores_output_index]
+        else:
+            self.scores_index = output_details[model_spec.scores_output_index]['index']
+        if isinstance(model_spec.classes_output_index, str):
+            self.classes_index = output_name_to_index[model_spec.classes_output_index]
+        else:
+            self.classes_index = output_details[model_spec.classes_output_index]['index']
         temp_file.close()
 
     def _raw_predict_images_torch(
@@ -131,77 +151,6 @@ class YOLOv5_DetectionModel(DetectionModel):
             n_raw_classes.append(np.array(result_pd["class"]))
         return n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes
 
-    def _post_process_raw_predictions_yolov5(self, raw_pred, score_threshold) -> 'CombinedNonMaxSuppression':
-        import tensorflow as tf
-
-        def _xywh2xyxy_tf(xywh):
-            x, y, w, h = tf.split(xywh, num_or_size_splits=4, axis=-1)
-            return tf.concat([x - w / 2, y - h / 2, x + w / 2, y + h / 2], axis=-1)
-
-        boxes = _xywh2xyxy_tf(raw_pred[..., :4])
-        probs = raw_pred[:, :, 4:5]
-        classes = raw_pred[:, :, 5:]
-        scores = probs * classes
-
-        boxes = tf.expand_dims(boxes, 2)
-        nms = tf.image.combined_non_max_suppression(
-            boxes, scores,
-            max_output_size_per_class=2000, max_total_size=2000, iou_threshold=0.45,
-            score_threshold=score_threshold, clip_boxes=False
-        )
-        return nms
-
-    def _resize_with_pad(
-        self,
-        image: np.ndarray,
-        target_width: int,
-        target_height: int
-    ) -> Tuple[np.ndarray, float, Tuple[int, int]]:
-        # Resize and pad image while meeting stride-multiple constraints
-        # Taken from https://github.com/ultralytics/yolov5/blob/master/utils/datasets.py
-        height, width = image.shape[:2]  # current shape [height, width]
-        # Scale ratio (new / old)
-        ratio = min(target_height / height, target_width / width)
-        # Compute padding
-        new_unpad_width, new_unpad_height = int(round(width * ratio)), int(round(height * ratio))
-        dw, dh = target_width - new_unpad_width, target_height - new_unpad_height  # wh padding
-        dw /= 2  # divide padding into 2 sides
-        dh /= 2
-        if (width, height) != (new_unpad_width, new_unpad_height):  # resize
-            image = cv2.resize(image, (new_unpad_width, new_unpad_height), interpolation=cv2.INTER_LINEAR)
-        top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
-        left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-        image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))  # add border
-
-        # Alternative: import tensorflow as tf
-        # image = tf.image.resize_with_pad([image], target_height, target_width).numpy()[0]
-        # if dh > 0:
-        #     image[0:dh//2, :, :] = 114
-        #     image[-dh//2:, :, :] = 114
-        # if dw > 0:
-        #     image[:, :dw//2, :] = 114
-        #     image[:, -dw//2:, :] = 114
-        return image
-
-    def _scale_coords(
-        self,
-        img1_size: Tuple[int, int],
-        img0_size: Tuple[int, int],
-        bboxes: List[Tuple[float, float, float, float]],
-    ) -> List[Tuple[float, float, float, float]]:
-        # Taken from https://github.com/ultralytics/yolov5/blob/master/utils/general.py
-        # Rescale coords (xyxy) from img1_shape to img0_shape
-        width1, height1 = img1_size
-        width0, height0 = img0_size
-        gain = min(height1 / height0, width1 / width0)  # gain  = old / new
-        pad = (width1 - width0 * gain) / 2, (height1 - height0 * gain) / 2  # wh padding
-        bboxes[:, [0, 2]] -= pad[0]  # x padding
-        bboxes[:, [1, 3]] -= pad[1]  # y padding
-        bboxes[:, :4] /= gain
-        bboxes[:, [0, 2]] = bboxes[:, [0, 2]].clip(0, width0)  # x1, x2
-        bboxes[:, [1, 3]] = bboxes[:, [1, 3]].clip(0, height0)  # y1, y2
-        return bboxes
-
     def _raw_predict_images_tflite(
         self,
         input: DetectionInput,
@@ -210,36 +159,19 @@ class YOLOv5_DetectionModel(DetectionModel):
         model_width, model_height = self.input_size
         n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = [], [], [], []
         for image in input:
-            height, width = image.shape[:2]
-            image = image.astype(np.float32)
-            image = self._resize_with_pad(image, target_width=model_width, target_height=model_height)
-            image = image[None]
-            image /= 255
-            int8 = self.input_dtype == np.uint8
-            if int8:
-                scale, zero_point = self.input_detail['quantization']
-                image = (image / scale + zero_point).astype(np.uint8)  # de-scale
-            self.model.set_tensor(self.input_detail['index'], image)
+            height, width, _ = image.shape
+            image = np.array(image[None, ...], dtype=self.input_dtype)
+            self.model.resize_tensor_input(0, [1, height, width, 3])
+            self.model.allocate_tensors()
+            self.model.set_tensor(self.input_index, image)
             self.model.invoke()
-            y = self.model.get_tensor(self.output_detail['index'])
-            if int8:
-                scale, zero_point = self.output_detail['quantization']
-                y = (y.astype(np.float32) - zero_point) * scale  # re-scale
-            nms_res = self._post_process_raw_predictions_yolov5(y, score_threshold)
-            raw_bboxes = np.array(nms_res.nmsed_boxes[0])  # (ymin, xmin, ymax, xmax)
-            raw_scores = np.array(nms_res.nmsed_scores[0])
-            nonzero_idxs = (raw_scores > 0)
-            raw_bboxes = raw_bboxes[nonzero_idxs]
-            raw_bboxes[:, [0, 2]] *= model_width
-            raw_bboxes[:, [1, 3]] *= model_height
-            raw_bboxes = self._scale_coords((model_width, model_height), (width, height), raw_bboxes)
-            raw_bboxes[:, [0, 2]] /= width
-            raw_bboxes[:, [1, 3]] /= height
-
+            raw_bboxes = np.array(self.model.get_tensor(self.bboxes_index))[0]
+            raw_scores = np.array(self.model.get_tensor(self.scores_index))[0]
+            raw_classes = np.array(self.model.get_tensor(self.classes_index))[0]
             n_raw_bboxes.append(raw_bboxes)
             n_raw_keypoints.append(np.array([]).reshape(len(raw_bboxes), 0, 2))
-            n_raw_scores.append(raw_scores[nonzero_idxs])
-            n_raw_classes.append(np.array(nms_res.nmsed_classes[0][nonzero_idxs]))
+            n_raw_scores.append(raw_scores)
+            n_raw_classes.append(raw_classes)
 
         return n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes
 

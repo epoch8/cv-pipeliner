@@ -4,7 +4,7 @@ import json
 
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any, Union, List, Dict, Tuple, Optional
+from typing import Any, Union, List, Dict, Tuple, Optional, Type
 
 import numpy as np
 import fsspec
@@ -121,6 +121,10 @@ class BboxData:
         width, height = self.get_image_size()
         return self.xmin / width, self.ymin / height, self.xmax / width, self.ymax / height
 
+    @property
+    def area(self) -> int:
+        return (self.xmax - self.xmin + 1) * (self.ymax - self.ymin + 1)
+
     def coords_with_offset(
         self,
         xmin_offset: Union[int, float] = 0,
@@ -180,7 +184,9 @@ class BboxData:
 
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
-            xmin, ymin, xmax, ymax = self.coords_with_offset(xmin_offset, ymin_offset, xmax_offset, ymax_offset, source_image)
+            xmin, ymin, xmax, ymax = self.coords_with_offset(
+                xmin_offset, ymin_offset, xmax_offset, ymax_offset, source_image
+            )
             cropped_image = image[ymin:ymax, xmin:xmax]
 
         if inplace:
@@ -199,10 +205,9 @@ class BboxData:
                     bbox_data.ymin -= ymin
                     bbox_data.xmax -= xmin
                     bbox_data.ymax -= ymin
-                    for additional_bbox_data in bbox_data.additional_bboxes_data:
-                        crop_additional_bbox_data(additional_bbox_data)
+
                 for additional_bbox_data in additional_bboxes_data:
-                    crop_additional_bbox_data(additional_bbox_data)
+                    additional_bbox_data.apply_func_recursively(crop_additional_bbox_data)
 
                 from cv_pipeliner.core.data import ImageData
                 image_data = ImageData(
@@ -234,10 +239,10 @@ class BboxData:
 
     def json(self, include_image_path: bool = True) -> Dict:
         result_json = {
-            'xmin': self.xmin if isinstance(self.xmin, int) else round(self.xmin, 6),
-            'ymin': self.ymin if isinstance(self.ymin, int) else round(self.ymin, 6),
-            'xmax': self.xmax if isinstance(self.xmax, int) else round(self.xmax, 6),
-            'ymax': self.ymax if isinstance(self.ymax, int) else round(self.ymax, 6),
+            'xmin': int(self.xmin) if isinstance(self.xmin, (int, np.int64)) else round(self.xmin, 6),
+            'ymin': int(self.ymin) if isinstance(self.ymin, (int, np.int64)) else round(self.ymin, 6),
+            'xmax': int(self.xmax) if isinstance(self.xmax, (int, np.int64)) else round(self.xmax, 6),
+            'ymax': int(self.ymax) if isinstance(self.ymax, (int, np.int64)) else round(self.ymax, 6),
         }
         if include_image_path:
             result_json['image_path'] = get_image_path_as_str(self.image_path)
@@ -266,12 +271,15 @@ class BboxData:
 
         return result_json
 
-    def _from_json(self, d: Dict, image_path: ImagePath = None):
-        for key in BboxData.__dataclass_fields__:
+    def _from_json(
+        self, d: Dict,
+        image_path: ImagePath = None
+    ):
+        for key in self.__dataclass_fields__:
             if key in d:
                 if key == 'additional_bboxes_data':
                     d[key] = [
-                        BboxData.from_json(bbox_data, image_path=image_path)
+                        type(self).from_json(bbox_data, image_path=image_path, bbox_data_cls=type(self))
                         for bbox_data in d['additional_bboxes_data']
                     ]
                 super().__setattr__(key, d[key])
@@ -286,18 +294,21 @@ class BboxData:
     @staticmethod
     def from_json(
         d: Optional[Union[Path, str, Dict[str, Any], fsspec.core.OpenFile]],
-        image_path: ImagePath = None
+        image_path: ImagePath = None,
+        bbox_data_cls: Type['BboxData'] = None,
+        **kwargs
     ):
+        if bbox_data_cls is None:
+            bbox_data_cls = BboxData
         if d is None:
-            return BboxData(image_path=image_path)
+            return bbox_data_cls(image_path=image_path)
         if isinstance(d, str) or isinstance(d, Path):
             with fsspec.open(d, 'r') as f:
                 d = json.loads(f.read())
         elif isinstance(d, fsspec.core.OpenFile):
             with d as f:
                 d = json.load(f)
-
-        return BboxData()._from_json(d=d, image_path=image_path)
+        return bbox_data_cls(**kwargs)._from_json(d=d, image_path=image_path)
 
 
 @dataclass
@@ -357,14 +368,18 @@ class ImageData:
 
         return result_json
 
-    def _from_json(self, d: Union[str, Path, Dict]):
-        for key in ImageData.__dataclass_fields__:
+    def _from_json(
+        self,
+        d: Union[str, Path, Dict],
+        bbox_data_cls: Type[BboxData] = None
+    ):
+        for key in self.__dataclass_fields__:
             if key in d:
                 if key == 'image_path' and self.image_path is not None:
                     continue
                 if key == 'bboxes_data':
                     d[key] = [
-                        BboxData.from_json(bbox_data, image_path=self.image_path)
+                        bbox_data_cls.from_json(bbox_data, image_path=self.image_path, bbox_data_cls=bbox_data_cls)
                         for bbox_data in d['bboxes_data']
                     ]
                 super().__setattr__(key, d[key])
@@ -376,10 +391,15 @@ class ImageData:
     @staticmethod
     def from_json(
         d: Optional[Union[Path, str, Dict[str, Any], fsspec.core.OpenFile]],
-        image_path: ImagePath = None
+        image_path: ImagePath = None,
+        image_data_cls: Type['ImageData'] = 'ImageData',
+        bbox_data_cls: Type[BboxData] = BboxData,
+        **kwargs
     ):
+        if image_data_cls is None or image_data_cls == 'ImageData':
+            image_data_cls = ImageData
         if d is None:
-            return ImageData(image_path=image_path)
+            return image_data_cls(image_path=image_path)
         if isinstance(d, str) or isinstance(d, Path):
             with fsspec.open(d, 'r') as f:
                 d = json.loads(f.read())
@@ -388,7 +408,7 @@ class ImageData:
                 d = json.load(f)
         if 'image_data' in d:
             d = d['image_data']
-        return ImageData(image_path=image_path)._from_json(d)
+        return image_data_cls(image_path=image_path, **kwargs)._from_json(d, bbox_data_cls)
 
     def is_empty(self):
         return self.image_path is None and self.image is None

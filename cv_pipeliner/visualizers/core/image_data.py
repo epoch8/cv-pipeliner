@@ -8,7 +8,9 @@ import cv2
 from PIL import Image, ImageDraw, ImageFont
 
 from cv_pipeliner.core.data import BboxData, ImageData
-from cv_pipeliner.utils.images_datas import get_image_data_filtered_by_labels
+from cv_pipeliner.utils.images_datas import (
+    flatten_additional_bboxes_data_in_image_data, get_image_data_filtered_by_labels
+)
 from cv_pipeliner.utils.images import rotate_point
 
 
@@ -295,31 +297,30 @@ def visualize_image_data(
     use_labels: bool = False,
     score_type: Literal['detection', 'classification'] = None,
     filter_by_labels: List[str] = None,
-    known_labels: List[str] = None,
+    known_labels: Optional[List[str]] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     keypoints_radius: int = 5,
     include_additional_bboxes_data: bool = False,
     additional_bboxes_data_depth: Optional[int] = None,
     fontsize: int = 24,
     thickness: int = 4,
+    thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None,
     return_as_pil_image: bool = False
 ) -> Union[np.ndarray, Image.Image]:
+
+    if thumbnail_size is not None:
+        from cv_pipeliner.utils.images_datas import thumbnail_image_data
+        image_data = thumbnail_image_data(image_data, thumbnail_size)
+
     image_data = get_image_data_filtered_by_labels(
         image_data=image_data,
         filter_by_labels=filter_by_labels
     )
     image = image_data.open_image()
     if include_additional_bboxes_data:
-        bboxes_data = []
-
-        def recursive_get_bboxes_data(bbox_data, depth):
-            if additional_bboxes_data_depth is not None and depth > additional_bboxes_data_depth:
-                return
-            bboxes_data.append(bbox_data)
-            for bbox_data in bbox_data.additional_bboxes_data:
-                recursive_get_bboxes_data(bbox_data, depth=depth+1)
-        for bbox_data in image_data.bboxes_data:
-            recursive_get_bboxes_data(bbox_data, depth=0)
+        bboxes_data = flatten_additional_bboxes_data_in_image_data(
+            image_data, additional_bboxes_data_depth=additional_bboxes_data_depth
+        ).bboxes_data
     else:
         bboxes_data = image_data.bboxes_data
     labels = [bbox_data.label for bbox_data in bboxes_data]
@@ -391,20 +392,22 @@ def visualize_images_data_side_by_side(
     score_type2: Literal['detection', 'classification'] = None,
     filter_by_labels1: List[str] = None,
     filter_by_labels2: List[str] = None,
-    known_labels: List[str] = [],
+    known_labels: Optional[List[str]] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     overlay: bool = False,
+    keypoints_radius: int = 5,
     include_additional_bboxes_data: bool = False,
     additional_bboxes_data_depth: Optional[int] = None,
     fontsize: int = 24,
     thickness: int = 4,
+    thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None,
     return_as_pil_image: bool = False
 ) -> Union[np.ndarray, Image.Image]:
 
     if overlay:
         image_data1 = copy.deepcopy(image_data1)
         image_data2 = copy.deepcopy(image_data2)
-        for image_data, tag in [(image_data1, 'true'), (image_data2, 'pred')]:
+        for image_data, tag in [(image_data1, 'left'), (image_data2, 'right')]:
             for bbox_data in image_data.bboxes_data:
                 bbox_data.label = f"{bbox_data.label} [{tag}]"
 
@@ -417,8 +420,10 @@ def visualize_images_data_side_by_side(
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
         include_additional_bboxes_data=include_additional_bboxes_data,
         additional_bboxes_data_depth=additional_bboxes_data_depth,
+        keypoints_radius=keypoints_radius,
         fontsize=fontsize,
-        thickness=thickness
+        thickness=thickness,
+        thumbnail_size=thumbnail_size
     )
     pred_ann_image = visualize_image_data(
         image_data=image_data2,
@@ -429,8 +434,10 @@ def visualize_images_data_side_by_side(
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
         include_additional_bboxes_data=include_additional_bboxes_data,
         additional_bboxes_data_depth=additional_bboxes_data_depth,
+        keypoints_radius=keypoints_radius,
         fontsize=fontsize,
-        thickness=thickness
+        thickness=thickness,
+        thumbnail_size=thumbnail_size
     )
 
     if overlay:

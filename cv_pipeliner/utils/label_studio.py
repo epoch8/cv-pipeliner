@@ -29,10 +29,10 @@ def parse_rectangle_labels_to_bbox_data(
     ymin = max(0, min([y for (x, y) in rotated_points]))
     xmax = max([x for (x, y) in rotated_points])
     ymax = max([y for (x, y) in rotated_points])
-    xmin = max(0, min(original_width, xmin))
-    ymin = max(0, min(original_height, ymin))
-    xmax = max(0, min(original_width, xmax))
-    ymax = max(0, min(original_height, ymax))
+    xmin = max(0, min(original_width-1, xmin))
+    ymin = max(0, min(original_height-1, ymin))
+    xmax = max(0, min(original_width-1, xmax))
+    ymax = max(0, min(original_height-1, ymax))
     bbox_data = BboxData(
         xmin=xmin,
         ymin=ymin,
@@ -48,10 +48,7 @@ def convert_image_data_to_rectangle_labels(
     from_name: str,
     to_name: str,
 ) -> Dict:
-    if image_data.image_path is not None:
-        im_width, im_height = imagesize.get(image_data.image_path)
-    else:
-        im_height, im_width, _ = image_data.open_image().shape
+    im_width, im_height = image_data.get_image_size()
     rectangle_labels = []
     for bbox_data in image_data.bboxes_data:
         rectangle_labels.append({

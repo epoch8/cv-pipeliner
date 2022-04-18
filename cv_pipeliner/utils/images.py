@@ -512,14 +512,15 @@ def draw_quadrangle_on_image(
     return image
 
 
-def get_thumbnail_resize(image: Image, size: Tuple[int, int]) -> Tuple[int, int]:
-    x, y = map(math.floor, size)
+def get_thumbnail_resize(input_size: Tuple[int, int], target_size: Tuple[int, int]) -> Tuple[int, int]:
+    # input_size = (width, height)
+    x, y = map(math.floor, target_size)
 
     def round_aspect(number, key):
         return max(min(math.floor(number), math.ceil(number), key=key), 1)
 
     # preserve aspect ratio
-    aspect = image.width / image.height
+    aspect = input_size[0] / input_size[1]
     if x / y >= aspect:
         x = round_aspect(y * aspect, key=lambda n: abs(aspect - n / y))
     else:
@@ -532,7 +533,7 @@ def get_thumbnail_resize(image: Image, size: Tuple[int, int]) -> Tuple[int, int]
 
 def thumbnail_image(image: np.ndarray, size: Tuple[int, int], resample: Optional[int] = None) -> np.ndarray:
     image = Image.fromarray(image)
-    new_width, new_height = get_thumbnail_resize(image, size)
+    new_width, new_height = get_thumbnail_resize((image.width, image.height), size)
     image = image.resize((new_width, new_height), resample=resample)
     image = np.array(image)
     return image

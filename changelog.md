@@ -1,3 +1,17 @@
+# 0.12.0
+- Fix `bbox_data.json()` when values are written as np.int64
+- Add `utils.datapipe.COCOLabelsFile` for datapipe
+- Add argument `score_threshold` in `utils.images_datas.non_max_suppression_image_data_using_tf`
+- Fixs in `parse_rectangle_labels_to_bbox_data` and `convert_image_data_to_rectangle_labels` in `utils.label_studio`
+- Add new argument `thumbnail_size` in `cv_pipeliner.visualize_image_data`
+- `ImageData.from_json` and `BboxData.from_json` now have arguments `image_data_cls` and `bbox_data_cls` for parsing JSON of child's classes.
+- Add `threshold_score` in `utils.images_data.non_max_suppression_image_data_using_tf`
+- `thumbnail_image` and `thumbnail_image_data` accepts also `int`, meaning size of `(int, int)`
+- `YOLOv5_TFLite_ModelSpec` is now more stable
+- Added `bbox_data.area` for calculating bbox's area
+- The function `cv_pipeliner.utils.images_data.non_max_suppression_image_data` is refactored and works faster
+
+
 # 0.11.1
 - Add argument `warp_flags` in `cv_pipeliner.utils.images_data.rotate_image_data`
 - Add cliping when `cv_pipeliner.utils.images.denormalize_bboxes`
