@@ -121,6 +121,10 @@ class BboxData:
         width, height = self.get_image_size()
         return self.xmin / width, self.ymin / height, self.xmax / width, self.ymax / height
 
+    @property
+    def area(self) -> int:
+        return (self.xmax - self.xmin + 1) * (self.ymax - self.ymin + 1)
+
     def coords_with_offset(
         self,
         xmin_offset: Union[int, float] = 0,

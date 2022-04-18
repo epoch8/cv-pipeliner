@@ -297,15 +297,15 @@ def visualize_image_data(
     use_labels: bool = False,
     score_type: Literal['detection', 'classification'] = None,
     filter_by_labels: List[str] = None,
-    known_labels: List[str] = None,
+    known_labels: Optional[List[str]] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     keypoints_radius: int = 5,
     include_additional_bboxes_data: bool = False,
     additional_bboxes_data_depth: Optional[int] = None,
     fontsize: int = 24,
     thickness: int = 4,
-    return_as_pil_image: bool = False,
-    thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None
+    thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None,
+    return_as_pil_image: bool = False
 ) -> Union[np.ndarray, Image.Image]:
 
     if thumbnail_size is not None:
@@ -392,20 +392,22 @@ def visualize_images_data_side_by_side(
     score_type2: Literal['detection', 'classification'] = None,
     filter_by_labels1: List[str] = None,
     filter_by_labels2: List[str] = None,
-    known_labels: List[str] = [],
+    known_labels: Optional[List[str]] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
     overlay: bool = False,
+    keypoints_radius: int = 5,
     include_additional_bboxes_data: bool = False,
     additional_bboxes_data_depth: Optional[int] = None,
     fontsize: int = 24,
     thickness: int = 4,
+    thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None,
     return_as_pil_image: bool = False
 ) -> Union[np.ndarray, Image.Image]:
 
     if overlay:
         image_data1 = copy.deepcopy(image_data1)
         image_data2 = copy.deepcopy(image_data2)
-        for image_data, tag in [(image_data1, 'true'), (image_data2, 'pred')]:
+        for image_data, tag in [(image_data1, 'left'), (image_data2, 'right')]:
             for bbox_data in image_data.bboxes_data:
                 bbox_data.label = f"{bbox_data.label} [{tag}]"
 
@@ -418,8 +420,10 @@ def visualize_images_data_side_by_side(
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
         include_additional_bboxes_data=include_additional_bboxes_data,
         additional_bboxes_data_depth=additional_bboxes_data_depth,
+        keypoints_radius=keypoints_radius,
         fontsize=fontsize,
-        thickness=thickness
+        thickness=thickness,
+        thumbnail_size=thumbnail_size
     )
     pred_ann_image = visualize_image_data(
         image_data=image_data2,
@@ -430,8 +434,10 @@ def visualize_images_data_side_by_side(
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
         include_additional_bboxes_data=include_additional_bboxes_data,
         additional_bboxes_data_depth=additional_bboxes_data_depth,
+        keypoints_radius=keypoints_radius,
         fontsize=fontsize,
-        thickness=thickness
+        thickness=thickness,
+        thumbnail_size=thumbnail_size
     )
 
     if overlay:

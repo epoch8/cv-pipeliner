@@ -6,7 +6,6 @@ import cv2
 from PIL import Image
 
 from cv_pipeliner.core.data import ImageData, BboxData
-from cv_pipeliner.metrics.image_data_matching import intersection_over_union
 from cv_pipeliner.utils.images import concat_images, get_thumbnail_resize
 
 
@@ -528,46 +527,41 @@ def apply_perspective_transform_to_image_data(
 
 def non_max_suppression_image_data(
     image_data: ImageData,
-    iou: float
+    iou: float,
+    score_threshold: float = float('-inf')
 ) -> ImageData:
+    """
+        Taken from https://towardsdatascience.com/non-maxima-suppression-139f7e00f0b5
+    """
     image_data = copy.deepcopy(image_data)
-    current_bboxes_data = image_data.bboxes_data.copy()
-    new_bboxes_data = []
-    while len(current_bboxes_data) != 0:
-        current_bbox_data = current_bboxes_data[0]
-        success = True
-        if len(current_bboxes_data) > 1:
-            for idx, bbox_data in enumerate(current_bboxes_data):
-                if idx == 0:
-                    continue
-                bbox_iou = intersection_over_union(current_bbox_data, bbox_data)
+    boxes = np.array([bbox_data.coords for bbox_data in image_data.bboxes_data])
+    x1 = boxes[:, 0]  # x coordinate of the top-left corner
+    y1 = boxes[:, 1]  # y coordinate of the top-left corner
+    x2 = boxes[:, 2]  # x coordinate of the bottom-right corner
+    y2 = boxes[:, 3]  # y coordinate of the bottom-right corner
+    # compute the area of the bounding boxes and sort the bounding
+    # boxes by the bottom-right y-coordinate of the bounding box
+    areas = (x2 - x1 + 1) * (y2 - y1 + 1)  # We have a least a box of one pixel, therefore the +1
+    indices = np.arange(len(boxes))
+    for i, bbox_data in enumerate(image_data.bboxes_data):
+        temp_indices = indices[indices != i]
+        xx1 = np.maximum(bbox_data.xmin, boxes[temp_indices, 0])
+        yy1 = np.maximum(bbox_data.ymin, boxes[temp_indices, 1])
+        xx2 = np.minimum(bbox_data.xmax, boxes[temp_indices, 2])
+        yy2 = np.minimum(bbox_data.ymax, boxes[temp_indices, 3])
+        w = np.maximum(0, xx2 - xx1 + 1)
+        h = np.maximum(0, yy2 - yy1 + 1)
+        # compute the ratio of overlap
+        overlap = (w * h) / areas[temp_indices]
+        if np.any(overlap) > iou:
+            indices = indices[indices != i]
 
-                if bbox_iou >= iou:
-                    pairs_bboxes_data = [bbox_data, current_bbox_data]
-                    pairs_scores = [
-                        possible_bbox_data.detection_score if possible_bbox_data.detection_score is not None else 1.
-                        for possible_bbox_data in pairs_bboxes_data
-                    ]
-                    top_score_idx = np.argmax(pairs_scores)
-                    current_bboxes_data.pop(idx)
-                    current_bboxes_data.pop(0)
-                    current_bboxes_data.append(BboxData(
-                        xmin=min(bbox_data.xmin, current_bbox_data.xmin),
-                        ymin=min(bbox_data.ymin, current_bbox_data.ymin),
-                        xmax=max(bbox_data.xmax, current_bbox_data.xmax),
-                        ymax=max(bbox_data.ymax, current_bbox_data.ymax),
-                        detection_score=pairs_bboxes_data[top_score_idx].detection_score,
-                        label=pairs_bboxes_data[top_score_idx].label,
-                        keypoints=pairs_bboxes_data[top_score_idx].keypoints,
-                        additional_bboxes_data=pairs_bboxes_data[top_score_idx].additional_bboxes_data,
-                        additional_info=pairs_bboxes_data[top_score_idx].additional_info
-                    ))
-                    success = False
-                    break
-        if success:
-            new_bboxes_data.append(current_bboxes_data.pop(0))
-
-    image_data.bboxes_data = new_bboxes_data
+    image_data.bboxes_data = [image_data.bboxes_data[i] for i in indices]
+    if score_threshold is not None:
+        image_data.bboxes_data = [
+            bbox_data for bbox_data in image_data.bboxes_data
+            if (bbox_data.detection_score is None) or (bbox_data.detection_score >= score_threshold)
+        ]
     image_data.image_path = image_data.image_path
     image_data.image = image_data.image
     return image_data

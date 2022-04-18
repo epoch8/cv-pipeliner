@@ -17,7 +17,7 @@ from cv_pipeliner.utils.images_datas import (
     apply_perspective_transform_to_image_data,
     thumbnail_image_data, non_max_suppression_image_data, uncrop_bboxes_data,
     resize_image_data, split_image_by_grid, flatten_additional_bboxes_data_in_image_data,
-    non_max_suppression_image_data_using_tf, get_image_data_with_recursive_bboxes_data
+    non_max_suppression_image_data_using_tf
 )
 from cv_pipeliner.inference_models.detection.object_detection_api import (
     ObjectDetectionAPI_KFServing, ObjectDetectionAPI_ModelSpec, ObjectDetectionAPI_TFLite_ModelSpec,

@@ -52,7 +52,7 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     model_path: Union[str, Path]
     bboxes_output_index: Union[int, str]
     scores_output_index: Union[int, str]
-    classes_output_index: Optional[Union[int, str]]
+    classes_output_index: Union[int, str]
     multiclasses_scores_output_index: Optional[Union[int, str]] = None
     class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
