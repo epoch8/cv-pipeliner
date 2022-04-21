@@ -15,20 +15,17 @@ def get_image_data_filtered_by_labels(
 ) -> ImageData:
     if filter_by_labels is None or len(filter_by_labels) == 0:
         return image_data
+    image_data = copy.deepcopy(image_data)
 
     filter_by_labels = set(filter_by_labels)
 
-    bboxes_data = [
+    image_data.bboxes_data = [
         bbox_data for bbox_data in image_data.bboxes_data
         if (include and bbox_data.label in filter_by_labels) or (
             not include and bbox_data.label not in filter_by_labels
         )
     ]
-    return ImageData(
-        image_path=image_data.image_path,
-        image=image_data.image,
-        bboxes_data=bboxes_data
-    )
+    return image_data
 
 
 def get_n_bboxes_data_filtered_by_labels(
@@ -65,7 +62,10 @@ def rotate_keypoints(
     points[:, 1] = keypoints[:, 1]
     points[:, 2] = 1
     rotated_points = (rotation_mat @ points.T).astype(int).T
-    return np.array(rotated_points).reshape(-1, 2)
+    rotated_points = np.array(rotated_points).reshape(-1, 2)
+    rotated_points[:, 0] = np.clip(rotated_points[:, 0], 0, new_width-1)
+    rotated_points[:, 1] = np.clip(rotated_points[:, 1], 0, new_height-1)
+    return rotated_points
 
 
 def rotate_keypoints90(

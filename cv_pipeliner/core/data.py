@@ -241,24 +241,24 @@ class BboxData:
             if self.meta_height is None or self.meta_width is None:
                 self.meta_height, self.meta_width = image.shape[0:2]
             else:
-                assert self.meta_height == self.image.shape[0] and self.meta_width == self.image.shape[1]
+                assert self.meta_height == image.shape[0] and self.meta_width == image.shape[1]
 
         return image
 
-    def get_image_size(self) -> Tuple[int, int]:
+    def get_image_size(self, force_update_meta: bool = False) -> Tuple[int, int]:
         """
             Returns (width, height) of image without opening it fully.
         """
-        if self.image is not None and self.meta_width is not None and self.meta_height is not None:
-            assert self.meta_height == self.image.shape[0] and self.meta_width == self.image.shape[1]
-        else:
+        if self.meta_height is None or self.meta_width is None or force_update_meta:
             if self.image is not None:
                 self.meta_height, self.meta_width = self.image.shape[0:2]
             else:
                 self.meta_width, self.meta_height = get_image_size(self.image_path)
-        return self.meta_height, self.meta_width
+        if self.image is not None:
+            assert self.meta_height == self.image.shape[0] and self.meta_width == self.image.shape[1]
+        return self.meta_width, self.meta_height
 
-    def json(self, include_image_path: bool = True) -> Dict:
+    def json(self, include_image_path: bool = True, force_include_meta: bool = False) -> Dict:
         result_json = {
             'xmin': int(self.xmin) if isinstance(self.xmin, (int, np.int64)) else round(self.xmin, 6),
             'ymin': int(self.ymin) if isinstance(self.ymin, (int, np.int64)) else round(self.ymin, 6),
@@ -290,6 +290,8 @@ class BboxData:
         if len(self.additional_info) > 0:
             result_json['additional_info'] = self.additional_info
 
+        if force_include_meta:
+            self.get_image_size()  # write meta inplace if empty
         if self.meta_width is not None:
             result_json['meta_width'] = int(self.meta_width)
         if self.meta_height is not None:
@@ -362,7 +364,7 @@ class ImageData:
 
         if self.image is not None:
             self.image = np.array(self.image)
-            self.meta_width, self.meta_height = self.get_image_size()
+            self.get_image_size(force_update_meta=True)
 
     @property
     def image_name(self):
@@ -378,24 +380,24 @@ class ImageData:
             if self.meta_height is None or self.meta_width is None:
                 self.meta_height, self.meta_width = image.shape[0:2]
             else:
-                assert self.meta_height == self.image.shape[0] and self.meta_width == self.image.shape[1]
+                assert self.meta_height == image.shape[0] and self.meta_width == image.shape[1]
 
         return image
 
-    def get_image_size(self) -> Tuple[int, int]:
+    def get_image_size(self, force_update_meta: bool = False) -> Tuple[int, int]:
         """
             Returns (width, height) of image without opening it fully.
         """
-        if self.image is not None and self.meta_width is not None and self.meta_height is not None:
-            assert self.meta_height == self.image.shape[0] and self.meta_width == self.image.shape[1]
-        else:
+        if self.meta_height is None or self.meta_width is None or force_update_meta:
             if self.image is not None:
                 self.meta_height, self.meta_width = self.image.shape[0:2]
             else:
                 self.meta_width, self.meta_height = get_image_size(self.image_path)
-        return self.meta_height, self.meta_width
+        if self.image is not None:
+            assert self.meta_height == self.image.shape[0] and self.meta_width == self.image.shape[1]
+        return self.meta_width, self.meta_height
 
-    def json(self) -> Dict:
+    def json(self, force_include_meta: bool = False) -> Dict:
         result_json = {
             'image_path': get_image_path_as_str(self.image_path),
             'bboxes_data': [bbox_data.json(include_image_path=False) for bbox_data in self.bboxes_data],
@@ -406,6 +408,8 @@ class ImageData:
             result_json['keypoints'] = np.array(self.keypoints).astype(int).tolist()
         if len(self.additional_info) > 0:
             result_json['additional_info'] = self.additional_info
+        if force_include_meta:
+            self.get_image_size()  # write meta inplace
         if self.meta_width is not None:
             result_json['meta_width'] = int(self.meta_width)
         if self.meta_height is not None:
@@ -458,9 +462,19 @@ class ImageData:
     def is_empty(self):
         return self.image_path is None and self.image is None
 
-    def __setattr__(self, name: str, value: Any) -> None:
+    def __setattr__(
+        self, name: str, value: Any,
+        apply_to_bboxes_data: bool = True,
+        force_update_meta: bool = True
+    ) -> None:
         super().__setattr__(name, value)
-        if name == 'image_path' or name == 'image':
+        if name == 'image_path' or name == 'image' or name == 'meta_height' or name == 'meta_height':
+            if name == 'image' and force_update_meta:  # imagesize possible is changed
+                self.get_image_size(force_update_meta=force_update_meta)
+            if name == 'image_path':  # imagesize possible is changed
+                self.__setattr__('meta_height', None)
+                self.__setattr__('meta_width', None)
+
             def change_images_in_bbox_data(bbox_data: BboxData):
                 bbox_data.__setattr__(name, value)
                 for additional_bbox_data in bbox_data.additional_bboxes_data:
