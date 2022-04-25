@@ -1,4 +1,5 @@
 from typing import Callable, List, Union
+import numpy as np
 from tqdm import tqdm
 
 from cv_pipeliner.core.data import BboxData, ImageData
@@ -37,7 +38,9 @@ class ClassificationInferencer(Inferencer):
                     'pred_classification_score': pred_classification_score_top_n[0],
                     'pred_label_top_n': pred_label_top_n,
                     'pred_classification_scores_top_n': pred_classification_score_top_n
-                }
+                },
+                meta_height=image_data.meta_height,
+                meta_width=image_data.meta_width
             ))
 
         return images_data_res
@@ -95,7 +98,9 @@ class ClassificationInferencer(Inferencer):
                 top_n=len(pred_label_top_n),
                 labels_top_n=pred_label_top_n,
                 classification_scores_top_n=pred_classification_score_top_n,
-                additional_info=bbox_data.additional_info
+                additional_info=bbox_data.additional_info,
+                meta_width=bbox_data.meta_width,
+                meta_height=bbox_data.meta_height
             ))
 
         return bboxes_data_res

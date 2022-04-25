@@ -38,7 +38,9 @@ def parse_rectangle_labels_to_bbox_data(
         ymin=ymin,
         xmax=xmax,
         ymax=ymax,
-        label=label
+        label=label,
+        meta_height=original_height,
+        meta_width=original_width
     )
     return bbox_data
 

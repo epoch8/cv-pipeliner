@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from selectors import EpollSelector
 from datapipe.run_config import RunConfig
 from datapipe.store.database import DBConn, TableStoreDB
 from datapipe.store.table_store import TableStore
@@ -109,7 +110,7 @@ class ImageDataTableStoreDB(TableStoreDB):
         assert all([column.primary_key for column in data_sql_schema])
         assert 'image_data' not in [column.name for column in data_sql_schema]
         data_sql_schema += [Column('image_data', JSON)]
-        super(TableStoreDB, self).__init__(
+        super().__init__(
             dbconn=dbconn,
             name=name,
             data_sql_schema=data_sql_schema,
@@ -122,10 +123,10 @@ class ImageDataTableStoreDB(TableStoreDB):
         df['image_data'] = df['image_data'].apply(
             lambda image_data: image_data.json() if image_data is not None else None
         )
-        super(TableStoreDB, self).insert_rows(df)
+        super().insert_rows(df)
 
     def read_rows(self, idx: Optional[IndexDF] = None) -> pd.DataFrame:
-        df = super(TableStoreDB, self).read_rows(idx=idx)
+        df = super().read_rows(idx=idx)
         df['image_data'] = df['image_data'].apply(
             lambda image_data_json: ImageData.from_json(
                 image_data_json,
@@ -133,43 +134,27 @@ class ImageDataTableStoreDB(TableStoreDB):
                 bbox_data_cls=self.bbox_data_cls
             ) if image_data_json is not None else None
         )
+        return df
 
 
 class EmptyItemStoreFileAdapter(ItemStoreFileAdapter):
     mode = 'b'
 
 
-class ImageDataTableStoreFiledir(TableStore):
+class ConnectedImageDataTableStore(TableStore):
     def __init__(
         self,
-        image_data_filename_pattern: Union[str, Path],
-        image_filename_pattern_or_store: Union[Union[str, Path], TableStoreFiledir],
-        image_data_cls: Type[ImageData] = ImageData,
-        bbox_data_cls: Type[BboxData] = BboxData,
-        enable_rm: bool = False,
+        images_table_store: TableStoreFiledir,
+        images_data_table_store: Union[ImageDataTableStoreDB, TableStoreFiledir]
     ) -> None:
-        self.images_data_store = TableStoreFiledir(
-            filename_pattern=image_data_filename_pattern,
-            adapter=ImageDataFile(
-                image_data_cls=image_data_cls,
-                bbox_data_cls=bbox_data_cls
-            ),
-            add_filepath_column=True,
-            read_data=True,
-            enable_rm=enable_rm
-        )
-        if isinstance(image_filename_pattern_or_store, TableStoreFiledir):
-            self.images_store = image_filename_pattern_or_store
-        else:
-            self.images_store = TableStoreFiledir(
-                filename_pattern=image_filename_pattern_or_store,
-                adapter=EmptyItemStoreFileAdapter(),
-                add_filepath_column=True,
-                read_data=False,
-                enable_rm=False
-            )
-        assert sorted(self.images_data_store.primary_keys) == sorted(self.images_store.primary_keys)
-        self.primary_schema = self.images_data_store.primary_keys
+        if isinstance(images_data_table_store, TableStoreFiledir):
+            assert isinstance(images_data_table_store.adapter, ImageDataFile)
+        self.images_data_store = images_data_table_store
+        self.images_store = images_table_store
+        for key in self.images_store.primary_keys:
+            assert key in self.images_data_store.primary_keys, f"Missing key for images_data_store: {key}"
+        self.attrnames = self.images_store.attrnames
+        self.primary_schema = self.images_store.primary_schema
 
     def get_primary_schema(self) -> DataSchema:
         return [column for column in self.primary_schema if column.primary_key]
@@ -182,8 +167,10 @@ class ImageDataTableStoreFiledir(TableStore):
 
     def _set_images_paths(self, df: DataDF) -> None:
         for row_idx in df.index:
+            if df.loc[row_idx, 'image_data'] is None:
+                continue
             idxs_values = df.loc[row_idx, self.attrnames].tolist()
-            image_path = self.images_store._filename_from_idxs_values(idxs_values)
+            image_path = self.images_store._filenames_from_idxs_values(idxs_values)[0]
             df.loc[row_idx, 'image_data'].image_path = image_path
 
     def insert_rows(self, df: DataDF) -> None:
@@ -193,6 +180,7 @@ class ImageDataTableStoreFiledir(TableStore):
     def read_rows(self, idx: IndexDF = None) -> DataDF:
         df_images_data = self.images_data_store.read_rows(idx)
         self._set_images_paths(df_images_data)
+        return df_images_data
 
     def read_rows_meta_pseudo_df(self, chunksize: int = 1000, run_config: RunConfig = None) -> Iterator[DataDF]:
         # FIXME сделать честную чанкированную реализацию во всех сторах
