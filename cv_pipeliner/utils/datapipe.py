@@ -165,17 +165,25 @@ class ConnectedImageDataTableStore(TableStore):
     def delete_rows(self, idx: IndexDF) -> None:
         self.images_data_store.delete_rows(idx)
 
-    def _set_images_paths(self, df: DataDF) -> None:
+    def _set_images_paths(self, df: DataDF, force_update_meta: bool = False) -> None:
         for row_idx in df.index:
             if df.loc[row_idx, 'image_data'] is None:
                 continue
             idxs_values = df.loc[row_idx, self.attrnames].tolist()
             image_path = self.images_store._filenames_from_idxs_values(idxs_values)[0]
             df.loc[row_idx, 'image_data'].image_path = image_path
+            if force_update_meta:
+                df.loc[row_idx, 'image_data'].get_image_size()
 
-    def insert_rows(self, df: DataDF) -> None:
-        self._set_images_paths(df)
+    def insert_rows(self, df: DataDF, force_update_meta: bool = False) -> None:
+        self._set_images_paths(df, force_update_meta=force_update_meta)
         self.images_data_store.insert_rows(df)
+
+    def update_rows(self, df: DataDF, force_update_meta: bool = False) -> None:
+        if df.empty:
+            return
+        self.delete_rows(data_to_index(df, self.primary_keys))
+        self.insert_rows(df, force_update_meta=True)
 
     def read_rows(self, idx: IndexDF = None) -> DataDF:
         df_images_data = self.images_data_store.read_rows(idx)

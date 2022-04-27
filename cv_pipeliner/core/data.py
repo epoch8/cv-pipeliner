@@ -179,8 +179,8 @@ class BboxData:
         xmax_offset: Union[int, float] = 0,
         ymax_offset: Union[int, float] = 0,
         return_as_image_data: bool = False,
+        image_data_cls: Type['ImageData'] = 'ImageData',
     ) -> Optional[Union[np.ndarray, 'BboxData']]:
-
         if self.cropped_image is not None:
             if not inplace:
                 return self.cropped_image
@@ -191,6 +191,7 @@ class BboxData:
                 image = source_image
             else:
                 image = self.open_image()
+            self.meta_height, self.meta_width = image.shape[0:2]
 
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
@@ -198,10 +199,8 @@ class BboxData:
                 xmin_offset, ymin_offset, xmax_offset, ymax_offset, source_image
             )
             cropped_image = image[ymin:ymax, xmin:xmax] if image is not None else None
-
         if inplace:
             self.cropped_image = cropped_image
-            self.meta_height, self.meta_width = image.shape[0:2]
         else:
             if return_as_image_data:
                 keypoints = self.keypoints.copy()
@@ -216,12 +215,16 @@ class BboxData:
                     bbox_data.ymin -= ymin
                     bbox_data.xmax -= xmin
                     bbox_data.ymax -= ymin
+                    for additional_bbox_data in bbox_data.additional_bboxes_data:
+                        crop_additional_bbox_data(additional_bbox_data)
 
                 for additional_bbox_data in additional_bboxes_data:
-                    additional_bbox_data.apply_func_recursively(crop_additional_bbox_data)
+                    crop_additional_bbox_data(additional_bbox_data)
 
-                from cv_pipeliner.core.data import ImageData
-                image_data = ImageData(
+                if image_data_cls == 'ImageData':
+                    from cv_pipeliner.core.data import ImageData
+                    image_data_cls = ImageData
+                image_data = image_data_cls(
                     image=cropped_image,
                     bboxes_data=additional_bboxes_data,
                     label=self.label,

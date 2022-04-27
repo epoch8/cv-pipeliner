@@ -1,3 +1,4 @@
+from asyncio import new_event_loop
 import copy
 from typing import List, Literal, Optional, Tuple, Union
 
@@ -117,7 +118,7 @@ def _rotate_bbox_data(
         keypoints.append([x, y])
     rotated_bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
     rotated_bbox_data.additional_bboxes_data = [
-        _rotate_bbox_data(additional_bbox_data, rotation_mat)
+        _rotate_bbox_data(additional_bbox_data, rotation_mat, new_width, new_height)
         for additional_bbox_data in rotated_bbox_data.additional_bboxes_data
     ]
     rotated_bbox_data.cropped_image = None
@@ -160,8 +161,11 @@ def rotate_image_data(
     border_value: Tuple[int, int, int] = None,
     open_image: bool = True
 ):
+    rotated_image_data = copy.deepcopy(image_data)
     if abs(angle) <= 1e-6:
-        return image_data
+        if open_image:
+            rotated_image_data.open_image(inplace=True)
+        return rotated_image_data
 
     width, height = image_data.get_image_size()
     image = image_data.open_image(returns_none_if_empty=True) if open_image else None
@@ -174,11 +178,10 @@ def rotate_image_data(
         270: 3
     }
     angle = angle % 360
-    rotated_image_data = copy.deepcopy(image_data)
 
     if angle in angle_to_factor:
         factor = angle_to_factor[angle]
-        rotated_image = np.rot90(image, factor)
+        rotated_image = np.rot90(image, factor) if image is not None else None
         rotated_image_data.keypoints = rotate_keypoints90(
             image_data.keypoints, factor, width, height
         )
@@ -186,6 +189,7 @@ def rotate_image_data(
             _rotate_bbox_data90(bbox_data, factor, width, height)
             for bbox_data in rotated_image_data.bboxes_data
         ]
+        new_width, new_height = (width, height) if (factor % 2 == 0) else (height, width)
     else:
         # grab the rotation matrix
         rotation_mat = cv2.getRotationMatrix2D(image_center, angle, 1.)
@@ -202,7 +206,6 @@ def rotate_image_data(
             image, rotation_mat, (new_width, new_height), flags=warp_flags,
             borderMode=border_mode, borderValue=border_value
         ) if image is not None else None
-        new_height, new_width, _ = rotated_image.shape
         rotated_image_data = copy.deepcopy(image_data)
         rotated_image_data.keypoints = rotate_keypoints(image_data.keypoints, rotation_mat, new_height, new_width)
         keypoints = []
@@ -217,6 +220,8 @@ def rotate_image_data(
         ]
 
     rotated_image_data.image_path = None  # It applies to all bboxes_data inside
+    rotated_image_data.meta_height = new_height
+    rotated_image_data.meta_width = new_width
     rotated_image_data.image = rotated_image
 
     return rotated_image_data
@@ -689,6 +694,10 @@ def uncrop_bboxes_data(
     bboxes_data: List[BboxData],
     src_xmin: int,
     src_ymin: int,
+    src_image: Optional[np.ndarray] = None,
+    src_image_path: Optional[np.ndarray] = None,
+    src_image_height: Optional[int] = None,
+    src_image_width: Optional[int] = None
 ) -> BboxData:
     bboxes_data = copy.deepcopy(bboxes_data)
 
@@ -699,9 +708,11 @@ def uncrop_bboxes_data(
         bbox_data.ymin += src_ymin
         bbox_data.xmax += src_xmin
         bbox_data.ymax += src_ymin
-        bbox_data.image = None
-        bbox_data.image_path = None
+        bbox_data.image = src_image
+        bbox_data.image_path = src_image_path
         bbox_data.cropped_image = None
+        bbox_data.meta_height = src_image_height
+        bbox_data.meta_width = src_image_width
         for additional_bbox_data in bbox_data.additional_bboxes_data:
             _append_cropped_bbox_data_to_image_data(additional_bbox_data)
     for bbox_data in bboxes_data:
