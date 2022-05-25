@@ -154,7 +154,7 @@ class ConnectedImageDataTableStore(TableStore):
         for key in self.images_store.primary_keys:
             assert key in self.images_data_store.primary_keys, f"Missing key for images_data_store: {key}"
         self.attrnames = self.images_store.attrnames
-        self.primary_schema = self.images_store.primary_schema
+        self.primary_schema = self.images_data_store.primary_schema
 
     def get_primary_schema(self) -> DataSchema:
         return [column for column in self.primary_schema if column.primary_key]

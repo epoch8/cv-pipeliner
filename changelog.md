@@ -1,6 +1,8 @@
 # 0.13.0
 - Added `meta_width` and `meta_height` for `ImageData` and `BboxData` to cache information about the height and length of source images in calculations. They also written and parsed in json() when image_data are opened once or when `force_include_meta=True` (new argument).
-- Transformations with image_data `rotate_image_data`, `resize_image_data`, `thumbnail_image_data`, `crop_image_data`, `apply_perspective_transform_to_image_data` and `split_image_by_grid` now works with image_datas without source images like `image_data.image_path` and `image_data.image`, but only when `meta_width` and `meta_height` are available. This can be used for recalculating the changed annotation of the image when the image itself does not change. 
+- Transformations with image_data `rotate_image_data`, `resize_image_data`, `thumbnail_image_data`, `crop_image_data`, `apply_perspective_transform_to_image_data` and `split_image_by_grid` now works with image_datas without source images like `image_data.image_path` and `image_data.image`, but only when `meta_width` and `meta_height` are available. This can be used for recalculating the changed annotation of the image о the image itself does not change. 
+- `cv_pipeliner.utils.images_data.split_image_data_by_grid` is fixed and now saves additional bboxes_data, added required argument `remove_bad_coords: bool` for deleting bboxes that are not inside crops.
+- In `cv_pipeliner.utils.datapipe` added new table stores: `ImageDataTableStoreDB` for store `ImageData`  inside any DataBase (SQLite or Postgress) and `ConnectedImageDataTableStore` for combining images from `TableStoreFiledir` and their corresponding `ImageData` 
 
 
 # 0.12.0

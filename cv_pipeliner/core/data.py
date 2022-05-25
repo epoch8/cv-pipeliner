@@ -491,7 +491,7 @@ class ImageData:
             force_update_meta = True
 
         super().__setattr__(name, value)
-        if name == 'image_path' or name == 'image' or name == 'meta_height' or name == 'meta_height':
+        if name in ['image_path', 'image', 'meta_width', 'meta_height']:
             if name == 'image' and isinstance(value, np.ndarray) and force_update_meta:  # imagesize possible is changed
                 self.get_image_size(force_update_meta=force_update_meta)
 

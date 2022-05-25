@@ -1,4 +1,3 @@
-from asyncio import new_event_loop
 import copy
 from typing import List, Literal, Optional, Tuple, Union
 
@@ -670,11 +669,12 @@ def split_image_data_by_grid(
     y_window_size: int,
     x_offset: int,
     y_offset: int,
+    remove_bad_coords: bool,
     minimum_size: float = 0.5,
 ) -> ImageData:
     image_data = copy.deepcopy(image_data)
     width, height = image_data.get_image_size()
-    bboxes_data = split_by_grid(
+    crops_bboxes_data = split_by_grid(
         size=(width, height),
         n_rows=n_rows,
         n_cols=n_cols,
@@ -684,7 +684,56 @@ def split_image_data_by_grid(
         y_offset=y_offset,
         minimum_size=minimum_size
     )
-    image_data.bboxes_data = bboxes_data
+
+    def if_bbox_data_inside_crop(
+        crop_bbox_data: BboxData,
+        bbox_data: BboxData
+    ):
+        bbox_data.keypoints = bbox_data.keypoints[
+            (
+                (bbox_data.keypoints[:, 0] >= crop_bbox_data.xmin) &
+                (bbox_data.keypoints[:, 1] >= crop_bbox_data.ymin) &
+                (bbox_data.keypoints[:, 0] <= crop_bbox_data.ymax) &
+                (bbox_data.keypoints[:, 1] <= crop_bbox_data.ymax)
+            )
+        ]
+        bbox_data.additional_bboxes_data = [
+            additional_bbox_data
+            for additional_bbox_data in bbox_data.additional_bboxes_data
+            if if_bbox_data_inside_crop(crop_bbox_data, additional_bbox_data)
+        ]
+        return (
+            bbox_data.xmin >= crop_bbox_data.xmin and
+            bbox_data.ymin >= crop_bbox_data.ymin and
+            bbox_data.xmax <= crop_bbox_data.xmax and
+            bbox_data.ymax <= crop_bbox_data.ymax and
+            bbox_data.xmin < bbox_data.xmax and
+            bbox_data.ymin < bbox_data.ymax
+        )
+
+    for crop_bbox_data in crops_bboxes_data:
+        if remove_bad_coords:
+            additional_bboxes_data = [
+                bbox_data
+                for bbox_data in copy.deepcopy(image_data.bboxes_data)
+                if if_bbox_data_inside_crop(crop_bbox_data, bbox_data)
+            ]
+            keypoints = copy.deepcopy(image_data.keypoints)[
+                (
+                    (image_data.keypoints[:, 0] >= crop_bbox_data.xmin) &
+                    (image_data.keypoints[:, 1] >= crop_bbox_data.ymin) &
+                    (image_data.keypoints[:, 0] <= crop_bbox_data.ymax) &
+                    (image_data.keypoints[:, 1] <= crop_bbox_data.ymax)
+                )
+            ]
+        else:
+            additional_bboxes_data = copy.deepcopy(image_data.bboxes_data)
+            keypoints = copy.deepcopy(image_data.keypoints)
+
+        crop_bbox_data.additional_bboxes_data = additional_bboxes_data
+        crop_bbox_data.keypoints = keypoints
+
+    image_data.bboxes_data = crops_bboxes_data
     image_data.image_path = image_data.image_path  # apply to bboxes_data
     image_data.image = image_data.image  # apply to bboxes_data
     return image_data
