@@ -1,5 +1,4 @@
 from typing import Dict
-import imagesize
 from cv_pipeliner.core.data import BboxData, ImageData
 import numpy as np
 
@@ -100,7 +99,7 @@ def convert_image_data_to_polygon_label(
     polygonlabels: str,
 ) -> Dict:
     if image_data.image_path is not None:
-        im_width, im_height = imagesize.get(image_data.image_path)
+        im_width, im_height = image_data.get_image_size()
     else:
         im_height, im_width, _ = image_data.open_image().shape
     rectangle_labels = []
@@ -129,7 +128,7 @@ def convert_image_data_to_keypoint_label(
     keypointlabels: str,
 ) -> Dict:
     if image_data.image_path is not None:
-        im_width, im_height = imagesize.get(image_data.image_path)
+        im_width, im_height = image_data.get_image_size()
     else:
         im_height, im_width, _ = image_data.open_image().shape
     rectangle_labels = []
