@@ -4,8 +4,9 @@ import os
 import sys
 
 from pathlib import Path
-from typing import Literal, Optional, Union, Dict, Tuple
+from typing import Literal, Optional, Union, Dict, Tuple, Callable, Any, List
 
+import numpy as np
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
 from cv_pipeliner.utils.images_datas import flatten_additional_bboxes_data_in_image_data
@@ -16,7 +17,12 @@ logger = logging.getLogger('cv_pipeliner.utils.fiftyone')
 class FifyOneSession:
     _counter = 0
 
-    def __init__(self, fiftyone_database_dir: Union[str, Path] = None):
+    def __init__(
+        self,
+        database_dir: Optional[Union[str, Path]] = None,
+        database_uri: Optional[str] = None,
+        database_name: Optional[str] = None
+    ):
         assert FifyOneSession._counter == 0, (
             "There is another instance of class FifyOneConverter. Delete it for using this class."
         )
@@ -25,17 +31,27 @@ class FifyOneSession:
                 'Fiftyone is already imported to some base. The FifyOneConverter will reimport fiftyone and it can change the base.'
             )
             del sys.modules['fiftyone']
-        self.fiftyone_database_dir = fiftyone_database_dir
-        if self.fiftyone_database_dir is not None:
-            os.environ['FIFTYONE_DATABASE_DIR'] = str(self.fiftyone_database_dir)
+        self.database_dir = database_dir
+        self.database_uri = database_uri
+        self.database_name = database_name
+        if self.database_dir is not None:
+            os.environ['FIFTYONE_DATABASE_DIR'] = str(self.database_dir)
+        if self.database_uri is not None:
+            os.environ['FIFTYONE_DATABASE_URI'] = str(self.database_uri)
+        if self.database_name is not None:
+            os.environ['FIFTYONE_DATABASE_NAME'] = str(self.database_name)
         import fiftyone
         self.fiftyone = fiftyone
 
         FifyOneSession._counter += 1
 
     def __del__(self):
-        if self.fiftyone_database_dir is not None:
+        if self.database_dir is not None:
             del os.environ['FIFTYONE_DATABASE_DIR']
+        if self.database_uri is not None:
+            del os.environ['FIFTYONE_DATABASE_URI']
+        if self.database_name is not None:
+            del os.environ['FIFTYONE_DATABASE_NAME']
         del self.fiftyone
         del sys.modules['fiftyone']
         FifyOneSession._counter -= 1
@@ -44,6 +60,13 @@ class FifyOneSession:
         xminn, yminn, xmaxn, ymaxn = bbox_data.coords_n
         bounding_box = [xminn, yminn, xmaxn-xminn, ymaxn-yminn]
         return self.fiftyone.Detection(label=bbox_data.label, bounding_box=bounding_box)
+    
+    def convert_bbox_data_keypoints_to_fo_keypoint(self, bbox_data: BboxData) -> 'fiftyone.Detection':
+        return self.fiftyone.Keypoint(
+            label=bbox_data.label,
+            points=[tuple(pair) for pair in bbox_data.keypoints_n],
+            source_coords=bbox_data.coords  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
+        )
 
     def convert_image_data_to_fo_detections(
         self, image_data: ImageData,
@@ -51,10 +74,23 @@ class FifyOneSession:
     ) -> 'fiftyone.Detections':
         if include_additional_bboxes_data:
             image_data = flatten_additional_bboxes_data_in_image_data(image_data)
-
+        image_data.get_image_size()  # Save to meta
         return self.fiftyone.Detections(
             detections=list(map(self.convert_bbox_data_to_fo_detection, image_data.bboxes_data))
         )
+        
+    def convert_image_data_to_fo_keypoints(
+        self, image_data: ImageData,
+        include_additional_bboxes_data: bool = False
+    ) -> 'fiftyone.Detections':
+        if include_additional_bboxes_data:
+            image_data = flatten_additional_bboxes_data_in_image_data(image_data)
+        image_data.get_image_size()  # Save to meta
+        keypoints = [
+            self.fiftyone.Keypoint(label=image_data.label, points=[tuple(pair) for pair in image_data.keypoints_n])
+        ] + list(map(self.convert_bbox_data_keypoints_to_fo_keypoint, image_data.bboxes_data))
+
+        return self.fiftyone.Keypoints(keypoints=keypoints)
 
     def convert_image_data_to_fo_detections_by_classes(
         self,
@@ -169,3 +205,84 @@ class FifyOneSession:
             )
 
         return class_name_to_fo_true_detections, class_name_to_fo_pred_detections
+    
+    def convert_fo_detection_to_bbox_data(
+        self, fo_detection: 'fiftyone.Detection', width: int, height: int
+    ) -> BboxData:
+        xminn, yminn, widthn, heightn = fo_detection.bounding_box
+        xmaxn, ymaxn = xminn + widthn, yminn + heightn
+        xmin, xmax = xminn * width, xmaxn * width
+        ymin, ymax = yminn * height, ymaxn * height
+        return BboxData(
+            xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax,
+            meta_width=width, meta_height=height,
+            label=fo_detection.label
+        )
+    
+    def convert_fo_keypoint_to_numpy_keypoints(
+        self, fo_keypoint: 'fiftyone.Keypoint', width: int, height: int
+    ) -> np.array:
+        keypoints = np.array(fo_keypoint.points).astype(float).reshape((-1, 2))
+        keypoints[:, 0] *= width
+        keypoints[:, 1] *= height
+        return keypoints
+    
+    def convert_image_data_to_fo_sample(
+        self,
+        image_data: ImageData,
+        fo_detections_label: Optional[str] = None,
+        fo_classification_label: Optional[str] = None,
+        fo_keypoints_label: Optional[str] = None,
+        include_additional_bboxes_data: bool = False,
+        mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
+        additional_info: Dict[str, Any] = {}
+    ) -> 'fiftyone.Detections':
+        filepath = mapping_filepath(str(image_data.image_path))
+        sample = self.fiftyone.Sample(filepath=filepath)
+        width, height = image_data.get_image_size()  # Save to meta
+        if fo_detections_label is not None:
+            sample[fo_detections_label] = self.convert_image_data_to_fo_detections(image_data, include_additional_bboxes_data)
+        if fo_classification_label is not None:
+            sample[fo_classification_label] = self.fiftyone.Classification(label=image_data.label)
+        if fo_keypoints_label is not None:
+            sample[fo_keypoints_label] = self.convert_image_data_to_fo_keypoints(image_data, include_additional_bboxes_data)
+        sample.metadata = self.fiftyone.ImageMetadata(width=width, height=height)
+        for key, value in additional_info.items():
+            sample[key] = value
+        return sample
+
+    def convert_sample_to_image_data(
+        self,
+        sample: 'fiftyone.Sample',
+        fo_detections_label: Optional[str] = None,
+        fo_classification_label: Optional[str] = None,
+        fo_keypoints_label: Optional[str] = None,
+        mapping_filepath: Callable[[str], str] = lambda filepath: filepath
+    ) -> ImageData:
+        image_path = mapping_filepath(sample.filepath)
+        image_data = ImageData(image_path=image_path, meta_width=sample.metadata.width, meta_height=sample.metadata.height)
+        width, height = image_data.get_image_size()
+        if fo_detections_label is not None and (
+            sample.has_field(fo_detections_label) and sample[fo_detections_label] is not None
+        ):
+            image_data.bboxes_data = [
+                self.convert_fo_detection_to_bbox_data(fo_detection, width, height)
+                for fo_detection in sample[fo_detections_label].detections
+            ]
+        if fo_keypoints_label is not None and (
+            sample.has_field(fo_keypoints_label) and sample[fo_keypoints_label] is not None
+        ):
+            coords_to_idx = {bbox_data.coords: idx for idx, bbox_data in enumerate(image_data.bboxes_data)}
+            for fo_keypoint in sample[fo_keypoints_label].keypoints:
+                keypoints = self.convert_fo_keypoint_to_numpy_keypoints(fo_keypoint, width, height)
+                if 'source_coords' in fo_keypoint:  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
+                    image_data.bboxes_data[
+                        coords_to_idx[tuple(fo_keypoint.source_coords)]
+                    ].keypoints = keypoints
+                else:
+                    image_data.keypoints = np.append(image_data.keypoints, keypoints)
+        if fo_classification_label is not None and (
+            sample.has_field(fo_classification_label) and sample[fo_classification_label] is not None
+        ):
+            image_data.label = sample[fo_classification_label].label
+        return image_data

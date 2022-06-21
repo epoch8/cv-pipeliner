@@ -127,9 +127,17 @@ class BboxData:
         return (round(self.xmin), round(self.ymin), round(self.xmax), round(self.ymax))
 
     @property
-    def coords_n(self) -> Tuple[int, int, int, int]:
+    def coords_n(self) -> Tuple[float, float, float, float]:
         width, height = self.get_image_size()
         return self.xmin / width, self.ymin / height, self.xmax / width, self.ymax / height
+    
+    @property
+    def keypoints_n(self) -> List[Tuple[float]]:
+        width, height = self.get_image_size()
+        keypoints = self.keypoints.copy().astype(float).reshape((-1, 2))
+        keypoints[:, 0] /= width
+        keypoints[:, 1] /= height
+        return keypoints
 
     @property
     def area(self) -> int:
@@ -388,6 +396,14 @@ class ImageData:
     @property
     def image_name(self):
         return get_image_name(self.image_path)
+
+    @property
+    def keypoints_n(self) -> List[Tuple[float]]:
+        width, height = self.get_image_size()
+        keypoints = self.keypoints.copy().astype(float).reshape((-1, 2))
+        keypoints[:, 0] /= width
+        keypoints[:, 1] /= height
+        return keypoints
 
     def open_image(
         self,

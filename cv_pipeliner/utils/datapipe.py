@@ -4,7 +4,9 @@ from selectors import EpollSelector
 from datapipe.run_config import RunConfig
 from datapipe.store.database import DBConn, TableStoreDB
 from datapipe.store.table_store import TableStore
-from datapipe.types import DataDF, DataSchema, IndexDF, MetaSchema, data_to_index
+from datapipe.types import (
+    DataDF, DataSchema, IndexDF, MetaSchema, data_to_index, index_difference, index_intersection, index_to_data
+)
 import numpy as np
 import fsspec
 from typing import Any, Dict, IO, Iterator, Optional, Tuple, List, Type, Union
@@ -16,6 +18,8 @@ import pandas as pd
 from sqlalchemy import JSON, Column
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.utils.imagesize import get_image_size
+
+from cv_pipeliner.utils.fiftyone import FifyOneSession
 
 
 class ImageDataFile(ItemStoreFileAdapter):
@@ -194,3 +198,149 @@ class ConnectedImageDataTableStore(TableStore):
         # FIXME сделать честную чанкированную реализацию во всех сторах
         for df_meta in self.images_data_store.read_rows_meta_pseudo_df(chunksize=chunksize, run_config=run_config):
             yield df_meta
+
+
+class FiftyOneImagesDataTableStore(TableStore):
+    def __init__(
+        self,
+        dataset: str,
+        fo_session: FifyOneSession,
+        fo_detections_label: Optional[str] = None,
+        fo_classification_label: Optional[str] = None,
+        fo_keypoints_label: Optional[str] = None,
+        primary_schema: DataSchema = None,
+        mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
+        inverse_mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
+        rm_only_fo_fields: bool = False
+    ):
+        self.dataset = dataset
+        self.fo_detections_label = fo_detections_label
+        self.fo_classification_label = fo_classification_label
+        self.fo_keypoints_label = fo_keypoints_label
+        self.fo_session = fo_session
+        self.mapping_filepath = mapping_filepath
+        self.inverse_mapping_filepath = inverse_mapping_filepath
+        if primary_schema is not None:
+            assert all([isinstance(column.type, (String, Integer)) for column in primary_schema])
+            self.primary_schema = primary_schema
+        else:
+            self.primary_schema = [
+                Column('filepath', String(100), primary_key=True)
+            ]
+        self.attrnames = [column.name for column in self.primary_schema]
+        self.attrnames_no_filepath = [attrname for attrname in self.attrnames if attrname != 'filepath']
+
+        datasets = fo_session.fiftyone.list_datasets()
+        if dataset in datasets:
+            self.dataset = fo_session.fiftyone.load_dataset(dataset)
+        else:
+            self.dataset = fo_session.fiftyone.Dataset(dataset)
+            self.dataset.persistent = True
+
+        self.rm_only_fo_fields = rm_only_fo_fields
+
+    def get_primary_schema(self) -> DataSchema:
+        return self.primary_schema
+
+    def get_meta_schema(self) -> MetaSchema:
+        return []
+
+    def get_view(self, idx: IndexDF = None) -> 'fiftyone.DatasetView':
+        view = fo_session.fiftyone.DatasetView(self.dataset)
+        if idx is not None:
+            for attrname in self.attrnames:
+                if attrname == 'filepath':
+                    values = idx[attrname].apply(self.mapping_filepath)
+                else:
+                    values = idx[attrname]
+
+                view = view.select_by(field=attrname, values=values)
+        return view
+
+    def read_rows(self, idx: IndexDF = None) -> DataDF:
+        view = self.get_view(idx)
+        df_result = []
+        for sample in view:
+            image_data = self.fo_session.convert_sample_to_image_data(
+                sample=sample,
+                fo_detections_label=self.fo_detections_label,
+                fo_classification_label=self.fo_classification_label,
+                fo_keypoints_label=self.fo_keypoints_label,
+                mapping_filepath=self.inverse_mapping_filepath
+            )
+            df_result.append({
+                'filepath': self.inverse_mapping_filepath(sample.filepath),
+                'image_data': image_data,
+                **{attrname: sample[attrname] for attrname in self.attrnames_no_filepath},
+            })
+        df_result = pd.DataFrame(df_result)
+        if len(df_result) == 0:
+            df_result = pd.DataFrame(columns=self.attrnames)
+        return df_result
+
+
+    def insert_rows(self, df: DataDF) -> None:
+        df_indexes = data_to_index(df, self.attrnames)
+        df_current_samples = self.read_rows(df_indexes)
+        current_indexes = data_to_index(df_current_samples, self.attrnames)
+
+        
+        idxs_to_be_deleted = index_difference(current_indexes, df_indexes)
+        idxs_to_be_added = index_difference(df_indexes, current_indexes)
+        idxs_to_be_updated = index_intersection(df_indexes, current_indexes)
+        
+        print(f"To be deleted: {len(idxs_to_be_deleted)=}")
+        print(f"To be added: {len(idxs_to_be_added)=}")
+        print(f"To be updated: {len(idxs_to_be_updated)=}")
+
+        # To be deleted:
+        self.delete_rows(idxs_to_be_deleted)
+        
+        # To be updated:
+        df_to_be_updated = index_to_data(df, idxs_to_be_updated).reset_index(drop=True)
+        samples_to_be_updated = list(self.get_view(idxs_to_be_updated))
+        samples_to_be_updated_with_new_values = [
+            self.fo_session.convert_image_data_to_fo_sample(
+                df_to_be_updated.loc[idx, 'image_data'],
+                fo_detections_label=self.fo_detections_label,
+                fo_classification_label=self.fo_classification_label,
+                fo_keypoints_label=self.fo_keypoints_label,
+                mapping_filepath=self.mapping_filepath,
+                additional_info={field: df_to_be_updated.loc[idx, field] for field in self.attrnames_no_filepath}
+            )
+            for idx in df_to_be_updated.index
+        ]
+        for current_sample, sample_with_updated_values in zip(samples_to_be_updated, samples_to_be_updated_with_new_values):
+            current_sample.merge(sample_with_updated_values)
+        self.dataset.delete_samples(samples_to_be_updated)
+        self.dataset.add_samples(samples_to_be_updated)
+
+        # To be added:
+        df_to_be_added = index_to_data(df, idxs_to_be_added).reset_index(drop=True)
+        samples_to_be_added = [
+            self.fo_session.convert_image_data_to_fo_sample(
+                df_to_be_added.loc[idx, 'image_data'],
+                fo_detections_label=self.fo_detections_label,
+                fo_classification_label=self.fo_classification_label,
+                fo_keypoints_label=self.fo_keypoints_label,
+                mapping_filepath=self.mapping_filepath,
+                additional_info={field: df_to_be_added.loc[idx, field] for field in self.attrnames_no_filepath}
+            )
+            for idx in df_to_be_added.index
+        ]
+        if len(samples_to_be_added) > 0:
+            self.dataset.add_samples(samples_to_be_added)
+
+    def delete_rows(self, idx: IndexDF) -> None:
+        view = self.get_view(idx)
+        samples = list(view)
+        if len(samples) > 0:
+            if self.rm_only_fo_fields:
+                for sample in samples:
+                    if sample.has_field(self.fo_detections_label):
+                        del sample[self.fo_detections_label]
+                    if self.fo_keypoints_label is not None and sample.has_field(self.fo_keypoints_label):
+                        del sample[self.fo_keypoints_label]
+            self.dataset.delete_samples(samples)
+            if self.rm_only_fo_fields:
+                self.dataset.add_samples(samples)
