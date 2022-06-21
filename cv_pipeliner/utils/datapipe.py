@@ -9,7 +9,7 @@ from datapipe.types import (
 )
 import numpy as np
 import fsspec
-from typing import Any, Dict, IO, Iterator, Optional, Tuple, List, Type, Union
+from typing import Any, Dict, IO, Iterator, Optional, Tuple, List, Type, Union, Callable
 
 from datapipe.store.filedir import (
     ItemStoreFileAdapter, TableStoreFiledir, _pattern_to_attrnames
@@ -174,7 +174,14 @@ class ConnectedImageDataTableStore(TableStore):
             if df.loc[row_idx, 'image_data'] is None:
                 continue
             idxs_values = df.loc[row_idx, self.attrnames].tolist()
-            image_path = self.images_store._filenames_from_idxs_values(idxs_values)[0]
+            image_path_candidates = self.images_store._filenames_from_idxs_values(idxs_values)
+            if len(image_path_candidates) > 1:
+                for image_path in image_path_candidates:
+                    openfile = fsspec.open(image_path)
+                    if openfile.fs.exists(openfile.path):
+                        break
+            else:
+                image_path = image_path_candidates[0]
             df.loc[row_idx, 'image_data'].image_path = image_path
             if force_update_meta:
                 df.loc[row_idx, 'image_data'].get_image_size()
