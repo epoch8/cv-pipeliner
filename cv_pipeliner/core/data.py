@@ -266,6 +266,17 @@ class BboxData:
             self.meta_height, self.meta_width = self.image.shape[0:2]
         return self.meta_width, self.meta_height
 
+    def get_image_size_without_exif_tag(self, exif_transpose: bool = True) -> Tuple[int, int]:
+        """
+            Returns (width, height) of image without opening it fully.
+        """
+        if self.image is None:
+            return get_image_size(self.image_path, exif_transpose=False)
+        if self.image is not None:
+            meta_height, meta_width = self.image.shape[0:2]
+            return meta_height, meta_width
+        return (None, None)
+
     def json(self, include_image_path: bool = True, force_include_meta: bool = False) -> Dict:
         result_json = {
             'xmin': int(self.xmin) if isinstance(self.xmin, (int, np.int64)) else round(self.xmin, 6),
@@ -428,6 +439,17 @@ class ImageData:
         if self.image is not None:
             self.meta_height, self.meta_width = self.image.shape[0:2]
         return self.meta_width, self.meta_height
+
+    def get_image_size_without_exif_tag(self, exif_transpose: bool = True) -> Tuple[int, int]:
+        """
+            Returns (width, height) of image without opening it fully.
+        """
+        if self.image is None:
+            return get_image_size(self.image_path, exif_transpose=False)
+        if self.image is not None:
+            meta_height, meta_width = self.image.shape[0:2]
+            return meta_height, meta_width
+        return (None, None)
 
     def json(self, force_include_meta: bool = False) -> Dict:
         result_json = {

@@ -33,10 +33,10 @@ def parse_rectangle_labels_to_bbox_data(
     xmax = max(0, min(original_width-1, xmax))
     ymax = max(0, min(original_height-1, ymax))
     bbox_data = BboxData(
-        xmin=xmin,
-        ymin=ymin,
-        xmax=xmax,
-        ymax=ymax,
+        xmin=round(xmin),
+        ymin=round(ymin),
+        xmax=round(xmax),
+        ymax=round(ymax),
         label=label,
         meta_height=original_height,
         meta_width=original_width
@@ -49,8 +49,13 @@ def convert_image_data_to_rectangle_labels(
     from_name: str,
     to_name: str,
     keypoints_from_name: Optional[str] = None,
+    without_exif_tag: bool = True
 ) -> Dict:
-    im_width, im_height = image_data.get_image_size()
+    if without_exif_tag:
+        # При импорте разметки в LS не учитываются Exif теги, но при экспорте оно учитывается
+        im_width, im_height = image_data.get_image_size_without_exif_tag()
+    else:
+        im_width, im_height = image_data.get_image_size()
     rectangle_labels = []
     for bbox_data in image_data.bboxes_data:
         rectangle_label = {
@@ -81,14 +86,14 @@ def parse_polygon_label_to_bbox_data(
     for (x, y) in polygon_label['value']['points']:
         x = x / 100 * polygon_label['original_width']
         y = y / 100 * polygon_label['original_height']
-        keypoints.append([max(0, min(original_width - 1, x)), max(0, min(original_height - 1, y))])
+        keypoints.append([round(max(0, min(original_width - 1, x))), round(max(0, min(original_height - 1, y)))])
     keypoints = np.array(keypoints)
     bbox_data = BboxData(
-        xmin=np.min(keypoints[:, 0]),
-        ymin=np.min(keypoints[:, 1]),
-        xmax=np.max(keypoints[:, 0]),
+        xmin=round(np.min(keypoints[:, 0])),
+        ymin=round(np.min(keypoints[:, 1])),
+        xmax=round(np.max(keypoints[:, 0])),
         ymax=np.max(keypoints[:, 1]),
-        keypoints=keypoints,
+        keypoints=round(keypoints),
         label=polygon_label['value']['polygonlabels'][0]
     )
     return bbox_data
@@ -126,6 +131,7 @@ def convert_image_data_to_keypoint_label(
     from_name: str,
     to_name: str,
     keypoints_labels: List[str],
+    keypoints_width: float = 0.8
 ) -> Dict:
     im_width, im_height = image_data.get_image_size()
     keypoints_labels_json = []
@@ -145,7 +151,7 @@ def convert_image_data_to_keypoint_label(
                 "value": {
                     "x": x * 100 / im_width,
                     "y": y * 100 / im_height,
-                    "width": 0.55,
+                    "width": keypoints_width,
                     "keypointlabels": [keypointlabel]
                 },
                 "from_name": from_name,
@@ -163,6 +169,8 @@ def parse_keypoint_label_to_keypoint(
     x, y = keypoint_label['value']['x'], keypoint_label['value']['y']
     x = x / 100 * original_width
     y = y / 100 * original_height
+    x = round(x)
+    y = round(y)
     label = keypoint_label['value']['keypointlabels'][0]
     return [x, y], label
 
@@ -173,14 +181,14 @@ def convert_image_data_to_annotation(
     bboxes_from_name: str,
     keypoints_from_name: Optional[str] = None,
     keypoints_labels: Optional[List[str]] = None,
-    keypoints_width: float = 0.55
+    keypoints_width: float = 0.8
 ) -> List[Dict[str, Any]]:
     
     assert (keypoints_from_name is not None and keypoints_labels is not None) or (
         keypoints_from_name is None and keypoints_labels is None
     )
     
-    im_width, im_height = image_data.get_image_size()
+    im_width, im_height = image_data.get_image_size(force_update_meta=True)
     annotations = []
     for bbox_idx, bbox_data in enumerate(image_data.bboxes_data):
         annotations.append({

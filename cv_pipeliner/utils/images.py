@@ -65,7 +65,6 @@ def rotate_point(
     angle = math.radians(angle)
     xnew = cx + (x - cx) * math.cos(angle) - (y - cy) * math.sin(angle)
     ynew = cy + (x - cx) * math.sin(angle) + (y - cy) * math.cos(angle)
-    xnew, ynew = int(xnew), int(ynew)
     return xnew, ynew
 
 

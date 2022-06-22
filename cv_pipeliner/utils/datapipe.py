@@ -15,7 +15,7 @@ from datapipe.store.filedir import (
     ItemStoreFileAdapter, TableStoreFiledir, _pattern_to_attrnames
 )
 import pandas as pd
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, String, Integer
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.utils.imagesize import get_image_size
 
@@ -158,7 +158,7 @@ class ConnectedImageDataTableStore(TableStore):
         for key in self.images_store.primary_keys:
             assert key in self.images_data_store.primary_keys, f"Missing key for images_data_store: {key}"
         self.attrnames = self.images_store.attrnames
-        self.primary_schema = self.images_data_store.primary_schema
+        self.primary_schema = self.images_data_store.get_primary_schema()
 
     def get_primary_schema(self) -> DataSchema:
         return [column for column in self.primary_schema if column.primary_key]
@@ -218,7 +218,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         primary_schema: DataSchema = None,
         mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
         inverse_mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
-        rm_only_fo_fields: bool = False
+        rm_only_fo_fields: bool = True
     ):
         self.dataset = dataset
         self.fo_detections_label = fo_detections_label
@@ -235,6 +235,7 @@ class FiftyOneImagesDataTableStore(TableStore):
                 Column('filepath', String(100), primary_key=True)
             ]
         self.attrnames = [column.name for column in self.primary_schema]
+        assert 'id' not in self.attrnames, "The key 'id' is reserved for this TableStore. Use other key name instead."
         self.attrnames_no_filepath = [attrname for attrname in self.attrnames if attrname != 'filepath']
 
         datasets = fo_session.fiftyone.list_datasets()
@@ -253,7 +254,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         return []
 
     def get_view(self, idx: IndexDF = None) -> 'fiftyone.DatasetView':
-        view = fo_session.fiftyone.DatasetView(self.dataset)
+        view = self.fo_session.fiftyone.DatasetView(self.dataset)
         if idx is not None:
             for attrname in self.attrnames:
                 if attrname == 'filepath':
@@ -291,7 +292,6 @@ class FiftyOneImagesDataTableStore(TableStore):
         df_current_samples = self.read_rows(df_indexes)
         current_indexes = data_to_index(df_current_samples, self.attrnames)
 
-        
         idxs_to_be_deleted = index_difference(current_indexes, df_indexes)
         idxs_to_be_added = index_difference(df_indexes, current_indexes)
         idxs_to_be_updated = index_intersection(df_indexes, current_indexes)
@@ -305,7 +305,15 @@ class FiftyOneImagesDataTableStore(TableStore):
         
         # To be updated:
         df_to_be_updated = index_to_data(df, idxs_to_be_updated).reset_index(drop=True)
-        samples_to_be_updated = list(self.get_view(idxs_to_be_updated))
+        samples_to_be_updated_unordered = list(self.get_view(idxs_to_be_updated))
+        df_samples_to_be_updated_unordered = pd.DataFrame({
+            'sample': [sample for sample in samples_to_be_updated_unordered],
+            **{
+                field: [sample[field] for sample in samples_to_be_updated_unordered]
+                for field in self.attrnames
+            }
+        })
+        samples_to_be_updated = index_to_data(df_samples_to_be_updated_unordered, idxs_to_be_updated)['sample']
         samples_to_be_updated_with_new_values = [
             self.fo_session.convert_image_data_to_fo_sample(
                 df_to_be_updated.loc[idx, 'image_data'],
@@ -319,7 +327,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         ]
         for current_sample, sample_with_updated_values in zip(samples_to_be_updated, samples_to_be_updated_with_new_values):
             current_sample.merge(sample_with_updated_values)
-        self.dataset.delete_samples(samples_to_be_updated)
+        self.dataset.delete_samples(samples_to_be_updated)  # Работает по поведению так же, как и sample.save()
         self.dataset.add_samples(samples_to_be_updated)
 
         # To be added:

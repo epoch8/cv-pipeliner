@@ -7,6 +7,7 @@
 - Added `convert_image_data_to_annotations` and `convert_annotation_to_image_data` in `cv_pipeliner.utils.label_studio` for annotations with one `RectangleLabels` and additional `KeyPointLabels` which takes into account the relationship between boxes and their corresponding keypoints.
 - Updated `FifyOneSession` in `cv_pipeliner.utils.fiftyone`, now it supports cloud running.
 - Added `FiftyOneImagesDataTableStore` in `cv_pipeliner.utils.datapipe` that converts `ImageData` to fiftyone database and vice versa.
+- `get_image_size()` in `cv_pipeliner.utils.imagesize` now takes into account Exif tags
 
 # 0.12.0
 - Fix `bbox_data.json()` when values are written as np.int64

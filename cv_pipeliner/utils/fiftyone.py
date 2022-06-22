@@ -61,12 +61,15 @@ class FifyOneSession:
         bounding_box = [xminn, yminn, xmaxn-xminn, ymaxn-yminn]
         return self.fiftyone.Detection(label=bbox_data.label, bounding_box=bounding_box)
     
-    def convert_bbox_data_keypoints_to_fo_keypoint(self, bbox_data: BboxData) -> 'fiftyone.Detection':
-        return self.fiftyone.Keypoint(
-            label=bbox_data.label,
-            points=[tuple(pair) for pair in bbox_data.keypoints_n],
-            source_coords=bbox_data.coords  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
-        )
+    def convert_bbox_data_keypoints_to_fo_keypoint(self, bbox_data: BboxData) -> 'fiftyone.Keypoint':
+        if len(bbox_data.keypoints) > 0:
+            return self.fiftyone.Keypoint(
+                label=bbox_data.label,
+                points=[tuple(pair) for pair in bbox_data.keypoints_n],
+                source_coords=bbox_data.coords  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
+            )
+        else:
+            return None
 
     def convert_image_data_to_fo_detections(
         self, image_data: ImageData,
@@ -86,9 +89,15 @@ class FifyOneSession:
         if include_additional_bboxes_data:
             image_data = flatten_additional_bboxes_data_in_image_data(image_data)
         image_data.get_image_size()  # Save to meta
-        keypoints = [
-            self.fiftyone.Keypoint(label=image_data.label, points=[tuple(pair) for pair in image_data.keypoints_n])
-        ] + list(map(self.convert_bbox_data_keypoints_to_fo_keypoint, image_data.bboxes_data))
+        keypoints = (
+            [
+                self.fiftyone.Keypoint(label=image_data.label, points=[tuple(pair) for pair in image_data.keypoints_n])
+            ] if len(image_data.keypoints) > 0 else []
+        ) + [
+            fo_keypoints
+            for fo_keypoints in map(self.convert_bbox_data_keypoints_to_fo_keypoint, image_data.bboxes_data)
+            if fo_keypoints is not None
+        ]
 
         return self.fiftyone.Keypoints(keypoints=keypoints)
 
@@ -242,7 +251,7 @@ class FifyOneSession:
         width, height = image_data.get_image_size()  # Save to meta
         if fo_detections_label is not None:
             sample[fo_detections_label] = self.convert_image_data_to_fo_detections(image_data, include_additional_bboxes_data)
-        if fo_classification_label is not None:
+        if fo_classification_label is not None and image_data.label is not None:
             sample[fo_classification_label] = self.fiftyone.Classification(label=image_data.label)
         if fo_keypoints_label is not None:
             sample[fo_keypoints_label] = self.convert_image_data_to_fo_keypoints(image_data, include_additional_bboxes_data)
