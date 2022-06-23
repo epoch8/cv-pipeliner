@@ -154,10 +154,10 @@ class ConnectedImageDataTableStore(TableStore):
         if isinstance(images_data_table_store, TableStoreFiledir):
             assert isinstance(images_data_table_store.adapter, ImageDataFile)
         self.images_data_store = images_data_table_store
-        self.images_store = images_table_store
-        for key in self.images_store.primary_keys:
+        self.images_table_store = images_table_store
+        for key in self.images_table_store.primary_keys:
             assert key in self.images_data_store.primary_keys, f"Missing key for images_data_store: {key}"
-        self.attrnames = self.images_store.attrnames
+        self.attrnames = self.images_table_store.attrnames
         self.primary_schema = self.images_data_store.get_primary_schema()
 
     def get_primary_schema(self) -> DataSchema:
@@ -174,7 +174,7 @@ class ConnectedImageDataTableStore(TableStore):
             if df.loc[row_idx, 'image_data'] is None:
                 continue
             idxs_values = df.loc[row_idx, self.attrnames].tolist()
-            image_path_candidates = self.images_store._filenames_from_idxs_values(idxs_values)
+            image_path_candidates = self.images_table_store._filenames_from_idxs_values(idxs_values)
             if len(image_path_candidates) > 1:
                 for image_path in image_path_candidates:
                     openfile = fsspec.open(image_path)
@@ -216,17 +216,24 @@ class FiftyOneImagesDataTableStore(TableStore):
         fo_classification_label: Optional[str] = None,
         fo_keypoints_label: Optional[str] = None,
         primary_schema: DataSchema = None,
+        images_table_store: Optional[TableStoreFiledir] = None,
         mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
         inverse_mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
-        rm_only_fo_fields: bool = True
+        rm_only_fo_fields: bool = True,
+        additional_info_keys_in_fo_detections: List[str] = [],
+        additional_info_keys_in_sample: List[str] = [],
     ):
         self.dataset = dataset
         self.fo_detections_label = fo_detections_label
         self.fo_classification_label = fo_classification_label
         self.fo_keypoints_label = fo_keypoints_label
         self.fo_session = fo_session
+        self.images_table_store = images_table_store
         self.mapping_filepath = mapping_filepath
         self.inverse_mapping_filepath = inverse_mapping_filepath
+        self.rm_only_fo_fields = rm_only_fo_fields
+        self.additional_info_keys_in_fo_detections = additional_info_keys_in_fo_detections
+        self.additional_info_keys_in_sample = additional_info_keys_in_sample
         if primary_schema is not None:
             assert all([isinstance(column.type, (String, Integer)) for column in primary_schema])
             self.primary_schema = primary_schema
@@ -235,6 +242,9 @@ class FiftyOneImagesDataTableStore(TableStore):
                 Column('filepath', String(100), primary_key=True)
             ]
         self.attrnames = [column.name for column in self.primary_schema]
+        if self.images_table_store is not None:
+            for key in self.images_table_store.primary_keys:
+                assert key in self.attrnames, f"Missing key for images_data_store: {key}"
         assert 'id' not in self.attrnames, "The key 'id' is reserved for this TableStore. Use other key name instead."
         self.attrnames_no_filepath = [attrname for attrname in self.attrnames if attrname != 'filepath']
 
@@ -245,15 +255,13 @@ class FiftyOneImagesDataTableStore(TableStore):
             self.dataset = fo_session.fiftyone.Dataset(dataset)
             self.dataset.persistent = True
 
-        self.rm_only_fo_fields = rm_only_fo_fields
-
     def get_primary_schema(self) -> DataSchema:
         return self.primary_schema
 
     def get_meta_schema(self) -> MetaSchema:
         return []
 
-    def get_view(self, idx: IndexDF = None) -> 'fiftyone.DatasetView':
+    def _get_view(self, idx: IndexDF = None) -> 'fiftyone.DatasetView':
         view = self.fo_session.fiftyone.DatasetView(self.dataset)
         if idx is not None:
             for attrname in self.attrnames:
@@ -265,8 +273,24 @@ class FiftyOneImagesDataTableStore(TableStore):
                 view = view.select_by(field=attrname, values=values)
         return view
 
-    def read_rows(self, idx: IndexDF = None) -> DataDF:
-        view = self.get_view(idx)
+    def _attend_image_path_to_image_data(self, image_data: ImageData, idxs_values: List[str]) -> ImageData:
+        if self.images_table_store is not None:
+            image_path_candidates = self.images_table_store._filenames_from_idxs_values(idxs_values)
+            if len(image_path_candidates) > 1:
+                for image_path in image_path_candidates:
+                    openfile = fsspec.open(image_path)
+                    if openfile.fs.exists(openfile.path):
+                        break
+            else:
+                image_path = image_path_candidates[0]
+            image_data.image_path = image_path
+        assert image_data.image_path is not None and str(image_data.image_path) != '', (
+            f"This {image_data=} have empty image_path"
+        )
+        return image_data
+
+    def read_rows(self, idx: IndexDF = None, read_data: bool = True) -> DataDF:
+        view = self._get_view(idx)
         df_result = []
         for sample in view:
             image_data = self.fo_session.convert_sample_to_image_data(
@@ -274,18 +298,19 @@ class FiftyOneImagesDataTableStore(TableStore):
                 fo_detections_label=self.fo_detections_label,
                 fo_classification_label=self.fo_classification_label,
                 fo_keypoints_label=self.fo_keypoints_label,
-                mapping_filepath=self.inverse_mapping_filepath
+                mapping_filepath=self.inverse_mapping_filepath,
+                additional_info_keys_in_fo_detections=self.additional_info_keys_in_fo_detections,
+                additional_info_keys_in_sample=self.additional_info_keys_in_sample
             )
             df_result.append({
                 'filepath': self.inverse_mapping_filepath(sample.filepath),
-                'image_data': image_data,
+                **{'image_data': image_data if read_data else {}},
                 **{attrname: sample[attrname] for attrname in self.attrnames_no_filepath},
             })
         df_result = pd.DataFrame(df_result)
         if len(df_result) == 0:
             df_result = pd.DataFrame(columns=self.attrnames)
         return df_result
-
 
     def insert_rows(self, df: DataDF) -> None:
         df_indexes = data_to_index(df, self.attrnames)
@@ -295,17 +320,13 @@ class FiftyOneImagesDataTableStore(TableStore):
         idxs_to_be_deleted = index_difference(current_indexes, df_indexes)
         idxs_to_be_added = index_difference(df_indexes, current_indexes)
         idxs_to_be_updated = index_intersection(df_indexes, current_indexes)
-        
-        print(f"To be deleted: {len(idxs_to_be_deleted)=}")
-        print(f"To be added: {len(idxs_to_be_added)=}")
-        print(f"To be updated: {len(idxs_to_be_updated)=}")
 
         # To be deleted:
         self.delete_rows(idxs_to_be_deleted)
-        
+
         # To be updated:
         df_to_be_updated = index_to_data(df, idxs_to_be_updated).reset_index(drop=True)
-        samples_to_be_updated_unordered = list(self.get_view(idxs_to_be_updated))
+        samples_to_be_updated_unordered = list(self._get_view(idxs_to_be_updated))
         df_samples_to_be_updated_unordered = pd.DataFrame({
             'sample': [sample for sample in samples_to_be_updated_unordered],
             **{
@@ -316,12 +337,17 @@ class FiftyOneImagesDataTableStore(TableStore):
         samples_to_be_updated = index_to_data(df_samples_to_be_updated_unordered, idxs_to_be_updated)['sample']
         samples_to_be_updated_with_new_values = [
             self.fo_session.convert_image_data_to_fo_sample(
-                df_to_be_updated.loc[idx, 'image_data'],
+                image_data=self._attend_image_path_to_image_data(
+                    image_data=df_to_be_updated.loc[idx, 'image_data'],
+                    idxs_values=df_to_be_updated.loc[idx, self.attrnames]
+                ),
                 fo_detections_label=self.fo_detections_label,
                 fo_classification_label=self.fo_classification_label,
                 fo_keypoints_label=self.fo_keypoints_label,
                 mapping_filepath=self.mapping_filepath,
-                additional_info={field: df_to_be_updated.loc[idx, field] for field in self.attrnames_no_filepath}
+                additional_info_keys_in_bboxes_data=self.additional_info_keys_in_fo_detections,
+                additional_info_keys_in_image_data=self.additional_info_keys_in_sample,
+                additional_info={field: df_to_be_updated.loc[idx, field] for field in self.attrnames_no_filepath},
             )
             for idx in df_to_be_updated.index
         ]
@@ -334,11 +360,16 @@ class FiftyOneImagesDataTableStore(TableStore):
         df_to_be_added = index_to_data(df, idxs_to_be_added).reset_index(drop=True)
         samples_to_be_added = [
             self.fo_session.convert_image_data_to_fo_sample(
-                df_to_be_added.loc[idx, 'image_data'],
+                image_data=self._attend_image_path_to_image_data(
+                    image_data=df_to_be_added.loc[idx, 'image_data'],
+                    idxs_values=df_to_be_added.loc[idx, self.attrnames]
+                ),
                 fo_detections_label=self.fo_detections_label,
                 fo_classification_label=self.fo_classification_label,
                 fo_keypoints_label=self.fo_keypoints_label,
                 mapping_filepath=self.mapping_filepath,
+                additional_info_keys_in_bboxes_data=self.additional_info_keys_in_fo_detections,
+                additional_info_keys_in_image_data=self.additional_info_keys_in_sample,
                 additional_info={field: df_to_be_added.loc[idx, field] for field in self.attrnames_no_filepath}
             )
             for idx in df_to_be_added.index
@@ -347,7 +378,7 @@ class FiftyOneImagesDataTableStore(TableStore):
             self.dataset.add_samples(samples_to_be_added)
 
     def delete_rows(self, idx: IndexDF) -> None:
-        view = self.get_view(idx)
+        view = self._get_view(idx)
         samples = list(view)
         if len(samples) > 0:
             if self.rm_only_fo_fields:

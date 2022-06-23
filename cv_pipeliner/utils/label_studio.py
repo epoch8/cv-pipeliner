@@ -178,68 +178,80 @@ def parse_keypoint_label_to_keypoint(
 def convert_image_data_to_annotation(
     image_data: ImageData,
     to_name: str,
-    bboxes_from_name: str,
+    bboxes_from_name: Optional[str] = None,
+    label_from_name: Optional[str] = None,
     keypoints_from_name: Optional[str] = None,
     keypoints_labels: Optional[List[str]] = None,
-    keypoints_width: float = 0.8
+    keypoints_width: float = 0.8,
 ) -> List[Dict[str, Any]]:
-    
+
     assert (keypoints_from_name is not None and keypoints_labels is not None) or (
         keypoints_from_name is None and keypoints_labels is None
     )
-    
+
     im_width, im_height = image_data.get_image_size(force_update_meta=True)
     annotations = []
-    for bbox_idx, bbox_data in enumerate(image_data.bboxes_data):
+    if label_from_name is not None and image_data.label is not None:
         annotations.append({
-            "id": f"bbox{bbox_idx}",
-            "original_width": im_width,
-            "original_height": im_height,
-            "image_rotation": 0,
             "value": {
-                "x": bbox_data.xmin / im_width * 100,
-                "y": bbox_data.ymin / im_height * 100,
-                "width": (bbox_data.xmax - bbox_data.xmin) / im_width * 100,
-                "height": (bbox_data.ymax - bbox_data.ymin) / im_height * 100,
-                "rotation": 0,
-                "rectanglelabels": [bbox_data.label]
+                "choices": [image_data.label]
             },
-            "from_name": bboxes_from_name,
+            "from_name": label_from_name,
             "to_name": to_name,
-            "type": "rectanglelabels",
+            "type": "choices"
         })
-        if keypoints_from_name is not None:
-            if len(bbox_data.keypoints) == 0:
-                continue
-            assert len(bbox_data.keypoints) == len(keypoints_labels), (
-                f"KeypointsLabels length mismatch: {bbox_data.keypoints=}, {keypoints_labels=}"
-            )
 
-            for kp_idx, (keypoint, keypointlabel) in enumerate(zip(bbox_data.keypoints, keypoints_labels)):
-                x, y = keypoint[0], keypoint[1]
-                annotations.append({
-                    "id": f"bbox{bbox_idx}_kp{kp_idx}",
-                    "original_width": im_width,
-                    "original_height": im_height,
-                    "image_rotation": 0,
-                    "value": {
-                        "x": x * 100 / im_width,
-                        "y": y * 100 / im_height,
-                        "width": keypoints_width,
-                        "keypointlabels": [keypointlabel]
-                    },
-                    "from_name": keypoints_from_name,
-                    "to_name": to_name,
-                    "type": "keypointlabels"
-                })
-                annotations.append({
-                    'from_id': f"bbox{bbox_idx}_kp{kp_idx}",
-                    'to_id': f"bbox{bbox_idx}",
-                    'type': 'relation',
-                    'direction': 'bi'
-                })
-    
-    if len(image_data.keypoints) > 0:
+    if bboxes_from_name is not None:
+        for bbox_idx, bbox_data in enumerate(image_data.bboxes_data):
+            annotations.append({
+                "id": f"bbox{bbox_idx}",
+                "original_width": im_width,
+                "original_height": im_height,
+                "image_rotation": 0,
+                "value": {
+                    "x": bbox_data.xmin / im_width * 100,
+                    "y": bbox_data.ymin / im_height * 100,
+                    "width": (bbox_data.xmax - bbox_data.xmin) / im_width * 100,
+                    "height": (bbox_data.ymax - bbox_data.ymin) / im_height * 100,
+                    "rotation": 0,
+                    "rectanglelabels": [bbox_data.label]
+                },
+                "from_name": bboxes_from_name,
+                "to_name": to_name,
+                "type": "rectanglelabels",
+            })
+            if keypoints_from_name is not None:
+                if len(bbox_data.keypoints) == 0:
+                    continue
+                assert len(bbox_data.keypoints) == len(keypoints_labels), (
+                    f"KeypointsLabels length mismatch: {bbox_data.keypoints=}, {keypoints_labels=}"
+                )
+
+                for kp_idx, (keypoint, keypointlabel) in enumerate(zip(bbox_data.keypoints, keypoints_labels)):
+                    x, y = keypoint[0], keypoint[1]
+                    annotations.append({
+                        "id": f"bbox{bbox_idx}_kp{kp_idx}",
+                        "original_width": im_width,
+                        "original_height": im_height,
+                        "image_rotation": 0,
+                        "value": {
+                            "x": x * 100 / im_width,
+                            "y": y * 100 / im_height,
+                            "width": keypoints_width,
+                            "keypointlabels": [keypointlabel]
+                        },
+                        "from_name": keypoints_from_name,
+                        "to_name": to_name,
+                        "type": "keypointlabels"
+                    })
+                    annotations.append({
+                        'from_id': f"bbox{bbox_idx}_kp{kp_idx}",
+                        'to_id': f"bbox{bbox_idx}",
+                        'type': 'relation',
+                        'direction': 'bi'
+                    })
+
+    if len(image_data.keypoints) > 0 and keypoints_from_name is not None:
         assert len(image_data.keypoints) == len(keypoints_labels), (
             f"KeypointsLabels mismatch: {image_data.keypoints=}, {keypoints_labels=}"
         )
@@ -266,7 +278,8 @@ def convert_image_data_to_annotation(
 
 def convert_annotation_to_image_data(
     annotation: List[Dict[str, Any]],
-    bboxes_from_name: str,
+    bboxes_from_name: Optional[str] = None,
+    label_from_name: Optional[str] = None,  # must be one, attended to image
     keypoints_from_name: Optional[str] = None,
     keypoints_labels: Optional[List[str]] = None,
     image_path: Optional[str] = None
@@ -274,21 +287,30 @@ def convert_annotation_to_image_data(
     assert (keypoints_from_name is not None and keypoints_labels is not None) or (
         keypoints_from_name is None and keypoints_labels is None
     )
-    
+
     bboxes_data = []
     id_to_bbox_data_idx = {}
-
-    if keypoints_from_name is not None:
-        keypoints = []
-        items_keypoints_labels = []
-        id_to_keypoint_idx = {}
-        bbox_id_to_keypoints_idxs_relation = {}
-        keypoints_idxs_that_have_relation = set()
+    keypoints = []
+    items_keypoints_labels = []
+    id_to_keypoint_idx = {}
+    bbox_id_to_keypoints_idxs_relation = {}
+    keypoints_idxs_that_have_relation = set()
+    keypoint_label_to_position = {}
+    image_data_keypoints = []
+    image_data_label = None
 
     for result in annotation['result']:
-        if result['type'] == 'rectanglelabels' and result['from_name'] == bboxes_from_name:
-            bboxes_data.append(parse_rectangle_labels_to_bbox_data(result))
-            id_to_bbox_data_idx[result['id']] = len(bboxes_data) - 1
+        if label_from_name is not None and result['from_name'] == bboxes_from_name:
+            if len(result['value']['choices']) > 0:
+                if image_data_label is not None:
+                    raise ValueError(
+                        f"Found duplicated choices: {result=} (previously choice is {image_data_label=})"
+                    )
+                image_data_label = result['value']['choices'][0]
+        if bboxes_from_name is not None:
+            if result['type'] == 'rectanglelabels' and result['from_name'] == bboxes_from_name:
+                bboxes_data.append(parse_rectangle_labels_to_bbox_data(result))
+                id_to_bbox_data_idx[result['id']] = len(bboxes_data) - 1
 
         if keypoints_from_name is not None:
             if result['type'] == 'keypointlabels' and result['from_name'] == keypoints_from_name:
@@ -314,6 +336,7 @@ def convert_annotation_to_image_data(
     if keypoints_from_name is not None:
         keypoint_label_to_position = {label: idx for idx, label in enumerate(keypoints_labels)}
 
+    if bboxes_from_name is not None and keypoints_from_name is not None:
         for bbox_id, keypoints_idxs in bbox_id_to_keypoints_idxs_relation.items():
             if len(keypoints_idxs) > 0:
                 assert len(keypoints_idxs) == len(keypoints_labels), (
@@ -323,10 +346,9 @@ def convert_annotation_to_image_data(
             item_keypoints_labels = [items_keypoints_labels[id_to_keypoint_idx[keypoint_idx]] for keypoint_idx in keypoints_idxs]
             item_keypoints_labels_positions = list(map(keypoint_label_to_position.get, item_keypoints_labels))
             item_sorted_idxs = np.argsort(item_keypoints_labels_positions)
-            
+
             bboxes_data[id_to_bbox_data_idx[bbox_id]].keypoints = np.array(item_keypoints)[item_sorted_idxs]
 
-    image_data = ImageData(image_path=image_path, bboxes_data=bboxes_data)
     if keypoints_from_name is not None:
         keypoints_attended_to_image_data = []
         for keypoint_id in id_to_keypoint_idx:
@@ -337,9 +359,21 @@ def convert_annotation_to_image_data(
             assert len(keypoints_attended_to_image_data) == len(keypoints_labels), (
                 f"KeypointsLabels length mismatch: {keypoints_attended_to_image_data=}, {keypoints_labels=}"
             )
-        item_keypoints = [keypoints[id_to_keypoint_idx[keypoint_idx]] for keypoint_idx in keypoints_attended_to_image_data]
-        item_keypoints_labels = [items_keypoints_labels[id_to_keypoint_idx[keypoint_idx]] for keypoint_idx in keypoints_attended_to_image_data]
+        item_keypoints = [
+            keypoints[id_to_keypoint_idx[keypoint_idx]]
+            for keypoint_idx in keypoints_attended_to_image_data
+        ]
+        item_keypoints_labels = [
+            items_keypoints_labels[id_to_keypoint_idx[keypoint_idx]]
+            for keypoint_idx in keypoints_attended_to_image_data
+        ]
         item_keypoints_labels_positions = list(map(keypoint_label_to_position.get, item_keypoints_labels))
         item_sorted_idxs = np.argsort(item_keypoints_labels_positions)
-        image_data.keypoints = np.array(item_keypoints)[item_sorted_idxs]
-    return image_data
+        image_data_keypoints = np.array(item_keypoints)[image_data_keypoints]
+
+    return ImageData(
+        image_path=image_path,
+        bboxes_data=bboxes_data,
+        label=image_data_label,
+        keypoints=image_data_keypoints
+    )
