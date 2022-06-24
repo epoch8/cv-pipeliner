@@ -8,6 +8,7 @@
 - Updated `FifyOneSession` in `cv_pipeliner.utils.fiftyone`, now it supports cloud running.
 - Added `FiftyOneImagesDataTableStore` in `cv_pipeliner.utils.datapipe` that converts `ImageData` to fiftyone database and vice versa.
 - `get_image_size()` in `cv_pipeliner.utils.imagesize` now takes into account Exif tags
+- DataConverter's `get_images_data_from_annots` now runs in parallel as possible.
 
 # 0.12.0
 - Fix `bbox_data.json()` when values are written as np.int64
