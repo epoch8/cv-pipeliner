@@ -222,6 +222,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         rm_only_fo_fields: bool = True,
         additional_info_keys_in_fo_detections: List[str] = [],
         additional_info_keys_in_sample: List[str] = [],
+        create_dataset_if_empty: bool = True
     ):
         self.dataset = dataset
         self.fo_detections_label = fo_detections_label
@@ -247,13 +248,8 @@ class FiftyOneImagesDataTableStore(TableStore):
                 assert key in self.attrnames, f"Missing key for images_data_store: {key}"
         assert 'id' not in self.attrnames, "The key 'id' is reserved for this TableStore. Use other key name instead."
         self.attrnames_no_filepath = [attrname for attrname in self.attrnames if attrname != 'filepath']
-
-        datasets = fo_session.fiftyone.list_datasets()
-        if dataset in datasets:
-            self.dataset = fo_session.fiftyone.load_dataset(dataset)
-        else:
-            self.dataset = fo_session.fiftyone.Dataset(dataset)
-            self.dataset.persistent = True
+        self.fo_dataset = None
+        self.create_dataset_if_empty = create_dataset_if_empty
 
     def get_primary_schema(self) -> DataSchema:
         return self.primary_schema
@@ -261,8 +257,30 @@ class FiftyOneImagesDataTableStore(TableStore):
     def get_meta_schema(self) -> MetaSchema:
         return []
 
+    def _get_dataset(self):
+        fo_dataset = None
+        datasets = self.fo_session.fiftyone.list_datasets()
+        if self.dataset in datasets:
+            fo_dataset = self.fo_session.fiftyone.load_dataset(self.dataset)
+        return fo_dataset
+
+    def _get_or_create_dataset(self):
+        if self.fo_dataset is not None:
+            return self.fo_dataset
+
+        datasets = self.fo_session.fiftyone.list_datasets()
+        if self.dataset in datasets:
+            self.fo_dataset = self.fo_session.fiftyone.load_dataset(self.dataset)
+        else:
+            if self.create_dataset_if_empty:
+                self.fo_dataset = self.fo_session.fiftyone.Dataset(self.dataset)
+                self.fo_dataset.persistent = True
+            else:
+                return ValueError("Dataset {self.dataset} not found.")
+        return self.fo_dataset
+
     def _get_view(self, idx: IndexDF = None) -> 'fiftyone.DatasetView':
-        view = self.fo_session.fiftyone.DatasetView(self.dataset)
+        view = self.fo_session.fiftyone.DatasetView(self._get_or_create_dataset())
         if idx is not None:
             for attrname in self.attrnames:
                 if attrname == 'filepath':
@@ -312,7 +330,17 @@ class FiftyOneImagesDataTableStore(TableStore):
             df_result = pd.DataFrame(columns=self.attrnames)
         return df_result
 
+    def _add_samples(self, dataset: 'fo.Dataset', samples: List['fo.Sample']):
+        # Во избежания ошибки в префекте AttributeError: 'RedirectToLog' object has no attribute 'encoding'
+        # dataset.add_samples(samples_to_be_updated)
+        for batch in self.fo_session.fiftyone.core.utils.DynamicBatcher(
+            samples, target_latency=0.2, init_batch_size=1, max_batch_beta=2.0
+        ):
+            dataset._add_samples_batch(batch, expand_schema=True, validate=True)
+
     def insert_rows(self, df: DataDF) -> None:
+        dataset = self._get_or_create_dataset()
+
         df_indexes = data_to_index(df, self.attrnames)
         df_current_samples = self.read_rows(df_indexes)
         current_indexes = data_to_index(df_current_samples, self.attrnames)
@@ -353,8 +381,9 @@ class FiftyOneImagesDataTableStore(TableStore):
         ]
         for current_sample, sample_with_updated_values in zip(samples_to_be_updated, samples_to_be_updated_with_new_values):
             current_sample.merge(sample_with_updated_values)
-        self.dataset.delete_samples(samples_to_be_updated)  # Работает по поведению так же, как и sample.save()
-        self.dataset.add_samples(samples_to_be_updated)
+
+        dataset.delete_samples(samples_to_be_updated)  # Работает по поведению так же, как и sample.save()
+        self._add_samples(dataset, samples_to_be_updated)
 
         # To be added:
         df_to_be_added = index_to_data(df, idxs_to_be_added).reset_index(drop=True)
@@ -375,9 +404,10 @@ class FiftyOneImagesDataTableStore(TableStore):
             for idx in df_to_be_added.index
         ]
         if len(samples_to_be_added) > 0:
-            self.dataset.add_samples(samples_to_be_added)
+            self._add_samples(dataset, samples_to_be_added)
 
     def delete_rows(self, idx: IndexDF) -> None:
+        dataset = self._get_or_create_dataset()
         view = self._get_view(idx)
         samples = list(view)
         if len(samples) > 0:
@@ -387,6 +417,6 @@ class FiftyOneImagesDataTableStore(TableStore):
                         del sample[self.fo_detections_label]
                     if self.fo_keypoints_label is not None and sample.has_field(self.fo_keypoints_label):
                         del sample[self.fo_keypoints_label]
-            self.dataset.delete_samples(samples)
+            dataset.delete_samples(samples)
             if self.rm_only_fo_fields:
-                self.dataset.add_samples(samples)
+                self._add_samples(dataset, samples)

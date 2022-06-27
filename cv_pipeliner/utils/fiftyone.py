@@ -276,7 +276,7 @@ class FifyOneSession:
             sample[fo_detections_label] = self.convert_image_data_to_fo_detections(
                 image_data, include_additional_bboxes_data, additional_info_keys_in_bboxes_data
             )
-        if fo_classification_label is not None:
+        if fo_classification_label is not None and image_data.label is not None:
             sample[fo_classification_label] = self.fiftyone.Classification(label=image_data.label)
         if fo_keypoints_label is not None:
             sample[fo_keypoints_label] = self.convert_image_data_to_fo_keypoints(
@@ -310,7 +310,9 @@ class FifyOneSession:
             sample.has_field(fo_detections_label) and sample[fo_detections_label] is not None
         ):
             image_data.bboxes_data = [
-                self.convert_fo_detection_to_bbox_data(fo_detection, width, height, additional_info_keys_in_fo_detections)
+                self.convert_fo_detection_to_bbox_data(
+                    fo_detection, width, height, additional_info_keys_in_fo_detections
+                )
                 for fo_detection in sample[fo_detections_label].detections
             ]
         if fo_keypoints_label is not None and (
