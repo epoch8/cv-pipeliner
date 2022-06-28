@@ -12,7 +12,7 @@ from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_f
 from cv_pipeliner.inference_models.detection.core import (
     DetectionModelSpec, DetectionModel, DetectionInput, DetectionOutput
 )
-from cv_pipeliner.utils.images import denormalize_bboxes
+from cv_pipeliner.utils.images import denormalize_bboxes, rescale_bboxes_with_pad, tf_resize_with_pad
 
 
 @dataclass
@@ -43,6 +43,7 @@ class YOLOv5_TFLite_ModelSpec(DetectionModelSpec):
     class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
+    use_default_preprocces_and_postprocess_input: bool = False  # (taken from YOLOv5)
 
     @property
     def inference_model_cls(self) -> Type['YOLOv5_DetectionModel']:
@@ -89,11 +90,24 @@ class YOLOv5_DetectionModel(DetectionModel):
                 self._preprocess_input = lambda x: x
             else:
                 self._preprocess_input = model_spec.preprocess_input
+
         if isinstance(model_spec, YOLOv5_ModelSpec):
             self._load_yolov5_model(model_spec)
             self._raw_predict_images = self._raw_predict_images_torch
         elif isinstance(model_spec, YOLOv5_TFLite_ModelSpec):
             self._load_yolov5_tflite(model_spec)
+            if model_spec.use_default_preprocces_and_postprocess_input:
+                _, height, width, _ = self.model.get_input_details()[0]['shape']  # (1 x H x C x 3)
+                assert model_spec.preprocess_input is None
+                self._preprocess_input = lambda images: np.array([
+                    tf_resize_with_pad(
+                        image=image,
+                        target_width=width,
+                        target_height=height,
+                        constant_values=114
+                    )
+                    for image in images
+                ])
             self._raw_predict_images = self._raw_predict_images_tflite
         else:
             raise ValueError(
@@ -107,9 +121,7 @@ class YOLOv5_DetectionModel(DetectionModel):
             temp_file.write(src.read())
         model_path = Path(temp_file.name)
 
-        self.model = tf.lite.Interpreter(
-            model_path=str(model_path)
-        )
+        self.model = tf.lite.Interpreter(model_path=str(model_path))
         self.model.allocate_tensors()
         self.input_detail = self.model.get_input_details()[0]
         self.output_detail = self.model.get_output_details()[0]
@@ -156,7 +168,6 @@ class YOLOv5_DetectionModel(DetectionModel):
         input: DetectionInput,
         score_threshold: float
     ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
-        model_width, model_height = self.input_size
         n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = [], [], [], []
         for image in input:
             height, width, _ = image.shape
@@ -182,15 +193,31 @@ class YOLOv5_DetectionModel(DetectionModel):
         raw_scores: np.ndarray,
         raw_classes: np.ndarray,
         score_threshold: float,
-        width: int,
-        height: int,
+        current_width: int,
+        current_height: int,
+        target_width: int,
+        target_height: int,
         classification_top_n: int
     ) -> Tuple[
         List[Tuple[int, int, int, int]],
         List[List[Tuple[int, int]]],
         List[float], List[List[str]], List[List[float]]
     ]:
-        raw_bboxes = denormalize_bboxes(raw_bboxes, width, height)
+        if isinstance(self.model_spec, YOLOv5_TFLite_ModelSpec) and (
+            self.model_spec.use_default_preprocces_and_postprocess_input
+        ):
+            # Rescale bboxes
+            raw_bboxes = denormalize_bboxes(raw_bboxes, current_width, current_height)
+            raw_bboxes = rescale_bboxes_with_pad(
+                bboxes=raw_bboxes,
+                current_width=current_width,
+                current_height=current_height,
+                target_width=target_width,
+                target_height=target_height
+            )
+        else:
+            raw_bboxes = denormalize_bboxes(raw_bboxes, target_width, target_height)
+
         mask = raw_scores > score_threshold
         bboxes = raw_bboxes[mask]
         keypoints = raw_keypoints[mask]
@@ -239,8 +266,9 @@ class YOLOv5_DetectionModel(DetectionModel):
         score_threshold: float,
         classification_top_n: int = 1
     ) -> DetectionOutput:
-        heights_widths = [image.shape[:2] for image in input]
+        target_heights_widths = [image.shape[:2] for image in input]
         input = self.preprocess_input(input)
+        current_heights_widths = [image.shape[:2] for image in input]
         n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = self._raw_predict_images(input, score_threshold)
         results = [
             self._postprocess_prediction(
@@ -249,12 +277,18 @@ class YOLOv5_DetectionModel(DetectionModel):
                 raw_scores=raw_scores,
                 raw_classes=raw_classes,
                 score_threshold=score_threshold,
-                width=width,
-                height=height,
+                current_height=current_height,
+                current_width=current_width,
+                target_width=target_width,
+                target_height=target_height,
                 classification_top_n=classification_top_n
             )
-            for (height, width), raw_bboxes, raw_keypoints, raw_scores, raw_classes in zip(
-                heights_widths, n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes
+            for (
+                (target_height, target_width), (current_height, current_width),
+                raw_bboxes, raw_keypoints, raw_scores, raw_classes
+            ) in zip(
+                target_heights_widths, current_heights_widths,
+                n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes
             )
         ]
         n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k = [

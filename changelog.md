@@ -9,6 +9,8 @@
 - Added `FiftyOneImagesDataTableStore` in `cv_pipeliner.utils.datapipe` that converts `ImageData` to fiftyone database and vice versa.
 - `get_image_size()` in `cv_pipeliner.utils.imagesize` now takes into account Exif tags
 - DataConverter's `get_images_data_from_annots` now runs in parallel as possible.
+- Added new functions `cv_pipeliner.utils.images.tf_resize_with_pad` and `rescale_bboxes_with_pad`.
+- Added new field `use_default_preprocces_and_postprocess_input` in `YOLOv5_TFLite_ModelSpec` for using standard YOLOv5's preprocessing and postprocessing functions from previous paragraph
 
 # 0.12.0
 - Fix `bbox_data.json()` when values are written as np.int64
