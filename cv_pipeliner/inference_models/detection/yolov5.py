@@ -1,10 +1,9 @@
 import json
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union, Type, Callable
+from typing import List, Optional, Tuple, Union, Type, Callable
 from pathlib import Path
 
-import cv2
 import numpy as np
 import fsspec
 
