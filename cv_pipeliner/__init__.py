@@ -1,4 +1,4 @@
-__version__ = "0.13.0"
+__version__ = "0.13.1"
 
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
@@ -32,6 +32,9 @@ from cv_pipeliner.inference_models.embedder.pytorch import PyTorch_EmbedderModel
 from cv_pipeliner.inference_models.embedder.tensorflow import TensorFlow_EmbedderModelSpec
 from cv_pipeliner.inference_models.keypoints_regressor.tensorflow import (
     TensorFlow_KeypointsRegressorModelSpec, TensorFlow_KeypointsRegressorModelSpec_TFServing
+)
+from cv_pipeliner.inference_models.keypoints_regressor.mmpose import (
+    MMPose_KeypointsRegressorModelSpec_TFLite
 )
 from cv_pipeliner.inference_models.pipeline import PipelineModelSpec, PipelineModel
 from cv_pipeliner.inferencers.detection import DetectionInferencer

@@ -25,9 +25,6 @@ class KeypointsRegressorInferencer(Inferencer):
         images_data_res = []
         pred_n_keypoints = np.array(pred_n_keypoints)
         for image_data, pred_keypoints in zip(images_data, pred_n_keypoints):
-            width, height = image_data.get_image_size()
-            pred_keypoints[:, 0] *= width
-            pred_keypoints[:, 1] *= height
             image = image_data.image if open_images_in_images_data else None
             images_data_res.append(ImageData(
                 image_path=image_data.image_path,
@@ -73,9 +70,6 @@ class KeypointsRegressorInferencer(Inferencer):
         bboxes_data_res = []
         pred_n_keypoints = np.array(pred_n_keypoints)
         for bbox_data, pred_keypoints in zip(bboxes_data, pred_n_keypoints):
-            width, height = bbox_data.get_image_size()
-            pred_keypoints[:, 0] *= width
-            pred_keypoints[:, 1] *= height
             cropped_image = bbox_data.cropped_image if open_cropped_images_in_bboxes_data else None
             bboxes_data_res.append(BboxData(
                 image_path=bbox_data.image_path,
