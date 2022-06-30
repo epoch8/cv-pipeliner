@@ -18,7 +18,8 @@ from cv_pipeliner.utils.imagesize import get_image_size
 
 def open_image_for_object(
     obj: Union['ImageData', 'BboxData'],
-    inplace: bool = False
+    inplace: bool = False,
+    returns_none_if_empty: bool = False
 ) -> Optional[np.ndarray]:
     if obj.image is not None and isinstance(obj.image, np.ndarray):
         if not inplace:
@@ -30,6 +31,8 @@ def open_image_for_object(
     elif obj.image_path is not None:
         image = open_image(image=obj.image_path, open_as_rgb=True)
     else:
+        if returns_none_if_empty:
+            return None
         raise ValueError("Object doesn't have any image.")
 
     if inplace:
@@ -90,6 +93,9 @@ class BboxData:
     additional_bboxes_data: List['BboxData'] = field(default_factory=list)
     additional_info: Dict = field(default_factory=dict)
 
+    meta_width: int = None
+    meta_height: int = None
+
     def __post_init__(self):
         if isinstance(self.image_path, Path) or (isinstance(self.image_path, str) and not is_base64(self.image_path)):
             self.image_path = Pathy(self.image_path)
@@ -108,6 +114,10 @@ class BboxData:
 
         self.keypoints = np.array(self.keypoints).astype(int).reshape((-1, 2))
 
+        if self.image is not None:
+            self.image = np.array(self.image)
+            self.meta_width, self.meta_height = self.get_image_size()
+
     @property
     def image_name(self) -> str:
         return get_image_name(self.image_path)
@@ -117,9 +127,17 @@ class BboxData:
         return (round(self.xmin), round(self.ymin), round(self.xmax), round(self.ymax))
 
     @property
-    def coords_n(self) -> Tuple[int, int, int, int]:
+    def coords_n(self) -> Tuple[float, float, float, float]:
         width, height = self.get_image_size()
         return self.xmin / width, self.ymin / height, self.xmax / width, self.ymax / height
+    
+    @property
+    def keypoints_n(self) -> List[Tuple[float]]:
+        width, height = self.get_image_size()
+        keypoints = self.keypoints.copy().astype(float).reshape((-1, 2))
+        keypoints[:, 0] /= width
+        keypoints[:, 1] /= height
+        return keypoints
 
     @property
     def area(self) -> int:
@@ -169,8 +187,8 @@ class BboxData:
         xmax_offset: Union[int, float] = 0,
         ymax_offset: Union[int, float] = 0,
         return_as_image_data: bool = False,
+        image_data_cls: Type['ImageData'] = 'ImageData',
     ) -> Optional[Union[np.ndarray, 'BboxData']]:
-
         if self.cropped_image is not None:
             if not inplace:
                 return self.cropped_image
@@ -181,14 +199,14 @@ class BboxData:
                 image = source_image
             else:
                 image = self.open_image()
+            self.meta_height, self.meta_width = image.shape[0:2]
 
             assert self.xmin < self.xmax and self.ymin < self.ymax
 
             xmin, ymin, xmax, ymax = self.coords_with_offset(
                 xmin_offset, ymin_offset, xmax_offset, ymax_offset, source_image
             )
-            cropped_image = image[ymin:ymax, xmin:xmax]
-
+            cropped_image = image[ymin:ymax, xmin:xmax] if image is not None else None
         if inplace:
             self.cropped_image = cropped_image
         else:
@@ -205,12 +223,16 @@ class BboxData:
                     bbox_data.ymin -= ymin
                     bbox_data.xmax -= xmin
                     bbox_data.ymax -= ymin
+                    for additional_bbox_data in bbox_data.additional_bboxes_data:
+                        crop_additional_bbox_data(additional_bbox_data)
 
                 for additional_bbox_data in additional_bboxes_data:
-                    additional_bbox_data.apply_func_recursively(crop_additional_bbox_data)
+                    crop_additional_bbox_data(additional_bbox_data)
 
-                from cv_pipeliner.core.data import ImageData
-                image_data = ImageData(
+                if image_data_cls == 'ImageData':
+                    from cv_pipeliner.core.data import ImageData
+                    image_data_cls = ImageData
+                image_data = image_data_cls(
                     image=cropped_image,
                     bboxes_data=additional_bboxes_data,
                     label=self.label,
@@ -223,21 +245,39 @@ class BboxData:
 
     def open_image(
         self,
-        inplace: bool = False
+        inplace: bool = False,
+        returns_none_if_empty: bool = False
     ) -> Optional[np.ndarray]:
-        return open_image_for_object(obj=self, inplace=inplace)
+        image = open_image_for_object(obj=self, inplace=inplace, returns_none_if_empty=returns_none_if_empty)
+        if image is not None:
+            self.meta_height, self.meta_width = image.shape[0:2]
+        return image
 
-    def get_image_size(self) -> Tuple[int, int]:
+    def get_image_size(self, force_update_meta: bool = False) -> Tuple[int, int]:
         """
             Returns (width, height) of image without opening it fully.
         """
+        if self.meta_height is None or self.meta_width is None or force_update_meta:
+            if self.image is not None:
+                self.meta_height, self.meta_width = self.image.shape[0:2]
+            else:
+                self.meta_width, self.meta_height = get_image_size(self.image_path)
         if self.image is not None:
-            height, width = self.image.shape[0], self.image.shape[1]
-        else:
-            width, height = get_image_size(self.image_path)
-        return width, height
+            self.meta_height, self.meta_width = self.image.shape[0:2]
+        return self.meta_width, self.meta_height
 
-    def json(self, include_image_path: bool = True) -> Dict:
+    def get_image_size_without_exif_tag(self, exif_transpose: bool = True) -> Tuple[int, int]:
+        """
+            Returns (width, height) of image without opening it fully.
+        """
+        if self.image is None:
+            return get_image_size(self.image_path, exif_transpose=False)
+        if self.image is not None:
+            meta_height, meta_width = self.image.shape[0:2]
+            return meta_height, meta_width
+        return (None, None)
+
+    def json(self, include_image_path: bool = True, force_include_meta: bool = False) -> Dict:
         result_json = {
             'xmin': int(self.xmin) if isinstance(self.xmin, (int, np.int64)) else round(self.xmin, 6),
             'ymin': int(self.ymin) if isinstance(self.ymin, (int, np.int64)) else round(self.ymin, 6),
@@ -268,6 +308,13 @@ class BboxData:
             ]
         if len(self.additional_info) > 0:
             result_json['additional_info'] = self.additional_info
+
+        if force_include_meta:
+            self.get_image_size()  # write meta inplace if empty
+        if self.meta_width is not None:
+            result_json['meta_width'] = int(self.meta_width)
+        if self.meta_height is not None:
+            result_json['meta_height'] = int(self.meta_height)
 
         return result_json
 
@@ -310,6 +357,21 @@ class BboxData:
                 d = json.load(f)
         return bbox_data_cls(**kwargs)._from_json(d=d, image_path=image_path)
 
+    def count_children(self) -> int:
+        global counting
+        counting = 0
+
+        def counts(bbox_data: BboxData):
+            global counting
+            counting += len(bbox_data.additional_bboxes_data)
+            for additional_bbox_data in bbox_data.additional_bboxes_data:
+                counts(additional_bbox_data)
+
+        for additional_bbox_data in self.additional_bboxes_data:
+            counts(additional_bbox_data)
+
+        return counting
+
 
 @dataclass
 class ImageData:
@@ -320,6 +382,9 @@ class ImageData:
     label: str = None
     keypoints: List[Tuple[int, int]] = field(default_factory=list)
     additional_info: Dict = field(default_factory=dict)
+
+    meta_width: int = None
+    meta_height: int = None
 
     def __post_init__(self):
         if isinstance(self.image_path, Path) or (isinstance(self.image_path, str) and not is_base64(self.image_path)):
@@ -333,28 +398,60 @@ class ImageData:
 
         if self.image is not None:
             self.image = np.array(self.image)
+            self.get_image_size(force_update_meta=True)
+        if self.meta_height is None and self.meta_width is None and len(self.bboxes_data) > 0:
+            for bbox_data in self.bboxes_data:
+                if bbox_data.meta_height is not None and bbox_data.meta_width is not None:
+                    self.meta_height, self.meta_width = bbox_data.meta_height, bbox_data.meta_width
 
     @property
     def image_name(self):
         return get_image_name(self.image_path)
 
+    @property
+    def keypoints_n(self) -> List[Tuple[float]]:
+        width, height = self.get_image_size()
+        keypoints = self.keypoints.copy().astype(float).reshape((-1, 2))
+        keypoints[:, 0] /= width
+        keypoints[:, 1] /= height
+        return keypoints
+
     def open_image(
         self,
-        inplace: bool = False
+        inplace: bool = False,
+        returns_none_if_empty: bool = False
     ) -> Optional[np.ndarray]:
-        return open_image_for_object(obj=self, inplace=inplace)
+        image = open_image_for_object(obj=self, inplace=inplace, returns_none_if_empty=returns_none_if_empty)
+        if image is not None:
+            self.meta_height, self.meta_width = image.shape[0:2]
 
-    def get_image_size(self) -> Tuple[int, int]:
+        return image
+
+    def get_image_size(self, force_update_meta: bool = False) -> Tuple[int, int]:
         """
             Returns (width, height) of image without opening it fully.
         """
+        if self.meta_height is None or self.meta_width is None or force_update_meta:
+            if self.image is not None:
+                self.meta_height, self.meta_width = self.image.shape[0:2]
+            else:
+                self.meta_width, self.meta_height = get_image_size(self.image_path)
         if self.image is not None:
-            height, width, _ = self.image.shape
-        else:
-            width, height = get_image_size(self.image_path)
-        return width, height
+            self.meta_height, self.meta_width = self.image.shape[0:2]
+        return self.meta_width, self.meta_height
 
-    def json(self) -> Dict:
+    def get_image_size_without_exif_tag(self, exif_transpose: bool = True) -> Tuple[int, int]:
+        """
+            Returns (width, height) of image without opening it fully.
+        """
+        if self.image is None:
+            return get_image_size(self.image_path, exif_transpose=False)
+        if self.image is not None:
+            meta_height, meta_width = self.image.shape[0:2]
+            return meta_height, meta_width
+        return (None, None)
+
+    def json(self, force_include_meta: bool = False) -> Dict:
         result_json = {
             'image_path': get_image_path_as_str(self.image_path),
             'bboxes_data': [bbox_data.json(include_image_path=False) for bbox_data in self.bboxes_data],
@@ -365,6 +462,12 @@ class ImageData:
             result_json['keypoints'] = np.array(self.keypoints).astype(int).tolist()
         if len(self.additional_info) > 0:
             result_json['additional_info'] = self.additional_info
+        if force_include_meta:
+            self.get_image_size()  # write meta inplace
+        if self.meta_width is not None:
+            result_json['meta_width'] = int(self.meta_width)
+        if self.meta_height is not None:
+            result_json['meta_height'] = int(self.meta_height)
 
         return result_json
 
@@ -413,9 +516,23 @@ class ImageData:
     def is_empty(self):
         return self.image_path is None and self.image is None
 
-    def __setattr__(self, name: str, value: Any) -> None:
+    def __setattr__(
+        self, name: str, value: Any,
+        apply_to_bboxes_data: bool = True,
+        force_update_meta: bool = False
+    ) -> None:
+
+        if hasattr(self, name) and (
+            (name == 'image' and np.array_equal(self.image, value)) or
+            (name == 'image_path' and str(self.image_path) != str(value))
+        ):
+            force_update_meta = True
+
         super().__setattr__(name, value)
-        if name == 'image_path' or name == 'image':
+        if name in ['image_path', 'image', 'meta_width', 'meta_height']:
+            if name == 'image' and isinstance(value, np.ndarray) and force_update_meta:  # imagesize possible is changed
+                self.get_image_size(force_update_meta=force_update_meta)
+
             def change_images_in_bbox_data(bbox_data: BboxData):
                 bbox_data.__setattr__(name, value)
                 for additional_bbox_data in bbox_data.additional_bboxes_data:
@@ -428,3 +545,9 @@ class ImageData:
     def find_bbox_data_by_coords(self, xmin: int, ymin: int, xmax: int, ymax: int) -> BboxData:
         bboxes_data_coords = [bbox_data.coords for bbox_data in self.bboxes_data]
         return self.bboxes_data[bboxes_data_coords.index((xmin, ymin, xmax, ymax))]
+
+    def count_children_bboxes_data(self) -> int:
+        count = 0
+        for bbox_data in self.bboxes_data:
+            count += (1 + bbox_data.count_children())
+        return count

@@ -65,6 +65,8 @@ class PipelineInferencer(Inferencer):
                 label=image_data.label,
                 keypoints=image_data.keypoints,
                 additional_info=image_data.additional_info,
+                meta_width=image_data.meta_width,
+                meta_height=image_data.meta_height
             ))
         return pred_images_data
 

@@ -69,16 +69,10 @@ def tf_record_from_image_data(
     filename = image_data.image_path
     encoded_filename = str(filename).encode('utf8')
 
-    true_bboxes = np.array([
-        [bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax]
-        for bbox_data in image_data.bboxes_data
-    ], dtype=float)
+    normalized_true_bboxes = np.array([bbox_data.coords_n for bbox_data in image_data.bboxes_data], dtype=float)
     image = image_data.open_image()
-    height, width, _ = image.shape
-    if len(true_bboxes) > 0:
-        normalized_true_bboxes = true_bboxes.copy()
-        normalized_true_bboxes[:, [0, 2]] /= width
-        normalized_true_bboxes[:, [1, 3]] /= height
+    width, height = image_data.get_image_size()
+    if len(normalized_true_bboxes) > 0:
         xmins = normalized_true_bboxes[:, 0]
         ymins = normalized_true_bboxes[:, 1]
         xmaxs = normalized_true_bboxes[:, 2]
@@ -133,7 +127,7 @@ def convert_to_tf_records(
             num_shards=num_shards
         )
         for data_chunk in tqdm(data_chunks):
-            tf_records = Parallel(n_jobs=num_workers)(
+            tf_records = Parallel(n_jobs=num_workers, prefer='threads')(
                 delayed(tf_record_from_image_data)(image_data=image_data, label_map=label_map, use_thumbnail=use_thumbnail)
                 for image_data in data_chunk
             )
@@ -209,7 +203,7 @@ def set_config(
     num_classes = len(set(label_map.values()))
     _, config_model = configs['model'].ListFields()[0]
     config_model.num_classes = num_classes
-    
+
     configs['model'].center_net.object_center_params.max_box_predictions = max_box_predictions
     if min_dimension is not None:
         configs['model'].center_net.image_resizer.keep_aspect_ratio_resizer.min_dimension = min_dimension
@@ -219,7 +213,7 @@ def set_config(
     configs['train_config'].fine_tune_checkpoint_type = fine_tune_checkpoint_type
     configs['train_config'].fine_tune_checkpoint = str(checkpoint_path)
     configs['train_config'].batch_size = batch_size
-    
+
     configs['train_config'].max_number_of_boxes = max_number_of_boxes
     if total_steps is not None:
         configs['train_config'].optimizer.adam_optimizer.learning_rate.cosine_decay_learning_rate.total_steps = total_steps
@@ -227,7 +221,7 @@ def set_config(
         configs['train_config'].optimizer.adam_optimizer.learning_rate.cosine_decay_learning_rate.warmup_steps = warmup_steps
     if num_steps is not None:
         configs['train_config'].num_steps = num_steps
-        
+
     if augment_path is not None:
         augment_config = configs['train_config'].data_augmentation_options
         for _ in augment_config:

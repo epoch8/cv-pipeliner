@@ -6,6 +6,8 @@ from typing import Union, List, Dict
 from pathlib import Path
 
 import fsspec
+from joblib import Parallel, delayed
+from tqdm import tqdm
 
 from cv_pipeliner.logging import logger
 from cv_pipeliner.core.data import BboxData, ImageData
@@ -95,21 +97,22 @@ class DataConverter(abc.ABC):
     def get_images_data_from_annots(
         self,
         image_paths: List[Union[str, Path]],
-        annots: Union[List[Union[Path, str, Dict]], Union[Path, str, Dict]]
+        annots: Union[List[Union[Path, str, Dict]], Union[Path, str, Dict]],
+        n_jobs: int = 8,
+        disable_tqdm: bool = False
     ) -> List[ImageData]:
         if isinstance(annots, str) or isinstance(annots, Path):
             with fsspec.open(annots, 'r', encoding='utf8') as f:
                 annots = json.load(f)
         if isinstance(annots, List):
             assert len(image_paths) == len(annots)
-
-        images_data = [
-            self.get_image_data_from_annot(
+        images_data = Parallel(n_jobs=n_jobs, prefer='threads')(
+            delayed(self.get_image_data_from_annot)(
                 image_path=image_path,
                 annot=annot
             )
-            for image_path, annot in zip(image_paths, annots)
-        ]
+            for image_path, annot in tqdm(zip(image_paths, annots), total=len(image_paths), disable=disable_tqdm)
+        )
         images_data = [image_data for image_data in images_data if image_data is not None]
         return images_data
 

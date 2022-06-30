@@ -3,7 +3,6 @@ from typing import List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import cv2
-from PIL import Image
 
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.utils.images import concat_images, get_thumbnail_resize
@@ -16,20 +15,17 @@ def get_image_data_filtered_by_labels(
 ) -> ImageData:
     if filter_by_labels is None or len(filter_by_labels) == 0:
         return image_data
+    image_data = copy.deepcopy(image_data)
 
     filter_by_labels = set(filter_by_labels)
 
-    bboxes_data = [
+    image_data.bboxes_data = [
         bbox_data for bbox_data in image_data.bboxes_data
         if (include and bbox_data.label in filter_by_labels) or (
             not include and bbox_data.label not in filter_by_labels
         )
     ]
-    return ImageData(
-        image_path=image_data.image_path,
-        image=image_data.image,
-        bboxes_data=bboxes_data
-    )
+    return image_data
 
 
 def get_n_bboxes_data_filtered_by_labels(
@@ -66,7 +62,10 @@ def rotate_keypoints(
     points[:, 1] = keypoints[:, 1]
     points[:, 2] = 1
     rotated_points = (rotation_mat @ points.T).astype(int).T
-    return np.array(rotated_points).reshape(-1, 2)
+    rotated_points = np.array(rotated_points).reshape(-1, 2)
+    rotated_points[:, 0] = np.clip(rotated_points[:, 0], 0, new_width-1)
+    rotated_points[:, 1] = np.clip(rotated_points[:, 1], 0, new_height-1)
+    return rotated_points
 
 
 def rotate_keypoints90(
@@ -118,7 +117,7 @@ def _rotate_bbox_data(
         keypoints.append([x, y])
     rotated_bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
     rotated_bbox_data.additional_bboxes_data = [
-        _rotate_bbox_data(additional_bbox_data, rotation_mat)
+        _rotate_bbox_data(additional_bbox_data, rotation_mat, new_width, new_height)
         for additional_bbox_data in rotated_bbox_data.additional_bboxes_data
     ]
     rotated_bbox_data.cropped_image = None
@@ -158,13 +157,17 @@ def rotate_image_data(
     angle: float,
     warp_flags: Optional[int] = None,
     border_mode: Optional[int] = None,
-    border_value: Tuple[int, int, int] = None
+    border_value: Tuple[int, int, int] = None,
+    open_image: bool = True
 ):
+    rotated_image_data = copy.deepcopy(image_data)
     if abs(angle) <= 1e-6:
-        return image_data
+        if open_image:
+            rotated_image_data.open_image(inplace=True)
+        return rotated_image_data
 
-    image = image_data.open_image()
-    height, width, _ = image.shape
+    width, height = image_data.get_image_size()
+    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
     image_center = width // 2, height // 2
 
     angle_to_factor = {
@@ -174,11 +177,10 @@ def rotate_image_data(
         270: 3
     }
     angle = angle % 360
-    rotated_image_data = copy.deepcopy(image_data)
 
     if angle in angle_to_factor:
         factor = angle_to_factor[angle]
-        rotated_image = np.rot90(image, factor)
+        rotated_image = np.rot90(image, factor) if image is not None else None
         rotated_image_data.keypoints = rotate_keypoints90(
             image_data.keypoints, factor, width, height
         )
@@ -186,23 +188,23 @@ def rotate_image_data(
             _rotate_bbox_data90(bbox_data, factor, width, height)
             for bbox_data in rotated_image_data.bboxes_data
         ]
+        new_width, new_height = (width, height) if (factor % 2 == 0) else (height, width)
     else:
         # grab the rotation matrix
         rotation_mat = cv2.getRotationMatrix2D(image_center, angle, 1.)
         # compute the new bounding dimensions of the image
         abs_cos = abs(rotation_mat[0, 0])
         abs_sin = abs(rotation_mat[0, 1])
-        bound_w = int(height * abs_sin + width * abs_cos)
-        bound_h = int(height * abs_cos + width * abs_sin)
+        new_width = int(height * abs_sin + width * abs_cos)
+        new_height = int(height * abs_cos + width * abs_sin)
         # adjust the rotation matrix to take into account translation
-        rotation_mat[0, 2] += bound_w/2 - image_center[0]
-        rotation_mat[1, 2] += bound_h/2 - image_center[1]
+        rotation_mat[0, 2] += new_width/2 - image_center[0]
+        rotation_mat[1, 2] += new_height/2 - image_center[1]
 
         rotated_image = cv2.warpAffine(
-            image, rotation_mat, (bound_w, bound_h), flags=warp_flags,
+            image, rotation_mat, (new_width, new_height), flags=warp_flags,
             borderMode=border_mode, borderValue=border_value
-        )
-        new_height, new_width, _ = rotated_image.shape
+        ) if image is not None else None
         rotated_image_data = copy.deepcopy(image_data)
         rotated_image_data.keypoints = rotate_keypoints(image_data.keypoints, rotation_mat, new_height, new_width)
         keypoints = []
@@ -217,6 +219,8 @@ def rotate_image_data(
         ]
 
     rotated_image_data.image_path = None  # It applies to all bboxes_data inside
+    rotated_image_data.meta_height = new_height
+    rotated_image_data.meta_width = new_width
     rotated_image_data.image = rotated_image
 
     return rotated_image_data
@@ -225,15 +229,15 @@ def rotate_image_data(
 def resize_image_data(
     image_data: ImageData,
     size: Tuple[int, int],
-    resample: Optional[int] = None
+    interpolation: Optional[int] = cv2.INTER_LINEAR,
+    open_image: bool = True
 ) -> ImageData:
     image_data = copy.deepcopy(image_data)
-    image = image_data.open_image()
-    old_height, old_width, _ = image.shape
-    image = Image.fromarray(image)
-    image = image.resize(size, resample=resample)
-    image = np.array(image)
-    new_height, new_width, _ = image.shape
+    old_width, old_height = image_data.get_image_size()
+    new_width, new_height = size
+
+    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
+    image = cv2.resize(image, size, interpolation=interpolation) if image is not None else None
 
     def resize_coords(bbox_data: BboxData):
         bbox_data.xmin = max(0, min(int(bbox_data.xmin * (new_width / old_width)), new_width-1))
@@ -271,12 +275,12 @@ def resize_image_data(
 def thumbnail_image_data(
     image_data: ImageData,
     size: Optional[Union[int, Tuple[int, int]]] = None,
-    resample: Optional[int] = None
+    interpolation: Optional[int] = cv2.INTER_LINEAR
 ) -> ImageData:
     if isinstance(size, int):
         size = (size, size)
     new_width, new_height = get_thumbnail_resize(image_data.get_image_size(), size)
-    return resize_image_data(image_data, (new_width, new_height), resample=resample)
+    return resize_image_data(image_data, (new_width, new_height), interpolation=interpolation)
 
 
 def crop_image_data(
@@ -287,19 +291,22 @@ def crop_image_data(
     ymax: int,
     allow_negative_and_large_coords: bool,
     remove_bad_coords: bool,
+    open_image: bool = True
 ) -> ImageData:
 
     assert 0 <= xmin and 0 <= ymin
     assert xmin <= xmax and ymin <= ymax
 
     image_data = copy.deepcopy(image_data)
-    image = image_data.open_image()
-    height, width, _ = image.shape
+    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
+    width, height = image_data.get_image_size()
 
-    assert xmax <= width and ymax <= height
+    assert xmin > 0 and ymin > 0 and xmin < xmax and ymin < ymax and xmax <= width-1 and ymax <= height-1, (
+        f"Wrong arguments: {(xmin, ymin, xmax, ymax)=}"
+    )
 
-    image = image[ymin:ymax, xmin:xmax]
-    new_height, new_width, _ = image.shape
+    image = image[ymin:ymax, xmin:xmax] if image is not None else None
+    new_width, new_height = max(0, min(width-1, xmax-xmin)), max(0, min(height-1, ymax-ymin))
 
     def resize_coords(bbox_data: BboxData):
         bbox_data.xmin = bbox_data.xmin - xmin
@@ -497,10 +504,13 @@ def apply_perspective_transform_to_image_data(
     result_width: int,
     result_height: int,
     allow_negative_and_large_coords: bool,
-    remove_bad_coords: bool
+    remove_bad_coords: bool,
+    open_image: bool = True
 ) -> ImageData:
-    image = image_data.open_image()
-    image = cv2.warpPerspective(image, perspective_matrix, (result_width, result_height))
+    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
+    image = cv2.warpPerspective(
+        image, perspective_matrix, (result_width, result_height)
+    ) if image is not None else None
 
     image_data = copy.deepcopy(image_data)
     image_data.keypoints = apply_perspective_transform_to_points(
@@ -592,20 +602,19 @@ def non_max_suppression_image_data_using_tf(
     return image_data
 
 
-def split_image_by_grid(
-    image: np.ndarray,
+def split_by_grid(
+    size: Tuple[int, int],  # (width, height)
     n_rows: int,
     n_cols: int,
     x_window_size: int,
     y_window_size: int,
     x_offset: int,
     y_offset: int,
-    minimum_size: float = 0.5
+    minimum_size: float = 0.5,
 ) -> List[BboxData]:
-    height, width, _ = image.shape
+    width, height = size
     bboxes_data = [
         BboxData(
-            image=image,
             xmin=x_offset+i*x_window_size,
             ymin=y_offset+j*y_window_size,
             xmax=min(width, x_offset+(i+1)*x_window_size),
@@ -625,10 +634,119 @@ def split_image_by_grid(
     return bboxes_data
 
 
+def split_image_by_grid(
+    image: np.ndarray,
+    n_rows: int,
+    n_cols: int,
+    x_window_size: int,
+    y_window_size: int,
+    x_offset: int,
+    y_offset: int,
+    minimum_size: float = 0.5,
+) -> List[BboxData]:
+
+    height, width = image.shape[0:2]
+    bboxes_data = split_by_grid(
+        size=(width, height),  # (width, height)
+        n_rows=n_rows,
+        n_cols=n_cols,
+        x_window_size=x_window_size,
+        y_window_size=y_window_size,
+        x_offset=x_offset,
+        y_offset=y_offset,
+        minimum_size=minimum_size
+    )
+    for bbox_data in bboxes_data:
+        bbox_data.image = image
+    return bboxes_data
+
+
+def split_image_data_by_grid(
+    image_data: ImageData,
+    n_rows: int,
+    n_cols: int,
+    x_window_size: int,
+    y_window_size: int,
+    x_offset: int,
+    y_offset: int,
+    remove_bad_coords: bool,
+    minimum_size: float = 0.5,
+) -> ImageData:
+    image_data = copy.deepcopy(image_data)
+    width, height = image_data.get_image_size()
+    crops_bboxes_data = split_by_grid(
+        size=(width, height),
+        n_rows=n_rows,
+        n_cols=n_cols,
+        x_window_size=x_window_size,
+        y_window_size=y_window_size,
+        x_offset=x_offset,
+        y_offset=y_offset,
+        minimum_size=minimum_size
+    )
+
+    def if_bbox_data_inside_crop(
+        crop_bbox_data: BboxData,
+        bbox_data: BboxData
+    ):
+        bbox_data.keypoints = bbox_data.keypoints[
+            (
+                (bbox_data.keypoints[:, 0] >= crop_bbox_data.xmin) &
+                (bbox_data.keypoints[:, 1] >= crop_bbox_data.ymin) &
+                (bbox_data.keypoints[:, 0] <= crop_bbox_data.ymax) &
+                (bbox_data.keypoints[:, 1] <= crop_bbox_data.ymax)
+            )
+        ]
+        bbox_data.additional_bboxes_data = [
+            additional_bbox_data
+            for additional_bbox_data in bbox_data.additional_bboxes_data
+            if if_bbox_data_inside_crop(crop_bbox_data, additional_bbox_data)
+        ]
+        return (
+            bbox_data.xmin >= crop_bbox_data.xmin and
+            bbox_data.ymin >= crop_bbox_data.ymin and
+            bbox_data.xmax <= crop_bbox_data.xmax and
+            bbox_data.ymax <= crop_bbox_data.ymax and
+            bbox_data.xmin < bbox_data.xmax and
+            bbox_data.ymin < bbox_data.ymax
+        )
+
+    for crop_bbox_data in crops_bboxes_data:
+        if remove_bad_coords:
+            additional_bboxes_data = [
+                bbox_data
+                for bbox_data in copy.deepcopy(image_data.bboxes_data)
+                if if_bbox_data_inside_crop(crop_bbox_data, bbox_data)
+            ]
+            keypoints = copy.deepcopy(image_data.keypoints)[
+                (
+                    (image_data.keypoints[:, 0] >= crop_bbox_data.xmin) &
+                    (image_data.keypoints[:, 1] >= crop_bbox_data.ymin) &
+                    (image_data.keypoints[:, 0] <= crop_bbox_data.ymax) &
+                    (image_data.keypoints[:, 1] <= crop_bbox_data.ymax)
+                )
+            ]
+        else:
+            additional_bboxes_data = copy.deepcopy(image_data.bboxes_data)
+            keypoints = copy.deepcopy(image_data.keypoints)
+
+        crop_bbox_data.additional_bboxes_data = additional_bboxes_data
+        crop_bbox_data.keypoints = keypoints
+
+    image_data.bboxes_data = crops_bboxes_data
+    image_data.image_path = image_data.image_path  # apply to bboxes_data
+    image_data.image = image_data.image  # apply to bboxes_data
+    return image_data
+
+
 def uncrop_bboxes_data(
     bboxes_data: List[BboxData],
     src_xmin: int,
     src_ymin: int,
+    src_image: Optional[np.ndarray] = None,
+    src_image_path: Optional[np.ndarray] = None,
+    src_image_height: Optional[int] = None,
+    src_image_width: Optional[int] = None
 ) -> BboxData:
     bboxes_data = copy.deepcopy(bboxes_data)
 
@@ -639,9 +757,11 @@ def uncrop_bboxes_data(
         bbox_data.ymin += src_ymin
         bbox_data.xmax += src_xmin
         bbox_data.ymax += src_ymin
-        bbox_data.image = None
-        bbox_data.image_path = None
+        bbox_data.image = src_image
+        bbox_data.image_path = src_image_path
         bbox_data.cropped_image = None
+        bbox_data.meta_height = src_image_height
+        bbox_data.meta_width = src_image_width
         for additional_bbox_data in bbox_data.additional_bboxes_data:
             _append_cropped_bbox_data_to_image_data(additional_bbox_data)
     for bbox_data in bboxes_data:

@@ -37,6 +37,28 @@ def denormalize_bboxes(bboxes: List[Tuple[float, float, float, float]],
     return bboxes
 
 
+def rescale_bboxes_with_pad(
+    bboxes: List[Tuple[int, int, int, int]],  # (xmins, ymins, xmaxs, ymaxs)
+    current_width: int,
+    current_height: int,
+    target_width: int,
+    target_height: int
+) -> List[Tuple[int, int, int, int]]:
+    # Taken from https://github.com/ultralytics/yolov5/blob/master/utils/general.py
+    # Rescale coords (xyxy) from target_tensor to img0_shape
+    gain = min(current_width / target_width, current_height / target_height)
+    pad_w = (current_width - target_width * gain) / 2
+    pad_h = (current_height - target_height * gain) / 2  # wh padding    
+    bboxes = np.array(bboxes, dtype=np.float32).reshape(-1, 4)
+    bboxes[:, [0, 2]] -= pad_w
+    bboxes[:, [1, 3]] -= pad_h
+    bboxes /= gain
+    bboxes = bboxes.round().astype(int)
+    bboxes[:, [0, 2]] = np.clip(bboxes[:, [0, 2]], 0, target_width-1)
+    bboxes[:, [1, 3]] = np.clip(bboxes[:, [1, 3]], 0, target_height-1)
+    return bboxes
+
+
 def cut_bboxes_from_image(
     image: np.ndarray, bboxes: List[Tuple[int, int, int, int]]
 ) -> List[np.ndarray]:
@@ -65,7 +87,6 @@ def rotate_point(
     angle = math.radians(angle)
     xnew = cx + (x - cx) * math.cos(angle) - (y - cy) * math.sin(angle)
     ynew = cy + (x - cx) * math.sin(angle) + (y - cy) * math.cos(angle)
-    xnew, ynew = int(xnew), int(ynew)
     return xnew, ynew
 
 
@@ -537,3 +558,23 @@ def thumbnail_image(image: np.ndarray, size: Tuple[int, int], resample: Optional
     image = image.resize((new_width, new_height), resample=resample)
     image = np.array(image)
     return image
+
+
+def tf_resize_with_pad(
+    image: np.ndarray,
+    target_width: int,
+    target_height: int,
+    constant_values: int
+) -> np.ndarray:
+    import tensorflow as tf
+
+    height_width_channels = tf.cast(tf.shape(image), tf.float32)
+    height, width = height_width_channels[1], height_width_channels[0]
+    ratio = tf.math.minimum(target_height / height, target_width / width)
+    result_height = tf.cast(tf.math.round(ratio * height), tf.int32)
+    result_width = tf.cast(tf.math.round(ratio * width), tf.int32)
+    resized_tensor = tf.image.resize(image, [result_width, result_height])
+
+    s = tf.shape(resized_tensor)
+    paddings = [[(m-s[i]) / 2, (m-s[i]) / 2] for (i, m) in enumerate([target_height, target_width, 3])]
+    return tf.pad(resized_tensor, paddings, 'CONSTANT', constant_values=constant_values).numpy().astype(np.uint8)

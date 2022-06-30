@@ -1,4 +1,4 @@
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
@@ -43,3 +43,4 @@ from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.data_converters.json import JSONDataConverter
 from cv_pipeliner.data_converters.supervisely import SuperviselyDataConverter
 from cv_pipeliner.utils.imagesize import get_image_size
+from cv_pipeliner.utils.fiftyone import FifyOneSession
