@@ -217,8 +217,12 @@ class Tensorflow_KeypointsRegressorModel(KeypointsRegressorModel):
         self,
         input: KeypointsRegressorInput
     ) -> KeypointsRegressorOutput:
-        input = self.preprocess_input(input)
-        n_keypoints = self._raw_predict(input)
+        preprocessed_input = self.preprocess_input(input)
+        n_keypoints = self._raw_predict(preprocessed_input)
+        for image, keypoints in zip(input, n_keypoints):
+            height, width = image.shape[0:2]
+            keypoints[:, 0] *= width
+            keypoints[:, 1] *= height
         return n_keypoints
 
     def preprocess_input(self, input: KeypointsRegressorInput):
