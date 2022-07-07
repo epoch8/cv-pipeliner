@@ -33,12 +33,11 @@ class ClassificationInferencer(Inferencer):
                 label=pred_label_top_n[0],
                 bboxes_data=image_data.bboxes_data,
                 keypoints=image_data.keypoints,
-                additional_info={
-                    **image_data.additional_info,
-                    'pred_classification_score': pred_classification_score_top_n[0],
-                    'pred_label_top_n': pred_label_top_n,
-                    'pred_classification_scores_top_n': pred_classification_score_top_n
-                },
+                classification_score=pred_classification_score_top_n[0],
+                top_n=len(pred_label_top_n),
+                labels_top_n=pred_label_top_n,
+                classification_scores_top_n=pred_classification_score_top_n,
+                additional_info=image_data.additional_info,
                 meta_height=image_data.meta_height,
                 meta_width=image_data.meta_width
             ))
@@ -54,6 +53,7 @@ class ClassificationInferencer(Inferencer):
         progress_callback: Callable[[int], None] = lambda progress: None
     ):
         pred_images_data = []
+        count = 0
         with tqdm(total=len(images_data_gen.data), disable=disable_tqdm) as pbar:
             for images_data in images_data_gen:
                 input = [image_data.image for image_data in images_data]
@@ -68,7 +68,9 @@ class ClassificationInferencer(Inferencer):
                     open_images_in_images_data=open_images_in_images_data
                 ))
                 pbar.update(len(images_data))
-                progress_callback(pbar.n)
+                count += len(images_data)
+                if progress_callback is not None:
+                    progress_callback(count)
 
         return pred_images_data
 
@@ -124,6 +126,7 @@ class ClassificationInferencer(Inferencer):
         progress_callback: Callable[[int], None] = lambda progress: None
     ):
         pred_bboxes_data = []
+        count = 0
         with tqdm(total=len(n_bboxes_data_gen.data), disable=disable_tqdm) as pbar:
             for bboxes_data in n_bboxes_data_gen:
                 input = [bbox_data.cropped_image for bbox_data in bboxes_data]
@@ -138,8 +141,9 @@ class ClassificationInferencer(Inferencer):
                     open_cropped_images_in_bboxes_data=open_images_in_bboxes_data
                 ))
                 pbar.update(len(bboxes_data))
+                count += len(bboxes_data)
                 if progress_callback is not None:
-                    progress_callback(pbar.n)
+                    progress_callback(count)
 
         n_pred_bboxes_data = self._split_chunks(pred_bboxes_data, n_bboxes_data_gen.shapes)
         return n_pred_bboxes_data

@@ -382,6 +382,10 @@ class ImageData:
     label: str = None
     keypoints: List[Tuple[int, int]] = field(default_factory=list)
     additional_info: Dict = field(default_factory=dict)
+    classification_score: float = field(default=None, repr=False)
+    top_n: int = field(default=None, repr=False)
+    labels_top_n: List[str] = field(default=None, repr=False)
+    classification_scores_top_n: List[float] = field(default=None, repr=False)
 
     meta_width: int = None
     meta_height: int = None
@@ -464,6 +468,16 @@ class ImageData:
             result_json['additional_info'] = self.additional_info
         if force_include_meta:
             self.get_image_size()  # write meta inplace
+        if self.classification_score is not None:
+            result_json['classification_score'] = str(round(self.classification_score, 3))
+        if self.top_n is not None:
+            result_json['top_n'] = int(self.top_n)
+        if self.labels_top_n is not None:
+            result_json['labels_top_n'] = [str(label) for label in self.labels_top_n]
+        if self.classification_scores_top_n is not None:
+            result_json['classification_scores_top_n'] = [
+                str(round(score, 3)) for score in self.classification_scores_top_n
+            ]
         if self.meta_width is not None:
             result_json['meta_width'] = int(self.meta_width)
         if self.meta_height is not None:
