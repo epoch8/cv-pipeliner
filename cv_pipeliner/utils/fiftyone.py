@@ -260,9 +260,9 @@ class FifyOneSession:
     def convert_image_data_to_fo_sample(
         self,
         image_data: ImageData,
-        fo_detections_label: Optional[str] = None,
-        fo_classification_label: Optional[str] = None,
-        fo_keypoints_label: Optional[str] = None,
+        fo_detections_label: Optional[str] = None,  # берется bboxes_data с их label
+        fo_classification_label: Optional[str] = None,  # берется image_data.label
+        fo_keypoints_label: Optional[str] = None,  # берется image_data.kepoints + bbox_data.keypoints
         include_additional_bboxes_data: bool = False,
         mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
         additional_info_keys_in_bboxes_data: List[str] = [],
