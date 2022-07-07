@@ -100,10 +100,10 @@ def _rotate_bbox_data(
         [bbox_data.xmax, bbox_data.ymax]
     ])
     rotated_points = rotate_keypoints(bbox_points, rotation_mat, new_width, new_height)
-    rotated_xmin = max(0, min(np.min(rotated_points[:, 0]), new_width))
-    rotated_ymin = max(0, min(np.min(rotated_points[:, 1]), new_height))
-    rotated_xmax = max(0, min(np.max(rotated_points[:, 0]), new_width))
-    rotated_ymax = max(0, min(np.max(rotated_points[:, 1]), new_height))
+    rotated_xmin = max(0, min(np.min(rotated_points[:, 0]), new_width - 1))
+    rotated_ymin = max(0, min(np.min(rotated_points[:, 1]), new_height - 1))
+    rotated_xmax = max(0, min(np.max(rotated_points[:, 0]), new_width - 1))
+    rotated_ymax = max(0, min(np.max(rotated_points[:, 1]), new_height - 1))
     rotated_bbox_data = copy.deepcopy(bbox_data)
     rotated_bbox_data.xmin = rotated_xmin
     rotated_bbox_data.ymin = rotated_ymin
@@ -112,8 +112,8 @@ def _rotate_bbox_data(
     rotated_bbox_data.keypoints = rotate_keypoints(rotated_bbox_data.keypoints, rotation_mat, new_width, new_height)
     keypoints = []
     for (x, y) in rotated_bbox_data.keypoints:
-        x = max(0, min(x, new_width-1))
-        y = max(0, min(y, new_height-1))
+        x = max(0, min(x, new_width - 1))
+        y = max(0, min(y, new_height - 1))
         keypoints.append([x, y])
     rotated_bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
     rotated_bbox_data.additional_bboxes_data = [
