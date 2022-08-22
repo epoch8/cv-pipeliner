@@ -1,3 +1,6 @@
+# 0.15.0
+- All inference_models changed from `@dataclass` to `pydantic.BaseModel`
+
 # 0.14.0
 - Added new fields for `ImageData`:     `classification_score`, `top_n`, `labels_top_n`, `classification_scores_top_n` (similar to those fields in `BboxData`). They are used when `ImageData` is being submitted in `ClassificationInferencer` (thanks to @pixml27)
 - Fix bug when `progress_callback` in `ClassificationInferencer` didn't update progress when tqdm is turned off.

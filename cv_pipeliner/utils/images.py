@@ -301,7 +301,8 @@ def get_base_label_image_with_description(
     pad_resize: int = 90,
     pad_width: int = 5,
     base_resize: int = 150,
-    maximum_text_width: int = 20
+    maximum_text_width: int = 20,
+    fill: str = 'black'
 ) -> np.ndarray:
     if len(base_label_image.shape) == 2 or base_label_image.shape[-1] == 1:
         base_label_image = cv2.cvtColor(base_label_image, cv2.COLOR_GRAY2RGBA)
@@ -329,13 +330,13 @@ def get_base_label_image_with_description(
     base_label_image = np.pad(
         base_label_image,
         pad_width=((pad_width, pad_width), (pad_width, pad_width), (0, 0)),
-        constant_values=((0, 0), (0, 0), (0, 0)),
+        constant_values=((pad_color, pad_color), (pad_color, pad_color), (0, 0)),
         mode='constant'
     )
     base_label_image = np.pad(
         base_label_image,
         pad_width=((60, 0), (0, 0), (0, 0)),
-        constant_values=(((255, 255, 255, 255), 0), (0, 0), (0, 0)),
+        constant_values=((pad_color, 0), (0, 0), (0, 0)),
         mode='constant'
     )
     fontsize1, fontsize2 = 30, 17
@@ -345,14 +346,16 @@ def get_base_label_image_with_description(
         text=label,
         fontsize=fontsize1,
         ymax=ymax1,
-        maximum_width=maximum_text_width
+        maximum_width=maximum_text_width,
+        fill=fill
     )
     base_label_image = put_text_on_image(
         image=base_label_image,
         text=description,
         fontsize=fontsize2,
         ymax=fontsize1+ymax1+ymax2,
-        maximum_width=maximum_text_width
+        maximum_width=maximum_text_width,
+        fill=fill
     )
 
     return base_label_image

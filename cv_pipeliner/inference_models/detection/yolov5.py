@@ -14,7 +14,6 @@ from cv_pipeliner.inference_models.detection.core import (
 from cv_pipeliner.utils.images import denormalize_bboxes, rescale_bboxes_with_pad, tf_resize_with_pad
 
 
-@dataclass
 class YOLOv5_ModelSpec(DetectionModelSpec):
     """
     note: model_path can be set as torch.hub.load('ultralytics/yolov5', 'yolov5s')
@@ -30,7 +29,6 @@ class YOLOv5_ModelSpec(DetectionModelSpec):
         return YOLOv5_DetectionModel
 
 
-@dataclass
 class YOLOv5_TFLite_ModelSpec(DetectionModelSpec):
     """
     note: model_path can be set as torch.hub.load('ultralytics/yolov5', 'yolov5s')

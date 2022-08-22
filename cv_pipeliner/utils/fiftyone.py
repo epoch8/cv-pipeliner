@@ -5,7 +5,7 @@ import sys
 
 from pathlib import Path
 from typing import Literal, Optional, Union, Dict, Tuple, Callable, Any, List
-from matplotlib import image
+from threading import Semaphore
 
 import numpy as np
 from cv_pipeliner.core.data import ImageData, BboxData
@@ -271,18 +271,18 @@ class FifyOneSession:
     ) -> 'fiftyone.Detections':
         filepath = mapping_filepath(str(image_data.image_path))
         sample = self.fiftyone.Sample(filepath=filepath)
-        width, height = image_data.get_image_size()  # Save to meta
         if fo_detections_label is not None:
+            width, height = image_data.get_image_size()  # Save to meta
             sample[fo_detections_label] = self.convert_image_data_to_fo_detections(
                 image_data, include_additional_bboxes_data, additional_info_keys_in_bboxes_data
             )
+            sample.metadata = self.fiftyone.ImageMetadata(width=width, height=height)
         if fo_classification_label is not None and image_data.label is not None:
             sample[fo_classification_label] = self.fiftyone.Classification(label=image_data.label)
         if fo_keypoints_label is not None:
             sample[fo_keypoints_label] = self.convert_image_data_to_fo_keypoints(
                 image_data, include_additional_bboxes_data
             )
-        sample.metadata = self.fiftyone.ImageMetadata(width=width, height=height)
         for key in additional_info_keys_in_image_data:
             sample[key] = image_data.additional_info[key]
         for key, value in additional_info.items():
@@ -302,13 +302,13 @@ class FifyOneSession:
         image_path = mapping_filepath(sample.filepath)
         image_data = ImageData(
             image_path=image_path,
-            meta_width=sample.metadata.width,
-            meta_height=sample.metadata.height
+            meta_width=sample.metadata.width if sample.metadata else None,
+            meta_height=sample.metadata.height if sample.metadata else None
         )
-        width, height = image_data.get_image_size()
         if fo_detections_label is not None and (
             sample.has_field(fo_detections_label) and sample[fo_detections_label] is not None
         ):
+            width, height = image_data.get_image_size()
             image_data.bboxes_data = [
                 self.convert_fo_detection_to_bbox_data(
                     fo_detection, width, height, additional_info_keys_in_fo_detections

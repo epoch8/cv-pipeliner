@@ -7,7 +7,6 @@ from cv_pipeliner.inference_models.classification.core import (
 )
 
 
-@dataclass
 class Dummy_ClassificationModelSpec(ClassificationModelSpec):
     default_class_name: Union[List[str], str, Path]
 

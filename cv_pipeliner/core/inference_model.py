@@ -1,24 +1,30 @@
+import pydantic
 import abc
+from dataclasses import dataclass
 import importlib
 import sys
 import tempfile
 from pathlib import Path
-from typing import Callable, List, Tuple, Type, Union
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 import fsspec
 import numpy as np
 
 
-class ModelSpec(abc.ABC):
+class ModelSpec(pydantic.BaseModel):
+    id: str = None
+
     @abc.abstractproperty
     def inference_model_cls(self) -> Type['InferenceModel']:
         pass
 
     def load(self, **kwargs) -> Union['InferenceModel', 'Inferencer']:
-        inference_model = self.inference_model_cls(
-            model_spec=self,
-            **kwargs
-        )
+        inference_model = self.inference_model_cls.get_loaded_model_by_id(self.id)
+        if inference_model is None:
+            inference_model = self.inference_model_cls(
+                model_spec=self,
+                **kwargs
+            )
         return inference_model
 
 
@@ -43,10 +49,27 @@ class InferenceModel(abc.ABC):
     "input" and "output" types should be defined in the inheritance of this class.
 
     """
+    _loaded_models: List[ModelSpec] = []
+
+    @staticmethod
+    def get_loaded_model_by_id(id: Optional[str]) -> Optional['InferenceModel']:
+        if id is None:
+            return None
+        ids = [model._model_spec.id for model in InferenceModel._loaded_models]
+        if id in ids:
+            return InferenceModel._loaded_models[ids.index(id)]
+        return None
 
     def __init__(self, model_spec: ModelSpec):
         self._model_spec = model_spec
+        if self._model_spec.id is not None:
+            InferenceModel._loaded_models.append(self)
         pass
+
+    def __del__(self):
+        ids = [model.id for model in InferenceModel._loaded_models]
+        if self.model_spec.id is not None and self.model_spec.id in ids:
+            InferenceModel._loaded_models.pop(ids.index(self.model_spec.id))
 
     @abc.abstractmethod
     def predict(self, input):

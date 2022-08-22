@@ -18,7 +18,6 @@ from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 from cv_pipeliner.utils.images import get_image_b64
 
 
-@dataclass
 class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
     class_names: Union[List[str], str, Path]
@@ -32,7 +31,6 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
         return Tensorflow_ClassificationModel
 
 
-@dataclass
 class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
     url: str
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]

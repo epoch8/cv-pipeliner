@@ -11,7 +11,6 @@ from typing import List, Tuple, Callable, Union, Type
 from pathlib import Path
 
 
-@dataclass
 class PyTorch_EmbedderModelSpec(EmbedderModelSpec):
     model_path: Union[str, Pathy]
     device: str
