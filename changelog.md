@@ -1,5 +1,6 @@
 # 0.15.0
 - All inference_models changed from `@dataclass` to `pydantic.BaseModel`
+- All inference_models have new field `id` used for storing models in-memory. Useble for datapipe's like inferences.
 
 # 0.14.0
 - Added new fields for `ImageData`:     `classification_score`, `top_n`, `labels_top_n`, `classification_scores_top_n` (similar to those fields in `BboxData`). They are used when `ImageData` is being submitted in `ClassificationInferencer` (thanks to @pixml27)
