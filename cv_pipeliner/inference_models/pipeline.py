@@ -12,7 +12,6 @@ from cv_pipeliner.utils.images import cut_bboxes_from_image
 from cv_pipeliner.logging import logger
 
 
-@dataclass
 class PipelineModelSpec(ModelSpec):
     detection_model_spec: DetectionModelSpec
     classification_model_spec: Union[ClassificationModelSpec, None] = None

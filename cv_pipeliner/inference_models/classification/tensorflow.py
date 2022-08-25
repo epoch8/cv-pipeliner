@@ -3,7 +3,7 @@ from json.decoder import JSONDecodeError
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple, Callable, Union, Type, Literal
+from typing import List, Optional, Tuple, Callable, Union, Type, Literal, final
 
 import requests
 import numpy as np
@@ -18,13 +18,13 @@ from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 from cv_pipeliner.utils.images import get_image_b64
 
 
-@dataclass
 class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     input_size: Union[Tuple[int, int], List[int]]
     class_names: Union[List[str], str, Path]
     model_path: Union[str, Pathy]  # can be also tf.keras.Model
     saved_model_type: Literal["tf.saved_model", "tf.keras", "tf.keras.Model", "tflite", "tflite_one_image_per_batch"]
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
+    device: Optional[str] = None  # https://www.tensorflow.org/guide/gpu#manual_device_placement
 
     @property
     def inference_model_cls(self) -> Type['Tensorflow_ClassificationModel']:
@@ -32,7 +32,6 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
         return Tensorflow_ClassificationModel
 
 
-@dataclass
 class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
     url: str
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
@@ -75,19 +74,28 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 model_path = Pathy(temp_file.name)
                 temp_files_cleanup = temp_file.close
 
-            if model_spec.saved_model_type in "tf.keras":
-                self.model = tf.keras.models.load_model(str(model_path), compile=False)
-                self.input_dtype = np.float32
-            elif model_spec.saved_model_type == "tf.saved_model":
-                self.loaded_model = tf.saved_model.load(str(model_path))  # to protect from gc
-                self.model = self.loaded_model.signatures["serving_default"]
-                self.input_dtype = np.float32
-            elif model_spec.saved_model_type in ['tflite', 'tflite_one_image_per_batch']:
-                self.model = tf.lite.Interpreter(str(model_path))
-                input_details = self.model.get_input_details()[0]
-                self.input_index = input_details['index']
-                self.input_dtype = input_details['dtype']
-                self.output_index = self.model.get_output_details()[0]['index']
+            if model_spec.device is not None:
+                self.tf_device = tf.device(model_spec.device)
+                self.tf_device.__enter__()
+            else:
+                self.tf_device = None
+            try:
+                if model_spec.saved_model_type in "tf.keras":
+                    self.model = tf.keras.models.load_model(str(model_path), compile=False)
+                    self.input_dtype = np.float32
+                elif model_spec.saved_model_type == "tf.saved_model":
+                    self.loaded_model = tf.saved_model.load(str(model_path))  # to protect from gc
+                    self.model = self.loaded_model.signatures["serving_default"]
+                    self.input_dtype = np.float32
+                elif model_spec.saved_model_type in ['tflite', 'tflite_one_image_per_batch']:
+                    self.model = tf.lite.Interpreter(str(model_path))
+                    input_details = self.model.get_input_details()[0]
+                    self.input_index = input_details['index']
+                    self.input_dtype = input_details['dtype']
+                    self.output_index = self.model.get_output_details()[0]['index']
+            finally:
+                if self.tf_device is not None:
+                    self.tf_device.__exit__()
 
             temp_files_cleanup()
 
@@ -151,36 +159,43 @@ class Tensorflow_ClassificationModel(ClassificationModel):
         images: np.ndarray
     ):
         import tensorflow as tf
-        if self.model_spec.saved_model_type == "tf.saved_model":
-            input_tensor = tf.convert_to_tensor(images, dtype=self.input_dtype)
-            raw_predictions_batch = self.model(input_tensor)
-            if isinstance(raw_predictions_batch, dict):
-                key = list(raw_predictions_batch)[0]
-                raw_predictions_batch = np.array(raw_predictions_batch[key])
-        elif self.model_spec.saved_model_type in ["tf.keras", "tf.keras.Model"]:
-            if len(images) > 0:
-                raw_predictions_batch = self.model.predict(images)
-            else:
-                raw_predictions_batch = []
-        elif self.model_spec.saved_model_type == 'tflite':
-            images = tf.convert_to_tensor(np.array(images), dtype=self.input_dtype)
-            self.model.resize_tensor_input(0, [len(images), *self.input_size, 3])
-            self.model.allocate_tensors()
-            self.model.set_tensor(self.input_index, images)
-            self.model.invoke()
-            raw_predictions_batch = self.model.get_tensor(self.output_index)
-        elif self.model_spec.saved_model_type == 'tflite_one_image_per_batch':
-            raw_predictions_batch = []
-            for image in images:
-                height, width, _ = image.shape
-                image_tensor = tf.convert_to_tensor(np.array([image]), dtype=self.input_dtype)
-                self.model.resize_tensor_input(0, [1, height, width, 3])
+        if self.tf_device is not None:
+            self.tf_device.__enter__()
+        try:
+            if self.model_spec.saved_model_type == "tf.saved_model":
+                input_tensor = tf.convert_to_tensor(images, dtype=self.input_dtype)
+                raw_predictions_batch = self.model(input_tensor)
+                if isinstance(raw_predictions_batch, dict):
+                    key = list(raw_predictions_batch)[0]
+                    raw_predictions_batch = np.array(raw_predictions_batch[key])
+            elif self.model_spec.saved_model_type in ["tf.keras", "tf.keras.Model"]:
+                if len(images) > 0:
+                    raw_predictions_batch = self.model.predict(images)
+                else:
+                    raw_predictions_batch = []
+            elif self.model_spec.saved_model_type == 'tflite':
+                images = tf.convert_to_tensor(np.array(images), dtype=self.input_dtype)
+                self.model.resize_tensor_input(0, [len(images), *self.input_size, 3])
                 self.model.allocate_tensors()
-                self.model.set_tensor(self.input_index, image_tensor)
+                self.model.set_tensor(self.input_index, images)
                 self.model.invoke()
-                raw_predictions_batch.append(self.model.get_tensor(self.output_index)[0])
+                raw_predictions_batch = self.model.get_tensor(self.output_index)
+            elif self.model_spec.saved_model_type == 'tflite_one_image_per_batch':
+                raw_predictions_batch = []
+                for image in images:
+                    height, width, _ = image.shape
+                    image_tensor = tf.convert_to_tensor(np.array([image]), dtype=self.input_dtype)
+                    self.model.resize_tensor_input(0, [1, height, width, 3])
+                    self.model.allocate_tensors()
+                    self.model.set_tensor(self.input_index, image_tensor)
+                    self.model.invoke()
+                    raw_predictions_batch.append(self.model.get_tensor(self.output_index)[0])
+            raw_predictions_batch = np.array(raw_predictions_batch).reshape(-1, len(self.class_names))
 
-        raw_predictions_batch = np.array(raw_predictions_batch).reshape(-1, len(self.class_names))
+        finally:
+            if self.tf_device is not None:
+                self.tf_device.__exit__()
+
         return raw_predictions_batch
 
     def _raw_predict_kfserving(

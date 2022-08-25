@@ -19,3 +19,4 @@ scikit_learn>=0.24.2
 dataframe-image>=0.1.1
 lxml>=4.6.3
 scikit-image >= 0.18.3
+pydantic >= 1.9.2

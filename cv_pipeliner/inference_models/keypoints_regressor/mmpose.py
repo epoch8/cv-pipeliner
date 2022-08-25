@@ -14,7 +14,6 @@ from cv_pipeliner.inference_models.keypoints_regressor.utils.mmpose_utils import
 )
 
 
-@dataclass
 class MMPose_KeypointsRegressorModelSpec_TFLite(KeypointsRegressorModelSpec):
     model_path: Union[str, Pathy]  # can be also tf.keras.Model
 

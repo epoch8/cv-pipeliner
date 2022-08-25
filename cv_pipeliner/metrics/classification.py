@@ -191,8 +191,14 @@ def get_df_classification_metrics(
     assert len(true_bboxes_data) == len(pred_bboxes_data)
     true_labels = np.array([bbox_data.label for bbox_data in true_bboxes_data])
     pred_labels = np.array([bbox_data.label for bbox_data in pred_bboxes_data])
-    pred_labels_top_n = np.array([bbox_data.labels_top_n for bbox_data in pred_bboxes_data])
-    min_tops_n_from_pred_bboxes_data = min([bbox_data.top_n for bbox_data in pred_bboxes_data])
+    pred_labels_top_n = np.array([
+        bbox_data.labels_top_n
+        if bbox_data.labels_top_n is not None else [bbox_data.label]
+        for bbox_data in pred_bboxes_data
+    ])
+    min_tops_n_from_pred_bboxes_data = min(
+        [bbox_data.top_n if bbox_data.top_n is not None else 1 for bbox_data in pred_bboxes_data]
+    )
     assert max(tops_n) <= min_tops_n_from_pred_bboxes_data
     n_true_labels = [
         np.array([true_bbox_data.label for true_bbox_data in true_bboxes_data])
@@ -201,6 +207,7 @@ def get_df_classification_metrics(
     n_pred_labels_top_n = [
         np.array([
             pred_bbox_data.labels_top_n
+            if pred_bbox_data.labels_top_n is not None else [pred_bbox_data.label]
             for pred_bbox_data in pred_bboxes_data
         ])
         for pred_bboxes_data in n_pred_bboxes_data
@@ -208,6 +215,7 @@ def get_df_classification_metrics(
     n_pred_scores_top_n = [
         np.array([
             pred_bbox_data.classification_scores_top_n
+            if pred_bbox_data.classification_scores_top_n is not None else [1.0]
             for pred_bbox_data in pred_bboxes_data
         ])
         for pred_bboxes_data in n_pred_bboxes_data

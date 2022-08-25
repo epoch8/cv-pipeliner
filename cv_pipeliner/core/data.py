@@ -399,6 +399,10 @@ class ImageData:
         # Apply these to all bboxes_data (look __setattr__)
         self.image_path = self.image_path
         self.image = self.image
+        if self.classification_score is not None:
+            self.classification_score = float(self.classification_score)
+        if self.classification_scores_top_n is not None:
+            self.classification_scores_top_n = list(map(float, self.classification_scores_top_n))
 
         if self.image is not None:
             self.image = np.array(self.image)
