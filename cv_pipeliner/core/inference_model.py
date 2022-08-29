@@ -67,9 +67,9 @@ class InferenceModel(abc.ABC):
         pass
 
     def __del__(self):
-        ids = [model.id for model in InferenceModel._loaded_models]
-        if self.model_spec.id is not None and self.model_spec.id in ids:
-            InferenceModel._loaded_models.pop(ids.index(self.model_spec.id))
+        ids = [model._model_spec.id for model in InferenceModel._loaded_models]
+        if self._model_spec.id is not None and self._model_spec.id in ids:
+            InferenceModel._loaded_models.pop(ids.index(self._model_spec.id))
 
     @abc.abstractmethod
     def predict(self, input):
