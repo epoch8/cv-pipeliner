@@ -90,8 +90,12 @@ class COCOLabelsFile(ItemStoreFileAdapter):
         filepath = Path(f.path)
         assert filepath.parent.name == 'labels'
         image_path = filepath.parent.parent / 'images' / f"{filepath.stem}.{self.img_format}"
+        if f.fs.protocol in ['file'] or f.fs.protocol is None:
+            prefix = ''
+        else:
+            prefix = f'{f.fs.protocol}://'
         image_data = self.coco_converter.get_image_data_from_annot(
-            image_path=f"{f.fs.protocol}://{image_path}", annot=f
+            image_path=f"{prefix}{image_path}", annot=f
         )
         return {'image_size': image_data}
 

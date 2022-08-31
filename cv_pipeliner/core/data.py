@@ -172,10 +172,10 @@ class BboxData:
         xmax_in_cropped_image = max(0, min(xmax_offset, width-self.xmax))
         ymax_in_cropped_image = max(0, min(ymax_offset, height-self.ymax))
         return (
-            round(self.xmin-xmin_in_cropped_image),
-            round(self.ymin-ymin_in_cropped_image),
-            round(self.xmax+xmax_in_cropped_image),
-            round(self.ymax+ymax_in_cropped_image)
+            max(0, round(self.xmin-xmin_in_cropped_image)),
+            max(0, round(self.ymin-ymin_in_cropped_image)),
+            min(width-1, round(self.xmax+xmax_in_cropped_image)),
+            min(height-1, round(self.ymax+ymax_in_cropped_image))
         )
 
     def open_cropped_image(

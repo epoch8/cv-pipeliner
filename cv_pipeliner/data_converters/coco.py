@@ -1,3 +1,4 @@
+import io
 from typing import Union, Dict, List
 from pathlib import Path
 
@@ -52,12 +53,18 @@ class COCODataConverter(DataConverter):
         elif isinstance(annot, fsspec.core.OpenFile):
             with annot as f:
                 annots = f.read()
+        elif isinstance(annot, io.IOBase):
+            annots = annot.read()
+            if isinstance(annots, bytes):
+                annots = annots.decode()
         elif isinstance(annot, List):
             annots = '\n'.join(annot)
 
         width, height = get_image_size(image_path)
         bboxes_data = []
         for line in annots.strip().split('\n'):
+            if line == '':
+                continue
             idx, xcenter, ycenter, w, h = line.split(' ')
             label = self.idx_to_class_name[int(idx)]
             xcenter, ycenter, w, h = float(xcenter), float(ycenter), float(w), float(h)

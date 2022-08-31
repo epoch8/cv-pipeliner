@@ -301,8 +301,8 @@ def crop_image_data(
     image = image_data.open_image(returns_none_if_empty=True) if open_image else None
     width, height = image_data.get_image_size()
 
-    assert xmin > 0 and ymin > 0 and xmin < xmax and ymin < ymax and xmax <= width-1 and ymax <= height-1, (
-        f"Wrong arguments: {(xmin, ymin, xmax, ymax)=}"
+    assert xmin >= 0 and ymin >= 0 and xmin < xmax and ymin < ymax and xmax <= width-1 and ymax <= height-1, (
+        f"Wrong arguments: {(xmin, ymin, xmax, ymax)=} ({width=}, {height=})"
     )
 
     image = image[ymin:ymax, xmin:xmax] if image is not None else None
@@ -545,6 +545,8 @@ def non_max_suppression_image_data(
     """
     image_data = copy.deepcopy(image_data)
     boxes = np.array([bbox_data.coords for bbox_data in image_data.bboxes_data])
+    if len(boxes) == 0:
+        return image_data
     x1 = boxes[:, 0]  # x coordinate of the top-left corner
     y1 = boxes[:, 1]  # y coordinate of the top-left corner
     x2 = boxes[:, 2]  # x coordinate of the bottom-right corner

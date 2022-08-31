@@ -198,7 +198,9 @@ class ImageDataMatching:
             bboxes_coords = set()
             for bbox_data in bboxes_data:
                 assert all(x is not None for x in [bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax])
-                assert bbox_data.xmin <= bbox_data.xmax and bbox_data.ymin <= bbox_data.ymax
+                if not (bbox_data.xmin <= bbox_data.xmax and bbox_data.ymin <= bbox_data.ymax):
+                    logger.warning(f"Wrong coordinates {bbox_data.coords=} detected, skipping...")
+                    continue
                 if bbox_data.coords in bboxes_coords:
                     logger.warning(
                         f'Repeated {tag} BboxData with these coords '
