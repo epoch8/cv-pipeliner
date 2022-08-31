@@ -93,7 +93,10 @@ class COCOLabelsFile(ItemStoreFileAdapter):
         if f.fs.protocol in ['file'] or f.fs.protocol is None:
             prefix = ''
         else:
-            prefix = f'{f.fs.protocol}://'
+            protocol = f.fs.protocol
+            if isinstance(protocol, tuple):
+                protocol = protocol[0]
+            prefix = f'{protocol}://'
         image_data = self.coco_converter.get_image_data_from_annot(
             image_path=f"{prefix}{image_path}", annot=f
         )
