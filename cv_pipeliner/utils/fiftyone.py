@@ -63,7 +63,7 @@ class FifyOneSession:
     ) -> 'fiftyone.Detection':
         xminn, yminn, xmaxn, ymaxn = bbox_data.coords_n
         bounding_box = [xminn, yminn, xmaxn-xminn, ymaxn-yminn]
-        additional_info = {key: bbox_data.additional_info[key] for key in additional_info_keys}
+        additional_info = {key: bbox_data.additional_info.get(key, None) for key in additional_info_keys}
         return self.fiftyone.Detection(
             label=bbox_data.label,
             bounding_box=bounding_box,
@@ -284,7 +284,7 @@ class FifyOneSession:
                 image_data, include_additional_bboxes_data
             )
         for key in additional_info_keys_in_image_data:
-            sample[key] = image_data.additional_info[key]
+            sample[key] = image_data.additional_info.get(key, None)
         for key, value in additional_info.items():
             sample[key] = value
         return sample
