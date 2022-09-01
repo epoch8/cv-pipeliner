@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from threading import Semaphore
+# from threading import Semaphore
 from datapipe.run_config import RunConfig
 from datapipe.store.database import DBConn, TableStoreDB
 from datapipe.store.table_store import TableStore
@@ -261,7 +261,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         self.attrnames_no_filepath = [attrname for attrname in self.attrnames if attrname != 'filepath']
         self.fo_dataset = None
         self.create_dataset_if_empty = create_dataset_if_empty
-        self.semaphore = Semaphore(value=1)
+        # self.semaphore = Semaphore(value=1)
 
     def get_primary_schema(self) -> DataSchema:
         return self.primary_schema
@@ -280,7 +280,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         if self.fo_dataset is not None:
             return self.fo_dataset
 
-        self.semaphore.acquire()
+        # self.semaphore.acquire()
         try:
             datasets = self.fo_session.fiftyone.list_datasets()
             if self.dataset in datasets:
@@ -292,7 +292,8 @@ class FiftyOneImagesDataTableStore(TableStore):
                 else:
                     return ValueError("Dataset {self.dataset} not found.")
         finally:
-            self.semaphore.release()
+            # self.semaphore.release()
+            pass
         return self.fo_dataset
 
     def _get_view(self, idx: IndexDF = None) -> 'fiftyone.DatasetView':
@@ -351,23 +352,25 @@ class FiftyOneImagesDataTableStore(TableStore):
     def _delete_samples(self, dataset: 'fo.Dataset', samples: List['fo.Sample']):
         # Во избежания ошибки в префекте AttributeError: 'RedirectToLog' object has no attribute 'encoding'
         # dataset.add_samples(samples_to_be_updated)
-        self.semaphore.acquire()
+        # self.semaphore.acquire()
         try:
             dataset.delete_samples(samples)
         finally:
-            self.semaphore.release()
+            # self.semaphore.release()
+            pass
 
     def _add_samples(self, dataset: 'fo.Dataset', samples: List['fo.Sample']):
         # Во избежания ошибки в префекте AttributeError: 'RedirectToLog' object has no attribute 'encoding'
         # dataset.add_samples(samples_to_be_updated)
-        self.semaphore.acquire()
+        # self.semaphore.acquire()
         try:
             for batch in self.fo_session.fiftyone.core.utils.DynamicBatcher(
                 samples, target_latency=0.2, init_batch_size=1, max_batch_beta=2.0
             ):
                 dataset._add_samples_batch(batch, expand_schema=True, validate=True)
         finally:
-            self.semaphore.release()
+            # self.semaphore.release()
+            pass
 
     def insert_rows(self, df: DataDF) -> None:
         dataset = self._get_or_create_dataset()

@@ -5,7 +5,7 @@ import sys
 
 from pathlib import Path
 from typing import Literal, Optional, Type, Union, Dict, Tuple, Callable, Any, List
-from threading import Semaphore
+# from threading import Semaphore
 
 import numpy as np
 from cv_pipeliner.core.data import ImageData, BboxData
