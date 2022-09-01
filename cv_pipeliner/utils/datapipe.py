@@ -229,7 +229,9 @@ class FiftyOneImagesDataTableStore(TableStore):
         rm_only_fo_fields: bool = True,
         additional_info_keys_in_fo_detections: List[str] = [],
         additional_info_keys_in_sample: List[str] = [],
-        create_dataset_if_empty: bool = True
+        create_dataset_if_empty: bool = True,
+        image_data_cls: Type[ImageData] = ImageData,
+        bbox_data_cls: Type[BboxData] = BboxData
     ):
         self.dataset = dataset
         self.fo_detections_label = fo_detections_label
@@ -242,6 +244,8 @@ class FiftyOneImagesDataTableStore(TableStore):
         self.rm_only_fo_fields = rm_only_fo_fields
         self.additional_info_keys_in_fo_detections = additional_info_keys_in_fo_detections
         self.additional_info_keys_in_sample = additional_info_keys_in_sample
+        self.image_data_cls = image_data_cls
+        self.bbox_data_cls = bbox_data_cls
         if primary_schema is not None:
             assert all([isinstance(column.type, (String, Integer)) for column in primary_schema])
             self.primary_schema = primary_schema
@@ -330,7 +334,9 @@ class FiftyOneImagesDataTableStore(TableStore):
                 fo_keypoints_label=self.fo_keypoints_label,
                 mapping_filepath=self.inverse_mapping_filepath,
                 additional_info_keys_in_fo_detections=self.additional_info_keys_in_fo_detections,
-                additional_info_keys_in_sample=self.additional_info_keys_in_sample
+                additional_info_keys_in_sample=self.additional_info_keys_in_sample,
+                image_data_cls=self.image_data_cls,
+                bbox_data_cls=self.bbox_data_cls
             )
             df_result.append({
                 'filepath': self.inverse_mapping_filepath(sample.filepath),

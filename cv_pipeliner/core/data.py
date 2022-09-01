@@ -320,7 +320,7 @@ class BboxData:
 
     def _from_json(
         self, d: Dict,
-        image_path: ImagePath = None
+        image_path: ImagePath = None,
     ):
         for key in self.__dataclass_fields__:
             if key in d:
