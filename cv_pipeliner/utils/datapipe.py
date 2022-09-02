@@ -382,7 +382,6 @@ class FiftyOneImagesDataTableStore(TableStore):
         idxs_to_be_deleted = index_difference(current_indexes, df_indexes)
         idxs_to_be_added = index_difference(df_indexes, current_indexes)
         idxs_to_be_updated = index_intersection(df_indexes, current_indexes)
-
         # To be deleted:
         self.delete_rows(idxs_to_be_deleted)
 
