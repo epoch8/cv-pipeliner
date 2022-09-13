@@ -93,6 +93,8 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                     self.input_index = input_details['index']
                     self.input_dtype = input_details['dtype']
                     self.output_index = self.model.get_output_details()[0]['index']
+            except Exception as e:
+                raise e
             finally:
                 if self.tf_device is not None:
                     self.tf_device.__exit__()
@@ -191,7 +193,8 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                     self.model.invoke()
                     raw_predictions_batch.append(self.model.get_tensor(self.output_index)[0])
             raw_predictions_batch = np.array(raw_predictions_batch).reshape(-1, len(self.class_names))
-
+        except Exception as e:
+            raise e
         finally:
             if self.tf_device is not None:
                 self.tf_device.__exit__()

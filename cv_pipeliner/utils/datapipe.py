@@ -258,6 +258,7 @@ class FiftyOneImagesDataTableStore(TableStore):
             for key in self.images_table_store.primary_keys:
                 assert key in self.attrnames, f"Missing key for images_data_store: {key}"
         assert 'id' not in self.attrnames, "The key 'id' is reserved for this TableStore. Use other key name instead."
+        assert 'sample' not in self.attrnames, "The key 'sample' is reserved for this TableStore. Use other key name instead."
         self.attrnames_no_filepath = [attrname for attrname in self.attrnames if attrname != 'filepath']
         self.fo_dataset = None
         self.create_dataset_if_empty = create_dataset_if_empty
@@ -343,6 +344,7 @@ class FiftyOneImagesDataTableStore(TableStore):
                 'filepath': self.inverse_mapping_filepath(sample.filepath),
                 **{'image_data': image_data if read_data else {}},
                 **{attrname: sample[attrname] for attrname in self.attrnames_no_filepath},
+                'sample': sample
             })
         df_result = pd.DataFrame(df_result)
         if len(df_result) == 0:
