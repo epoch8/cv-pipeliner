@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from threading import Semaphore
+# from threading import Semaphore
 from datapipe.run_config import RunConfig
 from datapipe.store.database import DBConn, TableStoreDB
 from datapipe.store.table_store import TableStore
@@ -229,7 +229,9 @@ class FiftyOneImagesDataTableStore(TableStore):
         rm_only_fo_fields: bool = True,
         additional_info_keys_in_fo_detections: List[str] = [],
         additional_info_keys_in_sample: List[str] = [],
-        create_dataset_if_empty: bool = True
+        create_dataset_if_empty: bool = True,
+        image_data_cls: Type[ImageData] = ImageData,
+        bbox_data_cls: Type[BboxData] = BboxData
     ):
         self.dataset = dataset
         self.fo_detections_label = fo_detections_label
@@ -242,6 +244,8 @@ class FiftyOneImagesDataTableStore(TableStore):
         self.rm_only_fo_fields = rm_only_fo_fields
         self.additional_info_keys_in_fo_detections = additional_info_keys_in_fo_detections
         self.additional_info_keys_in_sample = additional_info_keys_in_sample
+        self.image_data_cls = image_data_cls
+        self.bbox_data_cls = bbox_data_cls
         if primary_schema is not None:
             assert all([isinstance(column.type, (String, Integer)) for column in primary_schema])
             self.primary_schema = primary_schema
@@ -254,10 +258,11 @@ class FiftyOneImagesDataTableStore(TableStore):
             for key in self.images_table_store.primary_keys:
                 assert key in self.attrnames, f"Missing key for images_data_store: {key}"
         assert 'id' not in self.attrnames, "The key 'id' is reserved for this TableStore. Use other key name instead."
+        assert 'sample' not in self.attrnames, "The key 'sample' is reserved for this TableStore. Use other key name instead."
         self.attrnames_no_filepath = [attrname for attrname in self.attrnames if attrname != 'filepath']
         self.fo_dataset = None
         self.create_dataset_if_empty = create_dataset_if_empty
-        self.semaphore = Semaphore(value=1)
+        # self.semaphore = Semaphore(value=1)
 
     def get_primary_schema(self) -> DataSchema:
         return self.primary_schema
@@ -276,7 +281,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         if self.fo_dataset is not None:
             return self.fo_dataset
 
-        self.semaphore.acquire()
+        # self.semaphore.acquire()
         try:
             datasets = self.fo_session.fiftyone.list_datasets()
             if self.dataset in datasets:
@@ -288,7 +293,8 @@ class FiftyOneImagesDataTableStore(TableStore):
                 else:
                     return ValueError("Dataset {self.dataset} not found.")
         finally:
-            self.semaphore.release()
+            # self.semaphore.release()
+            pass
         return self.fo_dataset
 
     def _get_view(self, idx: IndexDF = None) -> 'fiftyone.DatasetView':
@@ -330,12 +336,15 @@ class FiftyOneImagesDataTableStore(TableStore):
                 fo_keypoints_label=self.fo_keypoints_label,
                 mapping_filepath=self.inverse_mapping_filepath,
                 additional_info_keys_in_fo_detections=self.additional_info_keys_in_fo_detections,
-                additional_info_keys_in_sample=self.additional_info_keys_in_sample
+                additional_info_keys_in_sample=self.additional_info_keys_in_sample,
+                image_data_cls=self.image_data_cls,
+                bbox_data_cls=self.bbox_data_cls
             )
             df_result.append({
                 'filepath': self.inverse_mapping_filepath(sample.filepath),
                 **{'image_data': image_data if read_data else {}},
                 **{attrname: sample[attrname] for attrname in self.attrnames_no_filepath},
+                'sample': sample
             })
         df_result = pd.DataFrame(df_result)
         if len(df_result) == 0:
@@ -345,23 +354,25 @@ class FiftyOneImagesDataTableStore(TableStore):
     def _delete_samples(self, dataset: 'fo.Dataset', samples: List['fo.Sample']):
         # Во избежания ошибки в префекте AttributeError: 'RedirectToLog' object has no attribute 'encoding'
         # dataset.add_samples(samples_to_be_updated)
-        self.semaphore.acquire()
+        # self.semaphore.acquire()
         try:
             dataset.delete_samples(samples)
         finally:
-            self.semaphore.release()
+            # self.semaphore.release()
+            pass
 
     def _add_samples(self, dataset: 'fo.Dataset', samples: List['fo.Sample']):
         # Во избежания ошибки в префекте AttributeError: 'RedirectToLog' object has no attribute 'encoding'
         # dataset.add_samples(samples_to_be_updated)
-        self.semaphore.acquire()
+        # self.semaphore.acquire()
         try:
             for batch in self.fo_session.fiftyone.core.utils.DynamicBatcher(
                 samples, target_latency=0.2, init_batch_size=1, max_batch_beta=2.0
             ):
                 dataset._add_samples_batch(batch, expand_schema=True, validate=True)
         finally:
-            self.semaphore.release()
+            # self.semaphore.release()
+            pass
 
     def insert_rows(self, df: DataDF) -> None:
         dataset = self._get_or_create_dataset()
@@ -373,7 +384,6 @@ class FiftyOneImagesDataTableStore(TableStore):
         idxs_to_be_deleted = index_difference(current_indexes, df_indexes)
         idxs_to_be_added = index_difference(df_indexes, current_indexes)
         idxs_to_be_updated = index_intersection(df_indexes, current_indexes)
-
         # To be deleted:
         self.delete_rows(idxs_to_be_deleted)
 

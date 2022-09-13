@@ -4,8 +4,8 @@ import os
 import sys
 
 from pathlib import Path
-from typing import Literal, Optional, Union, Dict, Tuple, Callable, Any, List
-from threading import Semaphore
+from typing import Literal, Optional, Type, Union, Dict, Tuple, Callable, Any, List
+# from threading import Semaphore
 
 import numpy as np
 from cv_pipeliner.core.data import ImageData, BboxData
@@ -233,13 +233,14 @@ class FifyOneSession:
         fo_detection: 'fiftyone.Detection',
         width: int,
         height: int,
-        additional_info_keys_in_fo_detections: List[str] = []
+        additional_info_keys_in_fo_detections: List[str] = [],
+        bbox_data_cls: Type[BboxData] = BboxData
     ) -> BboxData:
         xminn, yminn, widthn, heightn = fo_detection.bounding_box
         xmaxn, ymaxn = xminn + widthn, yminn + heightn
         xmin, xmax = xminn * width, xmaxn * width
         ymin, ymax = yminn * height, ymaxn * height
-        return BboxData(
+        return bbox_data_cls(
             xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax,
             meta_width=width, meta_height=height,
             label=fo_detection.label,
@@ -298,9 +299,11 @@ class FifyOneSession:
         mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
         additional_info_keys_in_fo_detections: List[str] = [],
         additional_info_keys_in_sample: List[str] = [],
+        image_data_cls: Type[ImageData] = ImageData,
+        bbox_data_cls: Type[BboxData] = BboxData
     ) -> ImageData:
         image_path = mapping_filepath(sample.filepath)
-        image_data = ImageData(
+        image_data = image_data_cls(
             image_path=image_path,
             meta_width=sample.metadata.width if sample.metadata else None,
             meta_height=sample.metadata.height if sample.metadata else None
@@ -311,7 +314,8 @@ class FifyOneSession:
             width, height = image_data.get_image_size()
             image_data.bboxes_data = [
                 self.convert_fo_detection_to_bbox_data(
-                    fo_detection, width, height, additional_info_keys_in_fo_detections
+                    fo_detection, width, height, additional_info_keys_in_fo_detections,
+                    bbox_data_cls=bbox_data_cls
                 )
                 for fo_detection in sample[fo_detections_label].detections
             ]

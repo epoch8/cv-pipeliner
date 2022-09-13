@@ -25,6 +25,7 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
     class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
+    device: Optional[str] = None
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -38,6 +39,7 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
     class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
+    device: Optional[str] = None
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -54,6 +56,7 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
+    device: Optional[str] = None
 
     @property
     def inference_model_cls(self) -> Type['ObjectDetectionAPI_DetectionModel']:
@@ -98,15 +101,24 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             with open(out_file, 'wb') as out:
                 with src_file as src:
                     out.write(src.read())
-        configs = config_util.get_configs_from_pipeline_file(
-            pipeline_config_path=str(model_config_path)
-        )
-        model_config = configs['model']
-        self.model = model_builder.build(
-            model_config=model_config, is_training=False
-        )
-        ckpt = tf.compat.v2.train.Checkpoint(model=self.model)
-        ckpt.restore(str(checkpoint_path)).expect_partial()
+        if model_spec.device is not None:
+            self.tf_device = tf.device(model_spec.device)
+            self.tf_device.__enter__()
+        else:
+            self.tf_device = None
+        try:
+            configs = config_util.get_configs_from_pipeline_file(
+                pipeline_config_path=str(model_config_path)
+            )
+            model_config = configs['model']
+            self.model = model_builder.build(
+                model_config=model_config, is_training=False
+            )
+            ckpt = tf.compat.v2.train.Checkpoint(model=self.model)
+            ckpt.restore(str(checkpoint_path)).expect_partial()
+        finally:
+            if self.tf_device is not None:
+                self.tf_device.__exit__()
         self.input_dtype = np.float32
 
         # Run model through a dummy image so that variables are created
@@ -124,8 +136,17 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
             directory=model_spec.saved_model_dir
         )
         temp_folder_path = Path(temp_folder.name)
-        self.loaded_model = tf.saved_model.load(str(temp_folder_path))
-        self.model = self.loaded_model.signatures["serving_default"]
+        if model_spec.device is not None:
+            self.tf_device = tf.device(model_spec.device)
+            self.tf_device.__enter__()
+        else:
+            self.tf_device = None
+        try:
+            self.loaded_model = tf.saved_model.load(str(temp_folder_path))
+            self.model = self.loaded_model.signatures["serving_default"]
+        finally:
+            if self.tf_device is not None:
+                self.tf_device.__exit__()
         self.input_dtype = INPUT_TYPE_TO_DTYPE[model_spec.input_type]
         temp_folder.cleanup()
 
@@ -241,16 +262,21 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         image: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         import tensorflow as tf
-
-        input_tensor = tf.convert_to_tensor(image, dtype=self.input_dtype)
-        if (
-            isinstance(self.model_spec, ObjectDetectionAPI_pb_ModelSpec)
-            and
-            self.model_spec.input_type == "encoded_image_string_tensor"
-        ):
-            input_tensor = tf.io.encode_jpeg(input_tensor, quality=100)
-        input_tensor = input_tensor[None, ...]
-        detection_output_dict = self.model(input_tensor)
+        if self.tf_device is not None:
+            self.tf_device.__enter__()
+        try:
+            input_tensor = tf.convert_to_tensor(image, dtype=self.input_dtype)
+            if (
+                isinstance(self.model_spec, ObjectDetectionAPI_pb_ModelSpec)
+                and
+                self.model_spec.input_type == "encoded_image_string_tensor"
+            ):
+                input_tensor = tf.io.encode_jpeg(input_tensor, quality=100)
+            input_tensor = input_tensor[None, ...]
+            detection_output_dict = self.model(input_tensor)
+        finally:
+            if self.tf_device is not None:
+                self.tf_device.__exit__()
 
         return self._parse_detection_output_dict(detection_output_dict)
 

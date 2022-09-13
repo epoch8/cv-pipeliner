@@ -152,12 +152,12 @@ def _add_metrics_to_dict(
     precisions = [pipeline_metrics_per_class[class_name]['precision'] for class_name in labels]
     recalls = [pipeline_metrics_per_class[class_name]['recall'] for class_name in labels]
     f1_scores = [pipeline_metrics_per_class[class_name]['f1_score'] for class_name in labels]
-    macro_average_precision = np.average(precisions)
-    weighted_average_precision = np.average(precisions, weights=supports)
-    macro_average_recall = np.average(recalls)
-    weighted_average_recall = np.average(recalls, weights=supports)
-    macro_average_f1_score = np.average(f1_scores)
-    weighted_average_f1_score = np.average(f1_scores, weights=supports)
+    macro_average_precision = np.average(precisions) if len(precisions) > 0 else np.nan
+    weighted_average_precision = np.average(precisions, weights=supports) if len(precisions) > 0 else np.nan
+    macro_average_recall = np.average(recalls) if len(recalls) > 0 else np.nan
+    weighted_average_recall = np.average(recalls, weights=supports) if len(recalls) > 0 else np.nan
+    macro_average_f1_score = np.average(f1_scores) if len(f1_scores) > 0 else np.nan
+    weighted_average_f1_score = np.average(f1_scores, weights=supports) if len(f1_scores) > 0 else np.nan
     sum_support = np.sum(supports)
     pipeline_metrics[f'{prefix_caption}accuracy{postfix_caption}'] = {
         'support': support,
