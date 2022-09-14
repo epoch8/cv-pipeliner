@@ -36,7 +36,7 @@ class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
     url: str
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
     input_name: str
-    input_size: Union[Tuple[int, int], List[int]]
+    input_size: Optional[Union[Tuple[Optional[int], Optional[int]], List[Optional[int]]]]
     class_names: Union[List[str], str, Path]
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
 
