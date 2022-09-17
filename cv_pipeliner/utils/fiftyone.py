@@ -41,8 +41,12 @@ class FifyOneSession:
             os.environ['FIFTYONE_DATABASE_URI'] = str(self.database_uri)
         if self.database_name is not None:
             os.environ['FIFTYONE_DATABASE_NAME'] = str(self.database_name)
-        import fiftyone
-        self.fiftyone = fiftyone
+
+        try:
+            import fiftyone
+            self.fiftyone = fiftyone
+        except:
+            self.fiftyone = None
 
         FifyOneSession._counter += 1
 
