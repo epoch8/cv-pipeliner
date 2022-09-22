@@ -44,11 +44,19 @@ class FifyOneSession:
 
         try:
             import fiftyone
-            self.fiftyone = fiftyone
-        except:
-            self.fiftyone = None
+            self._fiftyone = fiftyone
+        except Exception as e:
+            logger.warning(f"Couldn't connect to fiftyone: {e=}")
+            self._fiftyone = None
 
         FifyOneSession._counter += 1
+
+    @property
+    def fiftyone(self):
+        if self._fiftyone is None:
+            import fiftyone
+            self._fiftyone = fiftyone
+        return self._fiftyone
 
     def __del__(self):
         if self.database_dir is not None:

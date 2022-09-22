@@ -195,7 +195,7 @@ def get_df_detection_recall_per_class(
         for class_name in class_names
     ])
     macro_average_recall = np.mean(recalls)
-    weighted_average_recall = np.average(recalls, weights=supports)
+    weighted_average_recall = np.average(recalls, weights=supports) if len(recalls) > 0 else np.nan
     sum_support = np.sum(supports)
     sum_TP = np.sum([
         detection_metrics_recall_per_class[class_name]['TP']

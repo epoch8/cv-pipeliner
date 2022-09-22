@@ -29,12 +29,12 @@ def _add_metrics_to_dict(
     precisions = [classification_metrics[class_name]['precision'] for class_name in labels]
     recalls = [classification_metrics[class_name]['recall'] for class_name in labels]
     f1_scores = [classification_metrics[class_name]['f1_score'] for class_name in labels]
-    macro_average_precision = np.average(precisions)
-    weighted_average_precision = np.average(precisions, weights=supports)
-    macro_average_recall = np.average(recalls)
-    weighted_average_recall = np.average(recalls, weights=supports)
-    macro_average_f1_score = np.average(f1_scores)
-    weighted_average_f1_score = np.average(f1_scores, weights=supports)
+    macro_average_precision = np.average(precisions) if len(precisions) > 0 else np.nan
+    weighted_average_precision = np.average(precisions, weights=supports) if len(precisions) > 0 else np.nan
+    macro_average_recall = np.average(recalls) if len(recalls) > 0 else np.nan
+    weighted_average_recall = np.average(recalls, weights=supports) if len(recalls) > 0 else np.nan
+    macro_average_f1_score = np.average(f1_scores) if len(f1_scores) > 0 else np.nan
+    weighted_average_f1_score = np.average(f1_scores, weights=supports) if len(f1_scores) > 0 else np.nan
     sum_support = np.sum(supports)
     classification_metrics[f'{prefix_caption}accuracy{postfix_caption}'] = {
         'support': support,
@@ -82,11 +82,11 @@ def _add_metrics_to_dict(
         mean_expected_steps_supports = [
             classification_metrics[class_name]['support'] for class_name in not_nan_labels
         ]
-        macro_average_mean_expected_steps = np.average(mean_expected_steps)
+        macro_average_mean_expected_steps = np.average(mean_expected_steps) if len(mean_expected_steps) > 0 else np.nan
         weighted_average_mean_expected_steps = np.average(
             mean_expected_steps,
             weights=mean_expected_steps_supports
-        )
+        ) if len(mean_expected_steps) > 0 else np.nan
         classification_metrics[f'{prefix_caption}macro_average{postfix_caption}']['mean_expected_steps'] = (
             macro_average_mean_expected_steps
         )
@@ -100,12 +100,12 @@ def _add_metrics_to_dict(
         precisions_top_n = [classification_metrics[class_name][f'precision@{top_n}'] for class_name in labels]
         recalls_top_n = [classification_metrics[class_name][f'recall@{top_n}'] for class_name in labels]
         f1_score_top_n = [classification_metrics[class_name][f'f1_score@{top_n}'] for class_name in labels]
-        macro_average_precision_top_n = np.average(precisions_top_n)
-        weighted_average_precision_top_n = np.average(precisions_top_n, weights=supports)
-        macro_average_recall_top_n = np.average(recalls_top_n)
-        weighted_average_recall_top_n = np.average(recalls_top_n, weights=supports)
-        macro_average_f1_score_top_n = np.average(f1_score_top_n)
-        weighted_average_f1_score_top_n = np.average(f1_score_top_n, weights=supports)
+        macro_average_precision_top_n = np.average(precisions_top_n) if len(precisions_top_n) > 0 else np.nan
+        weighted_average_precision_top_n = np.average(precisions_top_n, weights=supports) if len(precisions_top_n) > 0 else np.nan
+        macro_average_recall_top_n = np.average(recalls_top_n) if len(recalls_top_n) > 0 else np.nan
+        weighted_average_recall_top_n = np.average(recalls_top_n, weights=supports) if len(recalls_top_n) > 0 else np.nan
+        macro_average_f1_score_top_n = np.average(f1_score_top_n) if len(f1_score_top_n) > 0 else np.nan
+        weighted_average_f1_score_top_n = np.average(f1_score_top_n, weights=supports) if len(f1_score_top_n) > 0 else np.nan
         classification_metrics[f'{prefix_caption}macro_average{postfix_caption}'][f'precision@{top_n}'] = (
             macro_average_precision_top_n
         )
