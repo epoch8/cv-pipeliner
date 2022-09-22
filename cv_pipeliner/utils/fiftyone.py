@@ -41,10 +41,22 @@ class FifyOneSession:
             os.environ['FIFTYONE_DATABASE_URI'] = str(self.database_uri)
         if self.database_name is not None:
             os.environ['FIFTYONE_DATABASE_NAME'] = str(self.database_name)
-        import fiftyone
-        self.fiftyone = fiftyone
+
+        try:
+            import fiftyone
+            self._fiftyone = fiftyone
+        except Exception as e:
+            logger.warning(f"Couldn't connect to fiftyone: {e=}")
+            self._fiftyone = None
 
         FifyOneSession._counter += 1
+
+    @property
+    def fiftyone(self):
+        if self._fiftyone is None:
+            import fiftyone
+            self._fiftyone = fiftyone
+        return self._fiftyone
 
     def __del__(self):
         if self.database_dir is not None:
