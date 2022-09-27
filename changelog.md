@@ -1,3 +1,22 @@
+# 0.16.0
+- `ImageData` and `BboxData` are intensively refactored: they are now pydantic's BaseModel with improved conversion to JSON.
+- **BREAK CHANGES**: `ImageData.json()` and `BboxData.json()` now returns `str` (formerly: `Dict[str, Any]`).
+- Update requirements.txt to newer versions.
+
+# 0.15.4
+- Dirty hack to make it work when Fiftyone cannot start in FifyOneSession at first time (by @elephantum)
+- When counting metrics with empty elements, np.average now returns np.nan
+
+# 0.15.3
+- Fix input_size typing for pydantic in TensorFlow_ClassificationModelSpec and TensorFlow_ClassificationModelSpec_TFServing
+
+# 0.15.2
+- ObjectDetection models new have device= arguments (for CPU inference)
+- Semaphores removed in FiftyOneImagesDataTableStore (for building prefect images)
+
+# 0.15.1
+- Bugfixes
+
 # 0.15.0
 - All inference_models changed from `@dataclass` to `pydantic.BaseModel`
 - All inference_models have new field `id` used for storing models in-memory. Useble for datapipe's like inferences.

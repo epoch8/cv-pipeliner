@@ -1,6 +1,5 @@
 import pydantic
 import abc
-from dataclasses import dataclass
 import importlib
 import sys
 import tempfile

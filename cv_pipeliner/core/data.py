@@ -3,7 +3,7 @@ import io
 import json
 
 from pathlib import Path
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field, validator, root_validator
 from typing import Any, Union, List, Dict, Tuple, Optional, Type
 
 import numpy as np
@@ -14,34 +14,6 @@ from pathy import Pathy
 
 from cv_pipeliner.utils.images import is_base64, open_image
 from cv_pipeliner.utils.imagesize import get_image_size
-
-
-def open_image_for_object(
-    obj: Union['ImageData', 'BboxData'],
-    inplace: bool = False,
-    returns_none_if_empty: bool = False
-) -> Optional[np.ndarray]:
-    if obj.image is not None and isinstance(obj.image, np.ndarray):
-        if not inplace:
-            return obj.image
-        else:
-            image = obj.image.copy()
-    elif isinstance(obj.image, bytes) or isinstance(obj.image, str):
-        image = open_image(image=obj.image, open_as_rgb=True)
-    elif obj.image_path is not None:
-        image = open_image(image=obj.image_path, open_as_rgb=True)
-    else:
-        if returns_none_if_empty:
-            return None
-        raise ValueError("Object doesn't have any image.")
-
-    if inplace:
-        obj.image = image
-    else:
-        return image
-
-
-ImagePath = Optional[Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]]
 
 
 def get_image_name(image_path) -> str:
@@ -72,55 +44,203 @@ def get_image_path_as_str(image_path) -> str:
     return image_path_str
 
 
-@dataclass
-class BboxData:
-    image_path: ImagePath = None
-    image: np.ndarray = field(default=None, repr=False)
-    cropped_image: np.ndarray = field(default=None, repr=False)
-    xmin: Union[int, float] = None
-    ymin: Union[int, float] = None
-    xmax: Union[int, float] = None
-    ymax: Union[int, float] = None
-    keypoints: List[Tuple[int, int]] = field(default_factory=list)
+def get_meta_image_size(
+    image_path: Optional[Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]],
+    image: Optional[np.ndarray],
+    meta_height: Optional[int],
+    meta_width: Optional[int],
+    force_update_meta: bool = False
+):
+    """
+        Returns (width, height) of image without opening it fully.
+    """
+    if meta_height is None or meta_width is None or force_update_meta:
+        if image is not None:
+            meta_height, meta_width = image.shape[0:2]
+        else:
+            meta_width, meta_height = get_image_size(image_path)
+    if image is not None:
+        meta_height, meta_width = image.shape[0:2]
+    return meta_width, meta_height
 
-    detection_score: float = field(default=None, repr=False)
-    label: str = None
-    classification_score: float = field(default=None, repr=False)
-    top_n: int = field(default=None, repr=False)
-    labels_top_n: List[str] = field(default=None, repr=False)
-    classification_scores_top_n: List[float] = field(default=None, repr=False)
 
-    additional_bboxes_data: List['BboxData'] = field(default_factory=list)
-    additional_info: Dict = field(default_factory=dict)
+class BaseImageData(BaseModel):
+    image_path: Optional[Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]] = None
+    image: Optional[np.ndarray] = Field(default=None, repr=False, exclude=True)
+    label: Optional[str] = None
+    keypoints: np.ndarray = Field(default_factory=lambda: np.array([]).astype(int).reshape((-1, 2)))
+    detection_score: Optional[float] = Field(default=None, repr=False)
+    classification_score: Optional[float] = Field(default=None, repr=False)
+    top_n: Optional[int] = Field(default=None, repr=False)
+    labels_top_n: Optional[List[str]] = Field(default=None, repr=False)
+    classification_scores_top_n: Optional[List[float]] = Field(default=None, repr=False)
+    additional_info: Dict[str, Any] = Field(default_factory=dict)
+    meta_width: Optional[int] = None
+    meta_height: Optional[int] = None
 
-    meta_width: int = None
-    meta_height: int = None
+    class Config:
+        arbitrary_types_allowed = True
+        validate_assignment = True
+        json_encoders = {
+            Optional[Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]]: get_image_path_as_str,
+            np.ndarray: lambda x: x.tolist()
+        }
+        smart_union = True
 
-    def __post_init__(self):
-        if isinstance(self.image_path, Path) or (isinstance(self.image_path, str) and not is_base64(self.image_path)):
-            self.image_path = Pathy(self.image_path)
+    @validator('image_path', pre=True)
+    def parse_image_path(cls, image_path):
+        if isinstance(image_path, Path) or (isinstance(image_path, str) and not is_base64(image_path)):
+            image_path = Pathy(image_path)
+        return image_path
 
-        if self.xmin is not None:
-            self.xmin = max(0, self.xmin)
-        if self.ymin is not None:
-            self.ymin = max(0, self.ymin)
+    @validator('keypoints', pre=True)
+    def parse_keypoints(cls, keypoints):
+        if keypoints is None:
+            keypoints = []
+        return np.array(keypoints).astype(int).reshape((-1, 2))
 
-        if self.detection_score is not None:
-            self.detection_score = float(self.detection_score)
-        if self.classification_score is not None:
-            self.classification_score = float(self.classification_score)
-        if self.classification_scores_top_n is not None:
-            self.classification_scores_top_n = list(map(float, self.classification_scores_top_n))
+    @validator('image', pre=True)
+    def parse_image(cls, image, values):
+        if image is not None:
+            image = np.array(image)
+        return image
 
-        self.keypoints = np.array(self.keypoints).astype(int).reshape((-1, 2))
+    @root_validator(pre=False)
+    def set_fields(cls, values: dict) -> dict:
+        if values['image'] is not None:
+            values['meta_width'], values['meta_height'] = get_meta_image_size(
+                image_path=values['image_path'],
+                image=values['image'],
+                meta_height=values['meta_width'],
+                meta_width=values['meta_width'],
+                force_update_meta=True
+            )
+        return values
 
-        if self.image is not None:
-            self.image = np.array(self.image)
-            self.meta_width, self.meta_height = self.get_image_size()
+    def get_image_size(self, force_update_meta: bool = False) -> Tuple[int, int]:
+        """
+            Returns (width, height) of image without opening it fully.
+        """
+        self.meta_width, self.meta_height = get_meta_image_size(
+            image_path=self.image_path,
+            image=self.image,
+            meta_height=self.meta_height,
+            meta_width=self.meta_width,
+            force_update_meta=force_update_meta
+        )
+        return self.meta_width, self.meta_height
 
     @property
-    def image_name(self) -> str:
+    def image_name(self):
         return get_image_name(self.image_path)
+
+    @property
+    def keypoints_n(self) -> List[Tuple[float]]:
+        width, height = self.get_image_size()
+        keypoints = self.keypoints.astype(float)
+        keypoints[:, 0] /= width
+        keypoints[:, 1] /= height
+        return keypoints
+
+    def open_image(
+        self,
+        inplace: bool = False,
+        returns_none_if_empty: bool = False
+    ) -> Optional[np.ndarray]:
+        if self.image is not None and isinstance(self.image, np.ndarray):
+            if not inplace:
+                return self.image
+            else:
+                image = self.image.copy()
+        elif isinstance(self.image, bytes) or isinstance(self.image, str):
+            image = open_image(image=self.image, open_as_rgb=True)
+        elif self.image_path is not None:
+            image = open_image(image=self.image_path, open_as_rgb=True)
+        else:
+            if returns_none_if_empty:
+                return None
+            raise ValueError("Object doesn't have any image.")
+
+        if inplace:
+            self.image = image
+
+        if image is not None:
+            self.get_image_size(force_update_meta=True)
+
+        return image
+
+    def get_image_size_without_exif_tag(self, exif_transpose: bool = True) -> Tuple[int, int]:
+        """
+            Returns (width, height) of image without opening it fully.
+        """
+        if self.image is None:
+            return get_image_size(self.image_path, exif_transpose=False)
+        if self.image is not None:
+            meta_height, meta_width = self.image.shape[0:2]
+            return meta_height, meta_width
+        return (None, None)
+
+    def json(
+        self,
+        include_image_path: bool = True,
+        force_include_meta: bool = False,
+        **kwargs
+    ) -> str:
+        kwargs = kwargs.copy()
+        exclude = kwargs.pop('exclude', set())
+        if force_include_meta:
+            self.get_image_size()  # write meta inplace if empty
+        if not include_image_path:
+            exclude.add('image_path')
+        return super().json(
+            exclude=exclude,
+            exclude_none=kwargs.pop('exclude_none', True),
+            exclude_unset=kwargs.pop('exclude_unset', True),
+            **kwargs
+        )
+
+    @classmethod
+    def from_json(
+        cls,
+        d: Optional[Union[Path, str, Dict[str, Any], fsspec.core.OpenFile]],
+        image_path: Optional[Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]] = None,
+    ):
+        if cls is None:
+            cls = BaseImageData
+
+        if d is None:
+            return cls(image_path=image_path)
+        if isinstance(d, (str, Path)):
+            try:
+                d = json.loads(str(d))
+            except Exception:
+                with fsspec.open(d, 'r') as f:
+                    d = json.loads(f.read())
+        elif isinstance(d, fsspec.core.OpenFile):
+            with d as f:
+                d = json.load(f)
+        if image_path is not None:
+            d['image_path'] = image_path
+
+        return cls(**d)
+
+    def is_empty(self):
+        return self.image_path is None and self.image is None
+
+
+class BboxData(BaseImageData):
+    xmin: Optional[Union[int, float]] = None
+    ymin: Optional[Union[int, float]] = None
+    xmax: Optional[Union[int, float]] = None
+    ymax: Optional[Union[int, float]] = None
+    cropped_image: Optional[np.ndarray] = Field(default=None, repr=False)
+    additional_bboxes_data: Optional[List['BboxData']] = Field(default_factory=list)
+
+    @validator('xmin', 'ymin', pre=True)
+    def parse_xmin(cls, v):
+        if v is not None:
+            v = max(0, v)
+        return v
 
     @property
     def coords(self) -> Tuple[int, int, int, int]:
@@ -130,14 +250,6 @@ class BboxData:
     def coords_n(self) -> Tuple[float, float, float, float]:
         width, height = self.get_image_size()
         return self.xmin / width, self.ymin / height, self.xmax / width, self.ymax / height
-    
-    @property
-    def keypoints_n(self) -> List[Tuple[float]]:
-        width, height = self.get_image_size()
-        keypoints = self.keypoints.copy().astype(float).reshape((-1, 2))
-        keypoints[:, 0] /= width
-        keypoints[:, 1] /= height
-        return keypoints
 
     @property
     def area(self) -> int:
@@ -243,120 +355,6 @@ class BboxData:
             else:
                 return cropped_image
 
-    def open_image(
-        self,
-        inplace: bool = False,
-        returns_none_if_empty: bool = False
-    ) -> Optional[np.ndarray]:
-        image = open_image_for_object(obj=self, inplace=inplace, returns_none_if_empty=returns_none_if_empty)
-        if image is not None:
-            self.meta_height, self.meta_width = image.shape[0:2]
-        return image
-
-    def get_image_size(self, force_update_meta: bool = False) -> Tuple[int, int]:
-        """
-            Returns (width, height) of image without opening it fully.
-        """
-        if self.meta_height is None or self.meta_width is None or force_update_meta:
-            if self.image is not None:
-                self.meta_height, self.meta_width = self.image.shape[0:2]
-            else:
-                self.meta_width, self.meta_height = get_image_size(self.image_path)
-        if self.image is not None:
-            self.meta_height, self.meta_width = self.image.shape[0:2]
-        return self.meta_width, self.meta_height
-
-    def get_image_size_without_exif_tag(self, exif_transpose: bool = True) -> Tuple[int, int]:
-        """
-            Returns (width, height) of image without opening it fully.
-        """
-        if self.image is None:
-            return get_image_size(self.image_path, exif_transpose=False)
-        if self.image is not None:
-            meta_height, meta_width = self.image.shape[0:2]
-            return meta_height, meta_width
-        return (None, None)
-
-    def json(self, include_image_path: bool = True, force_include_meta: bool = False) -> Dict:
-        result_json = {
-            'xmin': int(self.xmin) if isinstance(self.xmin, (int, np.int64)) else round(self.xmin, 6),
-            'ymin': int(self.ymin) if isinstance(self.ymin, (int, np.int64)) else round(self.ymin, 6),
-            'xmax': int(self.xmax) if isinstance(self.xmax, (int, np.int64)) else round(self.xmax, 6),
-            'ymax': int(self.ymax) if isinstance(self.ymax, (int, np.int64)) else round(self.ymax, 6),
-        }
-        if include_image_path:
-            result_json['image_path'] = get_image_path_as_str(self.image_path)
-        if self.label is not None:
-            result_json['label'] = str(self.label)
-        if len(self.keypoints) > 0:
-            result_json['keypoints'] = np.array(self.keypoints).astype(int).tolist()
-        if self.top_n is not None:
-            result_json['top_n'] = int(self.top_n)
-        if self.labels_top_n is not None:
-            result_json['labels_top_n'] = [str(label) for label in self.labels_top_n]
-        if self.classification_scores_top_n is not None:
-            result_json['classification_scores_top_n'] = [
-                str(round(score, 3)) for score in self.classification_scores_top_n
-            ]
-        if self.detection_score is not None:
-            result_json['detection_score'] = str(round(self.detection_score, 3))
-        if self.classification_score is not None:
-            result_json['classification_score'] = str(round(self.classification_score, 3))
-        if len(self.additional_bboxes_data) > 0:
-            result_json['additional_bboxes_data'] = [
-                bbox_data.json(include_image_path=include_image_path) for bbox_data in self.additional_bboxes_data
-            ]
-        if len(self.additional_info) > 0:
-            result_json['additional_info'] = self.additional_info
-
-        if force_include_meta:
-            self.get_image_size()  # write meta inplace if empty
-        if self.meta_width is not None:
-            result_json['meta_width'] = int(self.meta_width)
-        if self.meta_height is not None:
-            result_json['meta_height'] = int(self.meta_height)
-
-        return result_json
-
-    def _from_json(
-        self, d: Dict,
-        image_path: ImagePath = None,
-    ):
-        for key in self.__dataclass_fields__:
-            if key in d:
-                if key == 'additional_bboxes_data':
-                    d[key] = [
-                        type(self).from_json(bbox_data, image_path=image_path, bbox_data_cls=type(self))
-                        for bbox_data in d['additional_bboxes_data']
-                    ]
-                super().__setattr__(key, d[key])
-
-        if image_path is not None:
-            self.image_path = image_path
-
-        self.__post_init__()
-
-        return self
-
-    @staticmethod
-    def from_json(
-        d: Optional[Union[Path, str, Dict[str, Any], fsspec.core.OpenFile]],
-        image_path: ImagePath = None,
-        bbox_data_cls: Type['BboxData'] = None,
-        **kwargs
-    ):
-        if bbox_data_cls is None:
-            bbox_data_cls = BboxData
-        if d is None:
-            return bbox_data_cls(image_path=image_path)
-        if isinstance(d, str) or isinstance(d, Path):
-            with fsspec.open(d, 'r') as f:
-                d = json.loads(f.read())
-        elif isinstance(d, fsspec.core.OpenFile):
-            with d as f:
-                d = json.load(f)
-        return bbox_data_cls(**kwargs)._from_json(d=d, image_path=image_path)
-
     def count_children(self) -> int:
         global counting
         counting = 0
@@ -373,170 +371,11 @@ class BboxData:
         return counting
 
 
-@dataclass
-class ImageData:
-    image_path: ImagePath = None
-    image: np.ndarray = field(default=None, repr=False)
-    bboxes_data: List[BboxData] = field(default_factory=list)
-
-    label: str = None
-    keypoints: List[Tuple[int, int]] = field(default_factory=list)
-    additional_info: Dict = field(default_factory=dict)
-    classification_score: float = field(default=None, repr=False)
-    top_n: int = field(default=None, repr=False)
-    labels_top_n: List[str] = field(default=None, repr=False)
-    classification_scores_top_n: List[float] = field(default=None, repr=False)
-
-    meta_width: int = None
-    meta_height: int = None
-
-    def __post_init__(self):
-        if isinstance(self.image_path, Path) or (isinstance(self.image_path, str) and not is_base64(self.image_path)):
-            self.image_path = Pathy(self.image_path)
-
-        self.keypoints = np.array(self.keypoints).astype(int).reshape((-1, 2))
-
-        # Apply these to all bboxes_data (look __setattr__)
-        self.image_path = self.image_path
-        self.image = self.image
-        if self.classification_score is not None:
-            self.classification_score = float(self.classification_score)
-        if self.classification_scores_top_n is not None:
-            self.classification_scores_top_n = list(map(float, self.classification_scores_top_n))
-
-        if self.image is not None:
-            self.image = np.array(self.image)
-            self.get_image_size(force_update_meta=True)
-        if self.meta_height is None and self.meta_width is None and len(self.bboxes_data) > 0:
-            for bbox_data in self.bboxes_data:
-                if bbox_data.meta_height is not None and bbox_data.meta_width is not None:
-                    self.meta_height, self.meta_width = bbox_data.meta_height, bbox_data.meta_width
-
-    @property
-    def image_name(self):
-        return get_image_name(self.image_path)
-
-    @property
-    def keypoints_n(self) -> List[Tuple[float]]:
-        width, height = self.get_image_size()
-        keypoints = self.keypoints.copy().astype(float).reshape((-1, 2))
-        keypoints[:, 0] /= width
-        keypoints[:, 1] /= height
-        return keypoints
-
-    def open_image(
-        self,
-        inplace: bool = False,
-        returns_none_if_empty: bool = False
-    ) -> Optional[np.ndarray]:
-        image = open_image_for_object(obj=self, inplace=inplace, returns_none_if_empty=returns_none_if_empty)
-        if image is not None:
-            self.meta_height, self.meta_width = image.shape[0:2]
-
-        return image
-
-    def get_image_size(self, force_update_meta: bool = False) -> Tuple[int, int]:
-        """
-            Returns (width, height) of image without opening it fully.
-        """
-        if self.meta_height is None or self.meta_width is None or force_update_meta:
-            if self.image is not None:
-                self.meta_height, self.meta_width = self.image.shape[0:2]
-            else:
-                self.meta_width, self.meta_height = get_image_size(self.image_path)
-        if self.image is not None:
-            self.meta_height, self.meta_width = self.image.shape[0:2]
-        return self.meta_width, self.meta_height
-
-    def get_image_size_without_exif_tag(self, exif_transpose: bool = True) -> Tuple[int, int]:
-        """
-            Returns (width, height) of image without opening it fully.
-        """
-        if self.image is None:
-            return get_image_size(self.image_path, exif_transpose=False)
-        if self.image is not None:
-            meta_height, meta_width = self.image.shape[0:2]
-            return meta_height, meta_width
-        return (None, None)
-
-    def json(self, force_include_meta: bool = False) -> Dict:
-        result_json = {
-            'image_path': get_image_path_as_str(self.image_path),
-            'bboxes_data': [bbox_data.json(include_image_path=False) for bbox_data in self.bboxes_data],
-        }
-        if self.label is not None:
-            result_json['label'] = self.label
-        if len(self.keypoints) > 0:
-            result_json['keypoints'] = np.array(self.keypoints).astype(int).tolist()
-        if len(self.additional_info) > 0:
-            result_json['additional_info'] = self.additional_info
-        if force_include_meta:
-            self.get_image_size()  # write meta inplace
-        if self.classification_score is not None:
-            result_json['classification_score'] = str(round(self.classification_score, 3))
-        if self.top_n is not None:
-            result_json['top_n'] = int(self.top_n)
-        if self.labels_top_n is not None:
-            result_json['labels_top_n'] = [str(label) for label in self.labels_top_n]
-        if self.classification_scores_top_n is not None:
-            result_json['classification_scores_top_n'] = [
-                str(round(score, 3)) for score in self.classification_scores_top_n
-            ]
-        if self.meta_width is not None:
-            result_json['meta_width'] = int(self.meta_width)
-        if self.meta_height is not None:
-            result_json['meta_height'] = int(self.meta_height)
-
-        return result_json
-
-    def _from_json(
-        self,
-        d: Union[str, Path, Dict],
-        bbox_data_cls: Type[BboxData] = None
-    ):
-        for key in self.__dataclass_fields__:
-            if key in d:
-                if key == 'image_path' and self.image_path is not None:
-                    continue
-                if key == 'bboxes_data':
-                    d[key] = [
-                        bbox_data_cls.from_json(bbox_data, image_path=self.image_path, bbox_data_cls=bbox_data_cls)
-                        for bbox_data in d['bboxes_data']
-                    ]
-                super().__setattr__(key, d[key])
-
-        self.__post_init__()
-
-        return self
-
-    @staticmethod
-    def from_json(
-        d: Optional[Union[Path, str, Dict[str, Any], fsspec.core.OpenFile]],
-        image_path: ImagePath = None,
-        image_data_cls: Type['ImageData'] = 'ImageData',
-        bbox_data_cls: Type[BboxData] = BboxData,
-        **kwargs
-    ):
-        if image_data_cls is None or image_data_cls == 'ImageData':
-            image_data_cls = ImageData
-        if d is None:
-            return image_data_cls(image_path=image_path)
-        if isinstance(d, str) or isinstance(d, Path):
-            with fsspec.open(d, 'r') as f:
-                d = json.loads(f.read())
-        elif isinstance(d, fsspec.core.OpenFile):
-            with d as f:
-                d = json.load(f)
-        if 'image_data' in d:
-            d = d['image_data']
-        return image_data_cls(image_path=image_path, **kwargs)._from_json(d, bbox_data_cls)
-
-    def is_empty(self):
-        return self.image_path is None and self.image is None
+class ImageData(BaseImageData):
+    bboxes_data: List[BboxData] = Field(default_factory=list)
 
     def __setattr__(
         self, name: str, value: Any,
-        apply_to_bboxes_data: bool = True,
         force_update_meta: bool = False
     ) -> None:
 

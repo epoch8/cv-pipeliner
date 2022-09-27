@@ -21,7 +21,7 @@ class BrickitDataConverter(DataConverter):
         }
         image_data = self.filter_image_data(image_data)
         for bbox_data in image_data.bboxes_data:
-            bbox_data_json = bbox_data.json()
+            bbox_data_json = json.loads(bbox_data.json())
             obj = {
                 'bbox': [
                     bbox_data_json['xmin'], bbox_data_json['ymin'], bbox_data_json['xmax'], bbox_data_json['ymax']

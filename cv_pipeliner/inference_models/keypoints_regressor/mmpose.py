@@ -1,5 +1,4 @@
 import tempfile
-from dataclasses import dataclass
 from typing import Tuple, Union, Type
 
 import numpy as np

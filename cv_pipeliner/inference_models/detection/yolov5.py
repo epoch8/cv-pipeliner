@@ -1,6 +1,5 @@
 import json
 import tempfile
-from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union, Type, Callable
 from pathlib import Path
 
