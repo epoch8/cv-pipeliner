@@ -254,7 +254,7 @@ def test_pipeline_metrics():
         filename=image_bytes,
         table_conversion='matplotlib',
     )
-    df_image = imageio.imread(image_bytes.getvalue())
+    df_image = imageio.v3.imread(image_bytes.getvalue())
 
     total_image = concat_images(
         image_a=image,

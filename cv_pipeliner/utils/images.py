@@ -119,7 +119,7 @@ def open_image(
     else:
         raise ValueError(f'Got unknown type: {type(image)}.')
     if not isinstance(image_bytes, np.ndarray):
-        image = np.array(imageio.imread(image_bytes))
+        image = np.array(imageio.v3.imread(image_bytes))
     else:
         image = image_bytes
     if open_as_rgb:

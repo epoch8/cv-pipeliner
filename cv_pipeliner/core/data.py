@@ -67,10 +67,6 @@ def get_meta_image_size(
 class BaseImageData(BaseModel):
     image_path: Optional[Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]] = None
     image: Optional[np.ndarray] = Field(default=None, repr=False, exclude=True)
-    xmin: Optional[Union[int, float]] = None
-    ymin: Optional[Union[int, float]] = None
-    xmax: Optional[Union[int, float]] = None
-    ymax: Optional[Union[int, float]] = None
     label: Optional[str] = None
     keypoints: np.ndarray = Field(default_factory=lambda: np.array([]).astype(int).reshape((-1, 2)))
     detection_score: Optional[float] = Field(default=None, repr=False)
@@ -89,6 +85,7 @@ class BaseImageData(BaseModel):
             Optional[Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]]: get_image_path_as_str,
             np.ndarray: lambda x: x.tolist()
         }
+        smart_union = True
 
     @validator('image_path', pre=True)
     def parse_image_path(cls, image_path):
@@ -213,10 +210,10 @@ class BaseImageData(BaseModel):
 
         if d is None:
             return cls(image_path=image_path)
-        if isinstance(d, str) or isinstance(d, Path):
+        if isinstance(d, (str, Path)):
             try:
-                d = json.loads(d)
-            except json.JSONDecodeError:
+                d = json.loads(str(d))
+            except Exception:
                 with fsspec.open(d, 'r') as f:
                     d = json.loads(f.read())
         elif isinstance(d, fsspec.core.OpenFile):
@@ -232,20 +229,18 @@ class BaseImageData(BaseModel):
 
 
 class BboxData(BaseImageData):
+    xmin: Optional[Union[int, float]] = None
+    ymin: Optional[Union[int, float]] = None
+    xmax: Optional[Union[int, float]] = None
+    ymax: Optional[Union[int, float]] = None
     cropped_image: Optional[np.ndarray] = Field(default=None, repr=False)
     additional_bboxes_data: Optional[List['BboxData']] = Field(default_factory=list)
 
-    @validator('xmin', pre=True)
-    def parse_xmin(cls, xmin):
-        if xmin is not None:
-            xmin = max(0, xmin)
-        return xmin
-
-    @validator('ymin', pre=True)
-    def parse_ymin(cls, ymin):
-        if ymin is not None:
-            ymin = max(0, ymin)
-        return ymin
+    @validator('xmin', 'ymin', pre=True)
+    def parse_xmin(cls, v):
+        if v is not None:
+            v = max(0, v)
+        return v
 
     @property
     def coords(self) -> Tuple[int, int, int, int]:
