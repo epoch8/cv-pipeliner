@@ -32,23 +32,17 @@ class ImageDataFile(ItemStoreFileAdapter):
     def __init__(
         self,
         image_data_cls: Type[ImageData] = ImageData,
-        bbox_data_cls: Type[BboxData] = BboxData
     ):
         self.image_data_cls = image_data_cls
-        self.bbox_data_cls = bbox_data_cls
 
     def load(self, f: IO) -> ImageData:
         image_data_json = json.load(f)
-        image_data = ImageData.from_json(
-            image_data_json,
-            image_data_cls=self.image_data_cls,
-            bbox_data_cls=self.bbox_data_cls
-        ) if image_data_json is not None else None
+        image_data = self.image_data_cls.from_json(image_data_json) if image_data_json is not None else None
         return {'image_data': image_data}
 
     def dump(self, obj: Dict[str, Any], f: IO) -> None:
         image_data: ImageData = obj['image_data']
-        return json.dump(image_data.json() if image_data is not None else None, f, indent=4, ensure_ascii=False)
+        f.write(image_data.json(indent=4, ensure_ascii=False))
 
 
 class NumpyDataFile(ItemStoreFileAdapter):
@@ -116,7 +110,6 @@ class ImageDataTableStoreDB(TableStoreDB):
         data_sql_schema: List[Column],
         create_table: bool = True,
         image_data_cls: Type[ImageData] = ImageData,
-        bbox_data_cls: Type[BboxData] = BboxData
     ) -> None:
         assert all([column.primary_key for column in data_sql_schema])
         assert 'image_data' not in [column.name for column in data_sql_schema]
@@ -128,7 +121,6 @@ class ImageDataTableStoreDB(TableStoreDB):
             create_table=create_table
         )
         self.image_data_cls = image_data_cls
-        self.bbox_data_cls = bbox_data_cls
 
     def insert_rows(self, df: DataDF) -> None:
         df['image_data'] = df['image_data'].apply(
@@ -139,10 +131,8 @@ class ImageDataTableStoreDB(TableStoreDB):
     def read_rows(self, idx: Optional[IndexDF] = None) -> pd.DataFrame:
         df = super().read_rows(idx=idx)
         df['image_data'] = df['image_data'].apply(
-            lambda image_data_json: ImageData.from_json(
-                image_data_json,
-                image_data_cls=self.image_data_cls,
-                bbox_data_cls=self.bbox_data_cls
+            lambda image_data_json: self.image_data_cls.from_json(
+                image_data_json
             ) if image_data_json is not None else None
         )
         return df

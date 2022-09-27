@@ -1,7 +1,6 @@
 import json
 from json.decoder import JSONDecodeError
 import tempfile
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union, Type, Literal, Callable
 from pathlib import Path
 

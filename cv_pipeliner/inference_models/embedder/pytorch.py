@@ -6,7 +6,6 @@ from cv_pipeliner.inference_models.embedder.core import (
     EmbedderModelSpec, EmbedderModel, EmbedderInput, EmbedderOutput
 )
 from pathy import Pathy
-from dataclasses import dataclass
 from typing import List, Tuple, Callable, Union, Type
 from pathlib import Path
 
