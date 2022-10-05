@@ -72,8 +72,12 @@ class BaseImageData(BaseModel):
     detection_score: Optional[float] = Field(default=None, repr=False)
     classification_score: Optional[float] = Field(default=None, repr=False)
     top_n: Optional[int] = Field(default=None, repr=False)
-    labels_top_n: Optional[List[str]] = Field(default=None, repr=False)
-    classification_scores_top_n: Optional[List[float]] = Field(default=None, repr=False)
+    labels_top_n: Optional[Union[List[List[str]], np.ndarray, List[np.ndarray], List[str]]] = Field(
+        default=None, repr=False
+    )
+    classification_scores_top_n: Optional[Union[List[List[float]], np.ndarray, List[np.ndarray], List[float]]] = Field(
+        default=None, repr=False
+    )
     additional_info: Dict[str, Any] = Field(default_factory=dict)
     meta_width: Optional[int] = None
     meta_height: Optional[int] = None
