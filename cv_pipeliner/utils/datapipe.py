@@ -124,7 +124,7 @@ class ImageDataTableStoreDB(TableStoreDB):
 
     def insert_rows(self, df: DataDF) -> None:
         df['image_data'] = df['image_data'].apply(
-            lambda image_data: image_data.json() if image_data is not None else None
+            lambda image_data: json.loads(image_data.json()) if image_data is not None else None
         )
         super().insert_rows(df)
 
