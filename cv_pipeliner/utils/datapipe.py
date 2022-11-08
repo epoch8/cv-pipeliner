@@ -111,7 +111,6 @@ class ImageDataTableStoreDB(TableStoreDB):
         create_table: bool = True,
         image_data_cls: Type[ImageData] = ImageData,
     ) -> None:
-        assert all([column.primary_key for column in data_sql_schema])
         assert 'image_data' not in [column.name for column in data_sql_schema]
         data_sql_schema += [Column('image_data', JSON)]
         super().__init__(
@@ -191,7 +190,7 @@ class ConnectedImageDataTableStore(TableStore):
         if df.empty:
             return
         self.delete_rows(data_to_index(df, self.primary_keys))
-        self.insert_rows(df, force_update_meta=True)
+        self.insert_rows(df, force_update_meta=force_update_meta)
 
     def read_rows(self, idx: IndexDF = None) -> DataDF:
         df_images_data = self.images_data_store.read_rows(idx)
