@@ -1,3 +1,6 @@
+# 0.16.1-0.16.3
+- Bug fixes.
+
 # 0.16.0
 - `ImageData` and `BboxData` are intensively refactored: they are now pydantic's BaseModel with improved conversion to JSON.
 - **BREAK CHANGES**: `ImageData.json()` and `BboxData.json()` now returns `str` (formerly: `Dict[str, Any]`).

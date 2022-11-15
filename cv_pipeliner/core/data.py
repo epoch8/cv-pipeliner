@@ -199,7 +199,6 @@ class BaseImageData(BaseModel):
         return super().json(
             exclude=exclude,
             exclude_none=kwargs.pop('exclude_none', True),
-            exclude_unset=kwargs.pop('exclude_unset', True),
             **kwargs
         )
 
@@ -238,7 +237,7 @@ class BboxData(BaseImageData):
     xmax: Optional[Union[int, float]] = None
     ymax: Optional[Union[int, float]] = None
     cropped_image: Optional[np.ndarray] = Field(default=None, repr=False)
-    additional_bboxes_data: Optional[List['BboxData']] = Field(default_factory=list)
+    additional_bboxes_data: List['BboxData'] = Field(default_factory=list)
 
     @validator('xmin', 'ymin', pre=True)
     def parse_xmin(cls, v):

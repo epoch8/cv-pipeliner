@@ -598,7 +598,7 @@ def non_max_suppression_image_data_using_tf(
     ]
     result = tf.image.non_max_suppression(
         bboxes, scores, len(image_data.bboxes_data),
-        iou_threshold=iou, score_threshold=score_threshold
+        iou_threshold=float(iou), score_threshold=float(score_threshold)
     )
     image_data.bboxes_data = [image_data.bboxes_data[i] for i in result.numpy()]
     return image_data
