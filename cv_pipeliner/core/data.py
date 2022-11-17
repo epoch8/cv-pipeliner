@@ -339,6 +339,7 @@ class BboxData(BaseImageData):
 
                 def crop_additional_bbox_data(bbox_data: BboxData):
                     bbox_data.image_path = None
+                    bbox_data.image = cropped_image
                     bbox_data.xmin -= xmin
                     bbox_data.ymin -= ymin
                     bbox_data.xmax -= xmin
@@ -401,9 +402,9 @@ class BboxData(BaseImageData):
                 for additional_bbox_data in bbox_data.additional_bboxes_data:
                     change_images_in_bbox_data(additional_bbox_data)
 
-            if hasattr(self, 'bboxes_data'):
-                for bbox_data in self.additional_bboxes_data:
-                    change_images_in_bbox_data(bbox_data)
+            if hasattr(self, 'additional_bboxes_data'):
+                for additional_bbox_data in self.additional_bboxes_data:
+                    change_images_in_bbox_data(additional_bbox_data)
 
 
 class ImageData(BaseImageData):
