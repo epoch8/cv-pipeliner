@@ -108,7 +108,7 @@ class ImageDataTableStoreDB(TableStoreDB):
         dbconn: Union[DBConn, str],
         name: str,
         data_sql_schema: List[Column],
-        create_table: bool = True,
+        create_table: bool = False,
         image_data_cls: Type[ImageData] = ImageData,
     ) -> None:
         assert all([column.primary_key for column in data_sql_schema])
