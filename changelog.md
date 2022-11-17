@@ -1,3 +1,6 @@
+# 0.16.4
+- `ImageDataTableStoreDB` default value `create_table` changed from `True` to `False`
+
 # 0.16.1-0.16.3
 - Bug fixes.
 
