@@ -90,6 +90,7 @@ class BaseImageData(BaseModel):
             np.ndarray: lambda x: x.tolist()
         }
         smart_union = True
+        copy_on_model_validation = 'none'
 
     @validator('image_path', pre=True)
     def parse_image_path(cls, image_path):
@@ -329,11 +330,15 @@ class BboxData(BaseImageData):
                 keypoints = self.keypoints.copy()
                 keypoints[:, 0] -= xmin
                 keypoints[:, 1] -= ymin
+
+                copy_image = self.image  # Memory trick
+                copy_cropped_image = self.cropped_image  # Memory trick
+                self.image = None  # Memory trick
+                self.cropped_image = None  # Memory trick
                 additional_bboxes_data = copy.deepcopy(self.additional_bboxes_data)
 
                 def crop_additional_bbox_data(bbox_data: BboxData):
                     bbox_data.image_path = None
-                    bbox_data.image = cropped_image
                     bbox_data.xmin -= xmin
                     bbox_data.ymin -= ymin
                     bbox_data.xmax -= xmin
@@ -354,6 +359,8 @@ class BboxData(BaseImageData):
                     keypoints=keypoints,
                     additional_info=self.additional_info
                 )
+                self.image = copy_image  # Memory trick
+                self.cropped_image = copy_cropped_image  # Memory trick
                 return image_data
             else:
                 return cropped_image
@@ -372,10 +379,6 @@ class BboxData(BaseImageData):
             counts(additional_bbox_data)
 
         return counting
-
-
-class ImageData(BaseImageData):
-    bboxes_data: List[BboxData] = Field(default_factory=list)
 
     def __setattr__(
         self, name: str, value: Any,
@@ -399,8 +402,32 @@ class ImageData(BaseImageData):
                     change_images_in_bbox_data(additional_bbox_data)
 
             if hasattr(self, 'bboxes_data'):
-                for bbox_data in self.bboxes_data:
+                for bbox_data in self.additional_bboxes_data:
                     change_images_in_bbox_data(bbox_data)
+
+
+class ImageData(BaseImageData):
+    bboxes_data: List[BboxData] = Field(default_factory=list)
+
+    def __setattr__(
+        self, name: str, value: Any,
+        force_update_meta: bool = False
+    ) -> None:
+
+        if hasattr(self, name) and (
+            (name == 'image' and np.array_equal(self.image, value)) or
+            (name == 'image_path' and str(self.image_path) != str(value))
+        ):
+            force_update_meta = True
+
+        super().__setattr__(name, value)
+        if name in ['image_path', 'image', 'meta_width', 'meta_height']:
+            if name == 'image' and isinstance(value, np.ndarray) and force_update_meta:  # imagesize possible is changed
+                self.get_image_size(force_update_meta=force_update_meta)
+
+            if hasattr(self, 'bboxes_data'):
+                for bbox_data in self.bboxes_data:
+                    bbox_data.__setattr__(name, value)
 
     def find_bbox_data_by_coords(self, xmin: int, ymin: int, xmax: int, ymax: int) -> BboxData:
         bboxes_data_coords = [bbox_data.coords for bbox_data in self.bboxes_data]

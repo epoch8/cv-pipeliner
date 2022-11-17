@@ -1,5 +1,6 @@
 # 0.16.4
 - `ImageDataTableStoreDB` default value `create_table` changed from `True` to `False`
+- Fix memory problems when using big images and additional_bboxes_data in images_data.
 
 # 0.16.1-0.16.3
 - Bug fixes.
