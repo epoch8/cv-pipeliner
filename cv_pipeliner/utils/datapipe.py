@@ -111,7 +111,7 @@ class ImageDataTableStoreDB(TableStoreDB):
         create_table: bool = False,
         image_data_cls: Type[ImageData] = ImageData,
     ) -> None:
-        assert all([column.primary_key for column in data_sql_schema])
+        # assert all([column.primary_key for column in data_sql_schema])
         assert 'image_data' not in [column.name for column in data_sql_schema]
         data_sql_schema += [Column('image_data', JSON)]
         super().__init__(
