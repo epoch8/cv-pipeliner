@@ -65,7 +65,7 @@ def get_meta_image_size(
 
 
 class BaseImageData(BaseModel):
-    image_path: Optional[Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]] = None
+    image_path: Optional[Union[str, Path, Pathy, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]] = None
     image: Optional[np.ndarray] = Field(default=None, repr=False, exclude=True)
     label: Optional[str] = None
     keypoints: np.ndarray = Field(default_factory=lambda: np.array([]).astype(int).reshape((-1, 2)))
