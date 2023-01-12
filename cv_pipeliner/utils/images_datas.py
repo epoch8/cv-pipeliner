@@ -300,6 +300,10 @@ def crop_image_data(
     image_data = copy.deepcopy(image_data)
     image = image_data.open_image(returns_none_if_empty=True) if open_image else None
     width, height = image_data.get_image_size()
+    xmin = max(0, xmin)
+    ymin = max(0, ymin)
+    xmax = min(xmax, width-1)
+    ymax = min(ymax, height-1)
 
     assert xmin >= 0 and ymin >= 0 and xmin < xmax and ymin < ymax and xmax <= width-1 and ymax <= height-1, (
         f"Wrong arguments: {(xmin, ymin, xmax, ymax)=} ({width=}, {height=})"
