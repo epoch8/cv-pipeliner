@@ -3,16 +3,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 from typing import List
 
 
-def get_minmax_order(
-    embeddings: np.ndarray
-) -> List:
-
+def get_minmax_order(embeddings: np.ndarray) -> List:
     similarity_matrix = cosine_similarity(embeddings)
 
-    items = np.unravel_index(
-        np.argmin(similarity_matrix, axis=None),
-        shape=similarity_matrix.shape
-    )
+    items = np.unravel_index(np.argmin(similarity_matrix, axis=None), shape=similarity_matrix.shape)
     items = list(items)
 
     while len(items) < len(similarity_matrix):

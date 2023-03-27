@@ -14,19 +14,10 @@ class COCODataConverter(DataConverter):
         super().__init__()
         assert len(set(class_names)) == len(class_names), "There are duplicates in 'class_names'. Remove them."
         self.class_names = class_names
-        self.class_name_to_idx = {
-            class_name: idx
-            for idx, class_name in enumerate(self.class_names)
-        }
-        self.idx_to_class_name = {
-            idx: class_name
-            for idx, class_name in enumerate(self.class_names)
-        }
+        self.class_name_to_idx = {class_name: idx for idx, class_name in enumerate(self.class_names)}
+        self.idx_to_class_name = {idx: class_name for idx, class_name in enumerate(self.class_names)}
 
-    def get_annot_from_image_data(
-        self,
-        image_data: ImageData
-    ) -> List[str]:
+    def get_annot_from_image_data(self, image_data: ImageData) -> List[str]:
         image_data = self.filter_image_data(image_data)
         width, height = image_data.get_image_size()
         txt_results = []
@@ -43,12 +34,10 @@ class COCODataConverter(DataConverter):
 
     @DataConverter.assert_image_data
     def get_image_data_from_annot(
-        self,
-        image_path: Union[str, Path],
-        annot: Union[Path, str, Dict, fsspec.core.OpenFile, List[str]]
+        self, image_path: Union[str, Path], annot: Union[Path, str, Dict, fsspec.core.OpenFile, List[str]]
     ) -> ImageData:
         if isinstance(annot, str) or isinstance(annot, Path):
-            with fsspec.open(annot, 'r', encoding='utf8') as f:
+            with fsspec.open(annot, "r", encoding="utf8") as f:
                 annots = f.read()
         elif isinstance(annot, fsspec.core.OpenFile):
             with annot as f:
@@ -58,25 +47,21 @@ class COCODataConverter(DataConverter):
             if isinstance(annots, bytes):
                 annots = annots.decode()
         elif isinstance(annot, List):
-            annots = '\n'.join(annot)
+            annots = "\n".join(annot)
 
         width, height = get_image_size(image_path)
         bboxes_data = []
-        for line in annots.strip().split('\n'):
-            if line == '':
+        for line in annots.strip().split("\n"):
+            if line == "":
                 continue
-            idx, xcenter, ycenter, w, h = line.split(' ')
+            idx, xcenter, ycenter, w, h = line.split(" ")
             label = self.idx_to_class_name[int(idx)]
             xcenter, ycenter, w, h = float(xcenter), float(ycenter), float(w), float(h)
             xcenter, w = xcenter * width, w * width
             ycenter, h = ycenter * height, h * height
             bboxes_data.append(
                 BboxData(
-                    xmin=xcenter-w/2,
-                    ymin=ycenter-h/2,
-                    xmax=xcenter+w/2,
-                    ymax=ycenter+h/2,
-                    label=label
+                    xmin=xcenter - w / 2, ymin=ycenter - h / 2, xmax=xcenter + w / 2, ymax=ycenter + h / 2, label=label
                 )
             )
 

@@ -14,16 +14,13 @@ class ModelSpec(pydantic.BaseModel):
     id: str = None
 
     @abc.abstractproperty
-    def inference_model_cls(self) -> Type['InferenceModel']:
+    def inference_model_cls(self) -> Type["InferenceModel"]:
         pass
 
-    def load(self, **kwargs) -> Union['InferenceModel', 'Inferencer']:
+    def load(self, **kwargs) -> Union["InferenceModel", "Inferencer"]:
         inference_model = self.inference_model_cls.get_loaded_model_by_id(self.id)
         if inference_model is None:
-            inference_model = self.inference_model_cls(
-                model_spec=self,
-                **kwargs
-            )
+            inference_model = self.inference_model_cls(model_spec=self, **kwargs)
         return inference_model
 
 
@@ -48,10 +45,11 @@ class InferenceModel(abc.ABC):
     "input" and "output" types should be defined in the inheritance of this class.
 
     """
+
     _loaded_models: List[ModelSpec] = []
 
     @staticmethod
-    def get_loaded_model_by_id(id: Optional[str]) -> Optional['InferenceModel']:
+    def get_loaded_model_by_id(id: Optional[str]) -> Optional["InferenceModel"]:
         if id is None:
             return None
         ids = [model._model_spec.id for model in InferenceModel._loaded_models]
@@ -87,17 +85,15 @@ class InferenceModel(abc.ABC):
         return self._model_spec
 
 
-def get_preprocess_input_from_script_file(
-    script_file: Union[str, Path]
-) -> Callable[[List[np.ndarray]], np.ndarray]:
-    with fsspec.open(script_file, 'r') as src:
+def get_preprocess_input_from_script_file(script_file: Union[str, Path]) -> Callable[[List[np.ndarray]], np.ndarray]:
+    with fsspec.open(script_file, "r") as src:
         script_code = src.read()
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmpdirname = Path(tmpdirname)
-        module_folder = tmpdirname / 'module'
+        module_folder = tmpdirname / "module"
         module_folder.mkdir()
-        script_file = module_folder / f'preprocess_input_{tmpdirname.name}.py'
-        with open(script_file, 'w') as out:
+        script_file = module_folder / f"preprocess_input_{tmpdirname.name}.py"
+        with open(script_file, "w") as out:
             out.write(script_code)
         sys.path.append(str(script_file.parent.absolute()))
         module = importlib.import_module(script_file.stem)
