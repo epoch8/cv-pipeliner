@@ -1,3 +1,8 @@
+# 0.16.5-0.16.6
+- (new) Added parallel open images in BatchGenerator for `ImageData` (default: 64 workers)
+- Removed annoying verbosed logs when inferencing by Tensorflow classifications models.
+- Code is reformatted.
+
 # 0.16.4
 - `ImageDataTableStoreDB` default value `create_table` changed from `True` to `False`
 - Fix memory problems when using big images and additional_bboxes_data in images_data.
