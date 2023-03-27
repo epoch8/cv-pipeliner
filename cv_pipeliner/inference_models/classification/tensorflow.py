@@ -171,7 +171,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                     raw_predictions_batch = np.array(raw_predictions_batch[key])
             elif self.model_spec.saved_model_type in ["tf.keras", "tf.keras.Model"]:
                 if len(images) > 0:
-                    raw_predictions_batch = self.model.predict(images)
+                    raw_predictions_batch = self.model.predict(images, verbose=0)
                 else:
                     raw_predictions_batch = []
             elif self.model_spec.saved_model_type == 'tflite':
