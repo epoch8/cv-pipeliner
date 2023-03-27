@@ -37,8 +37,7 @@ def _gaussian_blur(heatmaps, kernel=11):
     for i in range(batch_size):
         for j in range(num_joints):
             origin_max = np.max(heatmaps[i, j])
-            dr = np.zeros((height + 2 * border, width + 2 * border),
-                          dtype=np.float32)
+            dr = np.zeros((height + 2 * border, width + 2 * border), dtype=np.float32)
             dr[border:-border, border:-border] = heatmaps[i, j].copy()
             dr = cv2.GaussianBlur(dr, (kernel, kernel), 0)
             heatmaps[i, j] = dr[border:-border, border:-border].copy()
@@ -62,14 +61,11 @@ def _taylor(heatmap, coord):
     if 1 < px < W - 2 and 1 < py < H - 2:
         dx = 0.5 * (heatmap[py][px + 1] - heatmap[py][px - 1])
         dy = 0.5 * (heatmap[py + 1][px] - heatmap[py - 1][px])
-        dxx = 0.25 * (
-            heatmap[py][px + 2] - 2 * heatmap[py][px] + heatmap[py][px - 2])
+        dxx = 0.25 * (heatmap[py][px + 2] - 2 * heatmap[py][px] + heatmap[py][px - 2])
         dxy = 0.25 * (
-            heatmap[py + 1][px + 1] - heatmap[py - 1][px + 1] -
-            heatmap[py + 1][px - 1] + heatmap[py - 1][px - 1])
-        dyy = 0.25 * (
-            heatmap[py + 2 * 1][px] - 2 * heatmap[py][px] +
-            heatmap[py - 2 * 1][px])
+            heatmap[py + 1][px + 1] - heatmap[py - 1][px + 1] - heatmap[py + 1][px - 1] + heatmap[py - 1][px - 1]
+        )
+        dyy = 0.25 * (heatmap[py + 2 * 1][px] - 2 * heatmap[py][px] + heatmap[py - 2 * 1][px])
         derivative = np.array([[dx], [dy]])
         hessian = np.array([[dxx, dxy], [dxy, dyy]])
         if dxx * dyy - dxy**2 != 0:
@@ -104,16 +100,14 @@ def post_dark_udp(coords, batch_heatmaps, kernel=3):
         batch_heatmaps = batch_heatmaps.cpu().numpy()
     B, K, H, W = batch_heatmaps.shape
     N = coords.shape[0]
-    assert (B == 1 or B == N)
+    assert B == 1 or B == N
     for heatmaps in batch_heatmaps:
         for heatmap in heatmaps:
             cv2.GaussianBlur(heatmap, (kernel, kernel), 0, heatmap)
     np.clip(batch_heatmaps, 0.001, 50, batch_heatmaps)
     np.log(batch_heatmaps, batch_heatmaps)
 
-    batch_heatmaps_pad = np.pad(
-        batch_heatmaps, ((0, 0), (0, 0), (1, 1), (1, 1)),
-        mode='edge').flatten()
+    batch_heatmaps_pad = np.pad(batch_heatmaps, ((0, 0), (0, 0), (1, 1), (1, 1)), mode="edge").flatten()
 
     index = coords[..., 0] + 1 + (coords[..., 1] + 1) * (W + 2)
     index += (W + 2) * (H + 2) * np.arange(0, B * K).reshape(-1, K)
@@ -136,11 +130,11 @@ def post_dark_udp(coords, batch_heatmaps, kernel=3):
     hessian = np.concatenate([dxx, dxy, dxy, dyy], axis=1)
     hessian = hessian.reshape(N, K, 2, 2)
     hessian = np.linalg.inv(hessian + np.finfo(np.float32).eps * np.eye(2))
-    coords -= np.einsum('ijmn,ijnk->ijmk', hessian, derivative).squeeze()
+    coords -= np.einsum("ijmn,ijnk->ijmk", hessian, derivative).squeeze()
     return coords
 
 
-def bbox_xywh2cs(bbox, aspect_ratio, padding=1., pixel_std=200.):
+def bbox_xywh2cs(bbox, aspect_ratio, padding=1.0, pixel_std=200.0):
     """Transform the bbox format from (x,y,w,h) into (center, scale)
     Args:
         bbox (ndarray): Single bbox in (x, y, w, h)
@@ -209,12 +203,7 @@ def rotate_point(pt, angle_rad):
     return rotated_pt
 
 
-def get_affine_transform(center,
-                         scale,
-                         rot,
-                         output_size,
-                         shift=(0., 0.),
-                         inv=False):
+def get_affine_transform(center, scale, rot, output_size, shift=(0.0, 0.0), inv=False):
     """Get the affine transform matrix, given the center/scale/rot/output_size.
 
     Args:
@@ -246,8 +235,8 @@ def get_affine_transform(center,
     dst_h = output_size[1]
 
     rot_rad = np.pi * rot / 180
-    src_dir = rotate_point([0., src_w * -0.5], rot_rad)
-    dst_dir = np.array([0., dst_w * -0.5])
+    src_dir = rotate_point([0.0, src_w * -0.5], rot_rad)
+    dst_dir = np.array([0.0, dst_w * -0.5])
 
     src = np.zeros((3, 2), dtype=np.float32)
     src[0, :] = center + scale_tmp * shift
@@ -287,14 +276,14 @@ def get_warp_matrix(theta, size_input, size_dst, size_target):
     scale_y = size_dst[1] / size_target[1]
     matrix[0, 0] = math.cos(theta) * scale_x
     matrix[0, 1] = -math.sin(theta) * scale_x
-    matrix[0, 2] = scale_x * (-0.5 * size_input[0] * math.cos(theta) +
-                              0.5 * size_input[1] * math.sin(theta) +
-                              0.5 * size_target[0])
+    matrix[0, 2] = scale_x * (
+        -0.5 * size_input[0] * math.cos(theta) + 0.5 * size_input[1] * math.sin(theta) + 0.5 * size_target[0]
+    )
     matrix[1, 0] = math.sin(theta) * scale_y
     matrix[1, 1] = math.cos(theta) * scale_y
-    matrix[1, 2] = scale_y * (-0.5 * size_input[0] * math.sin(theta) -
-                              0.5 * size_input[1] * math.cos(theta) +
-                              0.5 * size_target[1])
+    matrix[1, 2] = scale_y * (
+        -0.5 * size_input[0] * math.sin(theta) - 0.5 * size_input[1] * math.cos(theta) + 0.5 * size_target[1]
+    )
     return matrix
 
 
@@ -302,31 +291,19 @@ def top_down_affine(img, r, c, s, image_size, use_udp):
     if use_udp:
         trans = get_warp_matrix(r, np.array(c) * 2.0, np.array(image_size) - 1.0, np.array(s) * 200.0)
         if not isinstance(img, list):
-            img = cv2.warpAffine(
-                img,
-                trans, (int(image_size[0]), int(image_size[1])),
-                flags=cv2.INTER_LINEAR)
+            img = cv2.warpAffine(img, trans, (int(image_size[0]), int(image_size[1])), flags=cv2.INTER_LINEAR)
         else:
             img = [
-                cv2.warpAffine(
-                    i,
-                    trans, (int(image_size[0]), int(image_size[1])),
-                    flags=cv2.INTER_LINEAR) for i in img
+                cv2.warpAffine(i, trans, (int(image_size[0]), int(image_size[1])), flags=cv2.INTER_LINEAR) for i in img
             ]
 
     else:
         trans = get_affine_transform(c, s, r, image_size)
         if not isinstance(img, list):
-            img = cv2.warpAffine(
-                img,
-                trans, (int(image_size[0]), int(image_size[1])),
-                flags=cv2.INTER_LINEAR)
+            img = cv2.warpAffine(img, trans, (int(image_size[0]), int(image_size[1])), flags=cv2.INTER_LINEAR)
         else:
             img = [
-                cv2.warpAffine(
-                    i,
-                    trans, (int(image_size[0]), int(image_size[1])),
-                    flags=cv2.INTER_LINEAR) for i in img
+                cv2.warpAffine(i, trans, (int(image_size[0]), int(image_size[1])), flags=cv2.INTER_LINEAR) for i in img
             ]
 
     return img
@@ -346,9 +323,8 @@ def _get_max_preds(heatmaps):
         - preds (np.ndarray[N, K, 2]): Predicted keypoint location.
         - maxvals (np.ndarray[N, K, 1]): Scores (confidence) of the keypoints.
     """
-    assert isinstance(heatmaps,
-                      np.ndarray), ('heatmaps should be numpy.ndarray')
-    assert heatmaps.ndim == 4, 'batch_images should be 4-ndim'
+    assert isinstance(heatmaps, np.ndarray), "heatmaps should be numpy.ndarray"
+    assert heatmaps.ndim == 4, "batch_images should be 4-ndim"
 
     N, K, _, W = heatmaps.shape
     heatmaps_reshaped = heatmaps.reshape((N, K, -1))
@@ -405,15 +381,17 @@ def transform_preds(coords, center, scale, output_size, use_udp=False):
     return target_coords
 
 
-def keypoints_from_heatmaps(heatmaps,
-                            center,
-                            scale,
-                            unbiased=False,
-                            post_process='default',
-                            kernel=11,
-                            valid_radius_factor=0.0546875,
-                            use_udp=False,
-                            target_type='GaussianHeatmap'):
+def keypoints_from_heatmaps(
+    heatmaps,
+    center,
+    scale,
+    unbiased=False,
+    post_process="default",
+    kernel=11,
+    valid_radius_factor=0.0546875,
+    use_udp=False,
+    target_type="GaussianHeatmap",
+):
     """Get final keypoint predictions from heatmaps and transform them back to
     the image.
 
@@ -461,48 +439,46 @@ def keypoints_from_heatmaps(heatmaps,
 
     # detect conflicts
     if unbiased:
-        assert post_process not in [False, None, 'megvii']
-    if post_process in ['megvii', 'unbiased']:
+        assert post_process not in [False, None, "megvii"]
+    if post_process in ["megvii", "unbiased"]:
         assert kernel > 0
     if use_udp:
-        assert not post_process == 'megvii'
+        assert not post_process == "megvii"
 
     # normalize configs
     if post_process is False:
-        warnings.warn(
-            'post_process=False is deprecated, '
-            'please use post_process=None instead', DeprecationWarning)
+        warnings.warn("post_process=False is deprecated, " "please use post_process=None instead", DeprecationWarning)
         post_process = None
     elif post_process is True:
         if unbiased is True:
             warnings.warn(
-                'post_process=True, unbiased=True is deprecated,'
-                " please use post_process='unbiased' instead",
-                DeprecationWarning)
-            post_process = 'unbiased'
+                "post_process=True, unbiased=True is deprecated," " please use post_process='unbiased' instead",
+                DeprecationWarning,
+            )
+            post_process = "unbiased"
         else:
             warnings.warn(
-                'post_process=True, unbiased=False is deprecated, '
-                "please use post_process='default' instead",
-                DeprecationWarning)
-            post_process = 'default'
-    elif post_process == 'default':
+                "post_process=True, unbiased=False is deprecated, " "please use post_process='default' instead",
+                DeprecationWarning,
+            )
+            post_process = "default"
+    elif post_process == "default":
         if unbiased is True:
             warnings.warn(
-                'unbiased=True is deprecated, please use '
-                "post_process='unbiased' instead", DeprecationWarning)
-            post_process = 'unbiased'
+                "unbiased=True is deprecated, please use " "post_process='unbiased' instead", DeprecationWarning
+            )
+            post_process = "unbiased"
 
     # start processing
-    if post_process == 'megvii':
+    if post_process == "megvii":
         heatmaps = _gaussian_blur(heatmaps, kernel=kernel)
 
     N, K, H, W = heatmaps.shape
     if use_udp:
-        if target_type.lower() == 'GaussianHeatMap'.lower():
+        if target_type.lower() == "GaussianHeatMap".lower():
             preds, maxvals = _get_max_preds(heatmaps)
             preds = post_dark_udp(preds, heatmaps, kernel=kernel)
-        elif target_type.lower() == 'CombinedTarget'.lower():
+        elif target_type.lower() == "CombinedTarget".lower():
             for person_heatmaps in heatmaps:
                 for i, heatmap in enumerate(person_heatmaps):
                     kt = 2 * kernel + 1 if i % 3 == 0 else kernel
@@ -518,14 +494,12 @@ def keypoints_from_heatmaps(heatmaps,
             index = index.astype(int).reshape(N, K // 3, 1)
             preds += np.concatenate((offset_x[index], offset_y[index]), axis=2)
         else:
-            raise ValueError('target_type should be either '
-                             "'GaussianHeatmap' or 'CombinedTarget'")
+            raise ValueError("target_type should be either " "'GaussianHeatmap' or 'CombinedTarget'")
     else:
         preds, maxvals = _get_max_preds(heatmaps)
-        if post_process == 'unbiased':  # alleviate biased coordinate
+        if post_process == "unbiased":  # alleviate biased coordinate
             # apply Gaussian distribution modulation.
-            heatmaps = np.log(
-                np.maximum(_gaussian_blur(heatmaps, kernel), 1e-10))
+            heatmaps = np.log(np.maximum(_gaussian_blur(heatmaps, kernel), 1e-10))
             for n in range(N):
                 for k in range(K):
                     preds[n][k] = _taylor(heatmaps[n][k], preds[n][k])
@@ -537,20 +511,18 @@ def keypoints_from_heatmaps(heatmaps,
                     px = int(preds[n][k][0])
                     py = int(preds[n][k][1])
                     if 1 < px < W - 1 and 1 < py < H - 1:
-                        diff = np.array([
-                            heatmap[py][px + 1] - heatmap[py][px - 1],
-                            heatmap[py + 1][px] - heatmap[py - 1][px]
-                        ])
-                        preds[n][k] += np.sign(diff) * .25
-                        if post_process == 'megvii':
+                        diff = np.array(
+                            [heatmap[py][px + 1] - heatmap[py][px - 1], heatmap[py + 1][px] - heatmap[py - 1][px]]
+                        )
+                        preds[n][k] += np.sign(diff) * 0.25
+                        if post_process == "megvii":
                             preds[n][k] += 0.5
 
     # Transform back to the image
     for i in range(N):
-        preds[i] = transform_preds(
-            preds[i], center[i], scale[i], [W, H], use_udp=use_udp)
+        preds[i] = transform_preds(preds[i], center[i], scale[i], [W, H], use_udp=use_udp)
 
-    if post_process == 'megvii':
+    if post_process == "megvii":
         maxvals = maxvals / 255.0 + 0.5
 
     return preds, maxvals
@@ -566,7 +538,7 @@ def preprocess(image):
 
     image = image - mean
     image = image * denominator
-    image = image[np.newaxis, ]
+    image = image[np.newaxis,]
     image = np.transpose(image, [0, 3, 1, 2])
 
     return image

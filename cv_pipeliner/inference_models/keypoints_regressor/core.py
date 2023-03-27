@@ -12,13 +12,13 @@ KeypointsRegressorOutput = List[Keypoints]
 
 
 class KeypointsRegressorModelSpec(ModelSpec):
-
     @abc.abstractproperty
-    def inference_model_cls(self) -> Type['KeypointsRegressorModel']:
+    def inference_model_cls(self) -> Type["KeypointsRegressorModel"]:
         pass
 
-    def load_keypoints_regressor_inferencer(self) -> 'KeypointsRegressorInferencer':
+    def load_keypoints_regressor_inferencer(self) -> "KeypointsRegressorInferencer":
         from cv_pipeliner.inferencers.keypoints_regressor import KeypointsRegressorInferencer
+
         return KeypointsRegressorInferencer(self.load())
 
 

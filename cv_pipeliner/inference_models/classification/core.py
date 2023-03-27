@@ -15,13 +15,13 @@ ClassificationOutput = Tuple[Labels_Top_N, Scores_Top_N]
 
 
 class ClassificationModelSpec(ModelSpec):
-
     @abc.abstractproperty
-    def inference_model_cls(self) -> Type['ClassificationModel']:
+    def inference_model_cls(self) -> Type["ClassificationModel"]:
         pass
 
-    def load_classification_inferencer(self) -> 'ClassificationInferencer':
+    def load_classification_inferencer(self) -> "ClassificationInferencer":
         from cv_pipeliner.inferencers.classification import ClassificationInferencer
+
         return ClassificationInferencer(self.load())
 
 
@@ -31,11 +31,7 @@ class ClassificationModel(InferenceModel):
         super().__init__(model_spec)
 
     @abc.abstractmethod
-    def predict(
-        self,
-        input: ClassificationInput,
-        top_n: int = 1
-    ) -> ClassificationOutput:
+    def predict(self, input: ClassificationInput, top_n: int = 1) -> ClassificationOutput:
         pass
 
     @abc.abstractmethod

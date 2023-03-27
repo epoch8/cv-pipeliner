@@ -1,19 +1,25 @@
 import json
 from pathlib import Path
+
 # from threading import Semaphore
 from datapipe.run_config import RunConfig
 from datapipe.store.database import DBConn, TableStoreDB
 from datapipe.store.table_store import TableStore
 from datapipe.types import (
-    DataDF, DataSchema, IndexDF, MetaSchema, data_to_index, index_difference, index_intersection, index_to_data
+    DataDF,
+    DataSchema,
+    IndexDF,
+    MetaSchema,
+    data_to_index,
+    index_difference,
+    index_intersection,
+    index_to_data,
 )
 import numpy as np
 import fsspec
 from typing import Any, Dict, IO, Iterator, Optional, Tuple, List, Type, Union, Callable
 
-from datapipe.store.filedir import (
-    ItemStoreFileAdapter, TableStoreFiledir, _pattern_to_attrnames
-)
+from datapipe.store.filedir import ItemStoreFileAdapter, TableStoreFiledir, _pattern_to_attrnames
 import pandas as pd
 from sqlalchemy import JSON, Column, String, Integer
 from cv_pipeliner.core.data import ImageData, BboxData
@@ -23,11 +29,11 @@ from cv_pipeliner.utils.fiftyone import FifyOneSession
 
 
 class ImageDataFile(ItemStoreFileAdapter):
-    '''
+    """
     Converts each ImageData file into Pandas record
-    '''
+    """
 
-    mode = 't'
+    mode = "t"
 
     def __init__(
         self,
@@ -38,68 +44,67 @@ class ImageDataFile(ItemStoreFileAdapter):
     def load(self, f: IO) -> ImageData:
         image_data_json = json.load(f)
         image_data = self.image_data_cls.from_json(image_data_json) if image_data_json is not None else None
-        return {'image_data': image_data}
+        return {"image_data": image_data}
 
     def dump(self, obj: Dict[str, Any], f: IO) -> None:
-        image_data: ImageData = obj['image_data']
+        image_data: ImageData = obj["image_data"]
         f.write(image_data.json(indent=4, ensure_ascii=False))
 
 
 class NumpyDataFile(ItemStoreFileAdapter):
-    '''
+    """
     Converts each npy file into Pandas record
-    '''
+    """
 
-    mode = 'b'
+    mode = "b"
 
     def load(self, f: IO) -> np.ndarray:
         ndarray = np.load(f)
-        return {'ndarray': ndarray}
+        return {"ndarray": ndarray}
 
     def dump(self, obj: Dict[str, Any], f: IO) -> None:
-        ndarray: np.ndarray = obj['ndarray']
+        ndarray: np.ndarray = obj["ndarray"]
         return np.save(f, ndarray)
 
 
 class GetImageSizeFile(ItemStoreFileAdapter):
-    mode = 'b'
+    mode = "b"
 
     def load(self, f: IO) -> Dict[str, Tuple[int, int]]:
         image_size = get_image_size(f)
-        return {'image_size': image_size}
+        return {"image_size": image_size}
 
     def dump(self, obj: Dict[str, Tuple[int, int]], f: IO) -> None:
         raise NotImplementedError
 
 
 class COCOLabelsFile(ItemStoreFileAdapter):
-    mode = 'b'
+    mode = "b"
 
     def __init__(self, class_names: List[str], img_format: str):
         from cv_pipeliner.data_converters.coco import COCODataConverter
+
         self.coco_converter = COCODataConverter(class_names)
         self.img_format = img_format
 
     def load(self, f: fsspec.core.OpenFile) -> Dict[str, Tuple[int, int]]:
         filepath = Path(f.path)
-        assert filepath.parent.name == 'labels'
-        image_path = filepath.parent.parent / 'images' / f"{filepath.stem}.{self.img_format}"
-        if f.fs.protocol in ['file'] or f.fs.protocol is None:
-            prefix = ''
+        assert filepath.parent.name == "labels"
+        image_path = filepath.parent.parent / "images" / f"{filepath.stem}.{self.img_format}"
+        if f.fs.protocol in ["file"] or f.fs.protocol is None:
+            prefix = ""
         else:
             protocol = f.fs.protocol
             if isinstance(protocol, tuple):
                 protocol = protocol[0]
-            prefix = f'{protocol}://'
-        image_data = self.coco_converter.get_image_data_from_annot(
-            image_path=f"{prefix}{image_path}", annot=f
-        )
-        return {'image_size': image_data}
+            prefix = f"{protocol}://"
+        image_data = self.coco_converter.get_image_data_from_annot(image_path=f"{prefix}{image_path}", annot=f)
+        return {"image_size": image_data}
 
     def dump(self, obj: Dict[str, Tuple[int, int]], f: fsspec.core.OpenFile) -> None:
-        image_data: ImageData = obj['image_data']
+        image_data: ImageData = obj["image_data"]
         coco_data = self.coco_converter.get_annot_from_image_data(image_data)
-        f.write('\n'.join(coco_data).encode())
+        f.write("\n".join(coco_data).encode())
 
 
 class ImageDataTableStoreDB(TableStoreDB):
@@ -112,41 +117,36 @@ class ImageDataTableStoreDB(TableStoreDB):
         image_data_cls: Type[ImageData] = ImageData,
     ) -> None:
         # assert all([column.primary_key for column in data_sql_schema])
-        assert 'image_data' not in [column.name for column in data_sql_schema]
-        data_sql_schema += [Column('image_data', JSON)]
-        super().__init__(
-            dbconn=dbconn,
-            name=name,
-            data_sql_schema=data_sql_schema,
-            create_table=create_table
-        )
+        assert "image_data" not in [column.name for column in data_sql_schema]
+        data_sql_schema += [Column("image_data", JSON)]
+        super().__init__(dbconn=dbconn, name=name, data_sql_schema=data_sql_schema, create_table=create_table)
         self.image_data_cls = image_data_cls
 
     def insert_rows(self, df: DataDF) -> None:
-        df['image_data'] = df['image_data'].apply(
+        df["image_data"] = df["image_data"].apply(
             lambda image_data: json.loads(image_data.json()) if image_data is not None else None
         )
         super().insert_rows(df)
 
     def read_rows(self, idx: Optional[IndexDF] = None) -> pd.DataFrame:
         df = super().read_rows(idx=idx)
-        df['image_data'] = df['image_data'].apply(
-            lambda image_data_json: self.image_data_cls.from_json(
-                image_data_json
-            ) if image_data_json is not None else None
+        df["image_data"] = df["image_data"].apply(
+            lambda image_data_json: self.image_data_cls.from_json(image_data_json)
+            if image_data_json is not None
+            else None
         )
         return df
 
 
 class EmptyItemStoreFileAdapter(ItemStoreFileAdapter):
-    mode = 'b'
+    mode = "b"
 
 
 class ConnectedImageDataTableStore(TableStore):
     def __init__(
         self,
         images_table_store: TableStoreFiledir,
-        images_data_table_store: Union[ImageDataTableStoreDB, TableStoreFiledir]
+        images_data_table_store: Union[ImageDataTableStoreDB, TableStoreFiledir],
     ) -> None:
         if isinstance(images_data_table_store, TableStoreFiledir):
             assert isinstance(images_data_table_store.adapter, ImageDataFile)
@@ -168,7 +168,7 @@ class ConnectedImageDataTableStore(TableStore):
 
     def _set_images_paths(self, df: DataDF, force_update_meta: bool = False) -> None:
         for row_idx in df.index:
-            if df.loc[row_idx, 'image_data'] is None:
+            if df.loc[row_idx, "image_data"] is None:
                 continue
             idxs_values = df.loc[row_idx, self.attrnames].tolist()
             image_path_candidates = self.images_table_store._filenames_from_idxs_values(idxs_values)
@@ -179,9 +179,9 @@ class ConnectedImageDataTableStore(TableStore):
                         break
             else:
                 image_path = image_path_candidates[0]
-            df.loc[row_idx, 'image_data'].image_path = image_path
+            df.loc[row_idx, "image_data"].image_path = image_path
             if force_update_meta:
-                df.loc[row_idx, 'image_data'].get_image_size()
+                df.loc[row_idx, "image_data"].get_image_size()
 
     def insert_rows(self, df: DataDF, force_update_meta: bool = False) -> None:
         self._set_images_paths(df, force_update_meta=force_update_meta)
@@ -221,7 +221,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         additional_info_keys_in_sample: List[str] = [],
         create_dataset_if_empty: bool = True,
         image_data_cls: Type[ImageData] = ImageData,
-        bbox_data_cls: Type[BboxData] = BboxData
+        bbox_data_cls: Type[BboxData] = BboxData,
     ):
         self.dataset = dataset
         self.fo_detections_label = fo_detections_label
@@ -240,16 +240,16 @@ class FiftyOneImagesDataTableStore(TableStore):
             assert all([isinstance(column.type, (String, Integer)) for column in primary_schema])
             self.primary_schema = primary_schema
         else:
-            self.primary_schema = [
-                Column('filepath', String(100), primary_key=True)
-            ]
+            self.primary_schema = [Column("filepath", String(100), primary_key=True)]
         self.attrnames = [column.name for column in self.primary_schema]
         if self.images_table_store is not None:
             for key in self.images_table_store.primary_keys:
                 assert key in self.attrnames, f"Missing key for images_data_store: {key}"
-        assert 'id' not in self.attrnames, "The key 'id' is reserved for this TableStore. Use other key name instead."
-        assert 'sample' not in self.attrnames, "The key 'sample' is reserved for this TableStore. Use other key name instead."
-        self.attrnames_no_filepath = [attrname for attrname in self.attrnames if attrname != 'filepath']
+        assert "id" not in self.attrnames, "The key 'id' is reserved for this TableStore. Use other key name instead."
+        assert (
+            "sample" not in self.attrnames
+        ), "The key 'sample' is reserved for this TableStore. Use other key name instead."
+        self.attrnames_no_filepath = [attrname for attrname in self.attrnames if attrname != "filepath"]
         self.fo_dataset = None
         self.create_dataset_if_empty = create_dataset_if_empty
         # self.semaphore = Semaphore(value=1)
@@ -287,11 +287,11 @@ class FiftyOneImagesDataTableStore(TableStore):
             pass
         return self.fo_dataset
 
-    def _get_view(self, idx: IndexDF = None) -> 'fiftyone.DatasetView':
+    def _get_view(self, idx: IndexDF = None) -> "fiftyone.DatasetView":
         view = self.fo_session.fiftyone.DatasetView(self._get_or_create_dataset())
         if idx is not None:
             for attrname in self.attrnames:
-                if attrname == 'filepath':
+                if attrname == "filepath":
                     values = idx[attrname].apply(self.mapping_filepath)
                 else:
                     values = idx[attrname]
@@ -310,9 +310,9 @@ class FiftyOneImagesDataTableStore(TableStore):
             else:
                 image_path = image_path_candidates[0]
             image_data.image_path = image_path
-        assert image_data.image_path is not None and str(image_data.image_path) != '', (
-            f"This {image_data=} have empty image_path"
-        )
+        assert (
+            image_data.image_path is not None and str(image_data.image_path) != ""
+        ), f"This {image_data=} have empty image_path"
         return image_data
 
     def read_rows(self, idx: IndexDF = None, read_data: bool = True) -> DataDF:
@@ -328,20 +328,22 @@ class FiftyOneImagesDataTableStore(TableStore):
                 additional_info_keys_in_fo_detections=self.additional_info_keys_in_fo_detections,
                 additional_info_keys_in_sample=self.additional_info_keys_in_sample,
                 image_data_cls=self.image_data_cls,
-                bbox_data_cls=self.bbox_data_cls
+                bbox_data_cls=self.bbox_data_cls,
             )
-            df_result.append({
-                'filepath': self.inverse_mapping_filepath(sample.filepath),
-                **{'image_data': image_data if read_data else {}},
-                **{attrname: sample[attrname] for attrname in self.attrnames_no_filepath},
-                'sample': sample
-            })
+            df_result.append(
+                {
+                    "filepath": self.inverse_mapping_filepath(sample.filepath),
+                    **{"image_data": image_data if read_data else {}},
+                    **{attrname: sample[attrname] for attrname in self.attrnames_no_filepath},
+                    "sample": sample,
+                }
+            )
         df_result = pd.DataFrame(df_result)
         if len(df_result) == 0:
             df_result = pd.DataFrame(columns=self.attrnames)
         return df_result
 
-    def _delete_samples(self, dataset: 'fo.Dataset', samples: List['fo.Sample']):
+    def _delete_samples(self, dataset: "fo.Dataset", samples: List["fo.Sample"]):
         # Во избежания ошибки в префекте AttributeError: 'RedirectToLog' object has no attribute 'encoding'
         # dataset.add_samples(samples_to_be_updated)
         # self.semaphore.acquire()
@@ -351,7 +353,7 @@ class FiftyOneImagesDataTableStore(TableStore):
             # self.semaphore.release()
             pass
 
-    def _add_samples(self, dataset: 'fo.Dataset', samples: List['fo.Sample']):
+    def _add_samples(self, dataset: "fo.Dataset", samples: List["fo.Sample"]):
         # Во избежания ошибки в префекте AttributeError: 'RedirectToLog' object has no attribute 'encoding'
         # dataset.add_samples(samples_to_be_updated)
         # self.semaphore.acquire()
@@ -380,19 +382,18 @@ class FiftyOneImagesDataTableStore(TableStore):
         # To be updated:
         df_to_be_updated = index_to_data(df, idxs_to_be_updated).reset_index(drop=True)
         samples_to_be_updated_unordered = list(self._get_view(idxs_to_be_updated))
-        df_samples_to_be_updated_unordered = pd.DataFrame({
-            'sample': [sample for sample in samples_to_be_updated_unordered],
-            **{
-                field: [sample[field] for sample in samples_to_be_updated_unordered]
-                for field in self.attrnames
+        df_samples_to_be_updated_unordered = pd.DataFrame(
+            {
+                "sample": [sample for sample in samples_to_be_updated_unordered],
+                **{field: [sample[field] for sample in samples_to_be_updated_unordered] for field in self.attrnames},
             }
-        })
-        samples_to_be_updated = index_to_data(df_samples_to_be_updated_unordered, idxs_to_be_updated)['sample']
+        )
+        samples_to_be_updated = index_to_data(df_samples_to_be_updated_unordered, idxs_to_be_updated)["sample"]
         samples_to_be_updated_with_new_values = [
             self.fo_session.convert_image_data_to_fo_sample(
                 image_data=self._attend_image_path_to_image_data(
-                    image_data=df_to_be_updated.loc[idx, 'image_data'],
-                    idxs_values=df_to_be_updated.loc[idx, self.attrnames]
+                    image_data=df_to_be_updated.loc[idx, "image_data"],
+                    idxs_values=df_to_be_updated.loc[idx, self.attrnames],
                 ),
                 fo_detections_label=self.fo_detections_label,
                 fo_classification_label=self.fo_classification_label,
@@ -404,7 +405,9 @@ class FiftyOneImagesDataTableStore(TableStore):
             )
             for idx in df_to_be_updated.index
         ]
-        for current_sample, sample_with_updated_values in zip(samples_to_be_updated, samples_to_be_updated_with_new_values):
+        for current_sample, sample_with_updated_values in zip(
+            samples_to_be_updated, samples_to_be_updated_with_new_values
+        ):
             current_sample.merge(sample_with_updated_values)
 
         self._delete_samples(dataset, samples_to_be_updated)  # Работает по поведению так же, как и sample.save()
@@ -415,8 +418,8 @@ class FiftyOneImagesDataTableStore(TableStore):
         samples_to_be_added = [
             self.fo_session.convert_image_data_to_fo_sample(
                 image_data=self._attend_image_path_to_image_data(
-                    image_data=df_to_be_added.loc[idx, 'image_data'],
-                    idxs_values=df_to_be_added.loc[idx, self.attrnames]
+                    image_data=df_to_be_added.loc[idx, "image_data"],
+                    idxs_values=df_to_be_added.loc[idx, self.attrnames],
                 ),
                 fo_detections_label=self.fo_detections_label,
                 fo_classification_label=self.fo_classification_label,
@@ -424,7 +427,7 @@ class FiftyOneImagesDataTableStore(TableStore):
                 mapping_filepath=self.mapping_filepath,
                 additional_info_keys_in_bboxes_data=self.additional_info_keys_in_fo_detections,
                 additional_info_keys_in_image_data=self.additional_info_keys_in_sample,
-                additional_info={field: df_to_be_added.loc[idx, field] for field in self.attrnames_no_filepath}
+                additional_info={field: df_to_be_added.loc[idx, field] for field in self.attrnames_no_filepath},
             )
             for idx in df_to_be_added.index
         ]

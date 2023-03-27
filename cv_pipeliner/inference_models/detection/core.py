@@ -16,11 +16,7 @@ Keypoints = List[Tuple[int, int]]
 
 DetectionInput = List[np.ndarray]
 DetectionOutput = Tuple[
-    List[Bboxes],
-    List[Keypoints],
-    List[Scores],
-    List[Classes],  # Optional exit
-    List[Scores]  # Optional exit
+    List[Bboxes], List[Keypoints], List[Scores], List[Classes], List[Scores]  # Optional exit  # Optional exit
 ]
 
 
@@ -28,11 +24,12 @@ class DetectionModelSpec(ModelSpec):
     class_names: List[str] = None  # optional
 
     @abc.abstractproperty
-    def inference_model_cls(self) -> Type['DetectionModel']:
+    def inference_model_cls(self) -> Type["DetectionModel"]:
         pass
 
-    def load_detection_inferencer(self) -> 'DetectionInferencer':
+    def load_detection_inferencer(self) -> "DetectionInferencer":
         from cv_pipeliner.inferencers.detection import DetectionInferencer
+
         return DetectionInferencer(self.load())
 
 
@@ -44,10 +41,7 @@ class DetectionModel(InferenceModel):
 
     @abc.abstractmethod
     def predict(
-        self,
-        input: DetectionInput,
-        score_threshold: float,
-        classification_top_n: int = None
+        self, input: DetectionInput, score_threshold: float, classification_top_n: int = None
     ) -> DetectionOutput:
         pass
 

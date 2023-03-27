@@ -18,8 +18,11 @@ import numpy as np
 try:
     from numba import jit
 except ImportError:
+
     def jit(func):
         return func
+
+
 from filterpy.kalman import KalmanFilter
 
 np.random.seed(0)
@@ -41,8 +44,8 @@ def linear_assignment(cost_matrix):
 @jit
 def iou(bb_test, bb_gt):
     """
-  Computes IUO between two bboxes in the form [x1,y1,x2,y2]
-  """
+    Computes IUO between two bboxes in the form [x1,y1,x2,y2]
+    """
     xx1 = np.maximum(bb_test[0], bb_gt[0])
     yy1 = np.maximum(bb_test[1], bb_gt[1])
     xx2 = np.minimum(bb_test[2], bb_gt[2])
@@ -51,19 +54,17 @@ def iou(bb_test, bb_gt):
     h = np.maximum(0.0, yy2 - yy1)
     wh = w * h
     o = wh / (
-        (bb_test[2] - bb_test[0]) * (bb_test[3] - bb_test[1])
-        + (bb_gt[2] - bb_gt[0]) * (bb_gt[3] - bb_gt[1])
-        - wh
+        (bb_test[2] - bb_test[0]) * (bb_test[3] - bb_test[1]) + (bb_gt[2] - bb_gt[0]) * (bb_gt[3] - bb_gt[1]) - wh
     )
     return o
 
 
 def convert_bbox_to_z(bbox):
     """
-  Takes a bounding box in the form [x1,y1,x2,y2] and returns z in the form
-    [x,y,s,r] where x,y is the centre of the box and s is the scale/area and r is
-    the aspect ratio
-  """
+    Takes a bounding box in the form [x1,y1,x2,y2] and returns z in the form
+      [x,y,s,r] where x,y is the centre of the box and s is the scale/area and r is
+      the aspect ratio
+    """
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
     x = bbox[0] + w / 2.0
@@ -75,32 +76,28 @@ def convert_bbox_to_z(bbox):
 
 def convert_x_to_bbox(x, score=None):
     """
-  Takes a bounding box in the centre form [x,y,s,r] and returns it in the form
-    [x1,y1,x2,y2] where x1,y1 is the top left and x2,y2 is the bottom right
-  """
+    Takes a bounding box in the centre form [x,y,s,r] and returns it in the form
+      [x1,y1,x2,y2] where x1,y1 is the top left and x2,y2 is the bottom right
+    """
     w = np.sqrt(x[2] * x[3])
     h = x[2] / w
     if score is None:
-        return np.array(
-            [x[0] - w / 2.0, x[1] - h / 2.0, x[0] + w / 2.0, x[1] + h / 2.0]
-        ).reshape((1, 4))
+        return np.array([x[0] - w / 2.0, x[1] - h / 2.0, x[0] + w / 2.0, x[1] + h / 2.0]).reshape((1, 4))
     else:
-        return np.array(
-            [x[0] - w / 2.0, x[1] - h / 2.0, x[0] + w / 2.0, x[1] + h / 2.0, score]
-        ).reshape((1, 5))
+        return np.array([x[0] - w / 2.0, x[1] - h / 2.0, x[0] + w / 2.0, x[1] + h / 2.0, score]).reshape((1, 5))
 
 
 class KalmanBoxTracker(object):
     """
-  This class represents the internal state of individual tracked objects observed as bbox.
-  """
+    This class represents the internal state of individual tracked objects observed as bbox.
+    """
 
     count = 0
 
     def __init__(self, bbox):
         """
-    Initialises a tracker using initial bounding box.
-    """
+        Initialises a tracker using initial bounding box.
+        """
         # define constant velocity model
         self.kf = KalmanFilter(dim_x=7, dim_z=4)
         self.kf.F = np.array(
@@ -124,9 +121,7 @@ class KalmanBoxTracker(object):
         )
 
         self.kf.R[2:, 2:] *= 10.0
-        self.kf.P[
-            4:, 4:
-        ] *= 1000.0  # give high uncertainty to the unobservable initial velocities
+        self.kf.P[4:, 4:] *= 1000.0  # give high uncertainty to the unobservable initial velocities
         self.kf.P *= 10.0
         self.kf.Q[-1, -1] *= 0.01
         self.kf.Q[4:, 4:] *= 0.01
@@ -142,8 +137,8 @@ class KalmanBoxTracker(object):
 
     def update(self, bbox):
         """
-    Updates the state vector with observed bbox.
-    """
+        Updates the state vector with observed bbox.
+        """
         self.time_since_update = 0
         self.history = []
         self.hits += 1
@@ -152,8 +147,8 @@ class KalmanBoxTracker(object):
 
     def predict(self):
         """
-    Advances the state vector and returns the predicted bounding box estimate.
-    """
+        Advances the state vector and returns the predicted bounding box estimate.
+        """
         if (self.kf.x[6] + self.kf.x[2]) <= 0:
             self.kf.x[6] *= 0.0
         self.kf.predict()
@@ -166,16 +161,16 @@ class KalmanBoxTracker(object):
 
     def get_state(self):
         """
-    Returns the current bounding box estimate.
-    """
+        Returns the current bounding box estimate.
+        """
         return convert_x_to_bbox(self.kf.x)
 
 
 def associate_detections_to_trackers(detections, trackers, iou_threshold=0.3):
     """
-  Assigns detections to tracked object (both represented as bounding boxes)
-  Returns 3 lists of matches, unmatched_detections and unmatched_trackers
-  """
+    Assigns detections to tracked object (both represented as bounding boxes)
+    Returns 3 lists of matches, unmatched_detections and unmatched_trackers
+    """
     if len(trackers) == 0:
         return (
             np.empty((0, 2), dtype=int),
@@ -225,8 +220,8 @@ def associate_detections_to_trackers(detections, trackers, iou_threshold=0.3):
 class Sort(object):
     def __init__(self, max_age=1, min_hits=3):
         """
-    Sets key parameters for SORT
-    """
+        Sets key parameters for SORT
+        """
         self.max_age = max_age
         self.min_hits = min_hits
         self.trackers = []
@@ -234,12 +229,12 @@ class Sort(object):
 
     def update(self, dets=np.empty((0, 5))):
         """
-    Params:
-      dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
-    Requires: this method must be called once for each frame even with empty detections (use np.empty((0, 5)) for frames without detections).
-    Returns the a similar array, where the last column is the object ID.
-    NOTE: The number of objects returned may differ from the number of detections provided.
-    """
+        Params:
+          dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
+        Requires: this method must be called once for each frame even with empty detections (use np.empty((0, 5)) for frames without detections).
+        Returns the a similar array, where the last column is the object ID.
+        NOTE: The number of objects returned may differ from the number of detections provided.
+        """
         self.frame_count += 1
         # get predicted locations from existing trackers.
         trks = np.zeros((len(self.trackers), 5))
@@ -253,9 +248,7 @@ class Sort(object):
         trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
         for t in reversed(to_del):
             self.trackers.pop(t)
-        matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(
-            dets, trks
-        )
+        matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks)
 
         # update matched trackers with assigned detections
         for m in matched:
@@ -268,12 +261,8 @@ class Sort(object):
         i = len(self.trackers)
         for trk in reversed(self.trackers):
             d = trk.get_state()[0]
-            if (trk.time_since_update < 1) and (
-                trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits
-            ):
-                ret.append(
-                    np.concatenate((d, [trk.id + 1])).reshape(1, -1)
-                )  # +1 as MOT benchmark requires positive
+            if (trk.time_since_update < 1) and (trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits):
+                ret.append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))  # +1 as MOT benchmark requires positive
             i -= 1
             # remove dead tracklet
             if trk.time_since_update > self.max_age:

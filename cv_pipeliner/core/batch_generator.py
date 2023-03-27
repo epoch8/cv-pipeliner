@@ -6,10 +6,7 @@ import numpy as np
 
 
 class BatchGenerator(abc.ABC):
-    def __init__(self,
-                 data: List[Any],
-                 batch_size: int,
-                 use_not_caught_elements_as_last_batch: bool):
+    def __init__(self, data: List[Any], batch_size: int, use_not_caught_elements_as_last_batch: bool):
         """
         Base generator class for data.
 
@@ -31,7 +28,7 @@ class BatchGenerator(abc.ABC):
         return self._len
 
     def __getitem__(self, index) -> List:
-        indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
+        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
         batch = copy.deepcopy(self.data[indexes])
         return batch
 

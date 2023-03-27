@@ -34,13 +34,13 @@ def _exif_transpose_and_get_image_size(image: Image.Image) -> Tuple[int, int]:
     return image.size
 
 
-def get_image_size(filepath: 'bytes_or_path', exif_transpose: bool = True) -> Tuple[int, int]:
+def get_image_size(filepath: "bytes_or_path", exif_transpose: bool = True) -> Tuple[int, int]:
     if isinstance(filepath, io.BytesIO):  # file-like object
         fhandle = filepath
     elif isinstance(filepath, fsspec.core.OpenFile):  # file-like object
         fhandle = filepath.__enter__()
     else:
-        fhandle = fsspec.open(filepath, 'rb').__enter__()
+        fhandle = fsspec.open(filepath, "rb").__enter__()
 
     image = Image.open(fhandle)  # lazy loading, so it's ok to open
     size = image.size
