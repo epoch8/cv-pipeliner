@@ -118,12 +118,12 @@ class YOLOv5_DetectionModel(DetectionModel):
             if model_spec.use_default_preprocces_and_postprocess_input:
                 _, height, width, _ = self.model.get_input_details()[0]["shape"]  # (1 x H x W x 3)
                 assert model_spec.preprocess_input is None
-                resize = lambda images: np.array(
-                    [
+                resize = lambda images: [
+                    np.array(
                         tf_resize_with_pad(image=image, target_width=width, target_height=height, constant_values=114)
-                        for image in images
-                    ]
-                )
+                    )
+                    for image in images
+                ]
                 if isinstance(model_spec, YOLOv5_TFLiteWithNMS_ModelSpec):
                     self._preprocess_input = lambda images: resize(images) / 255.
                 else:
