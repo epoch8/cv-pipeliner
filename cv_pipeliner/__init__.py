@@ -30,7 +30,9 @@ from cv_pipeliner.inference_models.detection.object_detection_api import (
     ObjectDetectionAPI_pb_ModelSpec,
 )
 from cv_pipeliner.inference_models.detection.detectron2 import Detectron2_ModelSpec
-from cv_pipeliner.inference_models.detection.yolov5 import YOLOv5_ModelSpec, YOLOv5_TFLite_ModelSpec
+from cv_pipeliner.inference_models.detection.yolov5 import (
+    YOLOv5_ModelSpec, YOLOv5_TFLite_ModelSpec, YOLOv5_TFLiteWithNMS_ModelSpec
+)
 from cv_pipeliner.inference_models.classification.tensorflow import (
     TensorFlow_ClassificationModelSpec,
     TensorFlow_ClassificationModelSpec_TFServing,
