@@ -103,12 +103,12 @@ class YOLOv5_DetectionModel(DetectionModel):
             self.class_names = None
 
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
-            preprocess_input = get_preprocess_input_from_script_file(script_file=model_spec.preprocess_input)
+            self._preprocess_input = get_preprocess_input_from_script_file(script_file=model_spec.preprocess_input)
         else:
             if model_spec.preprocess_input is None:
-                preprocess_input = lambda x: x
+                self._preprocess_input = lambda x: x
             else:
-                preprocess_input = model_spec.preprocess_input
+                self._preprocess_input = model_spec.preprocess_input
 
         if isinstance(model_spec, YOLOv5_ModelSpec):
             self._load_yolov5_model(model_spec)
@@ -125,15 +125,12 @@ class YOLOv5_DetectionModel(DetectionModel):
                     ]
                 )
                 if isinstance(model_spec, YOLOv5_TFLiteWithNMS_ModelSpec):
-                    self._preprocess_input = lambda images: resize(preprocess_input(images)) / 255.
+                    self._preprocess_input = lambda images: resize(images) / 255.
                 else:
-                    self._preprocess_input = lambda images: resize(preprocess_input(images))
+                    self._preprocess_input = lambda images: resize(images)
             self._raw_predict_images = self._raw_predict_images_tflite
         else:
             raise ValueError(f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}")
-
-        if self._preprocess_input is None:
-            self._preprocess_input = preprocess_input
 
     def _load_yolov5_tflite(self, model_spec: Union[YOLOv5_TFLite_ModelSpec, YOLOv5_TFLiteWithNMS_ModelSpec]):
         import tensorflow as tf
