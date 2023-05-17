@@ -62,7 +62,7 @@ class YOLOv5_DetectionModel(DetectionModel):
         with fsspec.open(model_spec.model_path, 'rb') as src:
             temp_file.write(src.read())
         model_path_tmp = Path(temp_file.name)
-        self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=str(model_path_tmp))
+        self.model = torch.hub.load('ultralytics/yolov5:v7.0', 'custom', path=str(model_path_tmp))
         temp_file.close()
 
     def __init__(
