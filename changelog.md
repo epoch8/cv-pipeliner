@@ -1,3 +1,6 @@
+# 0.16.7
+- Fix yolov5's loading model.
+
 # 0.16.5-0.16.6
 - (new) Added parallel open images in BatchGenerator for `ImageData` (default: 64 workers)
 - Removed annoying verbosed logs when inferencing by Tensorflow classifications models.
