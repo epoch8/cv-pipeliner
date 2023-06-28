@@ -9,38 +9,142 @@ from PIL import Image, ImageDraw, ImageFont
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.utils.images_datas import (
-    flatten_additional_bboxes_data_in_image_data, get_image_data_filtered_by_labels
+    flatten_additional_bboxes_data_in_image_data,
+    get_image_data_filtered_by_labels,
 )
 from cv_pipeliner.utils.images import rotate_point
 
 
 # Taken from object_detection.utils.visualization_utils
 STANDARD_COLORS = [
-    'AliceBlue', 'Chartreuse', 'Aqua', 'Aquamarine', 'Azure', 'Beige', 'Bisque',
-    'BlanchedAlmond', 'BlueViolet', 'BurlyWood', 'CadetBlue', 'AntiqueWhite',
-    'Chocolate', 'Coral', 'CornflowerBlue', 'Cornsilk', 'Crimson', 'Cyan',
-    'DarkCyan', 'DarkGoldenRod', 'DarkGrey', 'DarkKhaki', 'DarkOrange',
-    'DarkOrchid', 'DarkSalmon', 'DarkSeaGreen', 'DarkTurquoise', 'DarkViolet',
-    'DeepPink', 'DeepSkyBlue', 'DodgerBlue', 'FireBrick', 'FloralWhite',
-    'ForestGreen', 'Fuchsia', 'Gainsboro', 'GhostWhite', 'Gold', 'GoldenRod',
-    'Salmon', 'Tan', 'HoneyDew', 'HotPink', 'IndianRed', 'Ivory', 'Khaki',
-    'Lavender', 'LavenderBlush', 'LawnGreen', 'LemonChiffon', 'LightBlue',
-    'LightCoral', 'LightCyan', 'LightGoldenRodYellow', 'LightGray', 'LightGrey',
-    'LightGreen', 'LightPink', 'LightSalmon', 'LightSeaGreen', 'LightSkyBlue',
-    'LightSlateGray', 'LightSlateGrey', 'LightSteelBlue', 'LightYellow', 'Lime',
-    'LimeGreen', 'Linen', 'Magenta', 'MediumAquaMarine', 'MediumOrchid',
-    'MediumPurple', 'MediumSeaGreen', 'MediumSlateBlue', 'MediumSpringGreen',
-    'MediumTurquoise', 'MediumVioletRed', 'MintCream', 'MistyRose', 'Moccasin',
-    'NavajoWhite', 'OldLace', 'Olive', 'OliveDrab', 'Orange', 'OrangeRed',
-    'Orchid', 'PaleGoldenRod', 'PaleGreen', 'PaleTurquoise', 'PaleVioletRed',
-    'PapayaWhip', 'PeachPuff', 'Peru', 'Pink', 'Plum', 'PowderBlue', 'Purple',
-    'Red', 'RosyBrown', 'RoyalBlue', 'SaddleBrown', 'Green', 'SandyBrown',
-    'SeaGreen', 'SeaShell', 'Sienna', 'Silver', 'SkyBlue', 'SlateBlue',
-    'SlateGray', 'SlateGrey', 'Snow', 'SpringGreen', 'SteelBlue', 'GreenYellow',
-    'Teal', 'Thistle', 'Tomato', 'Turquoise', 'Violet', 'Wheat', 'White',
-    'WhiteSmoke', 'Yellow', 'YellowGreen'
+    "AliceBlue",
+    "Chartreuse",
+    "Aqua",
+    "Aquamarine",
+    "Azure",
+    "Beige",
+    "Bisque",
+    "BlanchedAlmond",
+    "BlueViolet",
+    "BurlyWood",
+    "CadetBlue",
+    "AntiqueWhite",
+    "Chocolate",
+    "Coral",
+    "CornflowerBlue",
+    "Cornsilk",
+    "Crimson",
+    "Cyan",
+    "DarkCyan",
+    "DarkGoldenRod",
+    "DarkGrey",
+    "DarkKhaki",
+    "DarkOrange",
+    "DarkOrchid",
+    "DarkSalmon",
+    "DarkSeaGreen",
+    "DarkTurquoise",
+    "DarkViolet",
+    "DeepPink",
+    "DeepSkyBlue",
+    "DodgerBlue",
+    "FireBrick",
+    "FloralWhite",
+    "ForestGreen",
+    "Fuchsia",
+    "Gainsboro",
+    "GhostWhite",
+    "Gold",
+    "GoldenRod",
+    "Salmon",
+    "Tan",
+    "HoneyDew",
+    "HotPink",
+    "IndianRed",
+    "Ivory",
+    "Khaki",
+    "Lavender",
+    "LavenderBlush",
+    "LawnGreen",
+    "LemonChiffon",
+    "LightBlue",
+    "LightCoral",
+    "LightCyan",
+    "LightGoldenRodYellow",
+    "LightGray",
+    "LightGrey",
+    "LightGreen",
+    "LightPink",
+    "LightSalmon",
+    "LightSeaGreen",
+    "LightSkyBlue",
+    "LightSlateGray",
+    "LightSlateGrey",
+    "LightSteelBlue",
+    "LightYellow",
+    "Lime",
+    "LimeGreen",
+    "Linen",
+    "Magenta",
+    "MediumAquaMarine",
+    "MediumOrchid",
+    "MediumPurple",
+    "MediumSeaGreen",
+    "MediumSlateBlue",
+    "MediumSpringGreen",
+    "MediumTurquoise",
+    "MediumVioletRed",
+    "MintCream",
+    "MistyRose",
+    "Moccasin",
+    "NavajoWhite",
+    "OldLace",
+    "Olive",
+    "OliveDrab",
+    "Orange",
+    "OrangeRed",
+    "Orchid",
+    "PaleGoldenRod",
+    "PaleGreen",
+    "PaleTurquoise",
+    "PaleVioletRed",
+    "PapayaWhip",
+    "PeachPuff",
+    "Peru",
+    "Pink",
+    "Plum",
+    "PowderBlue",
+    "Purple",
+    "Red",
+    "RosyBrown",
+    "RoyalBlue",
+    "SaddleBrown",
+    "Green",
+    "SandyBrown",
+    "SeaGreen",
+    "SeaShell",
+    "Sienna",
+    "Silver",
+    "SkyBlue",
+    "SlateBlue",
+    "SlateGray",
+    "SlateGrey",
+    "Snow",
+    "SpringGreen",
+    "SteelBlue",
+    "GreenYellow",
+    "Teal",
+    "Thistle",
+    "Tomato",
+    "Turquoise",
+    "Violet",
+    "Wheat",
+    "White",
+    "WhiteSmoke",
+    "Yellow",
+    "YellowGreen",
 ]
-STANDARD_COLORS_RGB = ['Red', 'Green', 'Blue', 'Yellow']
+STANDARD_COLORS_RGB = ["Red", "Green", "Blue", "Yellow"]
 STANDARD_COLORS_RGB = STANDARD_COLORS_RGB + [x for x in STANDARD_COLORS if x not in STANDARD_COLORS_RGB]
 
 
@@ -53,12 +157,12 @@ def draw_bounding_box_on_image(
     xmax: int,
     keypoints: np.ndarray = [],
     angle: int = 0,
-    color='red',
+    color="red",
     thickness=4,
     display_str_list=(),
     use_normalized_coordinates=True,
     keypoints_radius: int = 5,
-    fontsize: int = 24
+    fontsize: int = 24,
 ):
     """Adds a bounding box to an image.
 
@@ -94,20 +198,17 @@ def draw_bounding_box_on_image(
     points = [(left, top), (left, bottom), (right, bottom), (right, top), (left, top)]
     rotated_points = [rotate_point(x=x, y=y, cx=left, cy=top, angle=angle) for (x, y) in points]
     if thickness > 0:
-        draw.line(
-            rotated_points,
-            width=thickness,
-            fill=color
-        )
+        draw.line(rotated_points, width=thickness, fill=color)
     try:
-        font = ImageFont.truetype('arial.ttf', fontsize)
+        font = ImageFont.truetype("arial.ttf", fontsize)
     except IOError:
         font = ImageFont.load_default()
 
     # If the total height of the display strings added to the top of the bounding
     # box exceeds the top of the image, stack the strings below the bounding box
     # instead of above.
-    display_str_heights = [font.getsize(ds)[1] for ds in display_str_list]
+    display_str_bboxes = [font.getbbox(ds) for ds in display_str_list]
+    display_str_heights = [f_ymax - f_ymin for (_, f_ymin, _, f_ymax) in display_str_bboxes]
     # Each display_str has a top and bottom margin of 0.05x.
     total_display_str_height = (1 + 2 * 0.05) * sum(display_str_heights)
 
@@ -117,25 +218,20 @@ def draw_bounding_box_on_image(
         text_bottom = bottom + total_display_str_height
     # Reverse list and print from bottom to top.
     for display_str in display_str_list[::-1]:
-        text_width, text_height = font.getsize(display_str)
+        f_xmin, f_ymin, f_xmax, f_ymax = font.getbbox(display_str)
+        text_width, text_height = f_xmax - f_xmin, f_ymax - f_ymin
         margin = np.ceil(0.05 * text_height)
-        draw.rectangle(
-            [(left, text_bottom - text_height - 2 * margin), (left + text_width, text_bottom)],
-            fill=color
-        )
-        draw.text(
-            (left + margin, text_bottom - text_height - margin),
-            display_str,
-            fill='black',
-            font=font
-        )
+        draw.rectangle([(left, text_bottom - text_height - 2 * margin), (left + text_width, text_bottom)], fill=color)
+        draw.text((left + margin, text_bottom - text_height - margin), display_str, fill="black", font=font)
         text_bottom -= text_height - 2 * margin
 
     keypoints = np.array(keypoints).reshape(len(keypoints), 2)
     for idx, (x, y) in enumerate(keypoints):
         draw.pieslice(
-            [(x-keypoints_radius, y-keypoints_radius), (x+keypoints_radius, y+keypoints_radius)], start=0, end=360,
-            fill=STANDARD_COLORS_RGB[idx % len(STANDARD_COLORS_RGB)]
+            [(x - keypoints_radius, y - keypoints_radius), (x + keypoints_radius, y + keypoints_radius)],
+            start=0,
+            end=360,
+            fill=STANDARD_COLORS_RGB[idx % len(STANDARD_COLORS_RGB)],
         )
 
 
@@ -148,13 +244,13 @@ def visualize_boxes_and_labels_on_image_array(
     scores: List[float],
     k_keypoints: List[List[Tuple[int, int]]],
     use_normalized_coordinates=False,
-    groundtruth_box_visualization_color='black',
+    groundtruth_box_visualization_color="black",
     known_labels: List[str] = [],
     skip_scores=False,
     skip_labels=False,
     keypoints_radius: int = 5,
     fontsize: int = 24,
-    thickness: int = 4
+    thickness: int = 4,
 ):
     """Overlay labeled boxes on an image with formatted scores and label names.
 
@@ -199,14 +295,14 @@ def visualize_boxes_and_labels_on_image_array(
         if skip_labels and len(known_labels) == 0:
             bbox_to_color[bbox] = groundtruth_box_visualization_color
         else:
-            display_str = ''
+            display_str = ""
             if not skip_labels:
                 display_str = str(labels[i])
             if not skip_scores:
                 if not display_str:
-                    display_str = f'{round(100*scores[i])}%'
+                    display_str = f"{round(100*scores[i])}%"
                 else:
-                    display_str = f'{display_str}: {round(100*scores[i])}%'
+                    display_str = f"{display_str}: {round(100*scores[i])}%"
             bbox_to_display_str[bbox].append(display_str)
             if len(known_labels) > 0 and labels[i] in known_labels:
                 bbox_to_color[bbox] = STANDARD_COLORS[label_to_id[labels[i]] % len(STANDARD_COLORS)]
@@ -214,7 +310,7 @@ def visualize_boxes_and_labels_on_image_array(
                 bbox_to_color[bbox] = groundtruth_box_visualization_color
 
     # Draw all boxes onto image.
-    image_pil = Image.fromarray(np.uint8(image)).convert('RGB')
+    image_pil = Image.fromarray(np.uint8(image)).convert("RGB")
     for bbox, angle, keypoints in zip(bboxes, angles, k_keypoints):
         bbox = tuple(bbox.tolist())
         ymin, xmin, ymax, xmax = bbox
@@ -231,19 +327,15 @@ def visualize_boxes_and_labels_on_image_array(
             display_str_list=bbox_to_display_str[bbox],
             use_normalized_coordinates=use_normalized_coordinates,
             keypoints_radius=keypoints_radius,
-            fontsize=fontsize
+            fontsize=fontsize,
         )
     image = np.array(image_pil)
     return image
 
 
 def draw_label_image(
-    image: np.ndarray,
-    base_label_image: np.ndarray,
-    bbox_data: BboxData,
-    inplace: bool = False
+    image: np.ndarray, base_label_image: np.ndarray, bbox_data: BboxData, inplace: bool = False
 ) -> np.ndarray:
-
     if not inplace:
         image = image.copy()
 
@@ -284,8 +376,7 @@ def draw_label_image(
 
     for channel in range(0, 3):
         image[y_min:y_max, x_min:x_max, channel] = (
-            alpha_label_image * label_image[:, :, channel]
-            + alpha_image * image[y_min:y_max, x_min:x_max, channel]
+            alpha_label_image * label_image[:, :, channel] + alpha_image * image[y_min:y_max, x_min:x_max, channel]
         )
 
     if not inplace:
@@ -295,7 +386,7 @@ def draw_label_image(
 def visualize_image_data(
     image_data: ImageData,
     use_labels: bool = False,
-    score_type: Literal['detection', 'classification'] = None,
+    score_type: Literal["detection", "classification"] = None,
     filter_by_labels: List[str] = None,
     known_labels: Optional[List[str]] = None,
     draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
@@ -305,17 +396,14 @@ def visualize_image_data(
     fontsize: int = 24,
     thickness: int = 4,
     thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None,
-    return_as_pil_image: bool = False
+    return_as_pil_image: bool = False,
 ) -> Union[np.ndarray, Image.Image]:
-
     if thumbnail_size is not None:
         from cv_pipeliner.utils.images_datas import thumbnail_image_data
+
         image_data = thumbnail_image_data(image_data, thumbnail_size)
 
-    image_data = get_image_data_filtered_by_labels(
-        image_data=image_data,
-        filter_by_labels=filter_by_labels
-    )
+    image_data = get_image_data_filtered_by_labels(image_data=image_data, filter_by_labels=filter_by_labels)
     image = image_data.open_image()
     if include_additional_bboxes_data:
         bboxes_data = flatten_additional_bboxes_data_in_image_data(
@@ -327,15 +415,12 @@ def visualize_image_data(
     if known_labels is None:
         known_labels = list(set(labels))
     k_keypoints = [bbox_data.keypoints for bbox_data in bboxes_data]
-    bboxes = np.array([
-        (bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax)
-        for bbox_data in bboxes_data
-    ])
-    angles = np.array([0. for _ in bboxes_data])
-    if score_type == 'detection':
+    bboxes = np.array([(bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax) for bbox_data in bboxes_data])
+    angles = np.array([0.0 for _ in bboxes_data])
+    if score_type == "detection":
         scores = np.array([bbox_data.detection_score for bbox_data in bboxes_data])
         skip_scores = False
-    elif score_type == 'classification':
+    elif score_type == "classification":
         scores = np.array([bbox_data.classification_score for bbox_data in bboxes_data])
         skip_scores = False
     else:
@@ -352,30 +437,27 @@ def visualize_image_data(
         use_normalized_coordinates=False,
         skip_scores=skip_scores,
         skip_labels=not use_labels,
-        groundtruth_box_visualization_color='lime',
+        groundtruth_box_visualization_color="lime",
         known_labels=known_labels,
         keypoints_radius=keypoints_radius,
         fontsize=fontsize,
-        thickness=thickness
+        thickness=thickness,
     )
     if len(image_data.keypoints) > 0:
         image_pil = Image.fromarray(image)
         draw = ImageDraw.Draw(image_pil)
         for idx, (x, y) in enumerate(image_data.keypoints):
             draw.pieslice(
-                [(x-keypoints_radius, y-keypoints_radius), (x+keypoints_radius, y+keypoints_radius)], start=0, end=360,
-                fill=STANDARD_COLORS_RGB[idx % len(STANDARD_COLORS_RGB)]
+                [(x - keypoints_radius, y - keypoints_radius), (x + keypoints_radius, y + keypoints_radius)],
+                start=0,
+                end=360,
+                fill=STANDARD_COLORS_RGB[idx % len(STANDARD_COLORS_RGB)],
             )
         image = np.array(image_pil)
     if draw_base_labels_with_given_label_to_base_label_image is not None:
         for bbox_data in image_data.bboxes_data:
             base_label_image = draw_base_labels_with_given_label_to_base_label_image(bbox_data.label)
-            draw_label_image(
-                image=image,
-                base_label_image=base_label_image,
-                bbox_data=bbox_data,
-                inplace=True
-            )
+            draw_label_image(image=image, base_label_image=base_label_image, bbox_data=bbox_data, inplace=True)
 
     if return_as_pil_image:
         return Image.fromarray(image)
@@ -388,8 +470,8 @@ def visualize_images_data_side_by_side(
     image_data2: ImageData,
     use_labels1: bool = False,
     use_labels2: bool = False,
-    score_type1: Literal['detection', 'classification'] = None,
-    score_type2: Literal['detection', 'classification'] = None,
+    score_type1: Literal["detection", "classification"] = None,
+    score_type2: Literal["detection", "classification"] = None,
     filter_by_labels1: List[str] = None,
     filter_by_labels2: List[str] = None,
     known_labels: Optional[List[str]] = None,
@@ -401,13 +483,12 @@ def visualize_images_data_side_by_side(
     fontsize: int = 24,
     thickness: int = 4,
     thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None,
-    return_as_pil_image: bool = False
+    return_as_pil_image: bool = False,
 ) -> Union[np.ndarray, Image.Image]:
-
     if overlay:
         image_data1 = copy.deepcopy(image_data1)
         image_data2 = copy.deepcopy(image_data2)
-        for image_data, tag in [(image_data1, 'left'), (image_data2, 'right')]:
+        for image_data, tag in [(image_data1, "left"), (image_data2, "right")]:
             for bbox_data in image_data.bboxes_data:
                 bbox_data.label = f"{bbox_data.label} [{tag}]"
 
@@ -423,7 +504,7 @@ def visualize_images_data_side_by_side(
         keypoints_radius=keypoints_radius,
         fontsize=fontsize,
         thickness=thickness,
-        thumbnail_size=thumbnail_size
+        thumbnail_size=thumbnail_size,
     )
     pred_ann_image = visualize_image_data(
         image_data=image_data2,
@@ -437,11 +518,11 @@ def visualize_images_data_side_by_side(
         keypoints_radius=keypoints_radius,
         fontsize=fontsize,
         thickness=thickness,
-        thumbnail_size=thumbnail_size
+        thumbnail_size=thumbnail_size,
     )
 
     if overlay:
-        image = cv2.addWeighted(src1=true_ann_image, alpha=1., src2=pred_ann_image, beta=1., gamma=0.)
+        image = cv2.addWeighted(src1=true_ann_image, alpha=1.0, src2=pred_ann_image, beta=1.0, gamma=0.0)
     else:
         image = cv2.hconcat([true_ann_image, pred_ann_image])
 

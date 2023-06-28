@@ -1,5 +1,4 @@
 from typing import Any, Dict, List, Tuple, Type, Union
-from dataclasses import dataclass
 import numpy as np
 from tqdm import tqdm
 
@@ -12,18 +11,19 @@ from cv_pipeliner.utils.images import cut_bboxes_from_image
 from cv_pipeliner.logging import logger
 
 
-@dataclass
 class PipelineModelSpec(ModelSpec):
     detection_model_spec: DetectionModelSpec
     classification_model_spec: Union[ClassificationModelSpec, None] = None
 
     @property
-    def inference_model_cls(self) -> Type['PipelineModel']:
+    def inference_model_cls(self) -> Type["PipelineModel"]:
         from cv_pipeliner.inference_models.pipeline import PipelineModel
+
         return PipelineModel
 
-    def load_pipeline_inferencer(self) -> 'PipelineInferencer':
+    def load_pipeline_inferencer(self) -> "PipelineInferencer":
         from cv_pipeliner.inferencers.pipeline import PipelineInferencer
+
         return PipelineInferencer(self.load())
 
 
@@ -39,13 +39,7 @@ ClassificationScores = List[Score]
 
 PipelineInput = List[np.ndarray]
 PipelineOutput = List[
-    Tuple[
-        List[Bboxes],
-        List[Keypoints],
-        List[DetectionScores],
-        List[Labels],
-        List[ClassificationScores]
-    ]
+    Tuple[List[Bboxes], List[Keypoints], List[DetectionScores], List[Labels], List[ClassificationScores]]
 ]
 
 
@@ -60,27 +54,20 @@ class PipelineModel(InferenceModel):
             else:
                 self.classification_model = None
 
-    def load_from_loaded_models(
-        self,
-        detection_model: DetectionModel,
-        classification_model: ClassificationModel
-    ):
+    def load_from_loaded_models(self, detection_model: DetectionModel, classification_model: ClassificationModel):
         isinstance(detection_model, DetectionModel)
         isinstance(classification_model, ClassificationModel)
         self._model_spec = PipelineModelSpec(
-            detection_model_spec=detection_model.model_spec,
-            classification_model_spec=classification_model.model_spec
+            detection_model_spec=detection_model.model_spec, classification_model_spec=classification_model.model_spec
         )
         self.detection_model = detection_model
         self.classification_model = classification_model
 
-    def _split_chunks(self,
-                      _list: List,
-                      shapes: List[int]) -> List:
+    def _split_chunks(self, _list: List, shapes: List[int]) -> List:
         cnt = 0
         chunks = []
         for shape in shapes:
-            chunks.append(_list[cnt: cnt + shape])
+            chunks.append(_list[cnt : cnt + shape])
             cnt += shape
         return chunks
 
@@ -92,21 +79,22 @@ class PipelineModel(InferenceModel):
         classification_batch_size: int = 16,
         detection_kwargs: Dict[str, Any] = {},
         classification_kwargs: Dict[str, Any] = {},
-        disable_tqdm_classification: bool = False
+        disable_tqdm_classification: bool = False,
     ) -> PipelineOutput:
         logger.debug("Running detection...")
         (
-            n_pred_bboxes, n_pred_keypoints, n_pred_detection_scores,
-            n_pred_class_names_top_k, n_pred_classification_scores_top_k
+            n_pred_bboxes,
+            n_pred_keypoints,
+            n_pred_detection_scores,
+            n_pred_class_names_top_k,
+            n_pred_classification_scores_top_k,
         ) = self.detection_model.predict(
             input,
             score_threshold=detection_score_threshold,
             classification_top_n=classification_top_n,
-            **detection_kwargs
+            **detection_kwargs,
         )
-        logger.debug(
-            f"Detection: found {np.sum([len(pred_bboxes) for pred_bboxes in n_pred_bboxes])} bboxes!"
-        )
+        logger.debug(f"Detection: found {np.sum([len(pred_bboxes) for pred_bboxes in n_pred_bboxes])} bboxes!")
 
         logger.debug("Running classification...")
         if self.classification_model is None:
@@ -116,7 +104,7 @@ class PipelineModel(InferenceModel):
                 n_pred_keypoints,
                 n_pred_detection_scores,
                 n_pred_class_names_top_k,
-                n_pred_classification_scores_top_k
+                n_pred_classification_scores_top_k,
             )
 
         shapes = [len(pred_bboxes) for pred_bboxes in n_pred_bboxes]
@@ -127,9 +115,7 @@ class PipelineModel(InferenceModel):
                 for pred_bboxes_batch in pred_bboxes_batches:
                     classification_input_batch = cut_bboxes_from_image(image, pred_bboxes_batch)
                     pred_labels_top_n_batch, pred_classification_scores_top_n_batch = self.classification_model.predict(
-                        input=classification_input_batch,
-                        top_n=classification_top_n,
-                        **classification_kwargs
+                        input=classification_input_batch, top_n=classification_top_n, **classification_kwargs
                     )
                     pred_labels_top_n.extend(pred_labels_top_n_batch)
                     pred_classification_scores_top_n.extend(pred_classification_scores_top_n_batch)
@@ -142,7 +128,7 @@ class PipelineModel(InferenceModel):
             n_pred_keypoints,
             n_pred_detection_scores,
             n_pred_labels_top_n,
-            n_pred_classification_scores_top_n
+            n_pred_classification_scores_top_n,
         )
 
     def preprocess_input(self, input):

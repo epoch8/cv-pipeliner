@@ -1,3 +1,42 @@
+# 0.16.5-0.16.6
+- (new) Added parallel open images in BatchGenerator for `ImageData` (default: 64 workers)
+- Removed annoying verbosed logs when inferencing by Tensorflow classifications models.
+- Code is reformatted.
+
+# 0.16.4
+- `ImageDataTableStoreDB` default value `create_table` changed from `True` to `False`
+- Fix memory problems when using big images and additional_bboxes_data in images_data.
+
+# 0.16.1-0.16.3
+- Bug fixes.
+
+# 0.16.0
+- `ImageData` and `BboxData` are intensively refactored: they are now pydantic's BaseModel with improved conversion to JSON.
+- **BREAK CHANGES**: `ImageData.json()` and `BboxData.json()` now returns `str` (formerly: `Dict[str, Any]`).
+- Update requirements.txt to newer versions.
+
+# 0.15.4
+- Dirty hack to make it work when Fiftyone cannot start in FifyOneSession at first time (by @elephantum)
+- When counting metrics with empty elements, np.average now returns np.nan
+
+# 0.15.3
+- Fix input_size typing for pydantic in TensorFlow_ClassificationModelSpec and TensorFlow_ClassificationModelSpec_TFServing
+
+# 0.15.2
+- ObjectDetection models new have device= arguments (for CPU inference)
+- Semaphores removed in FiftyOneImagesDataTableStore (for building prefect images)
+
+# 0.15.1
+- Bugfixes
+
+# 0.15.0
+- All inference_models changed from `@dataclass` to `pydantic.BaseModel`
+- All inference_models have new field `id` used for storing models in-memory. Useble for datapipe's like inferences.
+
+# 0.14.0
+- Added new fields for `ImageData`:     `classification_score`, `top_n`, `labels_top_n`, `classification_scores_top_n` (similar to those fields in `BboxData`). They are used when `ImageData` is being submitted in `ClassificationInferencer` (thanks to @pixml27)
+- Fix bug when `progress_callback` in `ClassificationInferencer` didn't update progress when tqdm is turned off.
+
 # 0.13.1
 - Added ModelSpec `MMPose_KeypointsRegressorModel` (thanks to @zakutnyaya)
 

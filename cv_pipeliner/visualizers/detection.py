@@ -8,8 +8,7 @@ from cv_pipeliner.core.visualizer import Visualizer
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from cv_pipeliner.inferencers.detection import DetectionInferencer
 from cv_pipeliner.utils.jupyter_visualizer import JupyterVisualizer
-from cv_pipeliner.visualizers.core.image_data import visualize_image_data, \
-    visualize_images_data_side_by_side
+from cv_pipeliner.visualizers.core.image_data import visualize_image_data, visualize_images_data_side_by_side
 from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
 from cv_pipeliner.visualizers.core.image_data_matching import visualize_image_data_matching_side_by_side
 
@@ -22,15 +21,11 @@ class DetectionVisualizer(Visualizer):
         self.jupyter_visualizer = None
 
     def _get_images_names_by_inference(
-        self,
-        images_data: List[ImageData],
-        score_threshold: float,
-        minimum_iou: float,
-        batch_size: int
+        self, images_data: List[ImageData], score_threshold: float, minimum_iou: float, batch_size: int
     ) -> List[str]:
-        images_data_gen = BatchGeneratorImageData(images_data,
-                                                  batch_size=batch_size,
-                                                  use_not_caught_elements_as_last_batch=True)
+        images_data_gen = BatchGeneratorImageData(
+            images_data, batch_size=batch_size, use_not_caught_elements_as_last_batch=True
+        )
         pred_images_data = self.inferencer.predict(images_data_gen, score_threshold)
         images_data_matchings = [
             ImageDataMatching(image_data, pred_image_data, minimum_iou)
@@ -45,12 +40,13 @@ class DetectionVisualizer(Visualizer):
         ]
         return images_names
 
-    def visualize(self,
-                  images_data: List[ImageData],
-                  score_threshold: float = None,
-                  show_TP_FP_FN_with_minimum_iou: float = None,
-                  batch_size: int = 16):
-
+    def visualize(
+        self,
+        images_data: List[ImageData],
+        score_threshold: float = None,
+        show_TP_FP_FN_with_minimum_iou: float = None,
+        batch_size: int = 16,
+    ):
         images_data = copy.deepcopy(images_data)
 
         if self.inferencer is not None and show_TP_FP_FN_with_minimum_iou is not None:
@@ -58,63 +54,74 @@ class DetectionVisualizer(Visualizer):
                 images_data=images_data,
                 score_threshold=score_threshold,
                 minimum_iou=show_TP_FP_FN_with_minimum_iou,
-                batch_size=batch_size
+                batch_size=batch_size,
             )
         else:
             images_names = [image_data.image_name for image_data in images_data]
 
-        images_data_gen = BatchGeneratorImageData(images_data, batch_size=1,
-                                                  use_not_caught_elements_as_last_batch=True)
+        images_data_gen = BatchGeneratorImageData(images_data, batch_size=1, use_not_caught_elements_as_last_batch=True)
         self.i = None
 
         def display_fn(i):
             if self.i is None or i != self.i:
                 self.true_image_data = images_data_gen[i][0]
                 if self.inferencer is not None:
-                    image_data_gen = BatchGeneratorImageData([self.true_image_data], batch_size=1,
-                                                             use_not_caught_elements_as_last_batch=True)
+                    image_data_gen = BatchGeneratorImageData(
+                        [self.true_image_data], batch_size=1, use_not_caught_elements_as_last_batch=True
+                    )
                     self.pred_image_data = self.inferencer.predict(image_data_gen, score_threshold)[0]
                 self.i = i
 
             if self.inferencer is None:
-                display(Image.fromarray(visualize_image_data(
-                    self.true_image_data,
-                    use_labels=False,
-                    score_type=None
-                )))
+                display(Image.fromarray(visualize_image_data(self.true_image_data, use_labels=False, score_type=None)))
             else:
                 if show_TP_FP_FN_with_minimum_iou is not None:
-                    display(Image.fromarray(visualize_image_data_matching_side_by_side(
-                        image_data_matching=ImageDataMatching(self.true_image_data, self.pred_image_data,
-                                                              show_TP_FP_FN_with_minimum_iou),
-                        error_type='detection',
-                        true_use_labels=True, pred_use_labels=True,
-                        true_score_type=None, pred_score_type='detection',
-                        true_filter_by_error_types=self.jupyter_visualizer.choices.value.split('+'),
-                        pred_filter_by_error_types=self.jupyter_visualizer.choices2.value.split('+')
-                    )))
+                    display(
+                        Image.fromarray(
+                            visualize_image_data_matching_side_by_side(
+                                image_data_matching=ImageDataMatching(
+                                    self.true_image_data, self.pred_image_data, show_TP_FP_FN_with_minimum_iou
+                                ),
+                                error_type="detection",
+                                true_use_labels=True,
+                                pred_use_labels=True,
+                                true_score_type=None,
+                                pred_score_type="detection",
+                                true_filter_by_error_types=self.jupyter_visualizer.choices.value.split("+"),
+                                pred_filter_by_error_types=self.jupyter_visualizer.choices2.value.split("+"),
+                            )
+                        )
+                    )
                 else:
-                    display(Image.fromarray(visualize_images_data_side_by_side(
-                        image_data1=self.true_image_data,
-                        image_data2=self.pred_image_data,
-                        use_labels1=False, use_labels2=False,
-                        score_type1=None, score_type2='detection',
-                        known_labels=['TP+FN', 'TP', 'FN']
-                    )))
+                    display(
+                        Image.fromarray(
+                            visualize_images_data_side_by_side(
+                                image_data1=self.true_image_data,
+                                image_data2=self.pred_image_data,
+                                use_labels1=False,
+                                use_labels2=False,
+                                score_type1=None,
+                                score_type2="detection",
+                                known_labels=["TP+FN", "TP", "FN"],
+                            )
+                        )
+                    )
 
         self.jupyter_visualizer = JupyterVisualizer(
             images=range(len(images_data_gen)),
             images_names=images_names,
             display_fn=display_fn,
             choices=(
-                ['TP+FN', 'TP', 'FN']
-                if self.inferencer is not None and show_TP_FP_FN_with_minimum_iou is not None else []
+                ["TP+FN", "TP", "FN"]
+                if self.inferencer is not None and show_TP_FP_FN_with_minimum_iou is not None
+                else []
             ),
-            choices_description='GT',
+            choices_description="GT",
             choices2=(
-                ['TP+FP', 'TP', 'FP']
-                if self.inferencer is not None and show_TP_FP_FN_with_minimum_iou is not None else []
+                ["TP+FP", "TP", "FP"]
+                if self.inferencer is not None and show_TP_FP_FN_with_minimum_iou is not None
+                else []
             ),
-            choices2_description='Prediction',
+            choices2_description="Prediction",
         )
         self.jupyter_visualizer.visualize()

@@ -8,13 +8,13 @@ EmbedderOutput = List[np.ndarray]
 
 
 class EmbedderModelSpec(ModelSpec):
-
     @abc.abstractproperty
-    def inference_model_cls(self) -> Type['EmbedderModel']:
+    def inference_model_cls(self) -> Type["EmbedderModel"]:
         pass
 
-    def load_embedder_inferencer(self) -> 'EmbedderInferencer':
+    def load_embedder_inferencer(self) -> "EmbedderInferencer":
         from cv_pipeliner.inferencers.embedder import EmbedderInferencer
+
         return EmbedderInferencer(self.load())
 
 

@@ -1,24 +1,26 @@
+import pydantic
 import abc
 import importlib
 import sys
 import tempfile
 from pathlib import Path
-from typing import Callable, List, Tuple, Type, Union
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 import fsspec
 import numpy as np
 
 
-class ModelSpec(abc.ABC):
+class ModelSpec(pydantic.BaseModel):
+    id: str = None
+
     @abc.abstractproperty
-    def inference_model_cls(self) -> Type['InferenceModel']:
+    def inference_model_cls(self) -> Type["InferenceModel"]:
         pass
 
-    def load(self, **kwargs) -> Union['InferenceModel', 'Inferencer']:
-        inference_model = self.inference_model_cls(
-            model_spec=self,
-            **kwargs
-        )
+    def load(self, **kwargs) -> Union["InferenceModel", "Inferencer"]:
+        inference_model = self.inference_model_cls.get_loaded_model_by_id(self.id)
+        if inference_model is None:
+            inference_model = self.inference_model_cls(model_spec=self, **kwargs)
         return inference_model
 
 
@@ -44,9 +46,27 @@ class InferenceModel(abc.ABC):
 
     """
 
+    _loaded_models: List[ModelSpec] = []
+
+    @staticmethod
+    def get_loaded_model_by_id(id: Optional[str]) -> Optional["InferenceModel"]:
+        if id is None:
+            return None
+        ids = [model._model_spec.id for model in InferenceModel._loaded_models]
+        if id in ids:
+            return InferenceModel._loaded_models[ids.index(id)]
+        return None
+
     def __init__(self, model_spec: ModelSpec):
         self._model_spec = model_spec
+        if self._model_spec.id is not None:
+            InferenceModel._loaded_models.append(self)
         pass
+
+    def __del__(self):
+        ids = [model._model_spec.id for model in InferenceModel._loaded_models]
+        if self._model_spec.id is not None and self._model_spec.id in ids:
+            InferenceModel._loaded_models.pop(ids.index(self._model_spec.id))
 
     @abc.abstractmethod
     def predict(self, input):
@@ -65,17 +85,15 @@ class InferenceModel(abc.ABC):
         return self._model_spec
 
 
-def get_preprocess_input_from_script_file(
-    script_file: Union[str, Path]
-) -> Callable[[List[np.ndarray]], np.ndarray]:
-    with fsspec.open(script_file, 'r') as src:
+def get_preprocess_input_from_script_file(script_file: Union[str, Path]) -> Callable[[List[np.ndarray]], np.ndarray]:
+    with fsspec.open(script_file, "r") as src:
         script_code = src.read()
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmpdirname = Path(tmpdirname)
-        module_folder = tmpdirname / 'module'
+        module_folder = tmpdirname / "module"
         module_folder.mkdir()
-        script_file = module_folder / f'preprocess_input_{tmpdirname.name}.py'
-        with open(script_file, 'w') as out:
+        script_file = module_folder / f"preprocess_input_{tmpdirname.name}.py"
+        with open(script_file, "w") as out:
             out.write(script_code)
         sys.path.append(str(script_file.parent.absolute()))
         module = importlib.import_module(script_file.stem)

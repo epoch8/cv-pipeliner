@@ -4,22 +4,17 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-LOGS_DIRECTORY = Path(__file__).parent / '__logs__'
+LOGS_DIRECTORY = Path(__file__).parent / "__logs__"
 
-logger = logging.getLogger('cv-pipeliner')
+logger = logging.getLogger("cv-pipeliner")
 
-if os.environ.get('CV_PIPELINER_LOGGING', False):
+if os.environ.get("CV_PIPELINER_LOGGING", False):
     LOGS_DIRECTORY.mkdir(exist_ok=True, parents=True)
     LOG_FILENAME = datetime.now().strftime("%Y-%m-%d_%Hh.logs")
 
-    formatter = logging.Formatter(
-        "%(asctime)s [%(name)s] [%(levelname)s] %(message)s"
-    )
+    formatter = logging.Formatter("%(asctime)s [%(name)s] [%(levelname)s] %(message)s")
 
-    file_handler = logging.FileHandler(
-        LOGS_DIRECTORY / LOG_FILENAME,
-        encoding='utf-8'
-    )
+    file_handler = logging.FileHandler(LOGS_DIRECTORY / LOG_FILENAME, encoding="utf-8")
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.INFO)
     logger.addHandler(file_handler)
@@ -32,6 +27,7 @@ if os.environ.get('CV_PIPELINER_LOGGING', False):
 
     try:
         from tensorflow import get_logger as tf_get_logger
+
         tf_logger = tf_get_logger()
         tf_logger.addHandler(file_handler)
         tf_logger.propagate = False
