@@ -1,3 +1,6 @@
+# 0.16.8
+- Fix `get_image_size` when filepath is bytes type
+
 # 0.16.7
 - Fix yolov5's loading model.
 
