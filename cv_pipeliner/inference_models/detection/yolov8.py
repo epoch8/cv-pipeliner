@@ -1,4 +1,4 @@
-from typing import Optional, Union, List, Callable, Type, Tuple
+from typing import Optional, Union, List, Callable, Type, Tuple, Dict
 from pathlib import Path
 import numpy as np
 import json
@@ -30,6 +30,14 @@ class YOLOv8_ModelSpec(DetectionModelSpec):
 
 class YOLOv8_DetectionModel(DetectionModel):
     def __init__(self, model_spec: YOLOv8_ModelSpec):
+        """YOLOv8 model initialization
+
+        Args:
+            model_spec (YOLOv8_ModelSpec): YOLOv8 Model specification
+
+        Raises:
+            ValueError: if passed wrong data type of model_spec
+        """
         super().__init__(model_spec)
         
         # Loading classes names and save as attribute
@@ -59,6 +67,14 @@ class YOLOv8_DetectionModel(DetectionModel):
             raise ValueError(f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}")
 
     def _load_yolov8_model(self, model_spec: YOLOv8_ModelSpec):
+        """YOlOv model initialization
+
+        Args:
+            model_spec (YOLOv8_ModelSpec): YOLOv8 Model specification
+
+        Raises:
+            ValueError: If model_name and model_path is not specified
+        """
         if model_spec.model_name is None and model_spec.model_path is None:
             raise ValueError('Please, specify model name or weights path for loading model')
         
@@ -72,6 +88,15 @@ class YOLOv8_DetectionModel(DetectionModel):
     def _raw_predict_images_torch(
         self, input: DetectionInput, score_threshold: float
     ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[str]]:
+        """Private method to run pytorch model inference and return raw results
+
+        Args:
+            input (DetectionInput): list of images
+            score_threshold (float): model confidence threshold
+
+        Returns:
+            Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[str]]: _description_
+        """
         
         predictions = self.model.predict(
             input, 
@@ -92,23 +117,17 @@ class YOLOv8_DetectionModel(DetectionModel):
         return raw_boxes, raw_keypoints, raw_scores, raw_labels
 
     def predict(self, input: DetectionInput, score_threshold: float, classification_top_n: int = None) -> DetectionOutput:
+        """Method to run model inference
+
+        Args:
+            input (DetectionInput): list of images
+            score_threshold (float): model confidence threshold
+            classification_top_n (int, optional): .... Defaults to None.
+
+        Returns:
+            DetectionOutput: List of boxes, keypoints, scores, classes
+        """
         raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_images(input, score_threshold)
-
-        """
-        Bbox = Tuple[int, int, int, int]  # (xmin, ymin, xmax, ymax)
-        Score = float
-        Class = str
-
-        Bboxes = List[Bbox]
-        Scores = List[Score]
-        Classes = List[Class]
-        Keypoints = List[Tuple[int, int]]
-
-        DetectionInput = List[np.ndarray]
-        DetectionOutput = Tuple[
-            List[Bboxes], List[Keypoints], List[Scores], List[Classes], List[Scores]  # Optional exit  # Optional exit
-        ]
-        """
 
         results = (
             [image_boxes.tolist() for image_boxes in raw_bboxes], 
