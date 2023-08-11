@@ -33,6 +33,8 @@ from cv_pipeliner.inference_models.detection.detectron2 import Detectron2_ModelS
 from cv_pipeliner.inference_models.detection.yolov5 import (
     YOLOv5_ModelSpec, YOLOv5_TFLite_ModelSpec, YOLOv5_TFLiteWithNMS_ModelSpec
 )
+from cv_pipeliner.inference_models.detection.yolov8 import YOLOv8_ModelSpec
+
 from cv_pipeliner.inference_models.classification.tensorflow import (
     TensorFlow_ClassificationModelSpec,
     TensorFlow_ClassificationModelSpec_TFServing,
