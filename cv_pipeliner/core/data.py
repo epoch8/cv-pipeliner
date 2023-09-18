@@ -3,7 +3,12 @@ import io
 import json
 
 from pathlib import Path
-from pydantic import BaseModel, Field, validator, root_validator
+from packaging.version import Version
+from importlib.metadata import version
+if Version(version("pydantic")) < Version("2.0.0"):
+    from pydantic import BaseModel, Field, validator, root_validator
+else:
+    from pydantic.v1 import BaseModel, Field, validator, root_validator
 from typing import Any, Union, List, Dict, Tuple, Optional, Type
 
 import numpy as np
