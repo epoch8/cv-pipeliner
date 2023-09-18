@@ -61,13 +61,13 @@ class Tensorflow_KeypointsRegressorModel(KeypointsRegressorModel):
             model_openfile = fsspec.open(model_spec.model_path, "rb")
             if model_openfile.fs.isdir(model_openfile.path):
                 temp_folder = copy_files_from_directory_to_temp_directory(directory=model_spec.model_path)
-                model_path = Pathy(temp_folder.name)
+                model_path = Pathy.fluid(temp_folder.name)
                 temp_files_cleanup = temp_folder.cleanup
             else:
                 temp_file = tempfile.NamedTemporaryFile()
                 with model_openfile as src:
                     temp_file.write(src.read())
-                model_path = Pathy(temp_file.name)
+                model_path = Pathy.fluid(temp_file.name)
                 temp_files_cleanup = temp_file.close
 
             if model_spec.saved_model_type in "tf.keras":

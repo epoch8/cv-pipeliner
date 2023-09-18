@@ -117,7 +117,7 @@ class Detectron2_DetectionModel(DetectionModel):
 
         temp_dir = tempfile.TemporaryDirectory()
         temp_dir_path = Path(temp_dir.name)
-        model_config_path = temp_dir_path / Pathy(model_spec.model_path).name
+        model_config_path = temp_dir_path / Pathy.fluid(model_spec.model_path).name
         with open(model_config_path, "wb") as out:
             with fsspec.open(model_spec.model_path, "rb") as src:
                 out.write(src.read())

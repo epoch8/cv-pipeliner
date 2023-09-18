@@ -49,7 +49,7 @@ class BrickitDataConverter(DataConverter):
         elif isinstance(annots, fsspec.core.OpenFile):
             with annots as f:
                 annots = json.load(f)
-        images_dir = Pathy(images_dir)
+        images_dir = Pathy.fluid(images_dir)
 
         images_data = []
         for annot in annots:
@@ -109,7 +109,7 @@ class BrickitDataConverter(DataConverter):
             annots = [annot]
         else:
             annots = annot
-        image_path = Pathy(image_path)
+        image_path = Pathy.fluid(image_path)
         annots = [annot for annot in annots if annot["filename"] == image_path.name]
 
         return self.get_images_data_from_annots(images_dir=image_path.parent, annots=annots)[0]

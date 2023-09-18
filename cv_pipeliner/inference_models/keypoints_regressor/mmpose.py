@@ -44,7 +44,7 @@ class MMPose_KeypointsRegressorModel(KeypointsRegressorModel):
         temp_file = tempfile.NamedTemporaryFile()
         with model_openfile as src:
             temp_file.write(src.read())
-        model_path = Pathy(temp_file.name)
+        model_path = Pathy.fluid(temp_file.name)
         temp_files_cleanup = temp_file.close
 
         self.model = tf.lite.Interpreter(str(model_path))
