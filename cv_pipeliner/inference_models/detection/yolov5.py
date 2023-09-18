@@ -121,14 +121,19 @@ class YOLOv5_DetectionModel(DetectionModel):
                 if isinstance(model_spec, YOLOv5_TFLiteWithNMS_ModelSpec):
                     self._preprocess_input = lambda images: [
                         np.array(
-                            tf_resize_with_pad(image=image, target_width=width, target_height=height, constant_values=114)
-                        ) / 255.
+                            tf_resize_with_pad(
+                                image=image, target_width=width, target_height=height, constant_values=114
+                            )
+                        )
+                        / 255.0
                         for image in images
                     ]
                 else:
                     self._preprocess_input = lambda images: [
                         np.array(
-                            tf_resize_with_pad(image=image, target_width=width, target_height=height, constant_values=114)
+                            tf_resize_with_pad(
+                                image=image, target_width=width, target_height=height, constant_values=114
+                            )
                         )
                         for image in images
                     ]
@@ -185,11 +190,15 @@ class YOLOv5_DetectionModel(DetectionModel):
 
     def _xywh2xyxy_tf(self, xywh: np.ndarray):
         import tensorflow as tf
+
         x, y, w, h = tf.split(xywh, num_or_size_splits=4, axis=-1)
         return tf.concat([x - w / 2, y - h / 2, x + w / 2, y + h / 2], axis=-1)
 
-    def _post_process_raw_predictions_yolov5(self, raw_preds: np.ndarray, max_output_size: int) -> 'CombinedNonMaxSuppression':
+    def _post_process_raw_predictions_yolov5(
+        self, raw_preds: np.ndarray, max_output_size: int
+    ) -> "CombinedNonMaxSuppression":
         import tensorflow as tf
+
         bboxes = self._xywh2xyxy_tf(raw_preds[..., :4])
         probs = raw_preds[0, :, 4:5]
         classes = raw_preds[0, :, 5:]
@@ -200,7 +209,10 @@ class YOLOv5_DetectionModel(DetectionModel):
         classes = tf.reshape(classes, (weights_count,))
 
         selected_indices = tf.image.non_max_suppression(
-            bboxes, scores, max_output_size=max_output_size, iou_threshold=0.45,
+            bboxes,
+            scores,
+            max_output_size=max_output_size,
+            iou_threshold=0.45,
         )
         output_size = len(selected_indices)
         raw_bboxes = tf.gather(bboxes, selected_indices)
@@ -218,7 +230,9 @@ class YOLOv5_DetectionModel(DetectionModel):
         return raw_bboxes_np, raw_scores_np, raw_classes_np
 
     def _raw_predict_images_tflite(
-        self, input: DetectionInput, score_threshold: float,
+        self,
+        input: DetectionInput,
+        score_threshold: float,
     ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
         n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = [], [], [], []
         for image in input:
@@ -294,13 +308,17 @@ class YOLOv5_DetectionModel(DetectionModel):
         classes = classes[correct_non_repeated_bboxes_idxs]
         classes_scores = scores.copy()
         if self.class_names is not None:
+            if classification_top_n > 1:
+                raise NotImplementedError("Not impelemented for classification_top_n > 1")
             class_names_top_n = np.array(
                 [
                     [class_name for i in range(classification_top_n)]
                     for class_name in self.class_names[classes.astype(np.int32)]
                 ]
             )
-            classes_scores_top_n = np.array([[score for _ in range(classification_top_n)] for score in classes_scores])
+            classes_scores_top_n = np.array(
+                [[[score for _ in range(classification_top_n)]] for score in classes_scores]
+            )
         else:
             class_names_top_n = np.array([[None for _ in range(classification_top_n)] for _ in classes])
             classes_scores_top_n = np.array([[score for _ in range(classification_top_n)] for score in classes_scores])

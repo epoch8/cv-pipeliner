@@ -1,5 +1,4 @@
 from typing import Callable, List, Union
-import numpy as np
 from tqdm import tqdm
 
 from cv_pipeliner.core.data import BboxData, ImageData

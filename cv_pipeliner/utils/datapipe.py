@@ -19,7 +19,7 @@ import numpy as np
 import fsspec
 from typing import Any, Dict, IO, Iterator, Optional, Tuple, List, Type, Union, Callable
 
-from datapipe.store.filedir import ItemStoreFileAdapter, TableStoreFiledir, _pattern_to_attrnames
+from datapipe.store.filedir import ItemStoreFileAdapter, TableStoreFiledir
 import pandas as pd
 from sqlalchemy import JSON, Column, String, Integer
 from cv_pipeliner.core.data import ImageData, BboxData

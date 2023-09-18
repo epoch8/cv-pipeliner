@@ -1,4 +1,4 @@
-__version__ = "0.16.8"
+__version__ = "0.17.0"
 
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
@@ -31,8 +31,12 @@ from cv_pipeliner.inference_models.detection.object_detection_api import (
 )
 from cv_pipeliner.inference_models.detection.detectron2 import Detectron2_ModelSpec
 from cv_pipeliner.inference_models.detection.yolov5 import (
-    YOLOv5_ModelSpec, YOLOv5_TFLite_ModelSpec, YOLOv5_TFLiteWithNMS_ModelSpec
+    YOLOv5_ModelSpec,
+    YOLOv5_TFLite_ModelSpec,
+    YOLOv5_TFLiteWithNMS_ModelSpec,
 )
+from cv_pipeliner.inference_models.detection.yolov8 import YOLOv8_ModelSpec
+
 from cv_pipeliner.inference_models.classification.tensorflow import (
     TensorFlow_ClassificationModelSpec,
     TensorFlow_ClassificationModelSpec_TFServing,

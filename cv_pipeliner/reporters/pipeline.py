@@ -9,9 +9,7 @@ import nbformat as nbf
 from cv_pipeliner.core.reporter import Reporter
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
-from cv_pipeliner.inference_models.detection.core import DetectionModelSpec
 from cv_pipeliner.inference_models.pipeline import PipelineModelSpec
-from cv_pipeliner.inferencers.detection import DetectionInferencer
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.metrics.detection import get_df_detection_metrics, df_detection_metrics_columns
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics, df_pipeline_metrics_columns
