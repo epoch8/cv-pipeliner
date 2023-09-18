@@ -25,7 +25,7 @@ def get_image_name(image_path) -> str:
     if isinstance(image_path, Pathy):
         return image_path.name
     elif isinstance(image_path, fsspec.core.OpenFile):
-        return Pathy(image_path.path).name
+        return Pathy.fluid(image_path.path).name
     elif isinstance(image_path, str) or isinstance(image_path, bytes) or isinstance(image_path, io.BytesIO):
         return "bytes"
     elif isinstance(image_path, PIL.Image.Image):
@@ -100,7 +100,7 @@ class BaseImageData(BaseModel):
     @validator("image_path", pre=True)
     def parse_image_path(cls, image_path):
         if isinstance(image_path, Path) or (isinstance(image_path, str) and not is_base64(image_path)):
-            image_path = Pathy(image_path)
+            image_path = Pathy.fluid(image_path)
         return image_path
 
     @validator("keypoints", pre=True)

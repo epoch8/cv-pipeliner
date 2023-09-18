@@ -1,3 +1,6 @@
+# 0.17.1
+- Updated `pathy`'s requirements.
+
 # 0.17.0
 - Project is now buildable by poetry. `requirements.txt` and `setup.py` are removed.
 - Added `YOLOv8_ModelSpec`

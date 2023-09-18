@@ -9,12 +9,12 @@ from cv_pipeliner.logging import logger
 
 def copy_files_from_directory_to_temp_directory(directory: str) -> tempfile.TemporaryDirectory:
     directory_openfile = fsspec.open(directory)
-    directory = Pathy(directory)
+    directory = Pathy.fluid(directory)
     temp_dir = tempfile.TemporaryDirectory()
     temp_dir_path = Path(temp_dir.name)
 
     for some_file in fsspec.open_files(str(directory / "**"), "rb"):
-        some_file_path = Pathy(some_file.path)
+        some_file_path = Pathy.fluid(some_file.path)
         relative_filepath = some_file_path.relative_to(directory_openfile.path)
         filepath = temp_dir_path / relative_filepath
         (filepath.parent).mkdir(exist_ok=True, parents=True)

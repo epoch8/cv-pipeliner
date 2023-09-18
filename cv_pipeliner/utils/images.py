@@ -385,7 +385,7 @@ def get_label_to_base_label_image(
 
     base_labels_images_files = fsspec.open_files(str(base_labels_images))
     ann_class_names_files = [
-        Pathy(base_label_image_file.path).stem for base_label_image_file in base_labels_images_files
+        Pathy.fluid(base_label_image_file.path).stem for base_label_image_file in base_labels_images_files
     ]
     unique_ann_class_names = set(ann_class_names_files)
     if "unknown" not in unique_ann_class_names:

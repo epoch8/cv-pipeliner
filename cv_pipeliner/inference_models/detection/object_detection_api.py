@@ -97,14 +97,14 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
 
         temp_dir = tempfile.TemporaryDirectory()
         temp_dir_path = Path(temp_dir.name)
-        model_config_path = temp_dir_path / Pathy(model_spec.config_path).name
+        model_config_path = temp_dir_path / Pathy.fluid(model_spec.config_path).name
         with open(model_config_path, "wb") as out:
             with fsspec.open(model_spec.config_path, "rb") as src:
                 out.write(src.read())
-        src_checkpoint_path = Pathy(model_spec.checkpoint_path)
+        src_checkpoint_path = Pathy.fluid(model_spec.checkpoint_path)
         checkpoint_path = temp_dir_path / src_checkpoint_path.name
         for src_file in fsspec.open_files(f"{src_checkpoint_path}*", "rb"):
-            out_file = temp_dir_path / Pathy(src_file.path).name
+            out_file = temp_dir_path / Pathy.fluid(src_file.path).name
             with open(out_file, "wb") as out:
                 with src_file as src:
                     out.write(src.read())
