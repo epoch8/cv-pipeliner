@@ -74,9 +74,10 @@ class BrickitDataConverter(DataConverter):
                     for key in obj:
                         if key not in ["bbox", "label", "labels_top_n", "top_n"]:
                             bbox_additional_info[key] = obj[key]
+                image_path = (images_dir / image_name) if image_name is not None else None
                 bboxes_data.append(
                     BboxData(
-                        image_path=images_dir / image_name,
+                        image_path=image_path,
                         xmin=xmin,
                         ymin=ymin,
                         xmax=xmax,
@@ -90,7 +91,9 @@ class BrickitDataConverter(DataConverter):
                 )
 
             images_data.append(
-                ImageData(image_path=images_dir / image_name, bboxes_data=bboxes_data, additional_info=additional_info)
+                ImageData(
+                    image_path=image_path,
+                    bboxes_data=bboxes_data, additional_info=additional_info)
             )
 
         return images_data
