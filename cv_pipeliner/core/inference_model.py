@@ -61,7 +61,6 @@ class InferenceModel(abc.ABC):
         self._model_spec = model_spec
         if self._model_spec.id is not None:
             InferenceModel._loaded_models.append(self)
-        pass
 
     def __del__(self):
         ids = [model._model_spec.id for model in InferenceModel._loaded_models]

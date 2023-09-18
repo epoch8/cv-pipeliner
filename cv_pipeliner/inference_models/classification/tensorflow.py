@@ -2,7 +2,7 @@ import json
 from json.decoder import JSONDecodeError
 import tempfile
 from pathlib import Path
-from typing import List, Optional, Tuple, Callable, Union, Type, Literal, final
+from typing import List, Optional, Tuple, Callable, Union, Type, Literal
 
 import requests
 import numpy as np

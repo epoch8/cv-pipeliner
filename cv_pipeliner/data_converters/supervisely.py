@@ -1,6 +1,6 @@
 import json
 
-from typing import Union, Dict, List
+from typing import Union, Dict
 from pathlib import Path
 
 import fsspec

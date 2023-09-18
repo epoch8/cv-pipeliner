@@ -7,20 +7,20 @@ import fsspec
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.detection.core import (
     DetectionInput,
-    DetectionModelSpec, 
+    DetectionModelSpec,
     DetectionModel,
-    DetectionOutput, 
+    DetectionOutput,
 )
 
 
 class YOLOv8_ModelSpec(DetectionModelSpec):
     model_name: Optional[str] = None
-    model_path: Optional[Union[str, Path]] = None # noqa: F821
+    model_path: Optional[Union[str, Path]] = None  # noqa: F821
     class_names: Optional[List[str]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     device: str = None
     force_reload: bool = False
-    
+
     @property
     def inference_model_cls(self) -> Type["YOLOv8_DetectionModel"]:
         from cv_pipeliner.inference_models.detection.yolov8 import YOLOv8_DetectionModel
@@ -39,7 +39,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             ValueError: if passed wrong data type of model_spec
         """
         super().__init__(model_spec)
-        
+
         # Loading classes names and save as attribute
         if model_spec.class_names is not None:
             if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
@@ -76,12 +76,12 @@ class YOLOv8_DetectionModel(DetectionModel):
             ValueError: If model_name and model_path is not specified
         """
         if model_spec.model_name is None and model_spec.model_path is None:
-            raise ValueError('Please, specify model name or weights path for loading model')
-        
+            raise ValueError("Please, specify model name or weights path for loading model")
+
         from ultralytics import YOLO
-        
+
         self.model = YOLO(model_spec.model_path if model_spec.model_path is not None else model_spec.model_name)
-        
+
         if model_spec.device is not None:
             self.model = self.model.to(model_spec.device)
 
@@ -97,14 +97,14 @@ class YOLOv8_DetectionModel(DetectionModel):
         Returns:
             Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[str]]: _description_
         """
-        
+
         predictions = self.model.predict(
-            input, 
-            verbose=False, 
-            save_conf=True, 
+            input,
+            verbose=False,
+            save_conf=True,
             conf=score_threshold,
             # TODO how to pass iou threshold?
-            iou=0.5
+            iou=0.5,
         )
 
         raw_boxes, raw_keypoints, raw_scores, raw_labels = [], [], [], []
@@ -116,7 +116,7 @@ class YOLOv8_DetectionModel(DetectionModel):
 
         return raw_boxes, raw_keypoints, raw_scores, raw_labels
 
-    def predict(self, input: DetectionInput, score_threshold: float, classification_top_n: int = None) -> DetectionOutput:
+    def predict(self, input: DetectionInput, score_threshold: float, classification_top_n: int = 1) -> DetectionOutput:
         """Method to run model inference
 
         Args:
@@ -128,13 +128,35 @@ class YOLOv8_DetectionModel(DetectionModel):
             DetectionOutput: List of boxes, keypoints, scores, classes
         """
         raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_images(input, score_threshold)
+        import pickle
+
+        with open("raw_scores.pkl", "wb") as out:
+            pickle.dump(raw_scores, out)
+        with open("raw_classes.pkl", "wb") as out:
+            pickle.dump(raw_classes, out)
+        if self.class_names is not None:
+            if classification_top_n > 1:
+                raise NotImplementedError("Not impelemented for classification_top_n > 1")
+            class_names_top_n = [
+                [
+                    [class_name for i in range(classification_top_n)]
+                    for class_name in self.class_names[classes.astype(np.int32)]
+                ]
+                for classes in raw_classes
+            ]
+            classes_scores_top_n = np.array(
+                [[[score for _ in range(classification_top_n)]] for score in classes_scores]
+            )
+        else:
+            class_names_top_n = [[None for _ in range(classification_top_n)] for _ in raw_classes]
+            classes_scores_top_n = [[score for _ in range(classification_top_n)] for score in raw_scores]
 
         results = (
-            [image_boxes.tolist() for image_boxes in raw_bboxes], 
-            [image_keypoints.tolist() for image_keypoints in raw_keypoints], 
-            [image_scores.tolist() for image_scores in raw_scores], 
-            [image_classes.tolist() for image_classes in raw_classes], 
-            None
+            [image_boxes.tolist() for image_boxes in raw_bboxes],
+            [image_keypoints.tolist() for image_keypoints in raw_keypoints],
+            [image_scores.tolist() for image_scores in raw_scores],
+            class_names_top_n,
+            classes_scores_top_n,
         )
 
         return results

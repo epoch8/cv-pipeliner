@@ -1,7 +1,4 @@
 import io
-import os
-import re
-import struct
 import fsspec
 
 from typing import Tuple

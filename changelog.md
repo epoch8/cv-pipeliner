@@ -1,3 +1,6 @@
+# 0.16.9
+- Added `YOLOv8_ModelSpec`
+
 # 0.16.8
 - Fix `get_image_size` when filepath is bytes type
 
