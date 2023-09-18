@@ -1,4 +1,9 @@
-import pydantic
+from packaging.version import Version
+from importlib.metadata import version
+if Version(version("pydantic")) < Version("2.0.0"):
+    from pydantic import BaseModel
+else:
+    from pydantic.v1 import BaseModel
 import abc
 import importlib
 import sys
@@ -10,7 +15,7 @@ import fsspec
 import numpy as np
 
 
-class ModelSpec(pydantic.BaseModel):
+class ModelSpec(BaseModel):
     id: str = None
 
     @abc.abstractproperty

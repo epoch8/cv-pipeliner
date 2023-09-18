@@ -1,6 +1,7 @@
 # 0.17.0
 - Project is now buildable by poetry. `requirements.txt` and `setup.py` are removed.
-- Added `YOLOv8_ModelSpec`.
+- Added `YOLOv8_ModelSpec`
+- Added pydantic2+ version support
 
 # 0.16.8
 - Fix `get_image_size` when filepath is bytes type
