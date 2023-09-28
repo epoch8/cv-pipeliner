@@ -49,11 +49,7 @@ def convert_image_data_to_rectangle_labels(
     keypoints_from_name: Optional[str] = None,
     without_exif_tag: bool = True,
 ) -> Dict:
-    if without_exif_tag:
-        # При импорте разметки в LS не учитываются Exif теги, но при экспорте оно учитывается
-        im_width, im_height = image_data.get_image_size_without_exif_tag()
-    else:
-        im_width, im_height = image_data.get_image_size()
+    im_width, im_height = image_data.get_image_size(without_exif_tag=without_exif_tag)
     rectangle_labels = []
     for bbox_data in image_data.bboxes_data:
         rectangle_label = {
@@ -101,7 +97,7 @@ def convert_image_data_to_polygon_label(
     to_name: str,
     polygonlabels: str,
 ) -> Dict:
-    im_width, im_height = image_data.get_image_size()
+    im_width, im_height = image_data.get_image_size(without_exif_tag=True)
     rectangle_labels = []
     for bbox_data in image_data.bboxes_data:
         rectangle_labels.append(
@@ -124,7 +120,7 @@ def convert_image_data_to_polygon_label(
 def convert_image_data_to_keypoint_label(
     image_data: ImageData, from_name: str, to_name: str, keypoints_labels: List[str], keypoints_width: float = 0.8
 ) -> Dict:
-    im_width, im_height = image_data.get_image_size()
+    im_width, im_height = image_data.get_image_size(without_exif_tag=True)
     keypoints_labels_json = []
     keypoints_to_be_added = [image_data.keypoints] + [bbox_data.keypoints for bbox_data in image_data.bboxes_data]
     for keypoints in keypoints_to_be_added:
@@ -178,8 +174,8 @@ def convert_image_data_to_annotation(
     assert (keypoints_from_name is not None and keypoints_labels is not None) or (
         keypoints_from_name is None and keypoints_labels is None
     )
-
-    im_width, im_height = image_data.get_image_size(force_update_meta=True)
+    # При импорте разметки в LS не учитываются Exif теги, но при экспорте оно учитывается
+    im_width, im_height = image_data.get_image_size(without_exif_tag=True)
     annotations = []
     if label_from_name is not None and image_data.label is not None:
         annotations.append(

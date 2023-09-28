@@ -54,18 +54,21 @@ def get_meta_image_size(
     image: Optional[np.ndarray],
     meta_height: Optional[int],
     meta_width: Optional[int],
-    force_update_meta: bool = False,
+    without_exif_tag: bool
 ):
     """
     Returns (width, height) of image without opening it fully.
     """
-    if meta_height is None or meta_width is None or force_update_meta:
+    if not without_exif_tag:
+        meta_width, meta_height = get_image_size(image_path, exif_transpose=False)
+    else:
+        if meta_height is None or meta_width is None:
+            if image is not None:
+                meta_height, meta_width = image.shape[0:2]
+            else:
+                meta_width, meta_height = get_image_size(image_path)
         if image is not None:
             meta_height, meta_width = image.shape[0:2]
-        else:
-            meta_width, meta_height = get_image_size(image_path)
-    if image is not None:
-        meta_height, meta_width = image.shape[0:2]
     return meta_width, meta_height
 
 
@@ -123,21 +126,25 @@ class BaseImageData(BaseModel):
                 image=values["image"],
                 meta_height=values["meta_width"],
                 meta_width=values["meta_width"],
-                force_update_meta=True,
             )
         return values
 
-    def get_image_size(self, force_update_meta: bool = False) -> Tuple[int, int]:
+    def get_image_size(
+        self,
+        without_exif_tag: bool = False
+    ) -> Tuple[int, int]:
         """
         Returns (width, height) of image without opening it fully.
         """
-        self.meta_width, self.meta_height = get_meta_image_size(
+        meta_width, meta_height = get_meta_image_size(
             image_path=self.image_path,
             image=self.image,
             meta_height=self.meta_height,
             meta_width=self.meta_width,
-            force_update_meta=force_update_meta,
+            without_exif_tag=without_exif_tag
         )
+        if not without_exif_tag:
+            self.meta_width, self.meta_height = meta_width, meta_height
         return self.meta_width, self.meta_height
 
     @property
@@ -171,7 +178,7 @@ class BaseImageData(BaseModel):
             self.image = image
 
         if image is not None:
-            self.get_image_size(force_update_meta=True)
+            self.get_image_size()
 
         return image
 
@@ -374,18 +381,9 @@ class BboxData(BaseImageData):
 
         return counting
 
-    def __setattr__(self, name: str, value: Any, force_update_meta: bool = False) -> None:
-        if hasattr(self, name) and (
-            (name == "image" and np.array_equal(self.image, value))
-            or (name == "image_path" and str(self.image_path) != str(value))
-        ):
-            force_update_meta = True
-
+    def __setattr__(self, name: str, value: Any) -> None:
         super().__setattr__(name, value)
         if name in ["image_path", "image", "meta_width", "meta_height"]:
-            if name == "image" and isinstance(value, np.ndarray) and force_update_meta:  # imagesize possible is changed
-                self.get_image_size(force_update_meta=force_update_meta)
-
             def change_images_in_bbox_data(bbox_data: BboxData):
                 bbox_data.__setattr__(name, value)
                 for additional_bbox_data in bbox_data.additional_bboxes_data:
@@ -399,18 +397,9 @@ class BboxData(BaseImageData):
 class ImageData(BaseImageData):
     bboxes_data: List[BboxData] = Field(default_factory=list)
 
-    def __setattr__(self, name: str, value: Any, force_update_meta: bool = False) -> None:
-        if hasattr(self, name) and (
-            (name == "image" and np.array_equal(self.image, value))
-            or (name == "image_path" and str(self.image_path) != str(value))
-        ):
-            force_update_meta = True
-
+    def __setattr__(self, name: str, value: Any) -> None:
         super().__setattr__(name, value)
         if name in ["image_path", "image", "meta_width", "meta_height"]:
-            if name == "image" and isinstance(value, np.ndarray) and force_update_meta:  # imagesize possible is changed
-                self.get_image_size(force_update_meta=force_update_meta)
-
             if hasattr(self, "bboxes_data"):
                 for bbox_data in self.bboxes_data:
                     bbox_data.__setattr__(name, value)
