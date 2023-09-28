@@ -143,7 +143,7 @@ class BaseImageData(BaseModel):
         )
         if not without_exif_tag:
             self.meta_width, self.meta_height = meta_width, meta_height
-        return self.meta_width, self.meta_height
+        return meta_width, meta_height
 
     @property
     def image_name(self):
