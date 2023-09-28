@@ -55,7 +55,7 @@ def get_meta_image_size(
     image: Optional[np.ndarray],
     meta_height: Optional[int],
     meta_width: Optional[int],
-    without_exif_tag: bool,
+    without_exif_tag: bool = False,
 ):
     """
     Returns (width, height) of image without opening it fully.
