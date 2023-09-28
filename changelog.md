@@ -1,3 +1,8 @@
+# 0.17.2
+- Removed deprecated `reporters` folder
+- Removed `ipython` from requirements
+- Added accounting for exif tags when converting annotations to a label studio
+
 # 0.17.1
 - Updated `pathy`'s requirements.
 

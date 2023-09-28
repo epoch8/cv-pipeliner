@@ -11,16 +11,20 @@ def _exif_transpose_and_get_image_size(image: Image.Image) -> Tuple[int, int]:
     If an image has an EXIF Orientation tag, return a size of image that is
     transposed accordingly. Otherwise, return the size of image itself.
     """
+    if hasattr(Image, "Transpose"):
+        TransposeModule = Image.Transpose
+    else:
+        TransposeModule = Image
     exif = image.getexif()
     orientation = exif.get(0x0112)
     method = {
-        2: Image.Transpose.FLIP_LEFT_RIGHT,
-        3: Image.Transpose.ROTATE_180,
-        4: Image.Transpose.FLIP_TOP_BOTTOM,
-        5: Image.Transpose.TRANSPOSE,
-        6: Image.Transpose.ROTATE_270,
-        7: Image.Transpose.TRANSVERSE,
-        8: Image.Transpose.ROTATE_90,
+        2: TransposeModule.FLIP_LEFT_RIGHT,
+        3: TransposeModule.ROTATE_180,
+        4: TransposeModule.FLIP_TOP_BOTTOM,
+        5: TransposeModule.TRANSPOSE,
+        6: TransposeModule.ROTATE_270,
+        7: TransposeModule.TRANSVERSE,
+        8: TransposeModule.ROTATE_90,
     }.get(orientation)
 
     if method is not None:

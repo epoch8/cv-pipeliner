@@ -91,9 +91,7 @@ class BrickitDataConverter(DataConverter):
                 )
 
             images_data.append(
-                ImageData(
-                    image_path=image_path,
-                    bboxes_data=bboxes_data, additional_info=additional_info)
+                ImageData(image_path=image_path, bboxes_data=bboxes_data, additional_info=additional_info)
             )
 
         return images_data
