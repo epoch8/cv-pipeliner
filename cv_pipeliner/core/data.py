@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from packaging.version import Version
 from importlib.metadata import version
+
 if Version(version("pydantic")) < Version("2.0.0"):
     from pydantic import BaseModel, Field, validator, root_validator
 else:
@@ -54,7 +55,7 @@ def get_meta_image_size(
     image: Optional[np.ndarray],
     meta_height: Optional[int],
     meta_width: Optional[int],
-    without_exif_tag: bool
+    without_exif_tag: bool,
 ):
     """
     Returns (width, height) of image without opening it fully.
@@ -129,10 +130,7 @@ class BaseImageData(BaseModel):
             )
         return values
 
-    def get_image_size(
-        self,
-        without_exif_tag: bool = False
-    ) -> Tuple[int, int]:
+    def get_image_size(self, without_exif_tag: bool = False) -> Tuple[int, int]:
         """
         Returns (width, height) of image without opening it fully.
         """
@@ -141,7 +139,7 @@ class BaseImageData(BaseModel):
             image=self.image,
             meta_height=self.meta_height,
             meta_width=self.meta_width,
-            without_exif_tag=without_exif_tag
+            without_exif_tag=without_exif_tag,
         )
         if not without_exif_tag:
             self.meta_width, self.meta_height = meta_width, meta_height
@@ -384,6 +382,7 @@ class BboxData(BaseImageData):
     def __setattr__(self, name: str, value: Any) -> None:
         super().__setattr__(name, value)
         if name in ["image_path", "image", "meta_width", "meta_height"]:
+
             def change_images_in_bbox_data(bbox_data: BboxData):
                 bbox_data.__setattr__(name, value)
                 for additional_bbox_data in bbox_data.additional_bboxes_data:

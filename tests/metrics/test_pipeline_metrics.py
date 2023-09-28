@@ -102,7 +102,7 @@ def test_pipeline_metrics():
             "known_weighted_average_without_pseudo_classes",
         ]
     ]
-    with tempfile.NamedTemporaryFile() as f:
+    with tempfile.NamedTemporaryFile("wb") as f:
         dfi.export(
             obj=df_pipeline_metrics,
             fontsize=10,

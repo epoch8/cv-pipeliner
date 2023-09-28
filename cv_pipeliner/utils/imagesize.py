@@ -11,7 +11,7 @@ def _exif_transpose_and_get_image_size(image: Image.Image) -> Tuple[int, int]:
     If an image has an EXIF Orientation tag, return a size of image that is
     transposed accordingly. Otherwise, return the size of image itself.
     """
-    if hasattr(Image, 'Transpose'):  
+    if hasattr(Image, "Transpose"):
         TransposeModule = Image.Transpose
     else:
         TransposeModule = Image

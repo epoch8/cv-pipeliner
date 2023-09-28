@@ -1,4 +1,4 @@
-from typing import Optional, Union, List, Callable, Type, Tuple, Dict
+from typing import Optional, Union, List, Callable, Type, Tuple
 from pathlib import Path
 import numpy as np
 import json
@@ -144,9 +144,7 @@ class YOLOv8_DetectionModel(DetectionModel):
                 ]
                 for classes in raw_classes
             ]
-            classes_scores_top_n = [
-                [[score] for score in scores] for scores in raw_scores
-            ]
+            classes_scores_top_n = [[[score] for score in scores] for scores in raw_scores]
         else:
             class_names_top_n = [[None for _ in range(classification_top_n)] for _ in raw_classes]
             classes_scores_top_n = [[score for _ in range(classification_top_n)] for score in raw_scores]

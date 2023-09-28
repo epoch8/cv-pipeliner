@@ -1,5 +1,5 @@
 from pathlib import Path
-from io import BytesIO
+import tempfile
 
 import imageio
 import dataframe_image as dfi
@@ -187,14 +187,14 @@ def test_pipeline_metrics():
             "known_weighted_average_without_pseudo_classes",
         ]
     ]
-    image_bytes = BytesIO()
-    dfi.export(
-        obj=df_classification_metrics,
-        fontsize=10,
-        filename=image_bytes,
-        table_conversion="matplotlib",
-    )
-    df_image = imageio.v3.imread(image_bytes.getvalue())
+    with tempfile.NamedTemporaryFile("wb") as f:
+        dfi.export(
+            obj=df_classification_metrics,
+            fontsize=10,
+            filename=f.name,
+            table_conversion="matplotlib",
+        )
+        df_image = imageio.v3.imread(f.name)
 
     total_image = concat_images(image_a=image, image_b=df_image, how="vertically", mode="RGB")
 
