@@ -20,3 +20,4 @@ notebooks/reports/
 result*/
 tests/tmp/
 charts/
+poetry.lock
