@@ -1,3 +1,7 @@
+# 0.17.3
+- Attempts to fix ipython requriements
+- Fixed `image_data.open_image(inplace=True)` error.
+
 # 0.17.2
 - Removed deprecated `reporters` folder
 - Removed `ipython` from requirements

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cv_pipeliner"
-version = "0.17.2"
+version = "0.17.3"
 description = ""
 authors = [
     "bobokvsky <alexander.kozlovsky.m@gmail.com>",
@@ -21,12 +21,11 @@ filterpy = ">=1.4.5"
 matplotlib = ">=3.4.1"
 requests = ">=2.24.0"
 scipy = ">=1.6.2"
-ipywidgets = ">=7.6.3"
 pandas = ">=1.2.4"
 Pillow = ">=8.0.0"
 scikit_learn = ">=0.24.2"
-dataframe-image = ">=0.1.1"
 lxml = ">=4.6.3"
+dataframe-image = ">=0.1.1"
 scikit-image = ">=0.18.3"
 
 

@@ -60,13 +60,15 @@ def get_meta_image_size(
     """
     Returns (width, height) of image without opening it fully.
     """
-    if not without_exif_tag:
+    if not without_exif_tag and image_path is not None:
         meta_width, meta_height = get_image_size(image_path, exif_transpose=False)
     else:
         if meta_height is None or meta_width is None:
             if image is not None:
                 meta_height, meta_width = image.shape[0:2]
             else:
+                if image_path is None:
+                    raise ValueError("(get_meta_image_size) Fields image_path or image are None")
                 meta_width, meta_height = get_image_size(image_path)
         if image is not None:
             meta_height, meta_width = image.shape[0:2]
@@ -179,17 +181,6 @@ class BaseImageData(BaseModel):
             self.get_image_size()
 
         return image
-
-    def get_image_size_without_exif_tag(self, exif_transpose: bool = True) -> Tuple[int, int]:
-        """
-        Returns (width, height) of image without opening it fully.
-        """
-        if self.image is None:
-            return get_image_size(self.image_path, exif_transpose=False)
-        if self.image is not None:
-            meta_height, meta_width = self.image.shape[0:2]
-            return meta_height, meta_width
-        return (None, None)
 
     def json(self, include_image_path: bool = True, force_include_meta: bool = False, **kwargs) -> str:
         kwargs = kwargs.copy()
