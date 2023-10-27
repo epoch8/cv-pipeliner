@@ -618,8 +618,8 @@ def split_by_grid(
             xmax=min(width, x_offset + (i + 1) * x_window_size),
             ymax=min(height, y_offset + (j + 1) * y_window_size),
         )
-        for j in range(n_cols)
         for i in range(n_rows)
+        for j in range(n_cols)
     ]
     bboxes_data = [
         bbox_data
