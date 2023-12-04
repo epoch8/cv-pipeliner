@@ -111,6 +111,8 @@ class PipelineModel(InferenceModel):
         pred_labels_top_n, pred_classification_scores_top_n = [], []
         with tqdm(total=np.sum(shapes), disable=disable_tqdm_classification) as pbar:
             for image, pred_bboxes in zip(input, n_pred_bboxes):
+                if len(pred_bboxes) == 0:
+                    continue
                 pred_bboxes_batches = np.array_split(pred_bboxes, max(1, len(pred_bboxes) // classification_batch_size))
                 for pred_bboxes_batch in pred_bboxes_batches:
                     classification_input_batch = cut_bboxes_from_image(image, pred_bboxes_batch)

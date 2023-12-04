@@ -1,3 +1,7 @@
+# 0.17.4
+- Fix pipeline's error when bboxes predictions are empty
+
+
 # 0.17.3
 - Attempts to fix ipython requriements
 - Fixed `image_data.open_image(inplace=True)` error.

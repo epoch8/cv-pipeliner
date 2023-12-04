@@ -1,4 +1,4 @@
-__version__ = "0.17.3"
+__version__ = "0.17.4"
 
 from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
