@@ -1,3 +1,6 @@
+# 0.17.5
+- Add `allow_reuse=True` to validators for some cases with ImageData
+
 # 0.17.4
 - Fix pipeline's error when bboxes predictions are empty
 
