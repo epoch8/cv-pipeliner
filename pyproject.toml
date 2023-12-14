@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cv_pipeliner"
-version = "0.17.3"
+version = "0.17.5"
 description = ""
 authors = [
     "bobokvsky <alexander.kozlovsky.m@gmail.com>",
