@@ -103,25 +103,25 @@ class BaseImageData(BaseModel):
         smart_union = True
         copy_on_model_validation = "none"
 
-    @validator("image_path", pre=True)
+    @validator("image_path", pre=True, allow_reuse=True)
     def parse_image_path(cls, image_path):
         if isinstance(image_path, Path) or (isinstance(image_path, str) and not is_base64(image_path)):
             image_path = Pathy.fluid(image_path)
         return image_path
 
-    @validator("keypoints", pre=True)
+    @validator("keypoints", pre=True, allow_reuse=True)
     def parse_keypoints(cls, keypoints):
         if keypoints is None:
             keypoints = []
         return np.array(keypoints).astype(int).reshape((-1, 2))
 
-    @validator("image", pre=True)
+    @validator("image", pre=True, allow_reuse=True)
     def parse_image(cls, image, values):
         if image is not None:
             image = np.array(image)
         return image
 
-    @root_validator(pre=False)
+    @root_validator(pre=False, allow_reuse=True)
     def set_fields(cls, values: dict) -> dict:
         if values["image"] is not None:
             values["meta_width"], values["meta_height"] = get_meta_image_size(
@@ -228,7 +228,7 @@ class BboxData(BaseImageData):
     cropped_image: Optional[np.ndarray] = Field(default=None, repr=False)
     additional_bboxes_data: List["BboxData"] = Field(default_factory=list)
 
-    @validator("xmin", "ymin", pre=True)
+    @validator("xmin", "ymin", pre=True, allow_reuse=True)
     def parse_xmin(cls, v):
         if v is not None:
             v = max(0, v)
