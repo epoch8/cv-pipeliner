@@ -95,7 +95,7 @@ def is_base64(s: str):
 def open_image(
     image: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image], open_as_rgb: bool = False
 ) -> np.ndarray:
-    if isinstance(image, str) or isinstance(image, Path):
+    if isinstance(image, str) or isinstance(image, Path) or isinstance(image, Pathy):
         if is_base64(str(image)):
             image_bytes = base64.b64decode(str(image))
         else:
