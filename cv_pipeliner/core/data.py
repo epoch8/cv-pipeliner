@@ -376,12 +376,12 @@ class BboxData(BaseImageData):
 
             def change_images_in_bbox_data(bbox_data: BboxData):
                 bbox_data.__setattr__(name, value)
-                for additional_bbox_data in bbox_data.additional_bboxes_data:
-                    change_images_in_bbox_data(additional_bbox_data)
+                # for additional_bbox_data in bbox_data.additional_bboxes_data:
+                #     change_images_in_bbox_data(additional_bbox_data)
 
-            if hasattr(self, "additional_bboxes_data"):
-                for additional_bbox_data in self.additional_bboxes_data:
-                    change_images_in_bbox_data(additional_bbox_data)
+            # if hasattr(self, "additional_bboxes_data"):
+            #     for additional_bbox_data in self.additional_bboxes_data:
+            #         change_images_in_bbox_data(additional_bbox_data)
 
 
 class ImageData(BaseImageData):

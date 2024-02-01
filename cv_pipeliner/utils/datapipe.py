@@ -118,9 +118,22 @@ class ImageDataTableStoreDB(TableStoreDB):
     ) -> None:
         # assert all([column.primary_key for column in data_sql_schema])
         assert "image_data" not in [column.name for column in data_sql_schema]
-        data_sql_schema += [Column("image_data", JSON)]
-        super().__init__(dbconn=dbconn, name=name, data_sql_schema=data_sql_schema, create_table=create_table)
+        self.data_sql_schema_raw = data_sql_schema
+        super().__init__(
+            dbconn=dbconn, name=name, data_sql_schema=data_sql_schema + [Column("image_data", JSON)],
+            create_table=create_table
+        )
+        self.create_table = create_table
         self.image_data_cls = image_data_cls
+
+    def __reduce__(self) -> Tuple[Any, ...]:
+        return self.__class__, (
+            self.dbconn,
+            self.name,
+            self.data_sql_schema_raw,
+            self.create_table,
+            self.image_data_cls
+        )
 
     def insert_rows(self, df: DataDF) -> None:
         df["image_data"] = df["image_data"].apply(
