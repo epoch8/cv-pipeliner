@@ -1,3 +1,6 @@
+# 0.18.0
+- `COCODataConverter` had wrong name, they are fixed to names `YOLODataConverter` and `YOLOLabelsFile`. Sorry, everyone, it's better make corresponding migrations in your projects (for datapipe users: just do rename tables)
+
 # 0.17.5
 - Add `allow_reuse=True` to validators for some cases with ImageData
 

@@ -78,13 +78,13 @@ class GetImageSizeFile(ItemStoreFileAdapter):
         raise NotImplementedError
 
 
-class COCOLabelsFile(ItemStoreFileAdapter):
+class YOLOLabelsFile(ItemStoreFileAdapter):
     mode = "b"
 
     def __init__(self, class_names: List[str], img_format: str):
-        from cv_pipeliner.data_converters.coco import COCODataConverter
+        from cv_pipeliner.data_converters.yolo import YOLODataConverter
 
-        self.coco_converter = COCODataConverter(class_names)
+        self.yolo_converter = YOLODataConverter(class_names)
         self.img_format = img_format
 
     def load(self, f: fsspec.core.OpenFile) -> Dict[str, Tuple[int, int]]:
@@ -98,13 +98,13 @@ class COCOLabelsFile(ItemStoreFileAdapter):
             if isinstance(protocol, tuple):
                 protocol = protocol[0]
             prefix = f"{protocol}://"
-        image_data = self.coco_converter.get_image_data_from_annot(image_path=f"{prefix}{image_path}", annot=f)
+        image_data = self.yolo_converter.get_image_data_from_annot(image_path=f"{prefix}{image_path}", annot=f)
         return {"image_size": image_data}
 
     def dump(self, obj: Dict[str, Tuple[int, int]], f: fsspec.core.OpenFile) -> None:
         image_data: ImageData = obj["image_data"]
-        coco_data = self.coco_converter.get_annot_from_image_data(image_data)
-        f.write("\n".join(coco_data).encode())
+        yolo_data = self.yolo_converter.get_annot_from_image_data(image_data)
+        f.write("\n".join(yolo_data).encode())
 
 
 class ImageDataTableStoreDB(TableStoreDB):

@@ -9,7 +9,7 @@ from cv_pipeliner.core.data import ImageData, BboxData
 from cv_pipeliner.utils.imagesize import get_image_size
 
 
-class COCODataConverter(DataConverter):
+class YOLODataConverter(DataConverter):
     def __init__(self, class_names: List[str]):
         super().__init__()
         assert len(set(class_names)) == len(class_names), "There are duplicates in 'class_names'. Remove them."
