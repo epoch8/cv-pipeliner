@@ -180,7 +180,7 @@ class BaseImageData(BaseModel):
             self.image = image
 
         if image is not None:
-            self.get_image_size()
+            self.get_image_size(exif_transpose=exif_transpose)
 
         return image
 
