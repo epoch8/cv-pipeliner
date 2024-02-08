@@ -14,11 +14,41 @@ import cv2
 import numpy as np
 import fsspec
 import imutils
-import PIL
 from pathy import Pathy
 from tqdm import tqdm
 
 from cv_pipeliner.logging import logger
+
+
+if hasattr(Image, "Transpose"):
+    TransposeModule = Image.Transpose
+else:
+    TransposeModule = Image
+
+EXIF_ORIENTATION_TO_METHOD = {
+    2: TransposeModule.FLIP_LEFT_RIGHT,
+    3: TransposeModule.ROTATE_180,
+    4: TransposeModule.FLIP_TOP_BOTTOM,
+    5: TransposeModule.TRANSPOSE,
+    6: TransposeModule.ROTATE_270,
+    7: TransposeModule.TRANSVERSE,
+    8: TransposeModule.ROTATE_90,
+}
+
+
+def exif_transpose_image(image: Image.Image) -> Tuple[int, int]:
+    """
+    If an image has an EXIF Orientation tag, return a size of image that is
+    transposed accordingly. Otherwise, return the size of image itself.
+    """
+    exif = image.getexif()
+    orientation = exif.get(0x0112)
+    method = EXIF_ORIENTATION_TO_METHOD.get(orientation)
+
+    if method is not None:
+        return image.transpose(method)
+
+    return image
 
 
 def denormalize_bboxes(
@@ -93,7 +123,9 @@ def is_base64(s: str):
 
 
 def open_image(
-    image: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image], open_as_rgb: bool = False
+    image: Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, Image.Image],
+    open_as_rgb: bool = False,
+    exif_transpose: bool = False,
 ) -> np.ndarray:
     if isinstance(image, str) or isinstance(image, Path):
         if is_base64(str(image)):
@@ -108,12 +140,15 @@ def open_image(
         image_bytes = image
     elif isinstance(image, io.BytesIO):
         image_bytes = image.getvalue()
-    elif isinstance(image, PIL.Image.Image):
+    elif isinstance(image, Image.Image):
         image_bytes = np.array(image)
     else:
         raise ValueError(f"Got unknown type: {type(image)}.")
     if not isinstance(image_bytes, np.ndarray):
-        image = np.array(imageio.v3.imread(image_bytes))
+        try:
+            image = np.array(imageio.v3.imread(image_bytes, rotate=exif_transpose))
+        except KeyError:  # there is bug with rotation in imageio
+            image = np.array(imageio.v3.imread(image_bytes))
     else:
         image = image_bytes
     if open_as_rgb:

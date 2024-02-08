@@ -120,8 +120,10 @@ class ImageDataTableStoreDB(TableStoreDB):
         assert "image_data" not in [column.name for column in data_sql_schema]
         self.data_sql_schema_raw = data_sql_schema
         super().__init__(
-            dbconn=dbconn, name=name, data_sql_schema=data_sql_schema + [Column("image_data", JSON)],
-            create_table=create_table
+            dbconn=dbconn,
+            name=name,
+            data_sql_schema=data_sql_schema + [Column("image_data", JSON)],
+            create_table=create_table,
         )
         self.create_table = create_table
         self.image_data_cls = image_data_cls
@@ -132,7 +134,7 @@ class ImageDataTableStoreDB(TableStoreDB):
             self.name,
             self.data_sql_schema_raw,
             self.create_table,
-            self.image_data_cls
+            self.image_data_cls,
         )
 
     def insert_rows(self, df: DataDF) -> None:

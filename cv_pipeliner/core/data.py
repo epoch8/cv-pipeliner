@@ -55,13 +55,13 @@ def get_meta_image_size(
     image: Optional[np.ndarray],
     meta_height: Optional[int],
     meta_width: Optional[int],
-    without_exif_tag: bool = False,
+    exif_transpose: bool = False,
 ):
     """
     Returns (width, height) of image without opening it fully.
     """
-    if not without_exif_tag and image_path is not None:
-        meta_width, meta_height = get_image_size(image_path, exif_transpose=False)
+    if exif_transpose and image_path is not None:
+        meta_width, meta_height = get_image_size(image_path, exif_transpose=exif_transpose)
     else:
         if meta_height is None or meta_width is None:
             if image is not None:
@@ -69,7 +69,7 @@ def get_meta_image_size(
             else:
                 if image_path is None:
                     raise ValueError("(get_meta_image_size) Fields image_path or image are None")
-                meta_width, meta_height = get_image_size(image_path)
+                meta_width, meta_height = get_image_size(image_path, exif_transpose=exif_transpose)
         if image is not None:
             meta_height, meta_width = image.shape[0:2]
     return meta_width, meta_height
@@ -132,7 +132,7 @@ class BaseImageData(BaseModel):
             )
         return values
 
-    def get_image_size(self, without_exif_tag: bool = False) -> Tuple[int, int]:
+    def get_image_size(self, exif_transpose: bool = False) -> Tuple[int, int]:
         """
         Returns (width, height) of image without opening it fully.
         """
@@ -141,9 +141,9 @@ class BaseImageData(BaseModel):
             image=self.image,
             meta_height=self.meta_height,
             meta_width=self.meta_width,
-            without_exif_tag=without_exif_tag,
+            exif_transpose=exif_transpose,
         )
-        if not without_exif_tag:
+        if not exif_transpose:
             self.meta_width, self.meta_height = meta_width, meta_height
         return meta_width, meta_height
 
@@ -159,16 +159,18 @@ class BaseImageData(BaseModel):
         keypoints[:, 1] /= height
         return keypoints
 
-    def open_image(self, inplace: bool = False, returns_none_if_empty: bool = False) -> Optional[np.ndarray]:
+    def open_image(
+        self, inplace: bool = False, returns_none_if_empty: bool = False, exif_transpose: bool = False
+    ) -> Optional[np.ndarray]:
         if self.image is not None and isinstance(self.image, np.ndarray):
             if not inplace:
                 return self.image
             else:
                 image = self.image.copy()
         elif isinstance(self.image, bytes) or isinstance(self.image, str):
-            image = open_image(image=self.image, open_as_rgb=True)
+            image = open_image(image=self.image, open_as_rgb=True, exif_transpose=exif_transpose)
         elif self.image_path is not None:
-            image = open_image(image=self.image_path, open_as_rgb=True)
+            image = open_image(image=self.image_path, open_as_rgb=True, exif_transpose=exif_transpose)
         else:
             if returns_none_if_empty:
                 return None
