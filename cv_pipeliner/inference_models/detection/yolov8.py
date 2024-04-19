@@ -121,6 +121,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             verbose=False,
             save_conf=True,
             conf=score_threshold,
+            retina_masks=True,
             # TODO how to pass iou threshold?
             iou=0.5,
         )
@@ -129,7 +130,8 @@ class YOLOv8_DetectionModel(DetectionModel):
         for prediction in predictions:
             raw_boxes.append(prediction.boxes.xyxy.data.cpu().numpy())
             if prediction.masks is not None:
-                raw_keypoints.append(prediction.masks.data.cpu().numpy())
+                all_keypoints = prediction.masks.xy
+                raw_keypoints.append(all_keypoints)
             else:
                 raw_keypoints.append(np.array([]).reshape(raw_boxes[-1].shape[0], 0, 2))
             raw_labels.append(prediction.boxes.cls.data.cpu().numpy())
@@ -156,12 +158,12 @@ class YOLOv8_DetectionModel(DetectionModel):
         raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_images(
             input, score_threshold
         )
-        import pickle
+        # import pickle
 
-        with open("raw_scores.pkl", "wb") as out:
-            pickle.dump(raw_scores, out)
-        with open("raw_classes.pkl", "wb") as out:
-            pickle.dump(raw_classes, out)
+        # with open("raw_scores.pkl", "wb") as out:
+        #     pickle.dump(raw_scores, out)
+        # with open("raw_classes.pkl", "wb") as out:
+        #     pickle.dump(raw_classes, out)
         if self.class_names is not None:
             if classification_top_n > 1:
                 raise NotImplementedError(
@@ -185,9 +187,25 @@ class YOLOv8_DetectionModel(DetectionModel):
                 [score for _ in range(classification_top_n)] for score in raw_scores
             ]
 
+        keypoints = []
+        for image_keypoints in raw_keypoints:
+            new_image_keypoints = []
+            if len(image_keypoints) != 0:
+                new_bbox_keypoint = []
+                for bbox_keypoint in image_keypoints[
+                    0
+                ]:  # TODO подумать нужно ставить ноль
+                    new_bbox_keypoint.append(
+                        [int(bbox_keypoint[0]), int(bbox_keypoint[1])]
+                    )
+                new_image_keypoints.append(new_bbox_keypoint)
+            else:
+                new_image_keypoints = []
+            keypoints.append(new_image_keypoints)
+
         results = (
             [image_boxes.tolist() for image_boxes in raw_bboxes],
-            [image_keypoints.tolist() for image_keypoints in raw_keypoints],
+            keypoints,
             [image_scores.tolist() for image_scores in raw_scores],
             class_names_top_n,
             classes_scores_top_n,
