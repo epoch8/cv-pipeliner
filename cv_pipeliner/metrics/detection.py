@@ -108,7 +108,7 @@ def get_df_detection_metrics(
 
     df_detection_metrics = pd.DataFrame(
         {
-            "support": [TP+FN],
+            "support": [TP + FN],
             "TP": [TP],
             "FP": [FP],
             "FN": [FN],

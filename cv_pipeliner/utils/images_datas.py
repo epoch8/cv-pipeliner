@@ -147,15 +147,16 @@ def rotate_image_data(
     border_mode: Optional[int] = None,
     border_value: Tuple[int, int, int] = None,
     open_image: bool = True,
+    exif_transpose: bool = False,
 ):
     rotated_image_data = copy.deepcopy(image_data)
     if abs(angle) <= 1e-6:
         if open_image:
-            rotated_image_data.open_image(inplace=True)
+            rotated_image_data.open_image(inplace=True, exif_transpose=exif_transpose)
         return rotated_image_data
 
     width, height = image_data.get_image_size()
-    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
+    image = image_data.open_image(returns_none_if_empty=True, exif_transpose=exif_transpose) if open_image else None
     image_center = width // 2, height // 2
 
     angle_to_factor = {0: 0, 90: 1, 180: 2, 270: 3}
@@ -219,12 +220,13 @@ def resize_image_data(
     size: Tuple[int, int],
     interpolation: Optional[int] = cv2.INTER_LINEAR,
     open_image: bool = True,
+    exif_transpose: bool = False,
 ) -> ImageData:
     image_data = copy.deepcopy(image_data)
     old_width, old_height = image_data.get_image_size()
     new_width, new_height = size
 
-    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
+    image = image_data.open_image(returns_none_if_empty=True, exif_transpose=exif_transpose) if open_image else None
     image = cv2.resize(image, size, interpolation=interpolation) if image is not None else None
 
     def resize_coords(bbox_data: BboxData):
@@ -281,12 +283,13 @@ def crop_image_data(
     allow_negative_and_large_coords: bool,
     remove_bad_coords: bool,
     open_image: bool = True,
+    exif_transpose: bool = False,
 ) -> ImageData:
     assert 0 <= xmin and 0 <= ymin
     assert xmin <= xmax and ymin <= ymax
 
     image_data = copy.deepcopy(image_data)
-    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
+    image = image_data.open_image(returns_none_if_empty=True, exif_transpose=exif_transpose) if open_image else None
     width, height = image_data.get_image_size()
     xmin = max(0, xmin)
     ymin = max(0, ymin)
@@ -506,8 +509,9 @@ def apply_perspective_transform_to_image_data(
     allow_negative_and_large_coords: bool,
     remove_bad_coords: bool,
     open_image: bool = True,
+    exif_transpose: bool = False,
 ) -> ImageData:
-    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
+    image = image_data.open_image(returns_none_if_empty=True, exif_transpose=exif_transpose) if open_image else None
     image = cv2.warpPerspective(image, perspective_matrix, (result_width, result_height)) if image is not None else None
 
     image_data = copy.deepcopy(image_data)
@@ -776,6 +780,7 @@ def concat_images_data(
     mode: Literal["L", "RGB", "RGBA"] = "RGBA",
     background_edge_width: int = 3,
     between_edge_width: int = 0,
+    exif_transpose: bool = False,
 ) -> ImageData:
     image_data_a = copy.deepcopy(image_data_a)
     image_data_b = copy.deepcopy(image_data_b)
@@ -785,8 +790,8 @@ def concat_images_data(
     if image_data_a is not None and image_data_b is None:
         return image_data_a
 
-    image_a = image_data_a.open_image()
-    image_b = image_data_b.open_image()
+    image_a = image_data_a.open_image(exif_transpose=exif_transpose)
+    image_b = image_data_b.open_image(exif_transpose=exif_transpose)
 
     ha, wa = image_a.shape[:2]
     hb, wb = image_b.shape[:2]
@@ -918,7 +923,7 @@ def concat_images_data(
 def flatten_additional_bboxes_data_in_image_data(
     image_data: ImageData,
     additional_bboxes_data_depth: Optional[int] = None,
-    set_additional_bboxes_data_empty: bool = True
+    set_additional_bboxes_data_empty: bool = True,
 ) -> ImageData:
     image_data = copy.deepcopy(image_data)
     bboxes_data = []

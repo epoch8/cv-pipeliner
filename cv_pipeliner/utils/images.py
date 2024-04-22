@@ -215,16 +215,16 @@ def concat_images(
             new_image[:background_edge_width, :wa, :] = background_color_a
             new_image[-background_edge_width:, :wa, :] = background_color_a
             new_image[:, :background_edge_width, :] = background_color_a
-            new_image[
-                :, wa + between_edge_width - (background_edge_width - 1) : wa + between_edge_width, :
-            ] = background_color_a
+            new_image[:, wa + between_edge_width - (background_edge_width - 1) : wa + between_edge_width, :] = (
+                background_color_a
+            )
         if background_color_b is not None:
             new_image[:background_edge_width, wa:, :] = background_color_b
             new_image[-background_edge_width:, wa:, :] = background_color_b
             new_image[:, -background_edge_width:, :] = background_color_b
-            new_image[
-                :, wa + between_edge_width : wa + between_edge_width + (background_edge_width - 1), :
-            ] = background_color_b
+            new_image[:, wa + between_edge_width : wa + between_edge_width + (background_edge_width - 1), :] = (
+                background_color_b
+            )
     elif how == "vertically":
         max_width = np.max([wa, wb])
         total_height = ha + hb + between_edge_width
@@ -244,16 +244,16 @@ def concat_images(
             new_image[:ha, :background_edge_width, :] = background_color_a
             new_image[:ha, -background_edge_width:, :] = background_color_a
             new_image[:background_edge_width, :, :] = background_color_a
-            new_image[
-                ha + between_edge_width - (background_edge_width - 1) : ha + between_edge_width, :, :
-            ] = background_color_a
+            new_image[ha + between_edge_width - (background_edge_width - 1) : ha + between_edge_width, :, :] = (
+                background_color_a
+            )
         if background_color_b is not None:
             new_image[ha:, :background_edge_width, :] = background_color_b
             new_image[ha:, -background_edge_width:, :] = background_color_b
             new_image[-background_edge_width:, :, :] = background_color_b
-            new_image[
-                ha + between_edge_width : ha + between_edge_width + (background_edge_width - 1), :, :
-            ] = background_color_b
+            new_image[ha + between_edge_width : ha + between_edge_width + (background_edge_width - 1), :, :] = (
+                background_color_b
+            )
     else:
         raise ValueError("Parametr how must be 'horizontally' or 'vertically'")
 
