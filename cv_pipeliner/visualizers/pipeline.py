@@ -86,7 +86,9 @@ class PipelineVisualizer(Visualizer):
                 self.i = i
 
             if self.inferencer is None:
-                display(Image.fromarray(visualize_image_data(self.true_image_data, use_labels=True, score_type=None)))
+                display(
+                    Image.fromarray(visualize_image_data(self.true_image_data, include_labels=True, score_type=None))
+                )
             else:
                 if show_TP_FP_FN_with_minimum_iou is not None:
                     display(
@@ -99,8 +101,8 @@ class PipelineVisualizer(Visualizer):
                                     extra_bbox_label=extra_bbox_label,
                                 ),
                                 error_type="pipeline",
-                                true_use_labels=True,
-                                pred_use_labels=True,
+                                true_include_labels=True,
+                                pred_include_labels=True,
                                 true_score_type=None,
                                 pred_score_type=None,
                                 true_filter_by_error_types=self.jupyter_visualizer.choices.value.split("+"),

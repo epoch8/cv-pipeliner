@@ -11,7 +11,6 @@ from cv_pipeliner.utils.images_datas import (
     get_image_data_filtered_by_labels,
 )
 from cv_pipeliner.utils.images import rotate_point
-from warnings import warn
 
 # Taken from object_detection.utils.visualization_utils
 STANDARD_COLORS = [
@@ -424,11 +423,7 @@ def visualize_image_data(
     ymin_offset: Union[int, float] = 0,
     xmax_offset: Union[int, float] = 0,
     ymax_offset: Union[int, float] = 0,
-    **kwargs,
 ) -> Union[np.ndarray, Image.Image]:
-    if "use_labels" in kwargs:
-        warn("Argument 'use_labels' is deprecated. Use 'include_labels' instead", DeprecationWarning)
-        include_labels = kwargs["use_labels"]
     if thumbnail_size is not None:
         from cv_pipeliner.utils.images_datas import thumbnail_image_data
 

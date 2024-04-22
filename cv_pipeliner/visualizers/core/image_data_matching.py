@@ -5,7 +5,8 @@ from PIL import Image
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
-from cv_pipeliner.visualizers.core.image_data import visualize_images_data_side_by_side
+from cv_pipeliner.utils.images import concat_images
+from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 
 
 def get_true_and_pred_images_data_with_visualized_labels(
@@ -74,8 +75,10 @@ error_type = Literal["TP", "FP", "FN", "TP (extra bbox)", "FP (extra bbox)"]
 def visualize_image_data_matching_side_by_side(
     image_data_matching: ImageDataMatching,
     error_type: Literal["detection", "pipeline"],
-    true_use_labels: bool = False,
-    pred_use_labels: bool = False,
+    true_include_labels: bool = False,
+    pred_include_labels: bool = False,
+    true_include_mask: bool = False,
+    pred_include_mask: bool = False,
     true_score_type: Literal["detection", "classification"] = None,
     pred_score_type: Literal["detection", "classification"] = None,
     true_filter_by_error_types: List[error_type] = ["TP", "FP", "FN", "TP (extra bbox)", "FP (extra bbox)"],
@@ -88,9 +91,11 @@ def visualize_image_data_matching_side_by_side(
     additional_bboxes_data_depth: Optional[int] = None,
     fontsize: int = 24,
     thickness: int = 4,
+    mask_alpha: float = 0.5,
     thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None,
     label: str = None,
     return_as_pil_image: bool = False,
+    exif_transpose: bool = False,
 ) -> Union[np.ndarray, Image.Image]:
     (
         true_image_data_with_visualized_labels,
@@ -111,17 +116,14 @@ def visualize_image_data_matching_side_by_side(
         for label in pred_visualized_labels
         if any(f"[{matching_error_type}]" in label for matching_error_type in pred_filter_by_error_types)
     ]
-
-    return visualize_images_data_side_by_side(
-        image_data1=true_image_data_with_visualized_labels,
-        image_data2=pred_image_data_with_visualized_labels,
-        use_labels1=true_use_labels,
-        use_labels2=pred_use_labels,
-        score_type1=true_score_type,
-        score_type2=pred_score_type,
-        filter_by_labels1=true_filter_by_labels,
-        filter_by_labels2=pred_filter_by_labels,
+    true_image = visualize_image_data(
+        image_data=true_image_data_with_visualized_labels,
+        include_labels=true_include_labels,
+        score_type=true_score_type,
+        filter_by_labels=true_filter_by_labels,
         known_labels=known_labels,
+        include_mask=true_include_mask,
+        mask_alpha=mask_alpha,
         draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
         overlay=overlay,
         keypoints_radius=keypoints_radius,
@@ -130,5 +132,28 @@ def visualize_image_data_matching_side_by_side(
         fontsize=fontsize,
         thickness=thickness,
         thumbnail_size=thumbnail_size,
-        return_as_pil_image=return_as_pil_image,
+        return_as_pil_image=False,
+        exif_transpose=exif_transpose,
     )
+    pred_image = visualize_image_data(
+        image_data=pred_image_data_with_visualized_labels,
+        include_labels=pred_include_labels,
+        score_type=pred_score_type,
+        filter_by_labels=pred_filter_by_labels,
+        known_labels=known_labels,
+        include_mask=pred_include_mask,
+        mask_alpha=mask_alpha,
+        draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
+        overlay=overlay,
+        keypoints_radius=keypoints_radius,
+        include_additional_bboxes_data=include_additional_bboxes_data,
+        additional_bboxes_data_depth=additional_bboxes_data_depth,
+        fontsize=fontsize,
+        thickness=thickness,
+        thumbnail_size=thumbnail_size,
+        return_as_pil_image=False,
+    )
+    image = concat_images(true_image, pred_image, how="horizontally")
+    if return_as_pil_image:
+        return Image.fromarray(image)
+    return image

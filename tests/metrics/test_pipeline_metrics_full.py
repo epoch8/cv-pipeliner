@@ -108,7 +108,10 @@ def test_image_data_matching_detection():
 
     Image.fromarray(
         visualize_image_data_matching_side_by_side(
-            image_data_matching=image_data_matching, error_type="detection", true_use_labels=True, pred_use_labels=True
+            image_data_matching=image_data_matching,
+            error_type="detection",
+            true_include_labels=True,
+            pred_include_labels=True,
         )
     ).save(test_dir / "detection.jpg")
 
@@ -357,8 +360,8 @@ def test_image_data_matching_pipeline():
                 visualize_image_data_matching_side_by_side(
                     image_data_matching=image_data_matching,
                     error_type="pipeline",
-                    true_use_labels=True,
-                    pred_use_labels=True,
+                    true_include_labels=True,
+                    pred_include_labels=True,
                     label=label,
                 )
             ).save(test_dir / f"pipeline_{tag=}_{label=}.jpg")

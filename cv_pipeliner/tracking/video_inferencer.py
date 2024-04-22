@@ -154,7 +154,7 @@ class VideoInferencer:
 
         image = visualize_image_data(
             image_data=image_data,
-            use_labels=self.write_labels,
+            include_labels=self.write_labels,
             filter_by_labels=filter_by_labels,
             draw_base_labels_with_given_label_to_base_label_image=(
                 self.draw_base_labels_with_given_label_to_base_label_image
