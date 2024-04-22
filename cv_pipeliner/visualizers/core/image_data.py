@@ -164,10 +164,10 @@ def draw_mask_on_image(image: np.ndarray, mask: np.ndarray, color: Tuple[int, in
 # Taken from object_detection.utils.visualization_utils
 def draw_bounding_box_on_image(
     image: Image,
-    ymin: int,
     xmin: int,
-    ymax: int,
+    ymin: int,
     xmax: int,
+    ymax: int,
     keypoints: np.ndarray = [],
     angle: int = 0,
     color="red",
@@ -330,13 +330,13 @@ def visualize_boxes_and_labels_on_image_array(
     image_pil = Image.fromarray(np.uint8(image)).convert("RGB")
     for bbox, angle, keypoints in zip(bboxes, angles, k_keypoints):
         bbox = tuple(bbox.tolist())
-        ymin, xmin, ymax, xmax = bbox
+        xmin, ymin, xmax, ymax = bbox
         draw_bounding_box_on_image(
             image=image_pil,
-            ymin=ymin,
             xmin=xmin,
-            ymax=ymax,
+            ymin=ymin,
             xmax=xmax,
+            ymax=ymax,
             keypoints=keypoints,
             angle=angle,
             color=bbox_to_color[bbox],
