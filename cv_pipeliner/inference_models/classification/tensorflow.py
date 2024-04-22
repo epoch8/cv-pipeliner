@@ -2,7 +2,7 @@ import json
 from json.decoder import JSONDecodeError
 import tempfile
 from pathlib import Path
-from typing import List, Optional, Tuple, Callable, Union, Type, Literal
+from typing import List, Optional, Tuple, Callable, Union, Type, Literal, Dict, Any
 
 import requests
 import numpy as np
@@ -27,6 +27,7 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     saved_model_type: Literal["tf.saved_model", "tf.keras", "tf.keras.Model", "tflite", "tflite_one_image_per_batch"]
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     device: Optional[str] = None  # https://www.tensorflow.org/guide/gpu#manual_device_placement
+    custom_objects: Optional[Dict[str, Any]] = None
 
     @property
     def inference_model_cls(self) -> Type["Tensorflow_ClassificationModel"]:
@@ -81,7 +82,10 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 self.tf_device = None
             try:
                 if model_spec.saved_model_type in "tf.keras":
-                    self.model = tf.keras.models.load_model(str(model_path), compile=False)
+                    self.model = tf.keras.models.load_model(
+                        str(model_path), compile=False,
+                        custom_objects=model_spec.custom_objects
+                    )
                     self.input_dtype = np.float32
                 elif model_spec.saved_model_type == "tf.saved_model":
                     self.loaded_model = tf.saved_model.load(str(model_path))  # to protect from gc
@@ -133,7 +137,8 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 pass
             self._raw_predict = self._raw_predict_kfserving
         else:
-            raise ValueError(f"Tensorflow_ClassificationModel got unknown ClassificationModelSpec: {type(model_spec)}")
+            self._load_tensorflow_classification_model_spec(model_spec)
+            self._raw_predict = self._raw_predict_tensorflow
 
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
             self._preprocess_input = get_preprocess_input_from_script_file(script_file=model_spec.preprocess_input)
