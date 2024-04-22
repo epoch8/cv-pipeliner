@@ -137,8 +137,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 pass
             self._raw_predict = self._raw_predict_kfserving
         else:
-            self._load_tensorflow_classification_model_spec(model_spec)
-            self._raw_predict = self._raw_predict_tensorflow
+            raise ValueError(f"Tensorflow_ClassificationModel got unknown ClassificationModelSpec: {type(model_spec)}")
 
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
             self._preprocess_input = get_preprocess_input_from_script_file(script_file=model_spec.preprocess_input)
