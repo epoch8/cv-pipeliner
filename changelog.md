@@ -8,7 +8,7 @@
   * `label_to_color: Dict[str, str]` -- color mapping for labels, if exists
   * `default_color: str = 'lime'` -- color by default if label is not known
   * `xmin_offset`, `ymin_offset`, `xmax_offset`, `ymax_offset` -- draw bboxes with offsets, can be integers (in pixels) or float (relative to bbox's sizes)
-- Added masks support for `crop_image_data`, `rotate_image_data`, `resize_image_data` and 
+- Added masks support for `crop_image_data`, `rotate_image_data`, `resize_image_data` and `perspective_matrix`
 
 # 0.18.0
 - `COCODataConverter` had wrong name, they are fixed to names `YOLODataConverter` and `YOLOLabelsFile`. Sorry, everyone, it's better make corresponding migrations in your projects (for datapipe users: just do rename tables)
