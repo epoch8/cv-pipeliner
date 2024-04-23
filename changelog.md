@@ -1,3 +1,7 @@
+# 0.18.1
+- Added `custom_objects` in model_spec `tf.keras` Tensorflow models.
+- Fix some pydantic bugs
+
 # 0.18.0
 - `COCODataConverter` had wrong name, they are fixed to names `YOLODataConverter` and `YOLOLabelsFile`. Sorry, everyone, it's better make corresponding migrations in your projects (for datapipe users: just do rename tables)
 - Added new argument `exif_transpose=False` to `ImageData.open_image()`. When `True`, the image is rotated accordindly to exif tag.
