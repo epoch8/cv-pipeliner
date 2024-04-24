@@ -1,5 +1,6 @@
 # 0.18.1
 - Added `custom_objects` in model_spec `tf.keras` Tensorflow models.
+- Added `skip_validation` in model_spec Yolov5. 
 - Fix some pydantic bugs
 
 # 0.18.0
