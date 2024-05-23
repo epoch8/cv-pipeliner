@@ -139,10 +139,6 @@ class PipelineInferencer(Inferencer):
                 pred_images_data.extend(pred_images_data_batch)
                 pbar.update(len(images_data))
                 progress_callback(pbar.n)
-                # GC is bugged, so
-                for image_data in images_data:
-                    image_data.image = None
-                del images_data
 
         return pred_images_data
 
