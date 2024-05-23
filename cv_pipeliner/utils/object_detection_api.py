@@ -199,13 +199,13 @@ def set_config(
 
     configs["train_config"].max_number_of_boxes = max_number_of_boxes
     if total_steps is not None:
-        configs["train_config"].optimizer.adam_optimizer.learning_rate.cosine_decay_learning_rate.total_steps = (
-            total_steps
-        )
+        configs[
+            "train_config"
+        ].optimizer.adam_optimizer.learning_rate.cosine_decay_learning_rate.total_steps = total_steps
     if warmup_steps is not None:
-        configs["train_config"].optimizer.adam_optimizer.learning_rate.cosine_decay_learning_rate.warmup_steps = (
-            warmup_steps
-        )
+        configs[
+            "train_config"
+        ].optimizer.adam_optimizer.learning_rate.cosine_decay_learning_rate.warmup_steps = warmup_steps
     if num_steps is not None:
         configs["train_config"].num_steps = num_steps
 

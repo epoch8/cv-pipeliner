@@ -423,7 +423,10 @@ def visualize_image_data(
     ymin_offset: Union[int, float] = 0,
     xmax_offset: Union[int, float] = 0,
     ymax_offset: Union[int, float] = 0,
+    use_labels: Optional[bool] = None,
 ) -> Union[np.ndarray, Image.Image]:
+    if use_labels is not None:
+        print("WARNING: argument use_labels= is deprecated and will be removed. Use include_labels= instead.")
     if thumbnail_size is not None:
         from cv_pipeliner.utils.images_datas import thumbnail_image_data
 

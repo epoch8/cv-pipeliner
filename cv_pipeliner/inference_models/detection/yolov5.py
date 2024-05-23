@@ -26,6 +26,7 @@ class YOLOv5_ModelSpec(DetectionModelSpec):
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     device: str = None
     force_reload: bool = False
+    skip_validation: bool = False
 
     @property
     def inference_model_cls(self) -> Type["YOLOv5_DetectionModel"]:
@@ -84,7 +85,11 @@ class YOLOv5_DetectionModel(DetectionModel):
             temp_file.write(src.read())
         model_path_tmp = Path(temp_file.name)
         self.model = torch.hub.load(
-            "ultralytics/yolov5:v7.0", "custom", path=str(model_path_tmp), force_reload=model_spec.force_reload
+            "ultralytics/yolov5:v7.0",
+            "custom",
+            path=str(model_path_tmp),
+            force_reload=model_spec.force_reload,
+            skip_validation=model_spec.skip_validation,
         )
         if model_spec.device is not None:
             self.model = self.model.to(model_spec.device)
