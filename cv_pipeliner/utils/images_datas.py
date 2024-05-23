@@ -918,7 +918,7 @@ def concat_images_data(
 def flatten_additional_bboxes_data_in_image_data(
     image_data: ImageData,
     additional_bboxes_data_depth: Optional[int] = None,
-    set_additional_bboxes_data_empty: bool = True
+    set_additional_bboxes_data_empty: bool = True,
 ) -> ImageData:
     image_data = copy.deepcopy(image_data)
     bboxes_data = []

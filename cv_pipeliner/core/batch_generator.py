@@ -35,3 +35,4 @@ class BatchGenerator(abc.ABC):
     def __iter__(self):
         for item in (self[i] for i in range(len(self))):
             yield item
+            del item
