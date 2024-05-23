@@ -351,6 +351,10 @@ class BboxData(BaseImageData):
                 keypoints = self.keypoints.copy()
                 keypoints[:, 0] -= xmin
                 keypoints[:, 1] -= ymin
+                mask = self.mask.copy()
+                for polygon in mask:
+                    polygon[:, 0] -= xmin
+                    polygon[:, 1] -= ymin
 
                 copy_image = self.image  # Memory trick
                 copy_cropped_image = self.cropped_image  # Memory trick
@@ -381,11 +385,13 @@ class BboxData(BaseImageData):
                     from cv_pipeliner.core.data import ImageData
 
                     image_data_cls = ImageData
+
                 image_data = image_data_cls(
                     image=cropped_image,
                     bboxes_data=additional_bboxes_data,
                     label=self.label,
                     keypoints=keypoints,
+                    mask=mask,
                     additional_info=self.additional_info,
                 )
                 self.image = copy_image  # Memory trick
