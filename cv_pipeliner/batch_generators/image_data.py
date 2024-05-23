@@ -23,3 +23,10 @@ class BatchGeneratorImageData(BatchGenerator):
             delayed(lambda x: x.open_image(inplace=True))(image_data) for image_data in batch
         )
         return batch
+
+    def __iter__(self):
+        for images_data in (self[i] for i in range(len(self))):
+            yield images_data
+            for image_data in images_data:
+                image_data.image = None
+            del images_data

@@ -1,3 +1,16 @@
+# 0.19.0
+- Added new field in ImageData and BboxData: `mask`, used for segmentation tasks. It can be image_path, `np.ndarray` image or list of polygon points.
+- Argument `use_labels` in `visualize_image_data` is deprecated. Use `include_labels` instead.
+- `visualize_images_data_side_by_side` is deprecated and removed from `cv_pipeliner`. Use `concat_images` for two images_data instead.
+- `visualize_image_data`: added new arguments `include_mask`, `mask_alpha`, `label_to_color`, `default_color`, `xmin_offset`, `ymin_offset`, `xmax_offset`, `ymax_offset`:
+  * `include_mask` -- draws colorful masks on image if they exists
+  * `mask_alpha: float = 0.5` -- alpha to combine masks with original image
+  * `label_to_color: Dict[str, str]` -- color mapping for labels, if exists
+  * `default_color: str = 'lime'` -- color by default if label is not known
+  * `xmin_offset`, `ymin_offset`, `xmax_offset`, `ymax_offset` -- draw bboxes with offsets, can be integers (in pixels) or float (relative to bbox's sizes)
+- Added masks support for `crop_image_data`, `rotate_image_data`, `resize_image_data` and `apply_perspective_transform_to_image_data`
+- All `visualizers` are deprecated and removed from lib.
+
 # 0.18.1
 - Added `custom_objects` in model_spec `tf.keras` Tensorflow models.
 - Added `skip_validation` in model_spec Yolov5. 

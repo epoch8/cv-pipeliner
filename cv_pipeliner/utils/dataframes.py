@@ -47,9 +47,11 @@ def transpose_columns_and_write_diffs_to_df_with_tags(
             tag_values = [round_nan(tag_value, 3) for tag_value in tag_values]
             tag_signs = ["+" if tag_diff > 0 else "" for tag_diff in tag_diffs]
             tag_suffixes = [
-                f"({tag_sign}{int(round(100 * tag_diff))}%)"
-                if (not np.isnan(tag_diff) and not np.isinf(tag_diff) and np.abs(tag_diff) > 0.01)
-                else ""
+                (
+                    f"({tag_sign}{int(round(100 * tag_diff))}%)"
+                    if (not np.isnan(tag_diff) and not np.isinf(tag_diff) and np.abs(tag_diff) > 0.01)
+                    else ""
+                )
                 for tag_sign, tag_diff in zip(tag_signs, tag_diffs)
             ]
             if use_colors:

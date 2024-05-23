@@ -6,7 +6,7 @@ import dataframe_image as dfi
 from PIL import Image
 
 from cv_pipeliner.core.data import BboxData, ImageData
-from cv_pipeliner.visualizers.core.image_data import visualize_images_data_side_by_side
+from test_utils import visualize_images_data_with_overlay
 
 from cv_pipeliner.metrics.classification import get_df_classification_metrics
 from cv_pipeliner.utils.images import concat_images
@@ -162,9 +162,7 @@ pred_image_data = ImageData(
 
 
 def test_pipeline_metrics():
-    image = visualize_images_data_side_by_side(
-        image_data1=true_image_data, image_data2=pred_image_data, use_labels1=True, use_labels2=True, overlay=True
-    )
+    image = visualize_images_data_with_overlay(image_data1=true_image_data, image_data2=pred_image_data)
     df_classification_metrics = get_df_classification_metrics(
         n_true_bboxes_data=[true_image_data.bboxes_data],
         n_pred_bboxes_data=[pred_image_data.bboxes_data],
@@ -198,4 +196,4 @@ def test_pipeline_metrics():
 
     total_image = concat_images(image_a=image, image_b=df_image, how="vertically", mode="RGB")
 
-    Image.fromarray(total_image).save(test_dir / "df_classification_metrics_A_B_Z_visualized.jpg")
+    Image.fromarray(total_image).save(test_dir / "df_classification_metrics_A_B_Z_visualized.png")

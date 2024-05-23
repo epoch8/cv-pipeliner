@@ -89,7 +89,7 @@ class YOLOv5_DetectionModel(DetectionModel):
             "custom",
             path=str(model_path_tmp),
             force_reload=model_spec.force_reload,
-            skip_validation=model_spec.skip_validation
+            skip_validation=model_spec.skip_validation,
         )
         if model_spec.device is not None:
             self.model = self.model.to(model_spec.device)

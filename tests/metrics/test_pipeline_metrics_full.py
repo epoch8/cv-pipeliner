@@ -4,7 +4,7 @@ from PIL import Image
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
-from cv_pipeliner.visualizers.core.image_data import visualize_images_data_side_by_side
+from test_utils import visualize_images_data_with_overlay
 from cv_pipeliner.visualizers.core.image_data_matching import visualize_image_data_matching_side_by_side
 
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics
@@ -92,11 +92,9 @@ pred_image_data = ImageData(
     ],
 )
 
-Image.fromarray(
-    visualize_images_data_side_by_side(
-        image_data1=true_image_data, image_data2=pred_image_data, use_labels1=True, use_labels2=True
-    )
-).save(test_dir / "original_visualized.jpg")
+Image.fromarray(visualize_images_data_with_overlay(image_data1=true_image_data, image_data2=pred_image_data)).save(
+    test_dir / "original_visualized.png"
+)
 
 
 def test_image_data_matching_detection():
@@ -108,9 +106,12 @@ def test_image_data_matching_detection():
 
     Image.fromarray(
         visualize_image_data_matching_side_by_side(
-            image_data_matching=image_data_matching, error_type="detection", true_use_labels=True, pred_use_labels=True
+            image_data_matching=image_data_matching,
+            error_type="detection",
+            true_include_labels=True,
+            pred_include_labels=True,
         )
-    ).save(test_dir / "detection.jpg")
+    ).save(test_dir / "detection.png")
 
     # Banana tests
     bbox_data_matching_banana = image_data_matching.find_bbox_data_matching(true_bbox_data_banana, tag="true")
@@ -357,11 +358,11 @@ def test_image_data_matching_pipeline():
                 visualize_image_data_matching_side_by_side(
                     image_data_matching=image_data_matching,
                     error_type="pipeline",
-                    true_use_labels=True,
-                    pred_use_labels=True,
+                    true_include_labels=True,
+                    pred_include_labels=True,
                     label=label,
                 )
-            ).save(test_dir / f"pipeline_{tag=}_{label=}.jpg")
+            ).save(test_dir / f"pipeline_{tag=}_{label=}.png")
         dfi.export(
             obj=df_pipeline_metrics,
             filename=str(test_dir / f"df_metrics_pipeline_{tag=}.png"),

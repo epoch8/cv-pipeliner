@@ -1,5 +1,6 @@
 import copy
 import io
+import cv2
 import json
 
 from pathlib import Path
@@ -80,6 +81,13 @@ class BaseImageData(BaseModel):
     image: Optional[np.ndarray] = Field(default=None, repr=False, exclude=True)
     label: Optional[str] = None
     keypoints: np.ndarray = Field(default_factory=lambda: np.array([]).astype(int).reshape((-1, 2)))
+    mask: Union[
+        Union[str, Path, Pathy, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image],  # path to mask image
+        np.ndarray,  # mask image
+        List[List[int]],  # [[x1, y1, x2, y2, ...], [x1, y1, x2, y2, ...], ...]
+        List[List[Tuple[int, int]]],  # [[(x1, y1), (x2, y2), ...], [(x1, y1), (x2, y2), ...], ...]
+        List[np.ndarray],  # [[x1, y1, x2, y2, ...], [x1, y1, x2, y2, ...], ...]
+    ] = Field(default_factory=lambda: [], repr=False)
     detection_score: Optional[float] = Field(default=None, repr=False)
     classification_score: Optional[float] = Field(default=None, repr=False)
     top_n: Optional[int] = Field(default=None, repr=False)
@@ -114,6 +122,14 @@ class BaseImageData(BaseModel):
         if keypoints is None:
             keypoints = []
         return np.array(keypoints).astype(int).reshape((-1, 2))
+
+    @validator("mask", pre=True, allow_reuse=True)
+    def parse_mask(cls, mask):
+        if mask is None:
+            return []
+        if not isinstance(mask, list):
+            return mask
+        return [np.array(points).astype(int).reshape((-1, 2)) for points in mask]
 
     @validator("image", pre=True, allow_reuse=True)
     def parse_image(cls, image, values):
@@ -220,6 +236,21 @@ class BaseImageData(BaseModel):
 
     def is_empty(self):
         return self.image_path is None and self.image is None
+
+    def open_mask(
+        self,
+        exif_transpose: bool = False,
+    ) -> np.ndarray:
+        if isinstance(self.mask, np.ndarray):
+            return self.mask
+        elif not isinstance(self.mask, list):
+            mask = open_image(image=self.mask, open_as_rgb=True, exif_transpose=exif_transpose)
+            return mask
+        else:
+            width, height = self.get_image_size(exif_transpose=exif_transpose)
+            mask = np.zeros((height, width), dtype=np.uint8)
+            mask = cv2.fillPoly(mask, self.mask, 255)
+            return mask
 
 
 class BboxData(BaseImageData):
@@ -334,6 +365,12 @@ class BboxData(BaseImageData):
                     bbox_data.ymin -= ymin
                     bbox_data.xmax -= xmin
                     bbox_data.ymax -= ymin
+                    bbox_data.keypoints[:, 0] -= xmin
+                    bbox_data.keypoints[:, 1] -= ymin
+                    if isinstance(bbox_data.mask, list):
+                        for polygon in bbox_data.mask:
+                            polygon[:, 0] -= xmin
+                            polygon[:, 1] -= ymin
                     for additional_bbox_data in bbox_data.additional_bboxes_data:
                         crop_additional_bbox_data(additional_bbox_data)
 
@@ -385,6 +422,36 @@ class BboxData(BaseImageData):
             #     for additional_bbox_data in self.additional_bboxes_data:
             #         change_images_in_bbox_data(additional_bbox_data)
 
+    def open_cropped_mask(
+        self,
+        xmin_offset: Union[int, float] = 0,
+        ymin_offset: Union[int, float] = 0,
+        xmax_offset: Union[int, float] = 0,
+        ymax_offset: Union[int, float] = 0,
+        exif_transpose: bool = False,
+        source_image: np.ndarray = None,
+    ) -> np.ndarray:
+        xmin, ymin, xmax, ymax = self.coords_with_offset(
+            xmin_offset, ymin_offset, xmax_offset, ymax_offset, source_image
+        )
+        if self.mask is None or isinstance(self.mask, np.ndarray):
+            return self.mask
+        elif not isinstance(self.mask, list):
+            mask = open_image(image=self.mask, open_as_rgb=True, exif_transpose=exif_transpose)
+            mask_height, mask_width = mask.shape[0:2]
+            if (mask_width, mask_height) == self.get_image_size(exif_transpos=exif_transpose):
+                mask = mask[ymin:ymax, xmin:xmax]
+            return mask
+        else:
+            width, height = (xmax - xmin), (ymax - ymin)
+            polygons = copy.deepcopy(self.mask)
+            for polygon in polygons:
+                polygon[:, 0] = np.clip(polygon[:, 0] - xmin, 0, width)
+                polygon[:, 1] = np.clip(polygon[:, 1] - ymin, 0, height)
+            mask = np.zeros((height, width), dtype=np.uint8)
+            mask = cv2.fillPoly(mask, polygons, 255)
+            return mask
+
 
 class ImageData(BaseImageData):
     bboxes_data: List[BboxData] = Field(default_factory=list)
@@ -405,3 +472,25 @@ class ImageData(BaseImageData):
         for bbox_data in self.bboxes_data:
             count += 1 + bbox_data.count_children()
         return count
+
+    def open_mask(
+        self,
+        exif_transpose: bool = False,
+        include_bboxes_data: bool = True,
+        include_additional_bboxes_data: bool = True,
+        additional_bboxes_data_depth: Optional[int] = None,
+    ) -> np.ndarray:
+        mask = BaseImageData.open_mask(self, exif_transpose=exif_transpose)
+        if include_additional_bboxes_data:
+            from cv_pipeliner.utils.images_datas import flatten_additional_bboxes_data_in_image_data
+
+            bboxes_data = flatten_additional_bboxes_data_in_image_data(
+                self, additional_bboxes_data_depth=additional_bboxes_data_depth
+            ).bboxes_data
+        else:
+            bboxes_data = self.bboxes_data
+        if include_bboxes_data:
+            for bbox_data in bboxes_data:
+                new_mask = bbox_data.open_mask(exif_transpose=exif_transpose)
+                mask[new_mask > 0] = new_mask[new_mask > 0]
+        return mask

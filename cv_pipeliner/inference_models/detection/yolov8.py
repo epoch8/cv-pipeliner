@@ -128,12 +128,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             DetectionOutput: List of boxes, keypoints, scores, classes
         """
         raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_images(input, score_threshold)
-        import pickle
 
-        with open("raw_scores.pkl", "wb") as out:
-            pickle.dump(raw_scores, out)
-        with open("raw_classes.pkl", "wb") as out:
-            pickle.dump(raw_classes, out)
         if self.class_names is not None:
             if classification_top_n > 1:
                 raise NotImplementedError("Not impelemented for classification_top_n > 1")
