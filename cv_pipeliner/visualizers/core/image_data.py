@@ -1,4 +1,5 @@
 import collections
+import hashlib
 from typing import Dict, Literal, List, Tuple, Callable, Optional, Union
 
 import numpy as np
@@ -299,7 +300,7 @@ def visualize_boxes_and_labels_on_image_array(
 
     if len(known_labels) > 0:
         known_labels = set(known_labels)
-    label_to_id = {label: hash(label) for id_, label in enumerate(labels)}
+    label_to_id = {label: int(hashlib.md5(str(label).encode()).hexdigest(), 16) for id_, label in enumerate(labels)}
     bbox_to_display_str = collections.defaultdict(list)
     bbox_to_color = collections.defaultdict(str)
 
@@ -488,7 +489,7 @@ def visualize_image_data(
         image = np.array(image_pil)
 
     if include_mask:
-        label_to_id = {label: hash(label) for id_, label in enumerate(labels)}
+        label_to_id = {label: int(hashlib.md5(str(label).encode()).hexdigest(), 16) for id_, label in enumerate(labels)}
         for bbox_data in image_data.bboxes_data:
             if label_to_color is None:
                 bbox_color = ImageColor.getrgb(STANDARD_COLORS[label_to_id[bbox_data.label] % len(STANDARD_COLORS)])
