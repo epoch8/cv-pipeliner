@@ -68,7 +68,6 @@ class FifyOneSession:
             os.environ.pop("FIFTYONE_DATABASE_URI", None)
         if self.database_name is not None:
             os.environ.pop("FIFTYONE_DATABASE_NAME", None)
-        del self.fiftyone
         if "fiftyone" in sys.modules:
             del sys.modules["fiftyone"]
         FifyOneSession._counter -= 1
