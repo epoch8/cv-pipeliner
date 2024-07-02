@@ -358,29 +358,6 @@ class FiftyOneImagesDataTableStore(TableStore):
             df_result = pd.DataFrame(columns=self.attrnames)
         return df_result
 
-    def _delete_samples(self, dataset: "fo.Dataset", samples: List["fo.Sample"]):
-        # Во избежания ошибки в префекте AttributeError: 'RedirectToLog' object has no attribute 'encoding'
-        # dataset.add_samples(samples_to_be_updated)
-        # self.semaphore.acquire()
-        try:
-            dataset.delete_samples(samples)
-        finally:
-            # self.semaphore.release()
-            pass
-
-    def _add_samples(self, dataset: "fo.Dataset", samples: List["fo.Sample"]):
-        # Во избежания ошибки в префекте AttributeError: 'RedirectToLog' object has no attribute 'encoding'
-        # dataset.add_samples(samples_to_be_updated)
-        # self.semaphore.acquire()
-        try:
-            for batch in self.fo_session.fiftyone.core.utils.DynamicBatcher(
-                samples, target_latency=0.2, init_batch_size=1, max_batch_beta=2.0
-            ):
-                dataset._add_samples_batch(batch, expand_schema=True, validate=True)
-        finally:
-            # self.semaphore.release()
-            pass
-
     def insert_rows(self, df: DataDF) -> None:
         dataset = self._get_or_create_dataset()
 
@@ -425,8 +402,8 @@ class FiftyOneImagesDataTableStore(TableStore):
         ):
             current_sample.merge(sample_with_updated_values)
 
-        self._delete_samples(dataset, samples_to_be_updated)  # Работает по поведению так же, как и sample.save()
-        self._add_samples(dataset, samples_to_be_updated)
+        dataset.delete_samples(samples_to_be_updated)  # Работает по поведению так же, как и sample.save()
+        dataset.add_samples(samples_to_be_updated)
 
         # To be added:
         df_to_be_added = index_to_data(df, idxs_to_be_added).reset_index(drop=True)
@@ -447,7 +424,7 @@ class FiftyOneImagesDataTableStore(TableStore):
             for idx in df_to_be_added.index
         ]
         if len(samples_to_be_added) > 0:
-            self._add_samples(dataset, samples_to_be_added)
+            dataset.add_samples(samples_to_be_added)
 
     def delete_rows(self, idx: IndexDF) -> None:
         dataset = self._get_or_create_dataset()
@@ -460,6 +437,6 @@ class FiftyOneImagesDataTableStore(TableStore):
                         del sample[self.fo_detections_label]
                     if self.fo_keypoints_label is not None and sample.has_field(self.fo_keypoints_label):
                         del sample[self.fo_keypoints_label]
-            self._delete_samples(dataset, samples)
+            dataset.delete_samples(samples)
             if self.rm_only_fo_fields:
-                self._add_samples(dataset, samples)
+                dataset.add_samples(samples)

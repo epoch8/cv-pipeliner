@@ -1,3 +1,6 @@
+# 0.19.1
+- Fixes with `fiftyone` usage in datapipe.
+
 # 0.19.0
 - Added new field in ImageData and BboxData: `mask`, used for segmentation tasks. It can be image_path, `np.ndarray` image or list of polygon points. Please look `docs/getting_started` for new examples.
 - Argument `use_labels` in `visualize_image_data` is deprecated. Use `include_labels` instead.
