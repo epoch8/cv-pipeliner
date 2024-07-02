@@ -403,7 +403,7 @@ class FiftyOneImagesDataTableStore(TableStore):
             current_sample.merge(sample_with_updated_values)
 
         dataset.delete_samples(samples_to_be_updated)  # Работает по поведению так же, как и sample.save()
-        dataset.add_samples(samples_to_be_updated, progess=False)
+        dataset.add_samples(samples_to_be_updated, progress=False)
 
         # To be added:
         df_to_be_added = index_to_data(df, idxs_to_be_added).reset_index(drop=True)
@@ -424,7 +424,7 @@ class FiftyOneImagesDataTableStore(TableStore):
             for idx in df_to_be_added.index
         ]
         if len(samples_to_be_added) > 0:
-            dataset.add_samples(samples_to_be_added, progess=False)
+            dataset.add_samples(samples_to_be_added, progress=False)
 
     def delete_rows(self, idx: IndexDF) -> None:
         dataset = self._get_or_create_dataset()
@@ -439,4 +439,4 @@ class FiftyOneImagesDataTableStore(TableStore):
                         del sample[self.fo_keypoints_label]
             dataset.delete_samples(samples)
             if self.rm_only_fo_fields:
-                dataset.add_samples(samples, progess=False)
+                dataset.add_samples(samples, progress=False)
