@@ -63,12 +63,11 @@ class FifyOneSession:
 
     def __del__(self):
         if self.database_dir is not None:
-            del os.environ["FIFTYONE_DATABASE_DIR"]
+            os.environ.pop("FIFTYONE_DATABASE_DIR", None)
         if self.database_uri is not None:
-            del os.environ["FIFTYONE_DATABASE_URI"]
+            os.environ.pop("FIFTYONE_DATABASE_URI", None)
         if self.database_name is not None:
-            del os.environ["FIFTYONE_DATABASE_NAME"]
-        del self.fiftyone
+            os.environ.pop("FIFTYONE_DATABASE_NAME", None)
         if "fiftyone" in sys.modules:
             del sys.modules["fiftyone"]
         FifyOneSession._counter -= 1
