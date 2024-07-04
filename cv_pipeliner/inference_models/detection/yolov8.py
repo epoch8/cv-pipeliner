@@ -189,19 +189,7 @@ class YOLOv8_DetectionModel(DetectionModel):
 
         keypoints = []
         for image_keypoints in raw_keypoints:
-            new_image_keypoints = []
-            if len(image_keypoints) != 0:
-                new_bbox_keypoint = []
-                for bbox_keypoint in image_keypoints[
-                    0
-                ]:  # TODO подумать нужно ставить ноль
-                    new_bbox_keypoint.append(
-                        [int(bbox_keypoint[0]), int(bbox_keypoint[1])]
-                    )
-                new_image_keypoints.append(new_bbox_keypoint)
-            else:
-                new_image_keypoints = []
-            keypoints.append(new_image_keypoints)
+            keypoints.append([bbox_keypoints.astype(np.int32).tolist() for bbox_keypoints in image_keypoints])
 
         results = (
             [image_boxes.tolist() for image_boxes in raw_bboxes],
