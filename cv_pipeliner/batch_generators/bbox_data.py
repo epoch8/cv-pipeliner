@@ -39,3 +39,11 @@ class BatchGeneratorBboxData(BatchGenerator):
     @property
     def shapes(self):
         return self._shapes
+
+    def __iter__(self):
+        for bboxes_data in (self[i] for i in range(len(self))):
+            yield bboxes_data
+            for bbox_data in bboxes_data:
+                bbox_data.image = None
+                bbox_data.cropped_image = None
+            del bboxes_data

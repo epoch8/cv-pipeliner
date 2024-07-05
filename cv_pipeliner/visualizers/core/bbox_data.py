@@ -50,7 +50,7 @@ def visualize_bboxes_data(
 
     for idx, ax in zip(idxs, axes.flatten()):
         bbox_data = bboxes_data[idx]
-        bbox = bbox_data.open_cropped_image(draw_rectangle_with_color=draw_rectangle_with_color).copy()
+        bbox = bbox_data.open_cropped_image().copy()
         label = bbox_data.label
         bbox = np.array(bbox)
         ax.imshow(bbox)

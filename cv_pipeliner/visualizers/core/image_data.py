@@ -1,11 +1,10 @@
 import collections
-import copy
-from typing import Literal, List, Tuple, Callable, Optional, Union
+import hashlib
+from typing import Dict, Literal, List, Tuple, Callable, Optional, Union
 
 import numpy as np
 import imutils
-import cv2
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageColor
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.utils.images_datas import (
@@ -13,7 +12,6 @@ from cv_pipeliner.utils.images_datas import (
     get_image_data_filtered_by_labels,
 )
 from cv_pipeliner.utils.images import rotate_point
-
 
 # Taken from object_detection.utils.visualization_utils
 STANDARD_COLORS = [
@@ -148,13 +146,28 @@ STANDARD_COLORS_RGB = ["Red", "Green", "Blue", "Yellow"]
 STANDARD_COLORS_RGB = STANDARD_COLORS_RGB + [x for x in STANDARD_COLORS if x not in STANDARD_COLORS_RGB]
 
 
+def draw_mask_on_image(image: np.ndarray, mask: np.ndarray, color: Tuple[int, int, int], alpha: float) -> np.ndarray:
+    if len(mask.shape) == 2:
+        mask = np.array(Image.fromarray(mask).convert("RGB"))
+    norm_mask = mask.astype(np.float32) / 255.0
+    np_where = np.where(norm_mask > 0)
+    if len(np_where[0]) > 0:
+        colored_mask_np = np.zeros_like(mask, dtype=np.float32)
+        recolor_value = np.array(color)
+        colored_mask_np[np_where] = norm_mask[np_where] * np.tile(recolor_value, len(np_where[0]) // 3)
+        colored_mask = colored_mask_np.astype(np.uint8)
+        colored_np_where = np.where(colored_mask > 0)
+        image[colored_np_where] = (1 - alpha) * image[colored_np_where] + alpha * colored_mask[colored_np_where]
+    return image
+
+
 # Taken from object_detection.utils.visualization_utils
 def draw_bounding_box_on_image(
     image: Image,
-    ymin: int,
     xmin: int,
-    ymax: int,
+    ymin: int,
     xmax: int,
+    ymax: int,
     keypoints: np.ndarray = [],
     angle: int = 0,
     color="red",
@@ -251,6 +264,7 @@ def visualize_boxes_and_labels_on_image_array(
     keypoints_radius: int = 5,
     fontsize: int = 24,
     thickness: int = 4,
+    label_to_color: Optional[Dict[str, str]] = None,
 ):
     """Overlay labeled boxes on an image with formatted scores and label names.
 
@@ -286,7 +300,7 @@ def visualize_boxes_and_labels_on_image_array(
 
     if len(known_labels) > 0:
         known_labels = set(known_labels)
-    label_to_id = {label: id_ for id_, label in enumerate(labels)}
+    label_to_id = {label: int(hashlib.md5(str(label).encode()).hexdigest(), 16) for id_, label in enumerate(labels)}
     bbox_to_display_str = collections.defaultdict(list)
     bbox_to_color = collections.defaultdict(str)
 
@@ -305,7 +319,10 @@ def visualize_boxes_and_labels_on_image_array(
                     display_str = f"{display_str}: {round(100*scores[i])}%"
             bbox_to_display_str[bbox].append(display_str)
             if len(known_labels) > 0 and labels[i] in known_labels:
-                bbox_to_color[bbox] = STANDARD_COLORS[label_to_id[labels[i]] % len(STANDARD_COLORS)]
+                if label_to_color is not None:
+                    bbox_to_color[bbox] = label_to_color[labels[i]]
+                else:
+                    bbox_to_color[bbox] = STANDARD_COLORS[label_to_id[labels[i]] % len(STANDARD_COLORS)]
             else:
                 bbox_to_color[bbox] = groundtruth_box_visualization_color
 
@@ -313,13 +330,13 @@ def visualize_boxes_and_labels_on_image_array(
     image_pil = Image.fromarray(np.uint8(image)).convert("RGB")
     for bbox, angle, keypoints in zip(bboxes, angles, k_keypoints):
         bbox = tuple(bbox.tolist())
-        ymin, xmin, ymax, xmax = bbox
+        xmin, ymin, xmax, ymax = bbox
         draw_bounding_box_on_image(
             image=image_pil,
-            ymin=ymin,
             xmin=xmin,
-            ymax=ymax,
+            ymin=ymin,
             xmax=xmax,
+            ymax=ymax,
             keypoints=keypoints,
             angle=angle,
             color=bbox_to_color[bbox],
@@ -385,7 +402,7 @@ def draw_label_image(
 
 def visualize_image_data(
     image_data: ImageData,
-    use_labels: bool = False,
+    include_labels: bool = False,
     score_type: Literal["detection", "classification"] = None,
     filter_by_labels: List[str] = None,
     known_labels: Optional[List[str]] = None,
@@ -393,29 +410,44 @@ def visualize_image_data(
     keypoints_radius: int = 5,
     include_additional_bboxes_data: bool = False,
     additional_bboxes_data_depth: Optional[int] = None,
+    include_keypoints: bool = False,
+    include_mask: bool = False,
+    mask_alpha: float = 0.5,
+    label_to_color: Optional[Dict[str, str]] = None,
     fontsize: int = 24,
     thickness: int = 4,
     thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None,
     return_as_pil_image: bool = False,
+    default_color: str = "lime",
+    exif_transpose: bool = False,
+    xmin_offset: Union[int, float] = 0,
+    ymin_offset: Union[int, float] = 0,
+    xmax_offset: Union[int, float] = 0,
+    ymax_offset: Union[int, float] = 0,
+    use_labels: Optional[bool] = None,
 ) -> Union[np.ndarray, Image.Image]:
+    if use_labels is not None:
+        print("WARNING: argument use_labels= is deprecated and will be removed. Use include_labels= instead.")
     if thumbnail_size is not None:
         from cv_pipeliner.utils.images_datas import thumbnail_image_data
 
         image_data = thumbnail_image_data(image_data, thumbnail_size)
 
     image_data = get_image_data_filtered_by_labels(image_data=image_data, filter_by_labels=filter_by_labels)
-    image = image_data.open_image()
+    image = image_data.open_image(exif_transpose=exif_transpose)
     if include_additional_bboxes_data:
         bboxes_data = flatten_additional_bboxes_data_in_image_data(
             image_data, additional_bboxes_data_depth=additional_bboxes_data_depth
         ).bboxes_data
     else:
         bboxes_data = image_data.bboxes_data
-    labels = [bbox_data.label for bbox_data in bboxes_data]
+    labels = [bbox_data.label for bbox_data in bboxes_data] + [image_data.label]
     if known_labels is None:
         known_labels = list(set(labels))
     k_keypoints = [bbox_data.keypoints for bbox_data in bboxes_data]
-    bboxes = np.array([(bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax) for bbox_data in bboxes_data])
+    bboxes = np.array(
+        [bbox_data.coords_with_offset(xmin_offset, ymin_offset, xmax_offset, ymax_offset) for bbox_data in bboxes_data]
+    )
     angles = np.array([0.0 for _ in bboxes_data])
     if score_type == "detection":
         scores = np.array([bbox_data.detection_score for bbox_data in bboxes_data])
@@ -436,14 +468,15 @@ def visualize_image_data(
         labels=labels,
         use_normalized_coordinates=False,
         skip_scores=skip_scores,
-        skip_labels=not use_labels,
-        groundtruth_box_visualization_color="lime",
+        skip_labels=not include_labels,
+        groundtruth_box_visualization_color=default_color,
         known_labels=known_labels,
         keypoints_radius=keypoints_radius,
         fontsize=fontsize,
         thickness=thickness,
+        label_to_color=label_to_color,
     )
-    if len(image_data.keypoints) > 0:
+    if include_keypoints and len(image_data.keypoints) > 0:
         image_pil = Image.fromarray(image)
         draw = ImageDraw.Draw(image_pil)
         for idx, (x, y) in enumerate(image_data.keypoints):
@@ -454,77 +487,37 @@ def visualize_image_data(
                 fill=STANDARD_COLORS_RGB[idx % len(STANDARD_COLORS_RGB)],
             )
         image = np.array(image_pil)
+
+    if include_mask:
+        label_to_id = {label: int(hashlib.md5(str(label).encode()).hexdigest(), 16) for id_, label in enumerate(labels)}
+        for bbox_data in image_data.bboxes_data:
+            if label_to_color is None:
+                bbox_color = ImageColor.getrgb(STANDARD_COLORS[label_to_id[bbox_data.label] % len(STANDARD_COLORS)])
+            else:
+                bbox_color = ImageColor.getrgb(label_to_color.get(bbox_data.label, default_color))
+            bbox_mask_np = bbox_data.open_mask(exif_transpose=exif_transpose)
+            image = draw_mask_on_image(
+                image=image,
+                mask=bbox_mask_np,
+                color=bbox_color,
+                alpha=mask_alpha,
+            )
+        mask_np = image_data.open_mask(exif_transpose=exif_transpose, include_bboxes_data=False)
+        if label_to_color is None:
+            color = ImageColor.getrgb(STANDARD_COLORS[label_to_id[image_data.label] % len(STANDARD_COLORS)])
+        else:
+            color = ImageColor.getrgb(label_to_color.get(image_data.label, default_color))
+        image = draw_mask_on_image(
+            image=image,
+            mask=mask_np,
+            color=color,
+            alpha=mask_alpha,
+        )
+
     if draw_base_labels_with_given_label_to_base_label_image is not None:
         for bbox_data in image_data.bboxes_data:
             base_label_image = draw_base_labels_with_given_label_to_base_label_image(bbox_data.label)
             draw_label_image(image=image, base_label_image=base_label_image, bbox_data=bbox_data, inplace=True)
-
-    if return_as_pil_image:
-        return Image.fromarray(image)
-
-    return image
-
-
-def visualize_images_data_side_by_side(
-    image_data1: ImageData,
-    image_data2: ImageData,
-    use_labels1: bool = False,
-    use_labels2: bool = False,
-    score_type1: Literal["detection", "classification"] = None,
-    score_type2: Literal["detection", "classification"] = None,
-    filter_by_labels1: List[str] = None,
-    filter_by_labels2: List[str] = None,
-    known_labels: Optional[List[str]] = None,
-    draw_base_labels_with_given_label_to_base_label_image: Callable[[str], np.ndarray] = None,
-    overlay: bool = False,
-    keypoints_radius: int = 5,
-    include_additional_bboxes_data: bool = False,
-    additional_bboxes_data_depth: Optional[int] = None,
-    fontsize: int = 24,
-    thickness: int = 4,
-    thumbnail_size: Optional[Union[int, Tuple[int, int]]] = None,
-    return_as_pil_image: bool = False,
-) -> Union[np.ndarray, Image.Image]:
-    if overlay:
-        image_data1 = copy.deepcopy(image_data1)
-        image_data2 = copy.deepcopy(image_data2)
-        for image_data, tag in [(image_data1, "left"), (image_data2, "right")]:
-            for bbox_data in image_data.bboxes_data:
-                bbox_data.label = f"{bbox_data.label} [{tag}]"
-
-    true_ann_image = visualize_image_data(
-        image_data=image_data1,
-        use_labels=use_labels1,
-        score_type=score_type1,
-        filter_by_labels=filter_by_labels1,
-        known_labels=known_labels,
-        draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
-        include_additional_bboxes_data=include_additional_bboxes_data,
-        additional_bboxes_data_depth=additional_bboxes_data_depth,
-        keypoints_radius=keypoints_radius,
-        fontsize=fontsize,
-        thickness=thickness,
-        thumbnail_size=thumbnail_size,
-    )
-    pred_ann_image = visualize_image_data(
-        image_data=image_data2,
-        use_labels=use_labels2,
-        score_type=score_type2,
-        filter_by_labels=filter_by_labels2,
-        known_labels=known_labels,
-        draw_base_labels_with_given_label_to_base_label_image=draw_base_labels_with_given_label_to_base_label_image,
-        include_additional_bboxes_data=include_additional_bboxes_data,
-        additional_bboxes_data_depth=additional_bboxes_data_depth,
-        keypoints_radius=keypoints_radius,
-        fontsize=fontsize,
-        thickness=thickness,
-        thumbnail_size=thumbnail_size,
-    )
-
-    if overlay:
-        image = cv2.addWeighted(src1=true_ann_image, alpha=1.0, src2=pred_ann_image, beta=1.0, gamma=0.0)
-    else:
-        image = cv2.hconcat([true_ann_image, pred_ann_image])
 
     if return_as_pil_image:
         return Image.fromarray(image)

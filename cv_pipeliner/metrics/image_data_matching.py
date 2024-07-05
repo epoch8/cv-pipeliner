@@ -290,25 +290,29 @@ class ImageDataMatching:
         if tag == "true":
             bboxes_data_coords_from_matchings = [
                 (
-                    bbox_data_matching.true_bbox_data.xmin,
-                    bbox_data_matching.true_bbox_data.ymin,
-                    bbox_data_matching.true_bbox_data.xmax,
-                    bbox_data_matching.true_bbox_data.ymax,
+                    (
+                        bbox_data_matching.true_bbox_data.xmin,
+                        bbox_data_matching.true_bbox_data.ymin,
+                        bbox_data_matching.true_bbox_data.xmax,
+                        bbox_data_matching.true_bbox_data.ymax,
+                    )
+                    if bbox_data_matching.true_bbox_data is not None
+                    else (-1, -1, -1, 1)
                 )
-                if bbox_data_matching.true_bbox_data is not None
-                else (-1, -1, -1, 1)
                 for bbox_data_matching in self.bboxes_data_matchings
             ]
         elif tag == "pred":
             bboxes_data_coords_from_matchings = [
                 (
-                    bbox_data_matching.pred_bbox_data.xmin,
-                    bbox_data_matching.pred_bbox_data.ymin,
-                    bbox_data_matching.pred_bbox_data.xmax,
-                    bbox_data_matching.pred_bbox_data.ymax,
+                    (
+                        bbox_data_matching.pred_bbox_data.xmin,
+                        bbox_data_matching.pred_bbox_data.ymin,
+                        bbox_data_matching.pred_bbox_data.xmax,
+                        bbox_data_matching.pred_bbox_data.ymax,
+                    )
+                    if bbox_data_matching.pred_bbox_data is not None
+                    else (-1, -1, -1, 1)
                 )
-                if bbox_data_matching.pred_bbox_data is not None
-                else (-1, -1, -1, 1)
                 for bbox_data_matching in self.bboxes_data_matchings
             ]
         bbox_data_matching_index = bboxes_data_coords_from_matchings.index((xmin, ymin, xmax, ymax))

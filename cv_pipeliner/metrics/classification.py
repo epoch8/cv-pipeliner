@@ -219,9 +219,11 @@ def get_df_classification_metrics(
     n_pred_scores_top_n = [
         np.array(
             [
-                pred_bbox_data.classification_scores_top_n
-                if pred_bbox_data.classification_scores_top_n is not None
-                else [1.0]
+                (
+                    pred_bbox_data.classification_scores_top_n
+                    if pred_bbox_data.classification_scores_top_n is not None
+                    else [1.0]
+                )
                 for pred_bbox_data in pred_bboxes_data
             ]
         )

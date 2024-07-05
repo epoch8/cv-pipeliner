@@ -98,6 +98,13 @@ def _rotate_bbox_data(bbox_data: BboxData, rotation_mat: np.ndarray, new_width: 
     rotated_bbox_data.xmax = rotated_xmax
     rotated_bbox_data.ymax = rotated_ymax
     rotated_bbox_data.keypoints = rotate_keypoints(rotated_bbox_data.keypoints, rotation_mat, new_width, new_height)
+    if isinstance(rotated_bbox_data.mask, list):
+        rotated_bbox_data.mask = [
+            rotate_keypoints(polygon, rotation_mat, new_width, new_height) for polygon in rotated_bbox_data.mask
+        ]
+        for polygon in rotated_bbox_data.mask:
+            polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
+            polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
     keypoints = []
     for x, y in rotated_bbox_data.keypoints:
         x = max(0, min(x, new_width - 1))
@@ -121,6 +128,10 @@ def _rotate_bbox_data90(
     """Rotates a bounding box by 90 degrees CCW (see np.rot90)"""
     rotated_bbox_data = copy.deepcopy(bbox_data)
     rotated_bbox_data.keypoints = rotate_keypoints90(bbox_data.keypoints, factor, width, height)
+    if isinstance(rotated_bbox_data.mask, list):
+        rotated_bbox_data.mask = [
+            rotate_keypoints90(polygon, factor, width, height) for polygon in rotated_bbox_data.mask
+        ]
     xmin, ymin, xmax, ymax = rotated_bbox_data.coords
     if factor == 1:
         xmin, ymin, xmax, ymax = ymin, width - xmax, ymax, width - xmin
@@ -147,15 +158,16 @@ def rotate_image_data(
     border_mode: Optional[int] = None,
     border_value: Tuple[int, int, int] = None,
     open_image: bool = True,
+    exif_transpose: bool = False,
 ):
     rotated_image_data = copy.deepcopy(image_data)
     if abs(angle) <= 1e-6:
         if open_image:
-            rotated_image_data.open_image(inplace=True)
+            rotated_image_data.open_image(inplace=True, exif_transpose=exif_transpose)
         return rotated_image_data
 
     width, height = image_data.get_image_size()
-    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
+    image = image_data.open_image(returns_none_if_empty=True, exif_transpose=exif_transpose) if open_image else None
     image_center = width // 2, height // 2
 
     angle_to_factor = {0: 0, 90: 1, 180: 2, 270: 3}
@@ -165,6 +177,10 @@ def rotate_image_data(
         factor = angle_to_factor[angle]
         rotated_image = np.rot90(image, factor) if image is not None else None
         rotated_image_data.keypoints = rotate_keypoints90(image_data.keypoints, factor, width, height)
+        if isinstance(rotated_image_data.mask, list):
+            rotated_image_data.keypoints = [
+                rotate_keypoints90(polygon, factor, width, height) for polygon in rotated_image_data.mask
+            ]
         rotated_image_data.bboxes_data = [
             _rotate_bbox_data90(bbox_data, factor, width, height) for bbox_data in rotated_image_data.bboxes_data
         ]
@@ -195,12 +211,20 @@ def rotate_image_data(
         )
         rotated_image_data = copy.deepcopy(image_data)
         rotated_image_data.keypoints = rotate_keypoints(image_data.keypoints, rotation_mat, new_height, new_width)
+        if isinstance(rotated_image_data.mask, list):
+            rotated_image_data.keypoints = [
+                rotate_keypoints(polygon, rotation_mat, new_height, new_width) for polygon in rotated_image_data.mask
+            ]
         keypoints = []
         for x, y in rotated_image_data.keypoints:
             x = max(0, min(x, new_width - 1))
             y = max(0, min(y, new_height - 1))
             keypoints.append([x, y])
         rotated_image_data.keypoints = np.array(keypoints).reshape(-1, 2)
+        if isinstance(rotated_image_data.mask, list):
+            for polygon in rotated_image_data.mask:
+                polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
+                polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
         rotated_image_data.bboxes_data = [
             _rotate_bbox_data(bbox_data, rotation_mat, new_height, new_width)
             for bbox_data in rotated_image_data.bboxes_data
@@ -219,12 +243,13 @@ def resize_image_data(
     size: Tuple[int, int],
     interpolation: Optional[int] = cv2.INTER_LINEAR,
     open_image: bool = True,
+    exif_transpose: bool = False,
 ) -> ImageData:
     image_data = copy.deepcopy(image_data)
     old_width, old_height = image_data.get_image_size()
     new_width, new_height = size
 
-    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
+    image = image_data.open_image(returns_none_if_empty=True, exif_transpose=exif_transpose) if open_image else None
     image = cv2.resize(image, size, interpolation=interpolation) if image is not None else None
 
     def resize_coords(bbox_data: BboxData):
@@ -234,6 +259,12 @@ def resize_image_data(
         bbox_data.ymax = max(0, min(int(bbox_data.ymax * (new_height / old_height)), new_height - 1))
         bbox_data.keypoints[:, 0] = (bbox_data.keypoints[:, 0] * (new_width / old_width)).astype(int)
         bbox_data.keypoints[:, 1] = (bbox_data.keypoints[:, 1] * (new_height / old_height)).astype(int)
+        if isinstance(bbox_data.mask, list):
+            for polygon in bbox_data.mask:
+                polygon[:, 0] = (polygon[:, 0] * (new_width / old_width)).astype(int)
+                polygon[:, 1] = (polygon[:, 1] * (new_height / old_height)).astype(int)
+                polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
+                polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
         bbox_data.keypoints = bbox_data.keypoints.astype(int)
         bbox_data.cropped_image = None
         keypoints = []
@@ -254,6 +285,12 @@ def resize_image_data(
         x = max(0, min(x, new_width - 1))
         y = max(0, min(y, new_height - 1))
         keypoints.append([x, y])
+    if isinstance(image_data.mask, list):
+        for polygon in image_data.mask:
+            polygon[:, 0] = (polygon[:, 0] * (new_width / old_width)).astype(int)
+            polygon[:, 1] = (polygon[:, 1] * (new_height / old_height)).astype(int)
+            polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
+            polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
     image_data.keypoints = np.array(keypoints).reshape(-1, 2)
     image_data.image_path = None
     image_data.image = image
@@ -281,12 +318,13 @@ def crop_image_data(
     allow_negative_and_large_coords: bool,
     remove_bad_coords: bool,
     open_image: bool = True,
+    exif_transpose: bool = False,
 ) -> ImageData:
     assert 0 <= xmin and 0 <= ymin
     assert xmin <= xmax and ymin <= ymax
 
     image_data = copy.deepcopy(image_data)
-    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
+    image = image_data.open_image(returns_none_if_empty=True, exif_transpose=exif_transpose) if open_image else None
     width, height = image_data.get_image_size()
     xmin = max(0, xmin)
     ymin = max(0, ymin)
@@ -307,6 +345,10 @@ def crop_image_data(
         bbox_data.ymax = bbox_data.ymax - ymin
         bbox_data.keypoints[:, 0] -= xmin
         bbox_data.keypoints[:, 1] -= ymin
+        if isinstance(bbox_data.mask, list):
+            for polygon in bbox_data.mask:
+                polygon[:, 0] -= xmin
+                polygon[:, 1] -= ymin
         bbox_data.cropped_image = None
         if not allow_negative_and_large_coords:
             bbox_data.xmin = max(0, min(bbox_data.xmin, new_width - 1))
@@ -319,6 +361,10 @@ def crop_image_data(
                 y = max(0, min(y, new_height - 1))
                 keypoints.append([x, y])
             bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
+            if isinstance(bbox_data.mask, list):
+                for polygon in bbox_data.mask:
+                    polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
+                    polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
         for additional_bbox_data in bbox_data.additional_bboxes_data:
             resize_coords(additional_bbox_data)
 
@@ -331,6 +377,10 @@ def crop_image_data(
         y = max(0, min(y - ymin, new_height - 1))
         keypoints.append([x, y])
     image_data.keypoints = np.array(keypoints).reshape(-1, 2)
+    if isinstance(image_data.mask, list):
+        for polygon in image_data.mask:
+            polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
+            polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
 
     def if_bbox_data_inside_crop(bbox_data: BboxData):
         bbox_data.keypoints = bbox_data.keypoints[
@@ -341,6 +391,19 @@ def crop_image_data(
                 & (bbox_data.keypoints[:, 1] < new_width)
             )
         ]
+        if isinstance(bbox_data.mask, list):
+            bbox_data.mask = [
+                polygon[
+                    (
+                        (polygon[:, 0] >= 0)
+                        & (polygon[:, 1] >= 0)
+                        & (polygon[:, 0] < new_height)
+                        & (polygon[:, 1] < new_width)
+                    )
+                ]
+                for polygon in bbox_data.mask
+            ]
+            bbox_data.mask = [polygon for polygon in bbox_data.mask if len(polygon) > 0]
         bbox_data.additional_bboxes_data = [
             additional_bbox_data
             for additional_bbox_data in bbox_data.additional_bboxes_data
@@ -367,6 +430,19 @@ def crop_image_data(
                 & (image_data.keypoints[:, 1] < new_width)
             )
         ]
+        if isinstance(image_data.mask, list):
+            image_data.mask = [
+                polygon[
+                    (
+                        (polygon[:, 0] >= 0)
+                        & (polygon[:, 1] >= 0)
+                        & (polygon[:, 0] < new_height)
+                        & (polygon[:, 1] < new_width)
+                    )
+                ]
+                for polygon in image_data.mask
+            ]
+            image_data.mask = [polygon for polygon in image_data.mask if len(polygon) > 0]
 
     image_data.image_path = None
     image_data.image = image
@@ -460,6 +536,19 @@ def _apply_perspective_transform_to_bbox_data(
         allow_negative_and_large_coords,
         remove_bad_coords,
     )
+    if isinstance(transformed_bbox_data.mask, list):
+        transformed_bbox_data.mask = [
+            apply_perspective_transform_to_points(
+                polygon,
+                perspective_matrix,
+                result_height,
+                result_height,
+                allow_negative_and_large_coords,
+                remove_bad_coords,
+            )
+            for polygon in transformed_bbox_data.mask
+        ]
+        transformed_bbox_data.mask = [polygon for polygon in transformed_bbox_data.mask if len(polygon) > 0]
     transformed_bbox_data.additional_bboxes_data = [
         _apply_perspective_transform_to_bbox_data(
             additional_bbox_data,
@@ -506,8 +595,9 @@ def apply_perspective_transform_to_image_data(
     allow_negative_and_large_coords: bool,
     remove_bad_coords: bool,
     open_image: bool = True,
+    exif_transpose: bool = False,
 ) -> ImageData:
-    image = image_data.open_image(returns_none_if_empty=True) if open_image else None
+    image = image_data.open_image(returns_none_if_empty=True, exif_transpose=exif_transpose) if open_image else None
     image = cv2.warpPerspective(image, perspective_matrix, (result_width, result_height)) if image is not None else None
 
     image_data = copy.deepcopy(image_data)
@@ -519,7 +609,20 @@ def apply_perspective_transform_to_image_data(
         allow_negative_and_large_coords,
         remove_bad_coords,
     )
-    image_data.bboxes_data = [
+    if isinstance(image_data.mask, list):
+        image_data.mask = [
+            apply_perspective_transform_to_points(
+                polygon,
+                perspective_matrix,
+                result_height,
+                result_height,
+                allow_negative_and_large_coords,
+                remove_bad_coords,
+            )
+            for polygon in image_data.mask
+        ]
+        image_data.mask = [polygon for polygon in image_data.mask if len(polygon) > 0]
+    transformed_bboxes_data = [
         _apply_perspective_transform_to_bbox_data(
             bbox_data,
             perspective_matrix,
@@ -530,7 +633,7 @@ def apply_perspective_transform_to_image_data(
         )
         for bbox_data in image_data.bboxes_data
     ]
-    image_data.bboxes_data = [bbox_data for bbox_data in image_data.bboxes_data if bbox_data is not None]
+    image_data.bboxes_data = [bbox_data for bbox_data in transformed_bboxes_data if bbox_data is not None]
     image_data.image_path = None
     image_data.image = image
 
@@ -776,6 +879,7 @@ def concat_images_data(
     mode: Literal["L", "RGB", "RGBA"] = "RGBA",
     background_edge_width: int = 3,
     between_edge_width: int = 0,
+    exif_transpose: bool = False,
 ) -> ImageData:
     image_data_a = copy.deepcopy(image_data_a)
     image_data_b = copy.deepcopy(image_data_b)
@@ -785,8 +889,8 @@ def concat_images_data(
     if image_data_a is not None and image_data_b is None:
         return image_data_a
 
-    image_a = image_data_a.open_image()
-    image_b = image_data_b.open_image()
+    image_a = image_data_a.open_image(exif_transpose=exif_transpose)
+    image_b = image_data_b.open_image(exif_transpose=exif_transpose)
 
     ha, wa = image_a.shape[:2]
     hb, wb = image_b.shape[:2]
@@ -918,7 +1022,7 @@ def concat_images_data(
 def flatten_additional_bboxes_data_in_image_data(
     image_data: ImageData,
     additional_bboxes_data_depth: Optional[int] = None,
-    set_additional_bboxes_data_empty: bool = True
+    set_additional_bboxes_data_empty: bool = True,
 ) -> ImageData:
     image_data = copy.deepcopy(image_data)
     bboxes_data = []

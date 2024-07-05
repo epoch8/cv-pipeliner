@@ -18,9 +18,7 @@ class YOLOv8_ModelSpec(DetectionModelSpec):
     model_name: Optional[str] = None
     model_path: Optional[Union[str, Path]] = None  # noqa: F821
     class_names: Optional[List[str]] = None
-    preprocess_input: Union[
-        Callable[[List[np.ndarray]], np.ndarray], str, Path, None
-    ] = None
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     device: str = None
     force_reload: bool = False
 
@@ -45,9 +43,7 @@ class YOLOv8_DetectionModel(DetectionModel):
 
         # Loading classes names and save as attribute
         if model_spec.class_names is not None:
-            if isinstance(model_spec.class_names, str) or isinstance(
-                model_spec.class_names, Path
-            ):
+            if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
                 with fsspec.open(model_spec.class_names, "r", encoding="utf-8") as out:
                     self.class_names = np.array(json.load(out))
             else:
@@ -56,12 +52,8 @@ class YOLOv8_DetectionModel(DetectionModel):
             self.class_names = None
 
         # Loading preprocessing function
-        if isinstance(model_spec.preprocess_input, str) or isinstance(
-            model_spec.preprocess_input, Path
-        ):
-            self._preprocess_input = get_preprocess_input_from_script_file(
-                script_file=model_spec.preprocess_input
-            )
+        if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
+            self._preprocess_input = get_preprocess_input_from_script_file(script_file=model_spec.preprocess_input)
         else:
             if model_spec.preprocess_input is None:
                 self._preprocess_input = lambda x: x
@@ -155,10 +147,7 @@ class YOLOv8_DetectionModel(DetectionModel):
         Returns:
             DetectionOutput: List of boxes, keypoints, scores, classes
         """
-        raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_images(
-            input, score_threshold
-        )
-        # import pickle
+        raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_images(input, score_threshold)
 
         # with open("raw_scores.pkl", "wb") as out:
         #     pickle.dump(raw_scores, out)
@@ -166,9 +155,7 @@ class YOLOv8_DetectionModel(DetectionModel):
         #     pickle.dump(raw_classes, out)
         if self.class_names is not None:
             if classification_top_n > 1:
-                raise NotImplementedError(
-                    "Not impelemented for classification_top_n > 1"
-                )
+                raise NotImplementedError("Not impelemented for classification_top_n > 1")
             class_names_top_n = [
                 [
                     [class_name for i in range(classification_top_n)]
@@ -187,13 +174,9 @@ class YOLOv8_DetectionModel(DetectionModel):
                 [score for _ in range(classification_top_n)] for score in raw_scores
             ]
 
-        keypoints = []
-        for image_keypoints in raw_keypoints:
-            keypoints.append([bbox_keypoints.astype(np.int32).tolist() for bbox_keypoints in image_keypoints])
-
         results = (
             [image_boxes.tolist() for image_boxes in raw_bboxes],
-            keypoints,
+            [[bbox_kp.astype(np.int32).tolist() for bbox_kp in img_kp] for img_kp in raw_keypoints],
             [image_scores.tolist() for image_scores in raw_scores],
             class_names_top_n,
             classes_scores_top_n,

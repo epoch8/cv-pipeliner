@@ -146,9 +146,9 @@ class ImageDataTableStoreDB(TableStoreDB):
     def read_rows(self, idx: Optional[IndexDF] = None) -> pd.DataFrame:
         df = super().read_rows(idx=idx)
         df["image_data"] = df["image_data"].apply(
-            lambda image_data_json: self.image_data_cls.from_json(image_data_json)
-            if image_data_json is not None
-            else None
+            lambda image_data_json: (
+                self.image_data_cls.from_json(image_data_json) if image_data_json is not None else None
+            )
         )
         return df
 
