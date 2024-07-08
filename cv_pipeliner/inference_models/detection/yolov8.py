@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import json
 import fsspec
+import tempfile
 
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.detection.core import (
@@ -78,9 +79,16 @@ class YOLOv8_DetectionModel(DetectionModel):
         if model_spec.model_name is None and model_spec.model_path is None:
             raise ValueError("Please, specify model name or weights path for loading model")
 
-        from ultralytics import YOLO
+        if model_spec.model_path is not None:
+            temp_file = tempfile.NamedTemporaryFile(suffix=".pt")
+            with fsspec.open(model_spec.model_path, "rb") as src:
+                temp_file.write(src.read())
+            model_path_tmp = Path(temp_file.name)
+            from ultralytics import YOLO
 
-        self.model = YOLO(model_spec.model_path if model_spec.model_path is not None else model_spec.model_name)
+            self.model = YOLO(model_path_tmp)
+        else:
+            self.model = YOLO(model_spec.model_name)
 
         if model_spec.device is not None:
             self.model = self.model.to(model_spec.device)
