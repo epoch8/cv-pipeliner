@@ -302,7 +302,7 @@ class FiftyOneImagesDataTableStore(TableStore):
             pass
         return self.fo_dataset
 
-    def _get_view(self, idx: IndexDF = None) -> "fiftyone.DatasetView":
+    def _get_df_sample(self, idx: IndexDF = None) -> pd.DataFrame:
         view = self.fo_session.fiftyone.DatasetView(self._get_or_create_dataset())
         if idx is not None:
             for attrname in self.attrnames:
@@ -312,7 +312,21 @@ class FiftyOneImagesDataTableStore(TableStore):
                     values = idx[attrname]
 
                 view = view.select_by(field=attrname, values=values)
-        return view
+        df_sample = pd.DataFrame(
+            [
+                {
+                    "filepath": self.inverse_mapping_filepath(sample.filepath),
+                    **{attrname: sample[attrname] for attrname in self.attrnames_no_filepath},
+                    "sample": sample,
+                }
+                for sample in view
+            ]
+        )
+        if len(df_sample) == 0:
+            df_sample = pd.DataFrame(columns=self.attrnames + ["sample"])
+        if idx is not None:
+            df_sample = pd.merge(df_sample, idx, on=self.attrnames_no_filepath)
+        return df_sample
 
     def _attend_image_path_to_image_data(self, image_data: ImageData, idxs_values: List[str]) -> ImageData:
         if self.images_table_store is not None:
@@ -331,10 +345,9 @@ class FiftyOneImagesDataTableStore(TableStore):
         return image_data
 
     def read_rows(self, idx: IndexDF = None, read_data: bool = True) -> DataDF:
-        view = self._get_view(idx)
-        df_result = []
-        for sample in view:
-            image_data = self.fo_session.convert_sample_to_image_data(
+        df_sample = self._get_df_sample(idx=idx)
+        df_sample["image_data"] = df_sample["sample"].apply(
+            lambda sample: self.fo_session.convert_sample_to_image_data(
                 sample=sample,
                 fo_detections_label=self.fo_detections_label,
                 fo_classification_label=self.fo_classification_label,
@@ -345,18 +358,10 @@ class FiftyOneImagesDataTableStore(TableStore):
                 image_data_cls=self.image_data_cls,
                 bbox_data_cls=self.bbox_data_cls,
             )
-            df_result.append(
-                {
-                    "filepath": self.inverse_mapping_filepath(sample.filepath),
-                    **{"image_data": image_data if read_data else {}},
-                    **{attrname: sample[attrname] for attrname in self.attrnames_no_filepath},
-                    "sample": sample,
-                }
-            )
-        df_result = pd.DataFrame(df_result)
-        if len(df_result) == 0:
-            df_result = pd.DataFrame(columns=self.attrnames)
-        return df_result
+            if read_data
+            else {}
+        )
+        return df_sample
 
     def insert_rows(self, df: DataDF) -> None:
         dataset = self._get_or_create_dataset()
@@ -373,7 +378,7 @@ class FiftyOneImagesDataTableStore(TableStore):
 
         # To be updated:
         df_to_be_updated = index_to_data(df, idxs_to_be_updated).reset_index(drop=True)
-        samples_to_be_updated_unordered = list(self._get_view(idxs_to_be_updated))
+        samples_to_be_updated_unordered = self._get_df_sample(idxs_to_be_updated)["sample"].tolist()
         df_samples_to_be_updated_unordered = pd.DataFrame(
             {
                 "sample": [sample for sample in samples_to_be_updated_unordered],
@@ -401,7 +406,6 @@ class FiftyOneImagesDataTableStore(TableStore):
             samples_to_be_updated, samples_to_be_updated_with_new_values
         ):
             current_sample.merge(sample_with_updated_values)
-
         dataset.delete_samples(samples_to_be_updated)  # Работает по поведению так же, как и sample.save()
         dataset.add_samples(samples_to_be_updated, progress=False)
 
@@ -428,9 +432,9 @@ class FiftyOneImagesDataTableStore(TableStore):
 
     def delete_rows(self, idx: IndexDF) -> None:
         dataset = self._get_or_create_dataset()
-        view = self._get_view(idx)
-        samples = list(view)
-        if len(samples) > 0:
+        df_sample = self._get_df_sample(idx=idx)
+        samples = df_sample["sample"].tolist()
+        if len(df_sample) > 0:
             if self.rm_only_fo_fields:
                 for sample in samples:
                     if sample.has_field(self.fo_detections_label):
