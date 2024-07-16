@@ -84,7 +84,7 @@ def parse_polygon_label_to_bbox_data(polygon_label: Dict) -> BboxData:
         ymin=round(np.min(keypoints[:, 1])),
         xmax=round(np.max(keypoints[:, 0])),
         ymax=np.max(keypoints[:, 1]),
-        keypoints=round(keypoints),
+        keypoints=np.round(keypoints),
         label=polygon_label["value"]["polygonlabels"][0],
     )
     return bbox_data
@@ -298,9 +298,13 @@ def convert_annotation_to_image_data(
                 if image_data_label is not None:
                     raise ValueError(f"Found duplicated choices: {result=} (previously choice is {image_data_label=})")
                 image_data_label = result["value"]["choices"][0]
-        if bboxes_from_name is not None:
-            if result["type"] == "rectanglelabels" and result["from_name"] == bboxes_from_name:
+
+        if bboxes_from_name is not None and result["from_name"] == bboxes_from_name:
+            if result["type"] == "rectanglelabels":
                 bboxes_data.append(parse_rectangle_labels_to_bbox_data(result))
+                id_to_bbox_data_idx[result["id"]] = len(bboxes_data) - 1
+            elif result["type"] == "polygonlabels":
+                bboxes_data.append(parse_polygon_label_to_bbox_data(result))
                 id_to_bbox_data_idx[result["id"]] = len(bboxes_data) - 1
 
         if keypoints_from_name is not None:
