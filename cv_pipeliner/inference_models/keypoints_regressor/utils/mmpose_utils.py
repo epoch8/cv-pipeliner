@@ -538,7 +538,9 @@ def preprocess(image):
 
     image = image - mean
     image = image * denominator
-    image = image[np.newaxis,]
+    image = image[
+        np.newaxis,
+    ]
     image = np.transpose(image, [0, 3, 1, 2])
 
     return image

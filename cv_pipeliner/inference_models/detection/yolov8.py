@@ -65,9 +65,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             self._load_yolov8_model(model_spec)
             self._raw_predict_images = self._raw_predict_images_torch
         else:
-            raise ValueError(
-                f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}"
-            )
+            raise ValueError(f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}")
 
     def _load_yolov8_model(self, model_spec: YOLOv8_ModelSpec):
         """YOLOv8 model initialization
@@ -79,9 +77,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             ValueError: If model_name and model_path is not specified
         """
         if model_spec.model_name is None and model_spec.model_path is None:
-            raise ValueError(
-                "Please, specify model name or weights path for loading model"
-            )
+            raise ValueError("Please, specify model name or weights path for loading model")
 
         from ultralytics import YOLO
 
@@ -163,16 +159,10 @@ class YOLOv8_DetectionModel(DetectionModel):
                 ]
                 for classes in raw_classes
             ]
-            classes_scores_top_n = [
-                [[score] for score in scores] for scores in raw_scores
-            ]
+            classes_scores_top_n = [[[score] for score in scores] for scores in raw_scores]
         else:
-            class_names_top_n = [
-                [None for _ in range(classification_top_n)] for _ in raw_classes
-            ]
-            classes_scores_top_n = [
-                [score for _ in range(classification_top_n)] for score in raw_scores
-            ]
+            class_names_top_n = [[None for _ in range(classification_top_n)] for _ in raw_classes]
+            classes_scores_top_n = [[score for _ in range(classification_top_n)] for score in raw_scores]
 
         results = (
             [image_boxes.tolist() for image_boxes in raw_bboxes],
