@@ -114,8 +114,6 @@ class YOLOv8_DetectionModel(DetectionModel):
             save_conf=True,
             conf=score_threshold,
             retina_masks=True,
-            # TODO how to pass iou threshold?
-            iou=0.5,
         )
 
         raw_boxes, raw_keypoints, raw_scores, raw_labels = [], [], [], []
