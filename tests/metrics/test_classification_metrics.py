@@ -1,13 +1,12 @@
-from pathlib import Path
 import tempfile
+from pathlib import Path
 
-import imageio
 import dataframe_image as dfi
+import imageio
 from PIL import Image
-
-from cv_pipeliner.core.data import BboxData, ImageData
 from test_utils import visualize_images_data_with_overlay
 
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.metrics.classification import get_df_classification_metrics
 from cv_pipeliner.utils.images import concat_images
 

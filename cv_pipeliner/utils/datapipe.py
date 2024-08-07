@@ -1,9 +1,15 @@
 import json
 from pathlib import Path
+from typing import IO, Any, Callable, Dict, Iterator, List, Optional, Tuple, Type, Union
+
+import fsspec
+import numpy as np
+import pandas as pd
 
 # from threading import Semaphore
 from datapipe.run_config import RunConfig
 from datapipe.store.database import DBConn, TableStoreDB
+from datapipe.store.filedir import ItemStoreFileAdapter, TableStoreFiledir
 from datapipe.store.table_store import TableStore
 from datapipe.types import (
     DataDF,
@@ -15,17 +21,11 @@ from datapipe.types import (
     index_intersection,
     index_to_data,
 )
-import numpy as np
-import fsspec
-from typing import Any, Dict, IO, Iterator, Optional, Tuple, List, Type, Union, Callable
+from sqlalchemy import JSON, Column, Integer, String
 
-from datapipe.store.filedir import ItemStoreFileAdapter, TableStoreFiledir
-import pandas as pd
-from sqlalchemy import JSON, Column, String, Integer
-from cv_pipeliner.core.data import ImageData, BboxData
-from cv_pipeliner.utils.imagesize import get_image_size
-
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.utils.fiftyone import FifyOneSession
+from cv_pipeliner.utils.imagesize import get_image_size
 
 
 class ImageDataFile(ItemStoreFileAdapter):

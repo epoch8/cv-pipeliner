@@ -1,28 +1,27 @@
 import logging
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Union, Tuple
+from typing import Dict, List, Tuple, Union
 
 import contextlib2
-import tensorflow as tf
 import numpy as np
-
-from PIL import Image
-from tqdm import tqdm
-from joblib import Parallel, delayed
-
-from object_detection.utils import dataset_util
-from object_detection.dataset_tools import tf_record_creation_util as creation_util
-
+import tensorflow as tf
 from google.protobuf import text_format
-
+from joblib import Parallel, delayed
+from object_detection.dataset_tools import tf_record_creation_util as creation_util
+from object_detection.protos import pipeline_pb2
+from object_detection.protos.string_int_label_map_pb2 import (
+    StringIntLabelMap,
+    StringIntLabelMapItem,
+)
+from object_detection.utils import dataset_util
 from object_detection.utils.config_util import (
     create_pipeline_proto_from_configs,
     get_configs_from_pipeline_file,
     save_pipeline_config,
 )
-from object_detection.protos import pipeline_pb2
-from object_detection.protos.string_int_label_map_pb2 import StringIntLabelMap, StringIntLabelMapItem
+from PIL import Image
+from tqdm import tqdm
 
 from cv_pipeliner.core.data import ImageData
 

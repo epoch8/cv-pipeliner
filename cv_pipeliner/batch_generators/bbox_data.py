@@ -2,8 +2,8 @@ from typing import List
 
 import numpy as np
 
-from cv_pipeliner.core.data import BboxData
 from cv_pipeliner.core.batch_generator import BatchGenerator
+from cv_pipeliner.core.data import BboxData
 
 
 class BatchGeneratorBboxData(BatchGenerator):

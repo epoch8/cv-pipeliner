@@ -1,9 +1,9 @@
-import os
 import contextlib
-from typing import List, Dict
+import os
+from typing import Dict, List
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
@@ -12,8 +12,11 @@ from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
 def count_coco_metrics(
     true_images_data: List[ImageData], raw_pred_images_data: List[ImageData] = None, class_names: List[str] = None
 ) -> Dict:
+    from object_detection.core.standard_fields import (
+        DetectionResultFields,
+        InputDataFields,
+    )
     from object_detection.metrics import coco_evaluation
-    from object_detection.core.standard_fields import InputDataFields, DetectionResultFields
 
     if class_names is None:
         cocoevaluator = coco_evaluation.CocoDetectionEvaluator(categories=[{"id": 1, "name": "Label"}])

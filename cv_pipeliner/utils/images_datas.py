@@ -1,10 +1,10 @@
 import copy
 from typing import List, Literal, Optional, Tuple, Union
 
-import numpy as np
 import cv2
+import numpy as np
 
-from cv_pipeliner.core.data import ImageData, BboxData
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.utils.images import concat_images, get_thumbnail_resize
 
 

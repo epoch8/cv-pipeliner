@@ -3,7 +3,7 @@ from typing import List, Tuple, Type
 
 import numpy as np
 
-from cv_pipeliner.core.inference_model import ModelSpec, InferenceModel
+from cv_pipeliner.core.inference_model import InferenceModel, ModelSpec
 
 Bbox = Tuple[int, int, int, int]  # (xmin, ymin, xmax, ymax)
 Score = float

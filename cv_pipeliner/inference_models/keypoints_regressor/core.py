@@ -1,8 +1,9 @@
 import abc
 from typing import List, Tuple, Type
+
 import numpy as np
 
-from cv_pipeliner.core.inference_model import ModelSpec, InferenceModel
+from cv_pipeliner.core.inference_model import InferenceModel, ModelSpec
 
 Keypoint = Tuple[int, int]
 Keypoints = List[Keypoint]
@@ -17,7 +18,9 @@ class KeypointsRegressorModelSpec(ModelSpec):
         pass
 
     def load_keypoints_regressor_inferencer(self) -> "KeypointsRegressorInferencer":
-        from cv_pipeliner.inferencers.keypoints_regressor import KeypointsRegressorInferencer
+        from cv_pipeliner.inferencers.keypoints_regressor import (
+            KeypointsRegressorInferencer,
+        )
 
         return KeypointsRegressorInferencer(self.load())
 

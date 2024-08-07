@@ -1,8 +1,8 @@
 import logging
-import sys
 import os
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 LOGS_DIRECTORY = Path(__file__).parent / "__logs__"
 

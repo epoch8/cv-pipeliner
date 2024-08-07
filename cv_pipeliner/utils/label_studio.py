@@ -1,7 +1,8 @@
-from typing import Dict, Optional, List, Any
-from cv_pipeliner.core.data import BboxData, ImageData
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.utils.images import rotate_point
 
 

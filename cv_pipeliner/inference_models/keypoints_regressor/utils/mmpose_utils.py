@@ -1,8 +1,8 @@
+import math
 import warnings
 
-import numpy as np
-import math
 import cv2
+import numpy as np
 
 # Taken from https://github.com/open-mmlab/mmpose/blob/master/mmpose/core/evaluation/top_down_eval.py
 
@@ -538,9 +538,7 @@ def preprocess(image):
 
     image = image - mean
     image = image * denominator
-    image = image[
-        np.newaxis,
-    ]
+    image = image[np.newaxis,]
     image = np.transpose(image, [0, 3, 1, 2])
 
     return image

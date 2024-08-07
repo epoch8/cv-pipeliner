@@ -1,10 +1,12 @@
-from packaging.version import Version
 from importlib.metadata import version
+
+from packaging.version import Version
 
 if Version(version("pydantic")) < Version("2.0.0"):
     from pydantic import BaseModel as PydanticBaseModel
 else:
     from pydantic.v1 import BaseModel as PydanticBaseModel
+
 import abc
 import importlib
 import sys

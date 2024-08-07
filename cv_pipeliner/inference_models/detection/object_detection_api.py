@@ -1,24 +1,24 @@
 import json
-from json.decoder import JSONDecodeError
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple, Union, Type, Literal, Callable
+from json.decoder import JSONDecodeError
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, Union
 
-import numpy as np
 import fsspec
+import numpy as np
 import requests
-from pathy import Pathy
 from joblib import Parallel, delayed
+from pathy import Pathy
 
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.detection.core import (
-    DetectionModelSpec,
-    DetectionModel,
     DetectionInput,
+    DetectionModel,
+    DetectionModelSpec,
     DetectionOutput,
 )
-from cv_pipeliner.utils.images import denormalize_bboxes, get_image_b64
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
+from cv_pipeliner.utils.images import denormalize_bboxes, get_image_b64
 
 
 class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
@@ -31,7 +31,9 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["ObjectDetectionAPI_DetectionModel"]:
-        from cv_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
+        from cv_pipeliner.inference_models.detection.object_detection_api import (
+            ObjectDetectionAPI_DetectionModel,
+        )
 
         return ObjectDetectionAPI_DetectionModel
 
@@ -46,7 +48,9 @@ class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["ObjectDetectionAPI_DetectionModel"]:
-        from cv_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
+        from cv_pipeliner.inference_models.detection.object_detection_api import (
+            ObjectDetectionAPI_DetectionModel,
+        )
 
         return ObjectDetectionAPI_DetectionModel
 
@@ -64,7 +68,9 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["ObjectDetectionAPI_DetectionModel"]:
-        from cv_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
+        from cv_pipeliner.inference_models.detection.object_detection_api import (
+            ObjectDetectionAPI_DetectionModel,
+        )
 
         return ObjectDetectionAPI_DetectionModel
 
@@ -77,7 +83,9 @@ class ObjectDetectionAPI_KFServing(DetectionModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["ObjectDetectionAPI_DetectionModel"]:
-        from cv_pipeliner.inference_models.detection.object_detection_api import ObjectDetectionAPI_DetectionModel
+        from cv_pipeliner.inference_models.detection.object_detection_api import (
+            ObjectDetectionAPI_DetectionModel,
+        )
 
         return ObjectDetectionAPI_DetectionModel
 
@@ -92,8 +100,8 @@ INPUT_TYPE_TO_DTYPE = {
 class ObjectDetectionAPI_DetectionModel(DetectionModel):
     def _load_object_detection_api(self, model_spec: ObjectDetectionAPI_ModelSpec):
         import tensorflow as tf
-        from object_detection.utils import config_util
         from object_detection.builders import model_builder
+        from object_detection.utils import config_util
 
         temp_dir = tempfile.TemporaryDirectory()
         temp_dir_path = Path(temp_dir.name)

@@ -1,9 +1,9 @@
 from typing import Any, Callable, Dict, List, Tuple, Union
+
 from tqdm import tqdm
 
-from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
-
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.core.inferencer import Inferencer
 from cv_pipeliner.inference_models.pipeline import PipelineModel
 

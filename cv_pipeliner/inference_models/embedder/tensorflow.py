@@ -1,15 +1,20 @@
-from json.decoder import JSONDecodeError
 import tempfile
+from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import List, Tuple, Callable, Union, Type, Literal
+from typing import Callable, List, Literal, Tuple, Type, Union
 
-import requests
-import numpy as np
 import fsspec
+import numpy as np
+import requests
 from pathy import Pathy
 
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
-from cv_pipeliner.inference_models.embedder.core import EmbedderInput, EmbedderModel, EmbedderModelSpec, EmbedderOutput
+from cv_pipeliner.inference_models.embedder.core import (
+    EmbedderInput,
+    EmbedderModel,
+    EmbedderModelSpec,
+    EmbedderOutput,
+)
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 from cv_pipeliner.utils.images import get_image_b64
 
@@ -22,7 +27,9 @@ class TensorFlow_EmbedderModelSpec(EmbedderModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["Tensorflow_EmbedderModel"]:
-        from cv_pipeliner.inference_models.embedder.tensorflow import Tensorflow_EmbedderModel
+        from cv_pipeliner.inference_models.embedder.tensorflow import (
+            Tensorflow_EmbedderModel,
+        )
 
         return Tensorflow_EmbedderModel
 
@@ -36,7 +43,9 @@ class TensorFlow_EmbedderModelSpec_TFServing(EmbedderModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["Tensorflow_EmbedderModel"]:
-        from cv_pipeliner.inference_models.embedder.tensorflow import Tensorflow_EmbedderModel
+        from cv_pipeliner.inference_models.embedder.tensorflow import (
+            Tensorflow_EmbedderModel,
+        )
 
         return Tensorflow_EmbedderModel
 

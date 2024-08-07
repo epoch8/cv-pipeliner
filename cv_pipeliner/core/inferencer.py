@@ -1,5 +1,6 @@
 import abc
 from typing import Any, Union
+
 from cv_pipeliner.core.batch_generator import BatchGenerator
 from cv_pipeliner.core.inference_model import InferenceModel
 

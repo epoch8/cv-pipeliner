@@ -1,19 +1,23 @@
 import json
 import tempfile
-from typing import List, Optional, Tuple, Union, Type, Callable
 from pathlib import Path
+from typing import Callable, List, Optional, Tuple, Type, Union
 
-import numpy as np
 import fsspec
+import numpy as np
 
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.detection.core import (
-    DetectionModelSpec,
-    DetectionModel,
     DetectionInput,
+    DetectionModel,
+    DetectionModelSpec,
     DetectionOutput,
 )
-from cv_pipeliner.utils.images import denormalize_bboxes, rescale_bboxes_with_pad, tf_resize_with_pad
+from cv_pipeliner.utils.images import (
+    denormalize_bboxes,
+    rescale_bboxes_with_pad,
+    tf_resize_with_pad,
+)
 
 
 class YOLOv5_ModelSpec(DetectionModelSpec):

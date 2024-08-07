@@ -5,6 +5,7 @@ from typing import Callable, List, Optional, Tuple, Type, Union
 
 import fsspec
 import numpy as np
+
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.detection.core import (
     DetectionInput,
@@ -18,9 +19,7 @@ class YOLOv8_ModelSpec(DetectionModelSpec):
     model_name: Optional[str] = None
     model_path: Optional[Union[str, Path]] = None  # noqa: F821
     class_names: Optional[List[str]] = None
-    preprocess_input: Union[
-        Callable[[List[np.ndarray]], np.ndarray], str, Path, None
-    ] = None
+    preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     device: str = None
     force_reload: bool = False
 
@@ -45,9 +44,7 @@ class YOLOv8_DetectionModel(DetectionModel):
 
         # Loading classes names and save as attribute
         if model_spec.class_names is not None:
-            if isinstance(model_spec.class_names, str) or isinstance(
-                model_spec.class_names, Path
-            ):
+            if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
                 with fsspec.open(model_spec.class_names, "r", encoding="utf-8") as out:
                     self.class_names = np.array(json.load(out))
             else:
@@ -56,12 +53,8 @@ class YOLOv8_DetectionModel(DetectionModel):
             self.class_names = None
 
         # Loading preprocessing function
-        if isinstance(model_spec.preprocess_input, str) or isinstance(
-            model_spec.preprocess_input, Path
-        ):
-            self._preprocess_input = get_preprocess_input_from_script_file(
-                script_file=model_spec.preprocess_input
-            )
+        if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
+            self._preprocess_input = get_preprocess_input_from_script_file(script_file=model_spec.preprocess_input)
         else:
             if model_spec.preprocess_input is None:
                 self._preprocess_input = lambda x: x
@@ -73,9 +66,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             self._load_yolov8_model(model_spec)
             self._raw_predict_images = self._raw_predict_images_torch
         else:
-            raise ValueError(
-                f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}"
-            )
+            raise ValueError(f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}")
 
     def _load_yolov8_model(self, model_spec: YOLOv8_ModelSpec):
         """YOLOv8 model initialization
@@ -87,9 +78,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             ValueError: If model_name and model_path is not specified
         """
         if model_spec.model_name is None and model_spec.model_path is None:
-            raise ValueError(
-                "Please, specify model name or weights path for loading model"
-            )
+            raise ValueError("Please, specify model name or weights path for loading model")
 
         if model_spec.model_path is not None:
             temp_file = tempfile.NamedTemporaryFile(suffix=".pt")
@@ -157,9 +146,7 @@ class YOLOv8_DetectionModel(DetectionModel):
         Returns:
             DetectionOutput: List of boxes, keypoints, scores, classes
         """
-        raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_images(
-            input, score_threshold
-        )
+        raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_images(input, score_threshold)
 
         # with open("raw_scores.pkl", "wb") as out:
         #     pickle.dump(raw_scores, out)
@@ -167,9 +154,7 @@ class YOLOv8_DetectionModel(DetectionModel):
         #     pickle.dump(raw_classes, out)
         if self.class_names is not None:
             if classification_top_n > 1:
-                raise NotImplementedError(
-                    "Not impelemented for classification_top_n > 1"
-                )
+                raise NotImplementedError("Not impelemented for classification_top_n > 1")
             class_names_top_n = [
                 [
                     [class_name for i in range(classification_top_n)]
@@ -177,23 +162,14 @@ class YOLOv8_DetectionModel(DetectionModel):
                 ]
                 for classes in raw_classes
             ]
-            classes_scores_top_n = [
-                [[score] for score in scores] for scores in raw_scores
-            ]
+            classes_scores_top_n = [[[score] for score in scores] for scores in raw_scores]
         else:
-            class_names_top_n = [
-                [None for _ in range(classification_top_n)] for _ in raw_classes
-            ]
-            classes_scores_top_n = [
-                [score for _ in range(classification_top_n)] for score in raw_scores
-            ]
+            class_names_top_n = [[None for _ in range(classification_top_n)] for _ in raw_classes]
+            classes_scores_top_n = [[score for _ in range(classification_top_n)] for score in raw_scores]
 
         results = (
             [image_boxes.tolist() for image_boxes in raw_bboxes],
-            [
-                [bbox_kp.astype(np.int32).tolist() for bbox_kp in img_kp]
-                for img_kp in raw_keypoints
-            ],
+            [[bbox_kp.astype(np.int32).tolist() for bbox_kp in img_kp] for img_kp in raw_keypoints],
             [image_scores.tolist() for image_scores in raw_scores],
             class_names_top_n,
             classes_scores_top_n,

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cv_pipeliner"
-version = "0.19.1"
+version = "0.20.0"
 description = ""
 authors = [
     "bobokvsky <alexander.kozlovsky.m@gmail.com>",
@@ -32,6 +32,8 @@ scikit-image = ">=0.18.3"
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
 flake8 = "*"
+isort = "*"
+black = "*"
 
 
 [tool.isort]

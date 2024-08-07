@@ -1,20 +1,20 @@
 import json
 import tempfile
-from typing import Callable, List, Tuple, Union, Type, Literal
 from pathlib import Path
+from typing import Callable, List, Literal, Tuple, Type, Union
 
-import numpy as np
 import cv2
 import fsspec
+import numpy as np
 from pathy import Pathy
 
+from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.detection.core import (
-    DetectionModelSpec,
-    DetectionModel,
     DetectionInput,
+    DetectionModel,
+    DetectionModelSpec,
     DetectionOutput,
 )
-from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 
 
 class Detectron2_ModelSpec(DetectionModelSpec):
@@ -34,7 +34,9 @@ class Detectron2_ModelSpec(DetectionModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["Detectron2_DetectionModel"]:
-        from cv_pipeliner.inference_models.detection.detectron2 import Detectron2_DetectionModel
+        from cv_pipeliner.inference_models.detection.detectron2 import (
+            Detectron2_DetectionModel,
+        )
 
         return Detectron2_DetectionModel
 

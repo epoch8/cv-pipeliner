@@ -1,7 +1,7 @@
 from typing import Dict, List
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.metrics.image_data_matching import BboxDataMatching, ImageDataMatching

@@ -2,16 +2,17 @@ import copy
 import logging
 import os
 import sys
-
 from pathlib import Path
-from typing import Literal, Optional, Type, Union, Dict, Tuple, Callable, Any, List
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, Union
+
+import numpy as np
+
+from cv_pipeliner.core.data import BboxData, ImageData
+from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
+from cv_pipeliner.utils.images_datas import flatten_additional_bboxes_data_in_image_data
 
 # from threading import Semaphore
 
-import numpy as np
-from cv_pipeliner.core.data import ImageData, BboxData
-from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
-from cv_pipeliner.utils.images_datas import flatten_additional_bboxes_data_in_image_data
 
 logger = logging.getLogger("cv_pipeliner.utils.fiftyone")
 

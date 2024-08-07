@@ -1,14 +1,19 @@
 from typing import Any, Dict, List, Tuple, Type, Union
+
 import numpy as np
 from tqdm import tqdm
 
 from cv_pipeliner.core.inference_model import InferenceModel, ModelSpec
-from cv_pipeliner.inference_models.detection.core import DetectionModelSpec, DetectionModel
-from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec, ClassificationModel
-
-from cv_pipeliner.utils.images import cut_bboxes_from_image
-
+from cv_pipeliner.inference_models.classification.core import (
+    ClassificationModel,
+    ClassificationModelSpec,
+)
+from cv_pipeliner.inference_models.detection.core import (
+    DetectionModel,
+    DetectionModelSpec,
+)
 from cv_pipeliner.logging import logger
+from cv_pipeliner.utils.images import cut_bboxes_from_image
 
 
 class PipelineModelSpec(ModelSpec):

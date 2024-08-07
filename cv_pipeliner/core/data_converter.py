@@ -1,14 +1,12 @@
 import abc
 import json
-
-from typing import Union, List, Dict
 from pathlib import Path
+from typing import Dict, List, Union
 
 import fsspec
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-from cv_pipeliner.logging import logger
 from cv_pipeliner.core.data import BboxData, ImageData
 
 
@@ -26,20 +24,20 @@ class DataConverter(abc.ABC):
             xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(xmax), int(ymax)
 
             if (xmin, ymin, xmax, ymax) in looked_bboxes:
-                logger.warning(
-                    f"Repeated bbox detected at image {bbox_data.image_path}: "
-                    f"(xmin, ymin, xmax, ymax) = {(xmin, xmin, ymax, xmax)}. Skipping."
-                )
+                # logger.warning(
+                #     f"Repeated bbox detected at image {bbox_data.image_path}: "
+                #     f"(xmin, ymin, xmax, ymax) = {(xmin, xmin, ymax, xmax)}. Skipping."
+                # )
                 continue
             else:
                 looked_bboxes.add((xmin, ymin, xmax, ymax))
 
             if xmin >= xmax or ymin >= ymax or xmin < 0 or ymin < 0:
-                logger.warning(
-                    f"Wrong annotation at image {bbox_data.image_path}: "
-                    f"incorrect bbox (xmin, ymin, xmax, ymax): {(xmin, ymin, xmax, ymax)} "
-                    "(xmin >= xmax or ymin >= ymax or xmin < 0 or ymin < 0). Skipping."
-                )
+                # logger.warning(
+                #     f"Wrong annotation at image {bbox_data.image_path}: "
+                #     f"incorrect bbox (xmin, ymin, xmax, ymax): {(xmin, ymin, xmax, ymax)} "
+                #     "(xmin >= xmax or ymin >= ymax or xmin < 0 or ymin < 0). Skipping."
+                # )
                 continue
 
             new_bboxes_data.append(bbox_data)

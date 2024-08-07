@@ -1,6 +1,7 @@
+from typing import List
+
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from typing import List
 
 
 def get_minmax_order(embeddings: np.ndarray) -> List:
