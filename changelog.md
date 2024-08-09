@@ -1,3 +1,6 @@
+# 0.20.0
+- Added segmentation YOLOv8 support.
+
 # 0.19.1
 - Fixes with `fiftyone` usage in datapipe.
 

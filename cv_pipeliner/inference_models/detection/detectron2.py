@@ -268,7 +268,15 @@ class Detectron2_DetectionModel(DetectionModel):
             n_pred_class_names_top_k.append(class_names_top_k)
             n_pred_scores_top_k.append(classes_scores_top_k)
 
-        return n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k
+        n_pred_masks = [[[] for _ in pred_bboxes] for pred_bboxes in n_pred_bboxes]
+        return (
+            n_pred_bboxes,
+            n_pred_keypoints,
+            n_pred_masks,
+            n_pred_scores,
+            n_pred_class_names_top_k,
+            n_pred_scores_top_k,
+        )
 
     def preprocess_input(self, input: DetectionInput):
         return self._preprocess_input(input)

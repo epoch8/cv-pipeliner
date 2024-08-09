@@ -18,7 +18,7 @@ from cv_pipeliner.inference_models.detection.core import (
 class YOLOv8_ModelSpec(DetectionModelSpec):
     model_name: Optional[str] = None
     model_path: Optional[Union[str, Path]] = None  # noqa: F821
-    class_names: Optional[List[str]] = None
+    class_names: Optional[Union[List[str], str, Path]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     device: str = None
     force_reload: bool = False
@@ -115,18 +115,19 @@ class YOLOv8_DetectionModel(DetectionModel):
             retina_masks=True,
         )
 
-        raw_boxes, raw_keypoints, raw_scores, raw_labels = [], [], [], []
+        raw_boxes, raw_keypoints, raw_masks, raw_scores, raw_labels = [], [], [], [], []
         for prediction in predictions:
             raw_boxes.append(prediction.boxes.xyxy.data.cpu().numpy())
             if prediction.masks is not None:
                 all_keypoints = prediction.masks.xy
-                raw_keypoints.append(all_keypoints)
+                raw_masks.append([all_keypoints])
             else:
-                raw_keypoints.append(np.array([]).reshape(raw_boxes[-1].shape[0], 0, 2))
+                raw_masks.append([])
+            raw_keypoints.append(np.array([]).reshape(len(raw_boxes[-1]), 0, 2))  # TODO: add keypoints support
             raw_labels.append(prediction.boxes.cls.data.cpu().numpy())
             raw_scores.append(prediction.boxes.conf.data.cpu().numpy())
 
-        return raw_boxes, raw_keypoints, raw_scores, raw_labels
+        return raw_boxes, raw_keypoints, raw_masks, raw_scores, raw_labels
 
     def predict(
         self,
@@ -144,12 +145,8 @@ class YOLOv8_DetectionModel(DetectionModel):
         Returns:
             DetectionOutput: List of boxes, keypoints, scores, classes
         """
-        raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_images(input, score_threshold)
+        raw_bboxes, raw_keypoints, raw_masks, raw_scores, raw_classes = self._raw_predict_images(input, score_threshold)
 
-        # with open("raw_scores.pkl", "wb") as out:
-        #     pickle.dump(raw_scores, out)
-        # with open("raw_classes.pkl", "wb") as out:
-        #     pickle.dump(raw_classes, out)
         if self.class_names is not None:
             if classification_top_n > 1:
                 raise NotImplementedError("Not impelemented for classification_top_n > 1")
@@ -165,15 +162,26 @@ class YOLOv8_DetectionModel(DetectionModel):
             class_names_top_n = [[None for _ in range(classification_top_n)] for _ in raw_classes]
             classes_scores_top_n = [[score for _ in range(classification_top_n)] for score in raw_scores]
 
-        results = (
-            [image_boxes.tolist() for image_boxes in raw_bboxes],
-            [[bbox_kp.astype(np.int32).tolist() for bbox_kp in img_kp] for img_kp in raw_keypoints],
-            [image_scores.tolist() for image_scores in raw_scores],
-            class_names_top_n,
-            classes_scores_top_n,
+        n_pred_bboxes = [image_boxes.tolist() for image_boxes in raw_bboxes]
+        n_pred_keypoints = [np.array(k_keypoints).round().astype(np.int32).tolist() for k_keypoints in raw_keypoints]
+        n_pred_masks = [
+            [
+                [np.array(polygon).round().astype(np.int32).tolist() for polygon in k_polygons]
+                for k_polygons in n_k_polygons
+            ]
+            for n_k_polygons in raw_masks
+        ]
+        n_pred_scores = [image_scores.tolist() for image_scores in raw_scores]
+        n_pred_class_names_top_k = class_names_top_n
+        n_pred_scores_top_k = classes_scores_top_n
+        return (
+            n_pred_bboxes,
+            n_pred_keypoints,
+            n_pred_masks,
+            n_pred_scores,
+            n_pred_class_names_top_k,
+            n_pred_scores_top_k,
         )
-
-        return results
 
     def preprocess_input(self, input: DetectionInput) -> DetectionInput:
         self._preprocess_input(input)

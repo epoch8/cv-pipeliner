@@ -4,7 +4,6 @@ from typing import Dict, List, Union
 
 import fsspec
 import numpy as np
-
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.core.data_converter import DataConverter
 from cv_pipeliner.utils.imagesize import get_image_size
@@ -113,7 +112,7 @@ def combine_polygons(polygons: List[np.ndarray]) -> np.ndarray:
     return combined
 
 
-class YOLOKeypointsDataConverter(DataConverter):
+class YOLOMasksDataConverter(DataConverter):
     """
     Converter ImageData to YOLO Keypoints and YOLO Keypoints to ImageData
     """

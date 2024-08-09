@@ -24,7 +24,7 @@ from cv_pipeliner.utils.images import denormalize_bboxes, get_image_b64
 class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
     config_path: Union[str, Path]
     checkpoint_path: Union[str, Path]
-    class_names: Optional[List[str]] = None
+    class_names: Optional[Union[List[str], str, Path]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
     device: Optional[str] = None
@@ -41,7 +41,7 @@ class ObjectDetectionAPI_ModelSpec(DetectionModelSpec):
 class ObjectDetectionAPI_pb_ModelSpec(DetectionModelSpec):
     saved_model_dir: Union[str, Path]
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
-    class_names: Optional[List[str]] = None
+    class_names: Optional[Union[List[str], str, Path]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
     device: Optional[str] = None
@@ -61,7 +61,7 @@ class ObjectDetectionAPI_TFLite_ModelSpec(DetectionModelSpec):
     scores_output_index: Union[int, str]
     classes_output_index: Union[int, str]
     multiclasses_scores_output_index: Optional[Union[int, str]] = None
-    class_names: Optional[List[str]] = None
+    class_names: Optional[Union[List[str], str, Path]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     input_size: Union[Tuple[int, int], List[int]] = (None, None)
     device: Optional[str] = None
@@ -79,7 +79,7 @@ class ObjectDetectionAPI_KFServing(DetectionModelSpec):
     url: str
     input_name: str
     input_type: Literal["image_tensor", "float_image_tensor", "encoded_image_string_tensor"]
-    class_names: Optional[List[str]] = None
+    class_names: Optional[Union[List[str], str, Path]] = None
 
     @property
     def inference_model_cls(self) -> Type["ObjectDetectionAPI_DetectionModel"]:
@@ -398,7 +398,15 @@ class ObjectDetectionAPI_DetectionModel(DetectionModel):
         (n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k) = (
             [res[i] for res in results] for i in range(5)
         )
-        return n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k
+        n_pred_masks = [[[] for _ in pred_bboxes] for pred_bboxes in n_pred_bboxes]
+        return (
+            n_pred_bboxes,
+            n_pred_keypoints,
+            n_pred_masks,
+            n_pred_scores,
+            n_pred_class_names_top_k,
+            n_pred_scores_top_k,
+        )
 
     def preprocess_input(self, input: DetectionInput):
         return self._preprocess_input(input)

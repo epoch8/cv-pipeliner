@@ -35,7 +35,8 @@ class PipelineModelSpec(ModelSpec):
 Bbox = Tuple[int, int, int, int]  # (ymin, xmin, ymax, xmax)
 Score = float
 Label = str
-Keypoints = List[Tuple[int, int]]
+Keypoints = List[List[Tuple[int, int]]]
+Mask = List[List[List[Tuple[int, int]]]]
 
 Bboxes = List[Bbox]
 DetectionScores = List[Score]
@@ -44,7 +45,7 @@ ClassificationScores = List[Score]
 
 PipelineInput = List[np.ndarray]
 PipelineOutput = List[
-    Tuple[List[Bboxes], List[Keypoints], List[DetectionScores], List[Labels], List[ClassificationScores]]
+    Tuple[List[Bboxes], List[Keypoints], List[Mask], List[DetectionScores], List[Labels], List[ClassificationScores]]
 ]
 
 
@@ -90,6 +91,7 @@ class PipelineModel(InferenceModel):
         (
             n_pred_bboxes,
             n_pred_keypoints,
+            n_pred_masks,
             n_pred_detection_scores,
             n_pred_class_names_top_k,
             n_pred_classification_scores_top_k,
@@ -107,6 +109,7 @@ class PipelineModel(InferenceModel):
             return (
                 n_pred_bboxes,
                 n_pred_keypoints,
+                n_pred_masks,
                 n_pred_detection_scores,
                 n_pred_class_names_top_k,
                 n_pred_classification_scores_top_k,
@@ -133,6 +136,7 @@ class PipelineModel(InferenceModel):
         return (
             n_pred_bboxes,
             n_pred_keypoints,
+            n_pred_masks,
             n_pred_detection_scores,
             n_pred_labels_top_n,
             n_pred_classification_scores_top_n,

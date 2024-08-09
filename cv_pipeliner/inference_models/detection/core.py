@@ -10,13 +10,20 @@ Score = float
 Class = str
 
 Bboxes = List[Bbox]
-Scores = List[Score]
+DetectionScores = List[Score]
+ClassificationScores = List[Score]
 Classes = List[Class]
-Keypoints = List[Tuple[int, int]]
+Keypoints = List[List[Tuple[int, int]]]
+Mask = List[List[List[Tuple[int, int]]]]
 
 DetectionInput = List[np.ndarray]
 DetectionOutput = Tuple[
-    List[Bboxes], List[Keypoints], List[Scores], List[Classes], List[Scores]  # Optional exit  # Optional exit
+    List[Bboxes],
+    List[Keypoints],
+    List[Mask],
+    List[DetectionScores],
+    List[Classes],
+    List[ClassificationScores],
 ]
 
 
