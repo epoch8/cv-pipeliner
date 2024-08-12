@@ -4,6 +4,7 @@ from typing import Dict, List, Union
 
 import fsspec
 import numpy as np
+
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.core.data_converter import DataConverter
 from cv_pipeliner.utils.imagesize import get_image_size

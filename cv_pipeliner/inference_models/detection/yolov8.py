@@ -114,15 +114,14 @@ class YOLOv8_DetectionModel(DetectionModel):
             conf=score_threshold,
             retina_masks=True,
         )
-
         raw_boxes, raw_keypoints, raw_masks, raw_scores, raw_labels = [], [], [], [], []
         for prediction in predictions:
             raw_boxes.append(prediction.boxes.xyxy.data.cpu().numpy())
             if prediction.masks is not None:
                 all_keypoints = prediction.masks.xy
-                raw_masks.append([all_keypoints])
+                raw_masks.append([[kp] for kp in all_keypoints])
             else:
-                raw_masks.append([])
+                raw_masks.append([[] for _ in range(len(raw_boxes))])
             raw_keypoints.append(np.array([]).reshape(len(raw_boxes[-1]), 0, 2))  # TODO: add keypoints support
             raw_labels.append(prediction.boxes.cls.data.cpu().numpy())
             raw_scores.append(prediction.boxes.conf.data.cpu().numpy())

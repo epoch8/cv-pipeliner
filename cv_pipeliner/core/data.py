@@ -88,8 +88,8 @@ class BaseImageData(BaseModel):
         List[List[Tuple[int, int]]],  # [[(x1, y1), (x2, y2), ...], [(x1, y1), (x2, y2), ...], ...]
         List[np.ndarray],  # [[x1, y1, x2, y2, ...], [x1, y1, x2, y2, ...], ...]
     ] = Field(default_factory=lambda: [], repr=False)
-    detection_score: Optional[float] = Field(default=None, repr=False)
-    classification_score: Optional[float] = Field(default=None, repr=False)
+    detection_score: Optional[float] = Field(default=None)
+    classification_score: Optional[float] = Field(default=None)
     top_n: Optional[int] = Field(default=None, repr=False)
     labels_top_n: Optional[Union[List[List[str]], np.ndarray, List[np.ndarray], List[str]]] = Field(
         default=None, repr=False
