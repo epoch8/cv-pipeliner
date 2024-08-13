@@ -1,7 +1,7 @@
 import abc
 import copy
+from typing import Any, List
 
-from typing import List, Any
 import numpy as np
 
 

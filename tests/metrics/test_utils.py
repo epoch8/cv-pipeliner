@@ -1,5 +1,7 @@
 import copy
+
 import cv2
+
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 

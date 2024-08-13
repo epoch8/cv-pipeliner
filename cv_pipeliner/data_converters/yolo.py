@@ -3,24 +3,20 @@ from pathlib import Path
 from typing import Dict, List, Union
 
 import fsspec
+
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.core.data_converter import DataConverter
+from cv_pipeliner.utils.images_datas import combine_mask_polygons_to_one_polygon
 from cv_pipeliner.utils.imagesize import get_image_size
 
 
 class YOLODataConverter(DataConverter):
     def __init__(self, class_names: List[str]):
         super().__init__()
-        assert len(set(class_names)) == len(
-            class_names
-        ), "There are duplicates in 'class_names'. Remove them."
+        assert len(set(class_names)) == len(class_names), "There are duplicates in 'class_names'. Remove them."
         self.class_names = class_names
-        self.class_name_to_idx = {
-            class_name: idx for idx, class_name in enumerate(self.class_names)
-        }
-        self.idx_to_class_name = {
-            idx: class_name for idx, class_name in enumerate(self.class_names)
-        }
+        self.class_name_to_idx = {class_name: idx for idx, class_name in enumerate(self.class_names)}
+        self.idx_to_class_name = {idx: class_name for idx, class_name in enumerate(self.class_names)}
 
     def get_annot_from_image_data(self, image_data: ImageData) -> List[str]:
         image_data = self.filter_image_data(image_data)
@@ -79,23 +75,17 @@ class YOLODataConverter(DataConverter):
         return ImageData(image_path=image_path, bboxes_data=bboxes_data)
 
 
-class YOLOKeypointsDataConverter(DataConverter):
+class YOLOMasksDataConverter(DataConverter):
     """
     Converter ImageData to YOLO Keypoints and YOLO Keypoints to ImageData
     """
 
     def __init__(self, class_names: List[str]):
         super().__init__()
-        assert len(set(class_names)) == len(
-            class_names
-        ), "There are duplicates in 'class_names'. Remove them."
+        assert len(set(class_names)) == len(class_names), "There are duplicates in 'class_names'. Remove them."
         self.class_names = class_names
-        self.class_name_to_idx = {
-            class_name: idx for idx, class_name in enumerate(self.class_names)
-        }
-        self.idx_to_class_name = {
-            idx: class_name for idx, class_name in enumerate(self.class_names)
-        }
+        self.class_name_to_idx = {class_name: idx for idx, class_name in enumerate(self.class_names)}
+        self.idx_to_class_name = {idx: class_name for idx, class_name in enumerate(self.class_names)}
 
     def get_annot_from_image_data(self, image_data: ImageData) -> List[str]:
         image_data = self.filter_image_data(image_data)
@@ -103,20 +93,11 @@ class YOLOKeypointsDataConverter(DataConverter):
         # txt_coors_results = []
         txt_keypoints_results = []
         for idx, bbox_data in enumerate(image_data.bboxes_data):
-            # w = bbox_data.xmax - bbox_data.xmin
-            # h = bbox_data.ymax - bbox_data.ymin
-            # xcenter = bbox_data.xmin + w / 2
-            # ycenter = bbox_data.ymin + h / 2
-            # xcenter, w = round(xcenter / width, 6), round(w / width, 6)
-            # ycenter, h = round(ycenter / height, 6), round(h / height, 6)
             idx = self.class_name_to_idx[bbox_data.label]
-            # txt_coors_results.append(f"{idx} {xcenter} {ycenter} {w} {h}")
-
+            mask = combine_mask_polygons_to_one_polygon(bbox_data.mask)
             box_keypoins = f"{idx}"
-            for point in bbox_data.keypoints:
-                box_keypoins += (
-                    f" {round(point[0]/width, 5)} {round(point[1]/height, 5)}"
-                )
+            for x, y in mask:
+                box_keypoins += f" {round(x/width, 5)} {round(y/height, 5)}"
             txt_keypoints_results.append(box_keypoins)
 
         return txt_keypoints_results  # txt_coors_results,
@@ -151,18 +132,14 @@ class YOLOKeypointsDataConverter(DataConverter):
             label = self.idx_to_class_name[int(idx)]
             points = elements[1:]
             scaled_points = [
-                (float(points[i]) * width if i % 2 == 0 else float(points[i]) * height)
-                for i in range(len(points))
+                (float(points[i]) * width if i % 2 == 0 else float(points[i]) * height) for i in range(len(points))
             ]
             # Определяем минимальные и максимальные координаты для бокса
             xs, ys = scaled_points[0::2], scaled_points[1::2]  # x и y координаты точек
 
             xmin, xmax, ymin, ymax = min(xs), max(xs), min(ys), max(ys)
 
-            keypoints = [
-                [scaled_points[i], scaled_points[i + 1]]
-                for i in range(0, len(scaled_points), 2)
-            ]
+            mask = [[scaled_points[i], scaled_points[i + 1]] for i in range(0, len(scaled_points), 2)]
 
             bboxes_data.append(
                 BboxData(
@@ -170,7 +147,7 @@ class YOLOKeypointsDataConverter(DataConverter):
                     ymin=ymin,
                     xmax=xmax,
                     ymax=ymax,
-                    keypoints=keypoints,
+                    mask=[mask],
                     label=label,
                 )
             )

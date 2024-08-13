@@ -1,10 +1,9 @@
 from dataclasses import dataclass
-from typing import Literal, List
+from typing import List, Literal
 
 import numpy as np
 
 from cv_pipeliner.core.data import BboxData, ImageData
-from cv_pipeliner.logging import logger
 
 
 def intersection_over_union(bbox_data1: BboxData, bbox_data2: BboxData) -> float:
@@ -179,14 +178,15 @@ class ImageDataMatching:
             for bbox_data in bboxes_data:
                 assert all(x is not None for x in [bbox_data.xmin, bbox_data.ymin, bbox_data.xmax, bbox_data.ymax])
                 if not (bbox_data.xmin <= bbox_data.xmax and bbox_data.ymin <= bbox_data.ymax):
-                    logger.warning(f"Wrong coordinates {bbox_data.coords=} detected, skipping...")
+                    # logger.warning(f"Wrong coordinates {bbox_data.coords=} detected, skipping...")
                     continue
                 if bbox_data.coords in bboxes_coords:
-                    logger.warning(
-                        f"Repeated {tag} BboxData with these coords "
-                        f"(xmin, ymin, xmax, ymax): {bbox_data.coords}. "
-                        "All BboxData should contain unique elements."
-                    )
+                    pass
+                    # logger.warning(
+                    #     f"Repeated {tag} BboxData with these coords "
+                    #     f"(xmin, ymin, xmax, ymax): {bbox_data.coords}. "
+                    #     "All BboxData should contain unique elements."
+                    # )
                 bboxes_coords.add(bbox_data.coords)
 
         if len(true_bboxes_data) > 0 and len(bboxes_data) > 0:

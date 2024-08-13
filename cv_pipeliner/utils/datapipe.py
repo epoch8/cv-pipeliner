@@ -1,9 +1,15 @@
 import json
 from pathlib import Path
+from typing import IO, Any, Callable, Dict, Iterator, List, Optional, Tuple, Type, Union
+
+import fsspec
+import numpy as np
+import pandas as pd
 
 # from threading import Semaphore
 from datapipe.run_config import RunConfig
 from datapipe.store.database import DBConn, TableStoreDB
+from datapipe.store.filedir import ItemStoreFileAdapter, TableStoreFiledir
 from datapipe.store.table_store import TableStore
 from datapipe.types import (
     DataDF,
@@ -15,17 +21,11 @@ from datapipe.types import (
     index_intersection,
     index_to_data,
 )
-import numpy as np
-import fsspec
-from typing import Any, Dict, IO, Iterator, Optional, Tuple, List, Type, Union, Callable
+from sqlalchemy import JSON, Column, Integer, String
 
-from datapipe.store.filedir import ItemStoreFileAdapter, TableStoreFiledir
-import pandas as pd
-from sqlalchemy import JSON, Column, String, Integer
-from cv_pipeliner.core.data import ImageData, BboxData
-from cv_pipeliner.utils.imagesize import get_image_size
-
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.utils.fiftyone import FifyOneSession
+from cv_pipeliner.utils.imagesize import get_image_size
 
 
 class ImageDataFile(ItemStoreFileAdapter):
@@ -302,7 +302,7 @@ class FiftyOneImagesDataTableStore(TableStore):
             pass
         return self.fo_dataset
 
-    def _get_view(self, idx: IndexDF = None) -> "fiftyone.DatasetView":
+    def _get_df_sample(self, idx: IndexDF = None) -> pd.DataFrame:
         view = self.fo_session.fiftyone.DatasetView(self._get_or_create_dataset())
         if idx is not None:
             for attrname in self.attrnames:
@@ -312,7 +312,21 @@ class FiftyOneImagesDataTableStore(TableStore):
                     values = idx[attrname]
 
                 view = view.select_by(field=attrname, values=values)
-        return view
+        df_sample = pd.DataFrame(
+            [
+                {
+                    "filepath": self.inverse_mapping_filepath(sample.filepath),
+                    **{attrname: sample[attrname] for attrname in self.attrnames_no_filepath},
+                    "sample": sample,
+                }
+                for sample in view
+            ]
+        )
+        if len(df_sample) == 0:
+            df_sample = pd.DataFrame(columns=self.attrnames + ["sample"])
+        if idx is not None:
+            df_sample = pd.merge(df_sample, idx, on=self.attrnames_no_filepath)
+        return df_sample
 
     def _attend_image_path_to_image_data(self, image_data: ImageData, idxs_values: List[str]) -> ImageData:
         if self.images_table_store is not None:
@@ -331,10 +345,9 @@ class FiftyOneImagesDataTableStore(TableStore):
         return image_data
 
     def read_rows(self, idx: IndexDF = None, read_data: bool = True) -> DataDF:
-        view = self._get_view(idx)
-        df_result = []
-        for sample in view:
-            image_data = self.fo_session.convert_sample_to_image_data(
+        df_sample = self._get_df_sample(idx=idx)
+        df_sample["image_data"] = df_sample["sample"].apply(
+            lambda sample: self.fo_session.convert_sample_to_image_data(
                 sample=sample,
                 fo_detections_label=self.fo_detections_label,
                 fo_classification_label=self.fo_classification_label,
@@ -345,41 +358,10 @@ class FiftyOneImagesDataTableStore(TableStore):
                 image_data_cls=self.image_data_cls,
                 bbox_data_cls=self.bbox_data_cls,
             )
-            df_result.append(
-                {
-                    "filepath": self.inverse_mapping_filepath(sample.filepath),
-                    **{"image_data": image_data if read_data else {}},
-                    **{attrname: sample[attrname] for attrname in self.attrnames_no_filepath},
-                    "sample": sample,
-                }
-            )
-        df_result = pd.DataFrame(df_result)
-        if len(df_result) == 0:
-            df_result = pd.DataFrame(columns=self.attrnames)
-        return df_result
-
-    def _delete_samples(self, dataset: "fo.Dataset", samples: List["fo.Sample"]):
-        # Во избежания ошибки в префекте AttributeError: 'RedirectToLog' object has no attribute 'encoding'
-        # dataset.add_samples(samples_to_be_updated)
-        # self.semaphore.acquire()
-        try:
-            dataset.delete_samples(samples)
-        finally:
-            # self.semaphore.release()
-            pass
-
-    def _add_samples(self, dataset: "fo.Dataset", samples: List["fo.Sample"]):
-        # Во избежания ошибки в префекте AttributeError: 'RedirectToLog' object has no attribute 'encoding'
-        # dataset.add_samples(samples_to_be_updated)
-        # self.semaphore.acquire()
-        try:
-            for batch in self.fo_session.fiftyone.core.utils.DynamicBatcher(
-                samples, target_latency=0.2, init_batch_size=1, max_batch_beta=2.0
-            ):
-                dataset._add_samples_batch(batch, expand_schema=True, validate=True)
-        finally:
-            # self.semaphore.release()
-            pass
+            if read_data
+            else {}
+        )
+        return df_sample
 
     def insert_rows(self, df: DataDF) -> None:
         dataset = self._get_or_create_dataset()
@@ -396,7 +378,7 @@ class FiftyOneImagesDataTableStore(TableStore):
 
         # To be updated:
         df_to_be_updated = index_to_data(df, idxs_to_be_updated).reset_index(drop=True)
-        samples_to_be_updated_unordered = list(self._get_view(idxs_to_be_updated))
+        samples_to_be_updated_unordered = self._get_df_sample(idxs_to_be_updated)["sample"].tolist()
         df_samples_to_be_updated_unordered = pd.DataFrame(
             {
                 "sample": [sample for sample in samples_to_be_updated_unordered],
@@ -424,9 +406,8 @@ class FiftyOneImagesDataTableStore(TableStore):
             samples_to_be_updated, samples_to_be_updated_with_new_values
         ):
             current_sample.merge(sample_with_updated_values)
-
-        self._delete_samples(dataset, samples_to_be_updated)  # Работает по поведению так же, как и sample.save()
-        self._add_samples(dataset, samples_to_be_updated)
+        dataset.delete_samples(samples_to_be_updated)  # Работает по поведению так же, как и sample.save()
+        dataset.add_samples(samples_to_be_updated, progress=False)
 
         # To be added:
         df_to_be_added = index_to_data(df, idxs_to_be_added).reset_index(drop=True)
@@ -447,19 +428,19 @@ class FiftyOneImagesDataTableStore(TableStore):
             for idx in df_to_be_added.index
         ]
         if len(samples_to_be_added) > 0:
-            self._add_samples(dataset, samples_to_be_added)
+            dataset.add_samples(samples_to_be_added, progress=False)
 
     def delete_rows(self, idx: IndexDF) -> None:
         dataset = self._get_or_create_dataset()
-        view = self._get_view(idx)
-        samples = list(view)
-        if len(samples) > 0:
+        df_sample = self._get_df_sample(idx=idx)
+        samples = df_sample["sample"].tolist()
+        if len(df_sample) > 0:
             if self.rm_only_fo_fields:
                 for sample in samples:
                     if sample.has_field(self.fo_detections_label):
                         del sample[self.fo_detections_label]
                     if self.fo_keypoints_label is not None and sample.has_field(self.fo_keypoints_label):
                         del sample[self.fo_keypoints_label]
-            self._delete_samples(dataset, samples)
+            dataset.delete_samples(samples)
             if self.rm_only_fo_fields:
-                self._add_samples(dataset, samples)
+                dataset.add_samples(samples, progress=False)

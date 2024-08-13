@@ -1,13 +1,12 @@
 import json
-
-from typing import Union, Dict, List
 from pathlib import Path
-from pathy import Pathy
+from typing import Dict, List, Union
 
 import fsspec
+from pathy import Pathy
 
-from cv_pipeliner.core.data_converter import DataConverter
 from cv_pipeliner.core.data import BboxData, ImageData
+from cv_pipeliner.core.data_converter import DataConverter
 
 
 class BrickitDataConverter(DataConverter):

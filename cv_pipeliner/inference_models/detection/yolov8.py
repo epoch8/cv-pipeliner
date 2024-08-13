@@ -5,6 +5,7 @@ from typing import Callable, List, Optional, Tuple, Type, Union
 
 import fsspec
 import numpy as np
+
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.detection.core import (
     DetectionInput,
@@ -17,7 +18,7 @@ from cv_pipeliner.inference_models.detection.core import (
 class YOLOv8_ModelSpec(DetectionModelSpec):
     model_name: Optional[str] = None
     model_path: Optional[Union[str, Path]] = None  # noqa: F821
-    class_names: Optional[List[str]] = None
+    class_names: Optional[Union[List[str], str, Path]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     device: str = None
     force_reload: bool = False
@@ -65,9 +66,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             self._load_yolov8_model(model_spec)
             self._raw_predict_images = self._raw_predict_images_torch
         else:
-            raise ValueError(
-                f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}"
-            )
+            raise ValueError(f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}")
 
     def _load_yolov8_model(self, model_spec: YOLOv8_ModelSpec):
         """YOLOv8 model initialization
@@ -79,18 +78,18 @@ class YOLOv8_DetectionModel(DetectionModel):
             ValueError: If model_name and model_path is not specified
         """
         if model_spec.model_name is None and model_spec.model_path is None:
-            raise ValueError(
-                "Please, specify model name or weights path for loading model"
-            )
+            raise ValueError("Please, specify model name or weights path for loading model")
 
-        from ultralytics import YOLO
+        if model_spec.model_path is not None:
+            temp_file = tempfile.NamedTemporaryFile(suffix=".pt")
+            with fsspec.open(model_spec.model_path, "rb") as src:
+                temp_file.write(src.read())
+            model_path_tmp = Path(temp_file.name)
+            from ultralytics import YOLO
 
-        temp_file = tempfile.NamedTemporaryFile(suffix=".pt")
-        with fsspec.open(model_spec.model_path, "rb") as src:
-            temp_file.write(src.read())
-        model_path_tmp = Path(temp_file.name)
-
-        self.model = YOLO(model_path_tmp)
+            self.model = YOLO(model_path_tmp)
+        else:
+            self.model = YOLO(model_spec.model_name)
 
         if model_spec.device is not None:
             self.model = self.model.to(model_spec.device)
@@ -115,19 +114,19 @@ class YOLOv8_DetectionModel(DetectionModel):
             conf=score_threshold,
             retina_masks=True,
         )
-
-        raw_boxes, raw_keypoints, raw_scores, raw_labels = [], [], [], []
+        raw_boxes, raw_keypoints, raw_masks, raw_scores, raw_labels = [], [], [], [], []
         for prediction in predictions:
             raw_boxes.append(prediction.boxes.xyxy.data.cpu().numpy())
             if prediction.masks is not None:
                 all_keypoints = prediction.masks.xy
-                raw_keypoints.append(all_keypoints)
+                raw_masks.append([[kp] for kp in all_keypoints])
             else:
-                raw_keypoints.append(np.array([]).reshape(raw_boxes[-1].shape[0], 0, 2))
+                raw_masks.append([[] for _ in range(len(raw_boxes))])
+            raw_keypoints.append(np.array([]).reshape(len(raw_boxes[-1]), 0, 2))  # TODO: add keypoints support
             raw_labels.append(prediction.boxes.cls.data.cpu().numpy())
             raw_scores.append(prediction.boxes.conf.data.cpu().numpy())
 
-        return raw_boxes, raw_keypoints, raw_scores, raw_labels
+        return raw_boxes, raw_keypoints, raw_masks, raw_scores, raw_labels
 
     def predict(
         self,
@@ -145,12 +144,37 @@ class YOLOv8_DetectionModel(DetectionModel):
         Returns:
             DetectionOutput: List of boxes, keypoints, scores, classes
         """
-        raw_bboxes, raw_keypoints, raw_scores, raw_classes = self._raw_predict_images(input, score_threshold)
+        # Try to rebatch to batches of one size due to https://github.com/ultralytics/ultralytics/issues/15430
+        size_to_images = {}
+        size_to_idxs = {}
+        for idx, image in enumerate(input):
+            size = tuple(image.shape[0:3])
+            if size not in size_to_images:
+                size_to_images[size] = []
+                size_to_idxs[size] = []
+            size_to_images[size].append(image)
+            size_to_idxs[size].append(idx)
 
-        # with open("raw_scores.pkl", "wb") as out:
-        #     pickle.dump(raw_scores, out)
-        # with open("raw_classes.pkl", "wb") as out:
-        #     pickle.dump(raw_classes, out)
+        idx_to_results = {}
+        for size, images in size_to_images.items():
+            (
+                size_raw_bboxes,
+                size_raw_keypoints,
+                size_raw_masks,
+                size_raw_scores,
+                size_raw_classes,
+            ) = self._raw_predict_images(images, score_threshold)
+            for i, idx in enumerate(size_to_idxs[size]):
+                idx_to_results[idx] = (
+                    size_raw_bboxes[i],
+                    size_raw_keypoints[i],
+                    size_raw_masks[i],
+                    size_raw_scores[i],
+                    size_raw_classes[i],
+                )
+        results = [idx_to_results[idx] for idx in range(len(input))]
+        raw_bboxes, raw_keypoints, raw_masks, raw_scores, raw_classes = zip(*results)
+
         if self.class_names is not None:
             if classification_top_n > 1:
                 raise NotImplementedError("Not impelemented for classification_top_n > 1")
@@ -161,30 +185,37 @@ class YOLOv8_DetectionModel(DetectionModel):
                 ]
                 for classes in raw_classes
             ]
-            classes_scores_top_n = [
-                [[score] for score in scores] for scores in raw_scores
-            ]
+            classes_scores_top_n = [[[score] for score in scores] for scores in raw_scores]
         else:
-            class_names_top_n = [
-                [None for _ in range(classification_top_n)] for _ in raw_classes
-            ]
-            classes_scores_top_n = [
-                [score for _ in range(classification_top_n)] for score in raw_scores
-            ]
+            class_names_top_n = [[None for _ in range(classification_top_n)] for _ in raw_classes]
+            classes_scores_top_n = [[score for _ in range(classification_top_n)] for score in raw_scores]
 
-        results = (
-            [image_boxes.tolist() for image_boxes in raw_bboxes],
-            [[bbox_kp.astype(np.int32).tolist() for bbox_kp in img_kp] for img_kp in raw_keypoints],
-            [image_scores.tolist() for image_scores in raw_scores],
-            class_names_top_n,
-            classes_scores_top_n,
+        n_pred_bboxes = [image_boxes.tolist() for image_boxes in raw_bboxes]
+        n_pred_keypoints = [np.array(k_keypoints).round().astype(np.int32).tolist() for k_keypoints in raw_keypoints]
+        n_pred_masks = [
+            [
+                [np.array(polygon).round().astype(np.int32).tolist() for polygon in k_polygons]
+                for k_polygons in n_k_polygons
+            ]
+            for n_k_polygons in raw_masks
+        ]
+        n_pred_scores = [image_scores.tolist() for image_scores in raw_scores]
+        n_pred_class_names_top_k = class_names_top_n
+        n_pred_scores_top_k = classes_scores_top_n
+        return (
+            n_pred_bboxes,
+            n_pred_keypoints,
+            n_pred_masks,
+            n_pred_scores,
+            n_pred_class_names_top_k,
+            n_pred_scores_top_k,
         )
 
-        return results
-
     def preprocess_input(self, input: DetectionInput) -> DetectionInput:
-        self._preprocess_input(input)
+        # letterbox = LetterBox(self.model.imgsz, auto=False, stride=self.model.stride)
+        # return [letterbox(image=x) for x in input]
+        return input
 
     @property
     def input_size(self) -> int:
-        return -1
+        return self.model.imgsz

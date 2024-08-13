@@ -1,10 +1,10 @@
 import copy
 from typing import List, Literal, Optional, Tuple, Union
 
-import numpy as np
 import cv2
+import numpy as np
 
-from cv_pipeliner.core.data import ImageData, BboxData
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.utils.images import concat_images, get_thumbnail_resize
 
 
@@ -1041,3 +1041,52 @@ def flatten_additional_bboxes_data_in_image_data(
 
     image_data.bboxes_data = bboxes_data
     return image_data
+
+
+def find_closest_pair(arr1: np.ndarray, arr2: np.ndarray) -> np.ndarray:
+    distances = np.sum((arr1[:, np.newaxis, :] - arr2[np.newaxis, :, :]) ** 2, axis=-1)
+    return np.unravel_index(np.argmin(distances, axis=None), distances.shape)
+
+
+def combine_polygons(polygons: List[np.ndarray]) -> np.ndarray:
+    combined = []
+    polygons = [np.array(polygon).reshape(-1, 2) for polygon in polygons]
+    index_pairs = [[] for _ in range(len(polygons))]
+
+    for i in range(1, len(polygons)):
+        idx1, idx2 = find_closest_pair(polygons[i - 1], polygons[i])
+        index_pairs[i - 1].append(idx1)
+        index_pairs[i].append(idx2)
+
+    for pass_num in range(2):
+        if pass_num == 0:
+            for i, indices in enumerate(index_pairs):
+                if len(indices) == 2 and indices[0] > indices[1]:
+                    indices = indices[::-1]
+                    polygons[i] = polygons[i][::-1, :]
+
+                polygons[i] = np.roll(polygons[i], -indices[0], axis=0)
+                polygons[i] = np.concatenate([polygons[i], polygons[i][:1]])
+                if i in [0, len(index_pairs) - 1]:
+                    combined.append(polygons[i])
+                else:
+                    indices = [0, indices[1] - indices[0]]
+                    combined.append(polygons[i][indices[0] : indices[1] + 1])
+        else:
+            for i in range(len(index_pairs) - 1, -1, -1):
+                if i not in [0, len(index_pairs) - 1]:
+                    indices = index_pairs[i]
+                    adjusted_idx = abs(indices[1] - indices[0])
+                    combined.append(polygons[i][adjusted_idx:])
+    return combined
+
+
+def combine_mask_polygons_to_one_polygon(mask: List[List[np.ndarray]]) -> np.ndarray:
+    if len(mask) > 1:
+        keypoints = np.concatenate(combine_polygons(mask), axis=0).reshape(-1, 2)
+    elif len(mask) == 1:
+        keypoints = mask[0]
+    else:
+        keypoints = []
+    keypoints = np.array(keypoints).reshape(-1, 2)
+    return keypoints

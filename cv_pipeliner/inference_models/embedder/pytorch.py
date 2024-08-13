@@ -1,9 +1,16 @@
-import numpy as np
-from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
-from cv_pipeliner.inference_models.embedder.core import EmbedderModelSpec, EmbedderModel, EmbedderInput, EmbedderOutput
-from pathy import Pathy
-from typing import List, Tuple, Callable, Union, Type
 from pathlib import Path
+from typing import Callable, List, Tuple, Type, Union
+
+import numpy as np
+from pathy import Pathy
+
+from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
+from cv_pipeliner.inference_models.embedder.core import (
+    EmbedderInput,
+    EmbedderModel,
+    EmbedderModelSpec,
+    EmbedderOutput,
+)
 
 
 class PyTorch_EmbedderModelSpec(EmbedderModelSpec):

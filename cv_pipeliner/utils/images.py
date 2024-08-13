@@ -2,23 +2,21 @@ import base64
 import io
 import json
 import math
-from pathlib import Path
-from typing import List, Tuple, Union, Literal, Dict, Optional
 from collections import defaultdict
-
-import imageio
-from matplotlib.figure import Figure
-from PIL import Image, ImageFont, ImageDraw
+from pathlib import Path
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import cv2
-import numpy as np
 import fsspec
+import imageio
 import imutils
+import numpy as np
+from matplotlib.figure import Figure
 from pathy import Pathy
+from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 
 from cv_pipeliner.logging import logger
-
 
 if hasattr(Image, "Transpose"):
     TransposeModule = Image.Transpose

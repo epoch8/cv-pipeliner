@@ -2,16 +2,17 @@ import copy
 import logging
 import os
 import sys
-
 from pathlib import Path
-from typing import Literal, Optional, Type, Union, Dict, Tuple, Callable, Any, List
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, Union
+
+import numpy as np
+
+from cv_pipeliner.core.data import BboxData, ImageData
+from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
+from cv_pipeliner.utils.images_datas import flatten_additional_bboxes_data_in_image_data
 
 # from threading import Semaphore
 
-import numpy as np
-from cv_pipeliner.core.data import ImageData, BboxData
-from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
-from cv_pipeliner.utils.images_datas import flatten_additional_bboxes_data_in_image_data
 
 logger = logging.getLogger("cv_pipeliner.utils.fiftyone")
 
@@ -63,12 +64,11 @@ class FifyOneSession:
 
     def __del__(self):
         if self.database_dir is not None:
-            del os.environ["FIFTYONE_DATABASE_DIR"]
+            os.environ.pop("FIFTYONE_DATABASE_DIR", None)
         if self.database_uri is not None:
-            del os.environ["FIFTYONE_DATABASE_URI"]
+            os.environ.pop("FIFTYONE_DATABASE_URI", None)
         if self.database_name is not None:
-            del os.environ["FIFTYONE_DATABASE_NAME"]
-        del self.fiftyone
+            os.environ.pop("FIFTYONE_DATABASE_NAME", None)
         if "fiftyone" in sys.modules:
             del sys.modules["fiftyone"]
         FifyOneSession._counter -= 1

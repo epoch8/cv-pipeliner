@@ -1,7 +1,9 @@
 import abc
-import numpy as np
 from typing import List, Type
-from cv_pipeliner.core.inference_model import ModelSpec, InferenceModel
+
+import numpy as np
+
+from cv_pipeliner.core.inference_model import InferenceModel, ModelSpec
 
 EmbedderInput = List[np.ndarray]
 EmbedderOutput = List[np.ndarray]

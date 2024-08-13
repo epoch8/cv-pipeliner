@@ -1,11 +1,11 @@
 import json
-from typing import Type, Union, Dict
 from pathlib import Path
+from typing import Dict, Type, Union
 
 import fsspec
 
-from cv_pipeliner.core.data_converter import DataConverter
 from cv_pipeliner.core.data import ImageData
+from cv_pipeliner.core.data_converter import DataConverter
 
 
 class JSONDataConverter(DataConverter):

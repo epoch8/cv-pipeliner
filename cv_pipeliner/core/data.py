@@ -1,22 +1,22 @@
 import copy
 import io
-import cv2
 import json
-
-from pathlib import Path
-from packaging.version import Version
 from importlib.metadata import version
+from pathlib import Path
+
+import cv2
+from packaging.version import Version
 
 if Version(version("pydantic")) < Version("2.0.0"):
-    from pydantic import BaseModel, Field, validator, root_validator
+    from pydantic import BaseModel, Field, root_validator, validator
 else:
     from pydantic.v1 import BaseModel, Field, validator, root_validator
-from typing import Any, Union, List, Dict, Tuple, Optional, Type
 
-import numpy as np
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
+
 import fsspec
+import numpy as np
 import PIL
-
 from pathy import Pathy
 
 from cv_pipeliner.utils.images import is_base64, open_image
@@ -88,8 +88,8 @@ class BaseImageData(BaseModel):
         List[List[Tuple[int, int]]],  # [[(x1, y1), (x2, y2), ...], [(x1, y1), (x2, y2), ...], ...]
         List[np.ndarray],  # [[x1, y1, x2, y2, ...], [x1, y1, x2, y2, ...], ...]
     ] = Field(default_factory=lambda: [], repr=False)
-    detection_score: Optional[float] = Field(default=None, repr=False)
-    classification_score: Optional[float] = Field(default=None, repr=False)
+    detection_score: Optional[float] = Field(default=None)
+    classification_score: Optional[float] = Field(default=None)
     top_n: Optional[int] = Field(default=None, repr=False)
     labels_top_n: Optional[Union[List[List[str]], np.ndarray, List[np.ndarray], List[str]]] = Field(
         default=None, repr=False
@@ -128,8 +128,18 @@ class BaseImageData(BaseModel):
         if mask is None:
             return []
         if not isinstance(mask, list):
-            return mask
-        return [np.array(points).astype(int).reshape((-1, 2)) for points in mask]
+            if isinstance(mask, np.ndarray) and len(mask.shape) in [2, 3]:
+                if len(mask.shape) == 2:
+                    mask = mask[..., None]
+                mask = (mask > 0).all(axis=2).astype(np.uint8)
+                mask = cv2.copyMakeBorder(mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=0)
+                polygons = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE, offset=(-1, -1))
+                polygons = polygons[0] if len(polygons) == 2 else polygons[1]
+                polygons = [np.array(polygon, dtype=np.int32) for polygon in polygons]
+                return polygons
+            else:
+                return mask
+        return [np.array(points, dtype=np.int32).reshape((-1, 2)) for points in mask]
 
     @validator("image", pre=True, allow_reuse=True)
     def parse_image(cls, image, values):
@@ -348,10 +358,10 @@ class BboxData(BaseImageData):
             self.cropped_image = cropped_image
         else:
             if return_as_image_data:
-                keypoints = self.keypoints.copy()
+                keypoints = copy.deepcopy(self.keypoints)
                 keypoints[:, 0] -= xmin
                 keypoints[:, 1] -= ymin
-                mask = self.mask.copy()
+                mask = copy.deepcopy(self.mask)
                 for polygon in mask:
                     polygon[:, 0] -= xmin
                     polygon[:, 1] -= ymin
@@ -452,8 +462,8 @@ class BboxData(BaseImageData):
             width, height = (xmax - xmin), (ymax - ymin)
             polygons = copy.deepcopy(self.mask)
             for polygon in polygons:
-                polygon[:, 0] = np.clip(polygon[:, 0] - xmin, 0, width)
-                polygon[:, 1] = np.clip(polygon[:, 1] - ymin, 0, height)
+                polygon[:, 0] = np.clip(polygon[:, 0] - xmin, 0, width - 1)
+                polygon[:, 1] = np.clip(polygon[:, 1] - ymin, 0, height - 1)
             mask = np.zeros((height, width), dtype=np.uint8)
             mask = cv2.fillPoly(mask, polygons, 255)
             return mask
@@ -488,7 +498,9 @@ class ImageData(BaseImageData):
     ) -> np.ndarray:
         mask = BaseImageData.open_mask(self, exif_transpose=exif_transpose)
         if include_additional_bboxes_data:
-            from cv_pipeliner.utils.images_datas import flatten_additional_bboxes_data_in_image_data
+            from cv_pipeliner.utils.images_datas import (
+                flatten_additional_bboxes_data_in_image_data,
+            )
 
             bboxes_data = flatten_additional_bboxes_data_in_image_data(
                 self, additional_bboxes_data_depth=additional_bboxes_data_depth

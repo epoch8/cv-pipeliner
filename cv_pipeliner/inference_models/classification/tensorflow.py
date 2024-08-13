@@ -1,19 +1,19 @@
 import json
-from json.decoder import JSONDecodeError
 import tempfile
+from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import List, Optional, Tuple, Callable, Union, Type, Literal, Dict, Any
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, Union
 
-import requests
-import numpy as np
 import fsspec
+import numpy as np
+import requests
 from pathy import Pathy
 
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.classification.core import (
-    ClassificationModelSpec,
-    ClassificationModel,
     ClassificationInput,
+    ClassificationModel,
+    ClassificationModelSpec,
     ClassificationOutput,
 )
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
@@ -31,7 +31,9 @@ class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["Tensorflow_ClassificationModel"]:
-        from cv_pipeliner.inference_models.classification.tensorflow import Tensorflow_ClassificationModel
+        from cv_pipeliner.inference_models.classification.tensorflow import (
+            Tensorflow_ClassificationModel,
+        )
 
         return Tensorflow_ClassificationModel
 
@@ -46,7 +48,9 @@ class TensorFlow_ClassificationModelSpec_TFServing(ClassificationModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["Tensorflow_ClassificationModel"]:
-        from cv_pipeliner.inference_models.classification.tensorflow import Tensorflow_ClassificationModel
+        from cv_pipeliner.inference_models.classification.tensorflow import (
+            Tensorflow_ClassificationModel,
+        )
 
         return Tensorflow_ClassificationModel
 

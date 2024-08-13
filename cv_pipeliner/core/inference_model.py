@@ -1,10 +1,12 @@
-from packaging.version import Version
 from importlib.metadata import version
+
+from packaging.version import Version
 
 if Version(version("pydantic")) < Version("2.0.0"):
     from pydantic import BaseModel as PydanticBaseModel
 else:
     from pydantic.v1 import BaseModel as PydanticBaseModel
+
 import abc
 import importlib
 import sys
@@ -43,13 +45,11 @@ class InferenceModel(abc.ABC):
     Example:
         model_spec = ModelSpec(...)
         inference_model = InferenceModel(model_spec)
-        input = inference_model.preprocess_input(input)
         output = inference_model.predict(input)
 
     2nd way:
         model_spec = ModelSpec(...)
         inference_model = model_spec.load()
-        input = inference_model.preprocess_input(input)
         output = inference_model.predict(input)
 
 

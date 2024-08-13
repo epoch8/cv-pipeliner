@@ -1,17 +1,17 @@
 import collections
 import hashlib
-from typing import Dict, Literal, List, Tuple, Callable, Optional, Union
+from typing import Callable, Dict, List, Literal, Optional, Tuple, Union
 
-import numpy as np
 import imutils
-from PIL import Image, ImageDraw, ImageFont, ImageColor
+import numpy as np
+from PIL import Image, ImageColor, ImageDraw, ImageFont
 
 from cv_pipeliner.core.data import BboxData, ImageData
+from cv_pipeliner.utils.images import rotate_point
 from cv_pipeliner.utils.images_datas import (
     flatten_additional_bboxes_data_in_image_data,
     get_image_data_filtered_by_labels,
 )
-from cv_pipeliner.utils.images import rotate_point
 
 # Taken from object_detection.utils.visualization_utils
 STANDARD_COLORS = [

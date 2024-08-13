@@ -1,14 +1,15 @@
+import json
 from pathlib import Path
 
 import fsspec
-import json
-from cv_pipeliner.core.data import ImageData, BboxData
-from cv_pipeliner.data_converters.yolo import YOLODataConverter
+import pytest
+
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.data_converters.json import JSONDataConverter
 from cv_pipeliner.data_converters.supervisely import SuperviselyDataConverter
+from cv_pipeliner.data_converters.yolo import YOLODataConverter
 
-import pytest
 from .conftest import assert_images_datas_equal
 
 test_data = Path(__file__).parent / "test_data"
