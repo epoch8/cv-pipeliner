@@ -41,10 +41,7 @@ from cv_pipeliner.inferencers.detection import DetectionInferencer
 from cv_pipeliner.inferencers.keypoints_regressor import KeypointsRegressorInferencer
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.metrics.classification import get_df_classification_metrics
-from cv_pipeliner.metrics.detection import (
-    get_df_detection_metrics,
-    get_df_detection_recall_per_class,
-)
+from cv_pipeliner.metrics.detection import get_df_detection_metrics
 from cv_pipeliner.metrics.image_data_matching import BboxDataMatching, ImageDataMatching
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics
 from cv_pipeliner.utils.fiftyone import FifyOneSession
