@@ -1,14 +1,19 @@
 from typing import Any, Dict, List, Tuple, Type, Union
+
 import numpy as np
 from tqdm import tqdm
 
 from cv_pipeliner.core.inference_model import InferenceModel, ModelSpec
-from cv_pipeliner.inference_models.detection.core import DetectionModelSpec, DetectionModel
-from cv_pipeliner.inference_models.classification.core import ClassificationModelSpec, ClassificationModel
-
-from cv_pipeliner.utils.images import cut_bboxes_from_image
-
+from cv_pipeliner.inference_models.classification.core import (
+    ClassificationModel,
+    ClassificationModelSpec,
+)
+from cv_pipeliner.inference_models.detection.core import (
+    DetectionModel,
+    DetectionModelSpec,
+)
 from cv_pipeliner.logging import logger
+from cv_pipeliner.utils.images import cut_bboxes_from_image
 
 
 class PipelineModelSpec(ModelSpec):
@@ -30,7 +35,8 @@ class PipelineModelSpec(ModelSpec):
 Bbox = Tuple[int, int, int, int]  # (ymin, xmin, ymax, xmax)
 Score = float
 Label = str
-Keypoints = List[Tuple[int, int]]
+Keypoints = List[List[Tuple[int, int]]]
+Mask = List[List[List[Tuple[int, int]]]]
 
 Bboxes = List[Bbox]
 DetectionScores = List[Score]
@@ -39,7 +45,7 @@ ClassificationScores = List[Score]
 
 PipelineInput = List[np.ndarray]
 PipelineOutput = List[
-    Tuple[List[Bboxes], List[Keypoints], List[DetectionScores], List[Labels], List[ClassificationScores]]
+    Tuple[List[Bboxes], List[Keypoints], List[Mask], List[DetectionScores], List[Labels], List[ClassificationScores]]
 ]
 
 
@@ -85,6 +91,7 @@ class PipelineModel(InferenceModel):
         (
             n_pred_bboxes,
             n_pred_keypoints,
+            n_pred_masks,
             n_pred_detection_scores,
             n_pred_class_names_top_k,
             n_pred_classification_scores_top_k,
@@ -102,6 +109,7 @@ class PipelineModel(InferenceModel):
             return (
                 n_pred_bboxes,
                 n_pred_keypoints,
+                n_pred_masks,
                 n_pred_detection_scores,
                 n_pred_class_names_top_k,
                 n_pred_classification_scores_top_k,
@@ -128,6 +136,7 @@ class PipelineModel(InferenceModel):
         return (
             n_pred_bboxes,
             n_pred_keypoints,
+            n_pred_masks,
             n_pred_detection_scores,
             n_pred_labels_top_n,
             n_pred_classification_scores_top_n,

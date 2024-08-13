@@ -1,9 +1,10 @@
 import io
-import fsspec
-
 from typing import Tuple
+
+import fsspec
 import numpy as np
 from PIL import Image
+
 from cv_pipeliner.utils.images import EXIF_ORIENTATION_TO_METHOD
 
 

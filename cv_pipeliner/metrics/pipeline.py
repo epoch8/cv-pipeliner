@@ -1,7 +1,7 @@
 from typing import Dict, List
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.metrics.image_data_matching import BboxDataMatching, ImageDataMatching
@@ -45,6 +45,18 @@ def _count_errors_types_and_get_pipeline_metrics_per_class(
         ]
     )
     for class_name in labels:
+        images_support_by_class_name = np.sum(
+            [
+                any(
+                    [
+                        bbox_data_matching.true_bbox_data.label == class_name
+                        for bbox_data_matching in image_data_matching.bboxes_data_matchings
+                        if bbox_data_matching.true_bbox_data is not None
+                    ]
+                )
+                for image_data_matching in images_data_matchings
+            ]
+        )
         support_by_class_name = np.sum(true_labels == class_name)
         TP_by_class_name = np.sum(
             [image_data_matching.get_pipeline_TP(label=class_name) for image_data_matching in images_data_matchings]
@@ -107,6 +119,7 @@ def _count_errors_types_and_get_pipeline_metrics_per_class(
         ]
         iou_mean = np.mean(ious) if len(ious) > 0 else 0
         pipeline_metrics_per_class[class_name] = {
+            "images_support": images_support_by_class_name,
             "support": support_by_class_name,
             "TP": TP_by_class_name,
             "FP": FP_by_class_name,
@@ -126,6 +139,7 @@ def _add_metrics_to_dict(
     pipeline_metrics_per_class: Dict,
     pipeline_metrics: Dict,
     labels: List[str],
+    images_support: int,
     prefix_caption: str = "",
     postfix_caption: str = "",
 ):
@@ -179,6 +193,7 @@ def _add_metrics_to_dict(
     weighted_average_f1_score = np.average(f1_scores, weights=supports) if len(f1_scores) > 0 else np.nan
     sum_support = np.sum(supports)
     pipeline_metrics[f"{prefix_caption}accuracy{postfix_caption}"] = {
+        "images_support": images_support,
         "support": support,
         "TP": TP,
         "FP": FP,
@@ -190,6 +205,7 @@ def _add_metrics_to_dict(
     }
     pipeline_metrics[f"{prefix_caption}iou_mean{postfix_caption}"] = {"support": support, "value": iou_mean}
     pipeline_metrics[f"{prefix_caption}micro_average{postfix_caption}"] = {
+        "images_support": images_support,
         "support": sum_support,
         "TP": TP,
         "FP": FP,
@@ -202,6 +218,7 @@ def _add_metrics_to_dict(
         "f1_score": micro_average_f1_score,
     }
     pipeline_metrics[f"{prefix_caption}macro_average{postfix_caption}"] = {
+        "images_support": images_support,
         "support": sum_support,
         "TP": TP,
         "FP": FP,
@@ -214,6 +231,7 @@ def _add_metrics_to_dict(
         "f1_score": macro_average_f1_score,
     }
     pipeline_metrics[f"{prefix_caption}weighted_average{postfix_caption}"] = {
+        "images_support": images_support,
         "support": sum_support,
         "TP": TP,
         "FP": FP,
@@ -228,6 +246,7 @@ def _add_metrics_to_dict(
 
 
 df_pipeline_metrics_columns = [
+    "images_support",
     "support",
     "value",
     "TP",
@@ -253,6 +272,7 @@ def get_df_pipeline_metrics(
     """
     Returns pipdline metrics (accuracy, precision, recall, f1_score), including metrics per class..
     """
+    images_support = len(true_images_data)
     images_data_matchings = [
         ImageDataMatching(
             true_image_data=true_image_data,
@@ -299,6 +319,7 @@ def get_df_pipeline_metrics(
     )
     extra_bbox_label_caption = f"{extra_bbox_label} (extra bbox)" if extra_bbox_label is not None else "extra bbox"
     pipeline_metrics[extra_bbox_label_caption] = {
+        "images_support": images_support,
         "support": TP_extra_bbox + FP_extra_bbox + FN_extra_bbox,
         "TP": 0,
         "FP": 0,
@@ -316,12 +337,14 @@ def get_df_pipeline_metrics(
         pipeline_metrics_per_class=pipeline_metrics_per_class_all_class_names,
         pipeline_metrics=pipeline_metrics,
         labels=all_class_names,
+        images_support=images_support,
         prefix_caption="all_",
     )
     _add_metrics_to_dict(
         pipeline_metrics_per_class=pipeline_metrics_per_class_all_class_names,
         pipeline_metrics=pipeline_metrics,
         labels=class_names_without_pseudo_classes,
+        images_support=images_support,
         prefix_caption="all_",
         postfix_caption="_without_pseudo_classes",
     )
@@ -332,12 +355,14 @@ def get_df_pipeline_metrics(
             pipeline_metrics_per_class=pipeline_metrics_per_class_all_class_names,
             pipeline_metrics=pipeline_metrics,
             labels=known_class_names,
+            images_support=images_support,
             prefix_caption="known_",
         )
         _add_metrics_to_dict(
             pipeline_metrics_per_class=pipeline_metrics_per_class_all_class_names,
             pipeline_metrics=pipeline_metrics,
             labels=known_class_names_without_pseudo_classes,
+            images_support=images_support,
             prefix_caption="known_",
             postfix_caption="_without_pseudo_classes",
         )

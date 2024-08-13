@@ -1,19 +1,23 @@
 import json
 import tempfile
-from typing import List, Optional, Tuple, Union, Type, Callable
 from pathlib import Path
+from typing import Callable, List, Optional, Tuple, Type, Union
 
-import numpy as np
 import fsspec
+import numpy as np
 
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.detection.core import (
-    DetectionModelSpec,
-    DetectionModel,
     DetectionInput,
+    DetectionModel,
+    DetectionModelSpec,
     DetectionOutput,
 )
-from cv_pipeliner.utils.images import denormalize_bboxes, rescale_bboxes_with_pad, tf_resize_with_pad
+from cv_pipeliner.utils.images import (
+    denormalize_bboxes,
+    rescale_bboxes_with_pad,
+    tf_resize_with_pad,
+)
 
 
 class YOLOv5_ModelSpec(DetectionModelSpec):
@@ -22,7 +26,7 @@ class YOLOv5_ModelSpec(DetectionModelSpec):
     """
 
     model_path: Optional[Union[str, Path, "torch.nn.Module"]]  # noqa: F821
-    class_names: Optional[List[str]] = None
+    class_names: Optional[Union[List[str], str, Path]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     device: str = None
     force_reload: bool = False
@@ -44,7 +48,7 @@ class YOLOv5_TFLite_ModelSpec(DetectionModelSpec):
     bboxes_output_index: Union[int, str]
     scores_output_index: Union[int, str]
     classes_output_index: Union[int, str]
-    class_names: Optional[List[str]] = None
+    class_names: Optional[Union[List[str], str, Path]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     use_default_preprocces_and_postprocess_input: bool = False  # (taken from YOLOv5)
 
@@ -61,7 +65,7 @@ class YOLOv5_TFLiteWithNMS_ModelSpec(DetectionModelSpec):
     """
 
     model_path: Union[str, Path]
-    class_names: Optional[List[str]] = None
+    class_names: Optional[Union[List[str], str, Path]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     use_default_preprocces_and_postprocess_input: bool = False  # (taken from YOLOv5)
 
@@ -366,7 +370,15 @@ class YOLOv5_DetectionModel(DetectionModel):
         n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k = [
             [res[i] for res in results] for i in range(5)
         ]
-        return n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k
+        n_pred_masks = [[[] for _ in pred_bboxes] for pred_bboxes in n_pred_bboxes]
+        return (
+            n_pred_bboxes,
+            n_pred_keypoints,
+            n_pred_masks,
+            n_pred_scores,
+            n_pred_class_names_top_k,
+            n_pred_scores_top_k,
+        )
 
     def preprocess_input(self, input: DetectionInput):
         return self._preprocess_input(input)

@@ -1,21 +1,21 @@
 import tempfile
-from typing import Tuple, Union, Type
+from typing import Tuple, Type, Union
 
-import numpy as np
 import fsspec
+import numpy as np
 from pathy import Pathy
 
 from cv_pipeliner.inference_models.keypoints_regressor.core import (
-    KeypointsRegressorModelSpec,
-    KeypointsRegressorModel,
     KeypointsRegressorInput,
+    KeypointsRegressorModel,
+    KeypointsRegressorModelSpec,
     KeypointsRegressorOutput,
 )
 from cv_pipeliner.inference_models.keypoints_regressor.utils.mmpose_utils import (
     bbox_xywh2cs,
-    top_down_affine,
-    preprocess,
     keypoints_from_heatmaps,
+    preprocess,
+    top_down_affine,
 )
 
 
@@ -24,7 +24,9 @@ class MMPose_KeypointsRegressorModelSpec_TFLite(KeypointsRegressorModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["MMPose_KeypointsRegressorModel"]:
-        from cv_pipeliner.inference_models.keypoints_regressor.mmpose import MMPose_KeypointsRegressorModel
+        from cv_pipeliner.inference_models.keypoints_regressor.mmpose import (
+            MMPose_KeypointsRegressorModel,
+        )
 
         return MMPose_KeypointsRegressorModel
 

@@ -1,9 +1,9 @@
-import os
 import contextlib
-from typing import List, Dict
+import os
+from typing import Dict, List
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
@@ -12,8 +12,11 @@ from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
 def count_coco_metrics(
     true_images_data: List[ImageData], raw_pred_images_data: List[ImageData] = None, class_names: List[str] = None
 ) -> Dict:
+    from object_detection.core.standard_fields import (
+        DetectionResultFields,
+        InputDataFields,
+    )
     from object_detection.metrics import coco_evaluation
-    from object_detection.core.standard_fields import InputDataFields, DetectionResultFields
 
     if class_names is None:
         cocoevaluator = coco_evaluation.CocoDetectionEvaluator(categories=[{"id": 1, "name": "Label"}])
@@ -108,6 +111,7 @@ def get_df_detection_metrics(
 
     df_detection_metrics = pd.DataFrame(
         {
+            "images_support": len(true_images_data),
             "support": [TP + FN],
             "TP": [TP],
             "FP": [FP],
@@ -124,63 +128,3 @@ def get_df_detection_metrics(
     df_detection_metrics.columns = df_detection_metrics_columns
 
     return df_detection_metrics
-
-
-df_detection_recall_per_class_columns = ["support", "TP", "FN", "recall"]
-
-
-def get_df_detection_recall_per_class(
-    true_images_data: List[ImageData], pred_images_data: List[ImageData], minimum_iou: float
-) -> pd.DataFrame:
-    """
-    Returns detection recall per every class, when labels are given in true_images_data.
-    """
-    assert len(true_images_data) == len(pred_images_data)
-
-    images_data_matchings = [
-        ImageDataMatching(true_image_data, pred_image_data, minimum_iou)
-        for true_image_data, pred_image_data in zip(true_images_data, pred_images_data)
-    ]
-    true_labels = np.array([bbox_data.label for image_data in true_images_data for bbox_data in image_data.bboxes_data])
-    class_names = np.unique(true_labels)
-
-    detection_metrics_recall_per_class = {}
-    for class_name in class_names:
-        TP_by_class_name = np.sum(
-            image_data_matching.get_detection_TP(label=class_name) for image_data_matching in images_data_matchings
-        )
-        FN_by_class_name = np.sum(
-            image_data_matching.get_detection_FN(label=class_name) for image_data_matching in images_data_matchings
-        )
-        recall = TP_by_class_name / max(TP_by_class_name + FN_by_class_name, 1e-6)
-        detection_metrics_recall_per_class[class_name] = {
-            "support": TP_by_class_name + FN_by_class_name,
-            "TP": TP_by_class_name,
-            "FN": FN_by_class_name,
-            "recall": recall,
-        }
-    supports = np.array([detection_metrics_recall_per_class[class_name]["support"] for class_name in class_names])
-    recalls = np.array([detection_metrics_recall_per_class[class_name]["recall"] for class_name in class_names])
-    macro_average_recall = np.mean(recalls)
-    weighted_average_recall = np.average(recalls, weights=supports) if len(recalls) > 0 else np.nan
-    sum_support = np.sum(supports)
-    sum_TP = np.sum([detection_metrics_recall_per_class[class_name]["TP"] for class_name in class_names])
-    sum_FN = np.sum([detection_metrics_recall_per_class[class_name]["FN"] for class_name in class_names])
-    detection_metrics_recall_per_class["macro average"] = {
-        "support": sum_support,
-        "TP": sum_TP,
-        "FN": sum_FN,
-        "recall": macro_average_recall,
-    }
-    detection_metrics_recall_per_class["weighted average"] = {
-        "support": sum_support,
-        "TP": sum_TP,
-        "FN": sum_FN,
-        "recall": weighted_average_recall,
-    }
-
-    df_detection_recall_per_class = pd.DataFrame(detection_metrics_recall_per_class, dtype=object).T
-    df_detection_recall_per_class = df_detection_recall_per_class[df_detection_recall_per_class_columns]
-    df_detection_recall_per_class.sort_values(by="support", ascending=False, inplace=True)
-
-    return df_detection_recall_per_class

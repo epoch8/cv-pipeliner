@@ -1,18 +1,18 @@
-from json.decoder import JSONDecodeError
 import tempfile
+from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import List, Tuple, Callable, Union, Type, Literal
+from typing import Callable, List, Literal, Tuple, Type, Union
 
-import requests
-import numpy as np
 import fsspec
+import numpy as np
+import requests
 from pathy import Pathy
 
 from cv_pipeliner.core.inference_model import get_preprocess_input_from_script_file
 from cv_pipeliner.inference_models.keypoints_regressor.core import (
-    KeypointsRegressorModelSpec,
-    KeypointsRegressorModel,
     KeypointsRegressorInput,
+    KeypointsRegressorModel,
+    KeypointsRegressorModelSpec,
     KeypointsRegressorOutput,
 )
 from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
@@ -27,7 +27,9 @@ class TensorFlow_KeypointsRegressorModelSpec(KeypointsRegressorModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["Tensorflow_KeypointsRegressorModel"]:
-        from cv_pipeliner.inference_models.keypoints_regressor.tensorflow import Tensorflow_KeypointsRegressorModel
+        from cv_pipeliner.inference_models.keypoints_regressor.tensorflow import (
+            Tensorflow_KeypointsRegressorModel,
+        )
 
         return Tensorflow_KeypointsRegressorModel
 
@@ -41,7 +43,9 @@ class TensorFlow_KeypointsRegressorModelSpec_TFServing(KeypointsRegressorModelSp
 
     @property
     def inference_model_cls(self) -> Type["Tensorflow_KeypointsRegressorModel"]:
-        from cv_pipeliner.inference_models.keypoints_regressor.tensorflow import Tensorflow_KeypointsRegressorModel
+        from cv_pipeliner.inference_models.keypoints_regressor.tensorflow import (
+            Tensorflow_KeypointsRegressorModel,
+        )
 
         return Tensorflow_KeypointsRegressorModel
 

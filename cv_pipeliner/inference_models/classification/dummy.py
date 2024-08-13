@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import List, Tuple, Union, Type
+from typing import List, Tuple, Type, Union
 
 from cv_pipeliner.inference_models.classification.core import (
-    ClassificationModelSpec,
-    ClassificationModel,
     ClassificationInput,
+    ClassificationModel,
+    ClassificationModelSpec,
     ClassificationOutput,
 )
 
@@ -17,7 +17,9 @@ class Dummy_ClassificationModelSpec(ClassificationModelSpec):
 
     @property
     def inference_model_cls(self) -> Type["Dummy_ClassificationModel"]:
-        from cv_pipeliner.inference_models.classification.dummy import Dummy_ClassificationModel
+        from cv_pipeliner.inference_models.classification.dummy import (
+            Dummy_ClassificationModel,
+        )
 
         return Dummy_ClassificationModel
 

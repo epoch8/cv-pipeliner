@@ -1,8 +1,9 @@
 from typing import List
+
 from joblib import Parallel, delayed
 
-from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.core.batch_generator import BatchGenerator
+from cv_pipeliner.core.data import ImageData
 
 
 class BatchGeneratorImageData(BatchGenerator):

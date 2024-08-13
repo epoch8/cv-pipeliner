@@ -1,12 +1,11 @@
 import json
-
-from typing import Union, Dict
 from pathlib import Path
+from typing import Dict, Union
 
 import fsspec
 
-from cv_pipeliner.core.data_converter import DataConverter
 from cv_pipeliner.core.data import BboxData, ImageData
+from cv_pipeliner.core.data_converter import DataConverter
 
 
 class SuperviselyDataConverter(DataConverter):

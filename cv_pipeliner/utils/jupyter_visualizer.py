@@ -1,8 +1,8 @@
-from typing import List, Any
+from typing import Any, List
 
 import ipywidgets as widgets
-from IPython.display import display, clear_output, Image
 import matplotlib.pyplot as plt
+from IPython.display import Image, clear_output, display
 
 
 class JupyterVisualizer:

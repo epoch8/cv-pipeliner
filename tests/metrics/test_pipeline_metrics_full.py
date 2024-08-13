@@ -1,13 +1,15 @@
-import dataframe_image as dfi
 from pathlib import Path
+
+import dataframe_image as dfi
 from PIL import Image
+from test_utils import visualize_images_data_with_overlay
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.metrics.image_data_matching import ImageDataMatching
-from test_utils import visualize_images_data_with_overlay
-from cv_pipeliner.visualizers.core.image_data_matching import visualize_image_data_matching_side_by_side
-
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics
+from cv_pipeliner.visualizers.core.image_data_matching import (
+    visualize_image_data_matching_side_by_side,
+)
 
 test_dir = Path(__file__).parent / "images"
 image_path = Path(__file__).parent / "original.jpg"

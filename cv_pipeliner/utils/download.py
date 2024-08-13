@@ -1,12 +1,10 @@
 import logging
 import tarfile
-
 from pathlib import Path
 from typing import Union
 
 import requests
 from tqdm import tqdm
-
 
 logger = logging.getLogger(__name__)
 

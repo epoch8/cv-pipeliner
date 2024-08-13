@@ -1,24 +1,23 @@
-from dataclasses import dataclass
-from pathlib import Path
-from io import BytesIO
-from typing import Union, List, Tuple, Callable
-
-import numpy as np
 import tempfile
-import imutils
+from dataclasses import dataclass
+from io import BytesIO
+from pathlib import Path
+from typing import Callable, List, Tuple, Union
+
 import imageio
+import imutils
+import numpy as np
 from tqdm import tqdm
 
-from cv_pipeliner.core.data import ImageData, BboxData
-from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
-from cv_pipeliner.inferencers.detection import DetectionInferencer
+from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
+from cv_pipeliner.inferencers.detection import DetectionInferencer
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
-from cv_pipeliner.visualizers.core.image_data import visualize_image_data
-
 from cv_pipeliner.tracking.opencv_tracker import OpenCVTracker
 from cv_pipeliner.tracking.sort_tracker import Sort
+from cv_pipeliner.visualizers.core.image_data import visualize_image_data
 
 
 @dataclass

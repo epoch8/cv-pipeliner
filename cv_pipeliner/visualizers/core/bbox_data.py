@@ -1,7 +1,7 @@
 from typing import List, Literal, Tuple
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 from cv_pipeliner.core.data import BboxData
 from cv_pipeliner.utils.images import get_img_from_fig

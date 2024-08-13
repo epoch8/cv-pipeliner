@@ -1,14 +1,15 @@
-import numpy as np
-
 from typing import Callable, List, Tuple, Union
+
+import numpy as np
 from tqdm import tqdm
 
-from cv_pipeliner.core.data import BboxData, ImageData
-
-from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
-from cv_pipeliner.inference_models.keypoints_regressor.core import KeypointsRegressorModel
+from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
+from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.core.inferencer import Inferencer
+from cv_pipeliner.inference_models.keypoints_regressor.core import (
+    KeypointsRegressorModel,
+)
 
 
 class KeypointsRegressorInferencer(Inferencer):

@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "cv_pipeliner"
-version = "0.19.1"
+version = "0.20.0"
 description = ""
 authors = [
     "bobokvsky <alexander.kozlovsky.m@gmail.com>",
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8, <3.12"
+python = ">=3.8, <3.14"
 opencv-python = ">=4.5.1.48"
 numpy = ">=1.19.5"
 fsspec = ">=2021.4.0"
@@ -32,6 +32,8 @@ scikit-image = ">=0.18.3"
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
 flake8 = "*"
+isort = "*"
+black = "*"
 
 
 [tool.isort]

@@ -1,3 +1,11 @@
+# 0.20.0
+- Python 3.12 support added
+- Added new function in `image_data.utils`: `combine_mask_polygons_to_one_polygon`, it's used when mask need to be presented as one large polygon (by using thin polygons between large polygons).
+- Added segmentation YOLOv8 support.
+- Label Studio convert to ImageData and backwards now supports masks.
+- `get_df_detection_metrics` and `get_df_pipeline_metrics` now have `images_support` column!
+- `get_df_detection_recall_per_class` is removed, use `get_df_pipeline_metrics` instead
+
 # 0.19.1
 - Fixes with `fiftyone` usage in datapipe.
 

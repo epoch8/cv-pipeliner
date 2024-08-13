@@ -1,8 +1,9 @@
 import abc
 from typing import List, Tuple, Type
+
 import numpy as np
 
-from cv_pipeliner.core.inference_model import ModelSpec, InferenceModel
+from cv_pipeliner.core.inference_model import InferenceModel, ModelSpec
 
 Label = str
 Score = float

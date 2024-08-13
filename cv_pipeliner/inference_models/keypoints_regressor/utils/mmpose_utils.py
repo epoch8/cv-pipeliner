@@ -1,8 +1,8 @@
+import math
 import warnings
 
-import numpy as np
-import math
 import cv2
+import numpy as np
 
 # Taken from https://github.com/open-mmlab/mmpose/blob/master/mmpose/core/evaluation/top_down_eval.py
 

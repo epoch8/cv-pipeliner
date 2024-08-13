@@ -1,12 +1,12 @@
-import numpy as np
-
 from typing import List, Union
+
+import numpy as np
 from tqdm import tqdm
 
-from cv_pipeliner.core.data import ImageData
-from cv_pipeliner.inference_models.embedder.core import EmbedderModel
-from cv_pipeliner.core.inferencer import Inferencer
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
+from cv_pipeliner.core.data import ImageData
+from cv_pipeliner.core.inferencer import Inferencer
+from cv_pipeliner.inference_models.embedder.core import EmbedderModel
 
 
 class EmbedderInferencer(Inferencer):
