@@ -21,7 +21,9 @@ jobs:
         git lfs fetch
         git lfs pull
     - name: Install poetry
-      run: pip install poetry
+      run: |
+        pip install -U pip
+        pip install poetry
     - name: Install dependencies
       run: |
         poetry install --all-extras
