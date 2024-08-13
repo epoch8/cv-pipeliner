@@ -6,7 +6,7 @@ from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.data_converters.json import JSONDataConverter
 from cv_pipeliner.data_converters.supervisely import SuperviselyDataConverter
-from cv_pipeliner.data_converters.yolo import YOLODataConverter
+from cv_pipeliner.data_converters.yolo import YOLODataConverter, YOLOMasksDataConverter
 from cv_pipeliner.inference_models.classification.tensorflow import (
     TensorFlow_ClassificationModelSpec,
     TensorFlow_ClassificationModelSpec_TFServing,
@@ -56,6 +56,7 @@ from cv_pipeliner.utils.images import (
 )
 from cv_pipeliner.utils.images_datas import (
     apply_perspective_transform_to_image_data,
+    combine_mask_polygons_to_one_polygon,
     crop_image_data,
     flatten_additional_bboxes_data_in_image_data,
     get_perspective_matrix_for_base_keypoints,

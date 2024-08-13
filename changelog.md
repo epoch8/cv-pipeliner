@@ -1,5 +1,6 @@
 # 0.20.0
 - Added segmentation YOLOv8 support.
+- Label Studio convert to ImageData and backwards now supports masks.
 
 # 0.19.1
 - Fixes with `fiftyone` usage in datapipe.
