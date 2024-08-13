@@ -7,9 +7,9 @@ authors = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8, <3.14"
+python = ">=3.9, <3.14"
 opencv-python = ">=4.5.1.48"
-numpy = ">=1.19.5"
+numpy = ">=1.21.0, <2.0"
 fsspec = ">=2021.4.0"
 pydantic = ">=1.9.2"
 imutils = ">=0.5.4"
