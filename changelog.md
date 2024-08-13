@@ -1,4 +1,5 @@
 # 0.20.0
+- Python 3.12 support added
 - Added new function in `image_data.utils`: `combine_mask_polygons_to_one_polygon`, it's used when mask need to be presented as one large polygon (by using thin polygons between large polygons).
 - Added segmentation YOLOv8 support.
 - Label Studio convert to ImageData and backwards now supports masks.
