@@ -144,7 +144,36 @@ class YOLOv8_DetectionModel(DetectionModel):
         Returns:
             DetectionOutput: List of boxes, keypoints, scores, classes
         """
-        raw_bboxes, raw_keypoints, raw_masks, raw_scores, raw_classes = self._raw_predict_images(input, score_threshold)
+        # Try to rebatch to batches of one size due to https://github.com/ultralytics/ultralytics/issues/15430
+        size_to_images = {}
+        size_to_idxs = {}
+        for idx, image in enumerate(input):
+            size = tuple(image.shape[0:3])
+            if size not in size_to_images:
+                size_to_images[size] = []
+                size_to_idxs[size] = []
+            size_to_images[size].append(image)
+            size_to_idxs[size].append(idx)
+
+        idx_to_results = {}
+        for size, images in size_to_images.items():
+            (
+                size_raw_bboxes,
+                size_raw_keypoints,
+                size_raw_masks,
+                size_raw_scores,
+                size_raw_classes,
+            ) = self._raw_predict_images(images, score_threshold)
+            for i, idx in enumerate(size_to_idxs[size]):
+                idx_to_results[idx] = (
+                    size_raw_bboxes[i],
+                    size_raw_keypoints[i],
+                    size_raw_masks[i],
+                    size_raw_scores[i],
+                    size_raw_classes[i],
+                )
+        results = [idx_to_results[idx] for idx in range(len(input))]
+        raw_bboxes, raw_keypoints, raw_masks, raw_scores, raw_classes = zip(*results)
 
         if self.class_names is not None:
             if classification_top_n > 1:
@@ -183,8 +212,10 @@ class YOLOv8_DetectionModel(DetectionModel):
         )
 
     def preprocess_input(self, input: DetectionInput) -> DetectionInput:
-        self._preprocess_input(input)
+        # letterbox = LetterBox(self.model.imgsz, auto=False, stride=self.model.stride)
+        # return [letterbox(image=x) for x in input]
+        return input
 
     @property
     def input_size(self) -> int:
-        return -1
+        return self.model.imgsz

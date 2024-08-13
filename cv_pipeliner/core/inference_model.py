@@ -45,13 +45,11 @@ class InferenceModel(abc.ABC):
     Example:
         model_spec = ModelSpec(...)
         inference_model = InferenceModel(model_spec)
-        input = inference_model.preprocess_input(input)
         output = inference_model.predict(input)
 
     2nd way:
         model_spec = ModelSpec(...)
         inference_model = model_spec.load()
-        input = inference_model.preprocess_input(input)
         output = inference_model.predict(input)
 
 
