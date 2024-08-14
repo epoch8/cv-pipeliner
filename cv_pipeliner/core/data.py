@@ -137,9 +137,7 @@ class BaseImageData(BaseModel):
                 polygons = polygons[0] if len(polygons) == 2 else polygons[1]
                 polygons = [np.array(polygon, dtype=np.int32) for polygon in polygons]
                 return polygons
-            else:
-                return mask
-        return [np.array(points, dtype=np.int32).reshape((-1, 2)) for points in mask]
+        return [np.array(points, dtype=np.int32).reshape((-1, 2)) for points in mask if len(points) > 0]
 
     @validator("image", pre=True, allow_reuse=True)
     def parse_image(cls, image, values):
