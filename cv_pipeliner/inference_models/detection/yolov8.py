@@ -57,7 +57,9 @@ class YOLOv8_DetectionModel(DetectionModel):
             self._preprocess_input = get_preprocess_input_from_script_file(script_file=model_spec.preprocess_input)
         else:
             if model_spec.preprocess_input is None:
-                self._preprocess_input = lambda x: x
+                # For numpy.ndarray inputs, YOLOv8 expects BGR format
+                # https://github.com/ultralytics/ultralytics/issues/2575
+                self._preprocess_input = lambda input: [image[:, :, ::-1] for image in input]
             else:
                 self._preprocess_input = model_spec.preprocess_input
 
@@ -212,9 +214,7 @@ class YOLOv8_DetectionModel(DetectionModel):
         )
 
     def preprocess_input(self, input: DetectionInput) -> DetectionInput:
-        # letterbox = LetterBox(self.model.imgsz, auto=False, stride=self.model.stride)
-        # return [letterbox(image=x) for x in input]
-        return input
+        return self._preprocess_input(input)
 
     @property
     def input_size(self) -> int:
