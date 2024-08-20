@@ -146,6 +146,7 @@ class YOLOv8_DetectionModel(DetectionModel):
         Returns:
             DetectionOutput: List of boxes, keypoints, scores, classes
         """
+        input = self._preprocess_input(input)
         # Try to rebatch to batches of one size due to https://github.com/ultralytics/ultralytics/issues/15430
         size_to_images = {}
         size_to_idxs = {}
