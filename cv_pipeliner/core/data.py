@@ -105,7 +105,8 @@ class BaseImageData(BaseModel):
         arbitrary_types_allowed = True
         validate_assignment = True
         json_encoders = {
-            Optional[Union[str, Path, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]]: get_image_path_as_str,
+            Pathy: get_image_path_as_str,
+            fsspec.core.OpenFile: get_image_path_as_str,
             np.ndarray: lambda x: x.tolist(),
         }
         smart_union = True
