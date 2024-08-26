@@ -490,7 +490,7 @@ def visualize_image_data(
 
     if include_mask:
         label_to_id = {label: int(hashlib.md5(str(label).encode()).hexdigest(), 16) for id_, label in enumerate(labels)}
-        for bbox_data in image_data.bboxes_data:
+        for bbox_data in bboxes_data:
             if label_to_color is None:
                 bbox_color = ImageColor.getrgb(STANDARD_COLORS[label_to_id[bbox_data.label] % len(STANDARD_COLORS)])
             else:
@@ -515,7 +515,7 @@ def visualize_image_data(
         )
 
     if draw_base_labels_with_given_label_to_base_label_image is not None:
-        for bbox_data in image_data.bboxes_data:
+        for bbox_data in bboxes_data:
             base_label_image = draw_base_labels_with_given_label_to_base_label_image(bbox_data.label)
             draw_label_image(image=image, base_label_image=base_label_image, bbox_data=bbox_data, inplace=True)
 
