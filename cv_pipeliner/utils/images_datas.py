@@ -1019,6 +1019,25 @@ def concat_images_data(
     return image_data
 
 
+def get_all_bboxes_data_in_image_data(
+    image_data: ImageData,
+    additional_bboxes_data_depth: Optional[int] = None,
+) -> List[BboxData]:
+    bboxes_data = []
+
+    def _append_bbox_data(bbox_data: BboxData, depth: int):
+        if additional_bboxes_data_depth is not None and depth > additional_bboxes_data_depth:
+            return
+        bboxes_data.append(bbox_data)
+        for additional_bbox_data in bbox_data.additional_bboxes_data:
+            _append_bbox_data(additional_bbox_data, depth + 1)
+
+    for bbox_data in image_data.bboxes_data:
+        _append_bbox_data(bbox_data, depth=0)
+
+    return bboxes_data
+
+
 def flatten_additional_bboxes_data_in_image_data(
     image_data: ImageData,
     additional_bboxes_data_depth: Optional[int] = None,

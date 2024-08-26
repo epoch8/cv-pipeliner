@@ -25,6 +25,7 @@ from sqlalchemy import JSON, Column, Integer, String
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.utils.fiftyone import FifyOneSession
+from cv_pipeliner.utils.images_datas import get_all_bboxes_data_in_image_data
 from cv_pipeliner.utils.imagesize import get_image_size
 
 
@@ -195,6 +196,8 @@ class ConnectedImageDataTableStore(TableStore):
             else:
                 image_path = image_path_candidates[0]
             df.loc[row_idx, "image_data"].image_path = image_path
+            for bbox_data in get_all_bboxes_data_in_image_data(df.loc[row_idx, "image_data"]):
+                bbox_data.image_path = image_path
             if force_update_meta:
                 df.loc[row_idx, "image_data"].get_image_size()
 
@@ -339,6 +342,8 @@ class FiftyOneImagesDataTableStore(TableStore):
             else:
                 image_path = image_path_candidates[0]
             image_data.image_path = image_path
+            for bbox_data in get_all_bboxes_data_in_image_data(image_data):
+                bbox_data.image_path = image_path
         assert (
             image_data.image_path is not None and str(image_data.image_path) != ""
         ), f"This {image_data=} have empty image_path"
