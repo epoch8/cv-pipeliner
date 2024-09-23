@@ -684,22 +684,51 @@ def non_max_suppression_image_data(
 
 
 def non_max_suppression_image_data_using_tf(
-    image_data: ImageData, iou: float, score_threshold: float = float("-inf")
+    image_data: ImageData, iou: float, score_threshold: float = float("-inf"), ignore_classes: bool = True
 ) -> ImageData:
     import tensorflow as tf
 
     image_data = copy.deepcopy(image_data)
     if len(image_data.bboxes_data) <= 1:
         return image_data
-    bboxes = [(bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax) for bbox_data in image_data.bboxes_data]
-    scores = [
-        bbox_data.detection_score if bbox_data.detection_score is not None else 1.0
-        for bbox_data in image_data.bboxes_data
-    ]
-    result = tf.image.non_max_suppression(
-        bboxes, scores, len(image_data.bboxes_data), iou_threshold=float(iou), score_threshold=float(score_threshold)
-    )
-    image_data.bboxes_data = [image_data.bboxes_data[i] for i in result.numpy()]
+    if not ignore_classes:
+        labels = sorted(set([bbox_data.label for bbox_data in image_data.bboxes_data]))
+        indexes = []
+        for label in labels:
+            indexes_by_label = [i for i, bbox_data in enumerate(image_data.bboxes_data) if bbox_data.label == label]
+            bboxes_data_by_label = [bbox_data for bbox_data in image_data.bboxes_data if bbox_data.label == label]
+            bboxes_by_label = [
+                (bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax) for bbox_data in bboxes_data_by_label
+            ]
+            scores_by_label = [
+                bbox_data.detection_score if bbox_data.detection_score is not None else 1.0
+                for bbox_data in bboxes_data_by_label
+            ]
+            result_by_label = tf.image.non_max_suppression(
+                bboxes_by_label,
+                scores_by_label,
+                len(bboxes_data_by_label),
+                iou_threshold=float(iou),
+                score_threshold=float(score_threshold),
+            )
+            indexes.extend([indexes_by_label[i] for i in result_by_label.numpy()])
+        image_data.bboxes_data = [image_data.bboxes_data[i] for i in sorted(indexes)]
+    else:
+        bboxes = [
+            (bbox_data.ymin, bbox_data.xmin, bbox_data.ymax, bbox_data.xmax) for bbox_data in image_data.bboxes_data
+        ]
+        scores = [
+            bbox_data.detection_score if bbox_data.detection_score is not None else 1.0
+            for bbox_data in image_data.bboxes_data
+        ]
+        result = tf.image.non_max_suppression(
+            bboxes,
+            scores,
+            len(image_data.bboxes_data),
+            iou_threshold=float(iou),
+            score_threshold=float(score_threshold),
+        )
+        image_data.bboxes_data = [image_data.bboxes_data[i] for i in result.numpy()]
     return image_data
 
 

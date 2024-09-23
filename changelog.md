@@ -1,3 +1,6 @@
+# 0.20.1
+- Added new argument `ignore_classes` in `image_data.utils.non_max_suppression_image_data_using_tf`
+
 # 0.20.0
 - Python 3.12 support added
 - Added new function in `image_data.utils`: `combine_mask_polygons_to_one_polygon`, it's used when mask need to be presented as one large polygon (by using thin polygons between large polygons).

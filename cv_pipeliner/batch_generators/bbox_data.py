@@ -31,7 +31,9 @@ class BatchGeneratorBboxData(BatchGenerator):
             for unique_image_path, unique_image_idx in zip(unique_image_paths, unique_image_idxs)
         }
         for bbox_data in batch:
-            source_image = unique_image_idx_to_image[str(bbox_data.image_path)] if bbox_data.image_path is not None else None
+            source_image = (
+                unique_image_idx_to_image[str(bbox_data.image_path)] if bbox_data.image_path is not None else None
+            )
             if self.open_cropped_images and bbox_data.cropped_image is None:
                 bbox_data.open_cropped_image(source_image=source_image, inplace=True)
         return batch
