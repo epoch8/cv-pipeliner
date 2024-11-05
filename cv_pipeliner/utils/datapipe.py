@@ -352,19 +352,21 @@ class FiftyOneImagesDataTableStore(TableStore):
     def read_rows(self, idx: IndexDF = None, read_data: bool = True) -> DataDF:
         df_sample = self._get_df_sample(idx=idx)
         df_sample["image_data"] = df_sample["sample"].apply(
-            lambda sample: self.fo_session.convert_sample_to_image_data(
-                sample=sample,
-                fo_detections_label=self.fo_detections_label,
-                fo_classification_label=self.fo_classification_label,
-                fo_keypoints_label=self.fo_keypoints_label,
-                mapping_filepath=self.inverse_mapping_filepath,
-                additional_info_keys_in_fo_detections=self.additional_info_keys_in_fo_detections,
-                additional_info_keys_in_sample=self.additional_info_keys_in_sample,
-                image_data_cls=self.image_data_cls,
-                bbox_data_cls=self.bbox_data_cls,
+            lambda sample: (
+                self.fo_session.convert_sample_to_image_data(
+                    sample=sample,
+                    fo_detections_label=self.fo_detections_label,
+                    fo_classification_label=self.fo_classification_label,
+                    fo_keypoints_label=self.fo_keypoints_label,
+                    mapping_filepath=self.inverse_mapping_filepath,
+                    additional_info_keys_in_fo_detections=self.additional_info_keys_in_fo_detections,
+                    additional_info_keys_in_sample=self.additional_info_keys_in_sample,
+                    image_data_cls=self.image_data_cls,
+                    bbox_data_cls=self.bbox_data_cls,
+                )
+                if read_data
+                else {}
             )
-            if read_data
-            else {}
         )
         return df_sample
 

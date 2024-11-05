@@ -42,7 +42,12 @@ from cv_pipeliner.inferencers.keypoints_regressor import KeypointsRegressorInfer
 from cv_pipeliner.inferencers.pipeline import PipelineInferencer
 from cv_pipeliner.metrics.classification import get_df_classification_metrics
 from cv_pipeliner.metrics.detection import get_df_detection_metrics
-from cv_pipeliner.metrics.image_data_matching import BboxDataMatching, ImageDataMatching
+from cv_pipeliner.metrics.image_data_matching import (
+    BboxDataMatching,
+    ImageDataMatching,
+    intersection_over_union,
+    pairwise_intersection_over_union,
+)
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics
 from cv_pipeliner.utils.fiftyone import FifyOneSession
 from cv_pipeliner.utils.images import (

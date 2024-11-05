@@ -798,8 +798,10 @@ def split_image_data_by_grid(
     y_window_size: int,
     x_offset: int,
     y_offset: int,
-    remove_bad_coords: bool,
-    minimum_size: float = 0.5,
+    allow_large_coords: bool = False,
+    split_by_grid_minimum_size: float = 0.5,
+    minimum_crop_intersection_area: float = 0.2,
+    minimum_relative_size_of_inner_bboxes: float = 0.5,
 ) -> ImageData:
     image_data = copy.deepcopy(image_data)
     width, height = image_data.get_image_size()
@@ -811,10 +813,39 @@ def split_image_data_by_grid(
         y_window_size=y_window_size,
         x_offset=x_offset,
         y_offset=y_offset,
-        minimum_size=minimum_size,
+        minimum_size=split_by_grid_minimum_size,
     )
 
-    def if_bbox_data_inside_crop(crop_bbox_data: BboxData, bbox_data: BboxData):
+    def crop_intersection_area(crop_bbox_data: BboxData, bbox_data: BboxData) -> float:
+        inter_xmin = np.max([crop_bbox_data.xmin, bbox_data.xmin])
+        inter_ymin = np.max([crop_bbox_data.ymin, bbox_data.ymin])
+        inter_xmax = np.min([crop_bbox_data.xmax, bbox_data.xmax])
+        inter_ymax = np.min([crop_bbox_data.ymax, bbox_data.ymax])
+        inter_width = max(0, inter_xmax - inter_xmin)
+        inter_height = max(0, inter_ymax - inter_ymin)
+        intersection_area = inter_width * inter_height
+        bbox_area = (bbox_data.xmax - bbox_data.xmin) * (bbox_data.ymax - bbox_data.ymin)
+        if bbox_area == 0:
+            return 0.0
+        return intersection_area / bbox_area
+
+    def apply_fix_bbox(crop_bbox_data: BboxData, bbox_data: BboxData):
+        new_xmin = max(0, max(bbox_data.xmin, crop_bbox_data.xmin))
+        new_ymin = max(0, max(bbox_data.ymin, crop_bbox_data.ymin))
+        new_xmax = max(0, min(bbox_data.xmax, crop_bbox_data.xmax))
+        new_ymax = max(0, min(bbox_data.ymax, crop_bbox_data.ymax))
+        if (bbox_data.xmax - bbox_data.xmin == 0.0) or (bbox_data.ymax - bbox_data.ymin == 0.0):
+            return None
+        relative_size = min(
+            (new_xmax - new_xmin) / (bbox_data.xmax - bbox_data.xmin),
+            (new_ymax - new_ymin) / (bbox_data.ymax - bbox_data.ymin),
+        )
+        if relative_size < minimum_relative_size_of_inner_bboxes:
+            return None
+        bbox_data.xmin = new_xmin
+        bbox_data.xmax = new_xmax
+        bbox_data.ymin = new_ymin
+        bbox_data.ymax = new_ymax
         bbox_data.keypoints = bbox_data.keypoints[
             (
                 (bbox_data.keypoints[:, 0] >= crop_bbox_data.xmin)
@@ -823,27 +854,24 @@ def split_image_data_by_grid(
                 & (bbox_data.keypoints[:, 1] <= crop_bbox_data.ymax)
             )
         ]
-        bbox_data.additional_bboxes_data = [
-            additional_bbox_data
+        additional_bboxes_data = [
+            apply_fix_bbox(crop_bbox_data, additional_bbox_data)
             for additional_bbox_data in bbox_data.additional_bboxes_data
-            if if_bbox_data_inside_crop(crop_bbox_data, additional_bbox_data)
+            if crop_intersection_area(crop_bbox_data, additional_bbox_data) >= minimum_crop_intersection_area
         ]
-        return (
-            bbox_data.xmin >= crop_bbox_data.xmin
-            and bbox_data.ymin >= crop_bbox_data.ymin
-            and bbox_data.xmax <= crop_bbox_data.xmax
-            and bbox_data.ymax <= crop_bbox_data.ymax
-            and bbox_data.xmin < bbox_data.xmax
-            and bbox_data.ymin < bbox_data.ymax
-        )
+        bbox_data.additional_bboxes_data = [
+            additional_bbox_data for additional_bbox_data in additional_bboxes_data if additional_bbox_data is not None
+        ]
+        return bbox_data
 
     for crop_bbox_data in crops_bboxes_data:
-        if remove_bad_coords:
+        if not allow_large_coords:
             additional_bboxes_data = [
-                bbox_data
+                apply_fix_bbox(crop_bbox_data, bbox_data)
                 for bbox_data in copy.deepcopy(image_data.bboxes_data)
-                if if_bbox_data_inside_crop(crop_bbox_data, bbox_data)
+                if crop_intersection_area(crop_bbox_data, bbox_data) >= minimum_crop_intersection_area
             ]
+            additional_bboxes_data = [bbox_data for bbox_data in additional_bboxes_data if bbox_data is not None]
             keypoints = copy.deepcopy(image_data.keypoints)[
                 (
                     (image_data.keypoints[:, 0] >= crop_bbox_data.xmin)
