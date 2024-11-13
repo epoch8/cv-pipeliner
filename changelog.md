@@ -1,3 +1,7 @@
+# 0.20.2
+- `split_image_data_by_grid` is refactored fully and now accepts `allow_large_coords`, `split_by_grid_minimum_size`, `minimum_crop_intersection_area` and `minimum_relative_size_of_inner_bboxes` arguments to control which bboxes will be included in crops when image is splitted by grid.
+- Fix `visualize_image_data` when BboxData doen't have source image, but ImageData has.
+
 # 0.20.1
 - Added new argument `ignore_classes` in `image_data.utils.non_max_suppression_image_data_using_tf`
 

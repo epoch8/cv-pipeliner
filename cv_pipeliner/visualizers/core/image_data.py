@@ -446,7 +446,10 @@ def visualize_image_data(
         known_labels = list(set(labels))
     k_keypoints = [bbox_data.keypoints for bbox_data in bboxes_data]
     bboxes = np.array(
-        [bbox_data.coords_with_offset(xmin_offset, ymin_offset, xmax_offset, ymax_offset, source_image=image) for bbox_data in bboxes_data]
+        [
+            bbox_data.coords_with_offset(xmin_offset, ymin_offset, xmax_offset, ymax_offset, source_image=image)
+            for bbox_data in bboxes_data
+        ]
     )
     angles = np.array([0.0 for _ in bboxes_data])
     if score_type == "detection":
