@@ -475,6 +475,8 @@ class ImageData(BaseImageData):
         super().__setattr__(name, value)
         if name in ["image_path", "image", "meta_width", "meta_height"]:
             if hasattr(self, "bboxes_data"):
+                if name == "image" and value is not None:
+                    return
                 for bbox_data in self.bboxes_data:
                     bbox_data.__setattr__(name, value)
 
