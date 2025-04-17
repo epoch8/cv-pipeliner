@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Type
 
 import numpy as np
 import pandas as pd
@@ -268,13 +268,14 @@ def get_df_pipeline_metrics(
     extra_bbox_label: str = "trash (extra bbox)",
     pseudo_class_names: List[str] = [],
     known_class_names: List[str] = None,
+    image_data_matching_class: Type[ImageDataMatching] = ImageDataMatching,
 ) -> pd.DataFrame:
     """
     Returns pipdline metrics (accuracy, precision, recall, f1_score), including metrics per class..
     """
     images_support = len(true_images_data)
     images_data_matchings = [
-        ImageDataMatching(
+        image_data_matching_class(
             true_image_data=true_image_data,
             pred_image_data=pred_image_data,
             minimum_iou=minimum_iou,

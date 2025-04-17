@@ -1,3 +1,6 @@
+# 0.21.1
+- Added `image_data_matching_class` in `get_df_pipeline_metrics` and `get_df_detection_metrics` for using custom `ImageDataMatching` class.
+
 # 0.21.0
 - Git LFS files are now excluded from the repo.
 

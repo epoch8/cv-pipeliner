@@ -1,6 +1,6 @@
 import contextlib
 import os
-from typing import Dict, List
+from typing import Dict, List, Type
 
 import numpy as np
 import pandas as pd
@@ -76,6 +76,7 @@ def get_df_detection_metrics(
     pred_images_data: List[ImageData],
     minimum_iou: float,
     raw_pred_images_data: List[ImageData] = None,
+    image_data_matching_class: Type[ImageDataMatching] = ImageDataMatching,
 ) -> pd.DataFrame:
     """
     Returns detection metrics (precision, recall, f1_score, mAP).
@@ -84,7 +85,7 @@ def get_df_detection_metrics(
     assert len(true_images_data) == len(pred_images_data)
 
     images_data_matchings = [
-        ImageDataMatching(true_image_data, pred_image_data, minimum_iou)
+        image_data_matching_class(true_image_data, pred_image_data, minimum_iou)
         for true_image_data, pred_image_data in zip(true_images_data, pred_images_data)
     ]
     TP = np.sum([image_data_matching.get_detection_TP() for image_data_matching in images_data_matchings])
