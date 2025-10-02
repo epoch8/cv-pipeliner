@@ -73,7 +73,7 @@ class Tensorflow_ClassificationModel(ClassificationModel):
                 model_path = Pathy.fluid(temp_folder.name)
                 temp_files_cleanup = temp_folder.cleanup
             else:
-                temp_file = tempfile.NamedTemporaryFile()
+                temp_file = tempfile.NamedTemporaryFile(suffix=Pathy.fluid(model_spec.model_path).suffix)
                 with model_openfile as src:
                     temp_file.write(src.read())
                 model_path = Pathy.fluid(temp_file.name)
