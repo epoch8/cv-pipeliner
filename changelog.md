@@ -1,3 +1,7 @@
+# 0.21.2
+- Fix loading classification model in case `.keras` format.
+- Fix CUDA OOM error in segmentation YOLOv8
+
 # 0.21.1
 - Added `image_data_matching_class` in `get_df_pipeline_metrics` and `get_df_detection_metrics` for using custom `ImageDataMatching` class.
 

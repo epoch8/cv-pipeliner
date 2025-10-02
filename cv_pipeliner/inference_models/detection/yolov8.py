@@ -114,7 +114,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             verbose=False,
             save_conf=True,
             conf=score_threshold,
-            retina_masks=True,
+            # retina_masks=True,
         )
         raw_boxes, raw_keypoints, raw_masks, raw_scores, raw_labels = [], [], [], [], []
         for prediction in predictions:
