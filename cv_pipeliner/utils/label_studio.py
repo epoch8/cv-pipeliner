@@ -350,18 +350,22 @@ def parse_result(
             return result["value"]["choices"][0]
     if bboxes_from_name and result["from_name"] == bboxes_from_name:
         if result["type"] == "rectanglelabels":
-            return "bbox", parse_rectangle_labels_to_bbox_data(result), result["id"]
+            # здесь и далее result.get("id") вместо result["id"], поскольку если разметка была автоматически
+            # сгенерирована из предсказаний, то поля "id" там нет
+            return "bbox", parse_rectangle_labels_to_bbox_data(result), result.get("id")
         elif result["type"] == "polygonlabels":
-            return "bbox", parse_polygon_label_to_bbox_data(result, keypoints_from_name, mask_from_name), result["id"]
+            return (
+                "bbox", parse_polygon_label_to_bbox_data(result, keypoints_from_name, mask_from_name), result.get("id")
+            )
     if keypoints_from_name:
         if result["type"] == "keypointlabels" and result["from_name"] == keypoints_from_name:
             (x, y), kp_label = parse_keypoint_label_to_keypoint(result)
-            return "keypoint", (x, y), kp_label, result["id"]
+            return "keypoint", (x, y), kp_label, result.get("id")
     if mask_from_name:
         if result["type"] == "polygonlabels" and result["from_name"] == mask_from_name:
             mask, mask_label = parse_polygon_label_to_mask(result)
             if result["from_name"] == mask_from_name:
-                return "mask", mask, mask_label, result["id"]
+                return "mask", mask, mask_label, result.get("id")
     return None
 
 
