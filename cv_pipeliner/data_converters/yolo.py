@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Union
 
 import fsspec
+import numpy as np
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.core.data_converter import DataConverter
@@ -149,6 +150,96 @@ class YOLOMasksDataConverter(DataConverter):
                     ymax=ymax,
                     mask=[mask],
                     label=label,
+                )
+            )
+
+        return ImageData(image_path=image_path, bboxes_data=bboxes_data)
+
+
+class YOLOPoseDataConverter(DataConverter):
+    """
+    Converter ImageData to YOLO Pose and YOLO Pose to ImageData.
+    YOLO pose row format: cls xc yc w h x1 y1 v1 x2 y2 v2 ...
+    """
+
+    def __init__(self, class_names: List[str]):
+        super().__init__()
+        assert len(set(class_names)) == len(class_names), "There are duplicates in 'class_names'. Remove them."
+        self.class_names = class_names
+        self.class_name_to_idx = {class_name: idx for idx, class_name in enumerate(self.class_names)}
+        self.idx_to_class_name = {idx: class_name for idx, class_name in enumerate(self.class_names)}
+
+    def get_annot_from_image_data(self, image_data: ImageData) -> List[str]:
+        image_data = self.filter_image_data(image_data)
+        width, height = image_data.get_image_size()
+        txt_results = []
+        for bbox_data in image_data.bboxes_data:
+            w = max(0.0, float(bbox_data.xmax) - float(bbox_data.xmin))
+            h = max(0.0, float(bbox_data.ymax) - float(bbox_data.ymin))
+            xcenter = float(bbox_data.xmin) + w / 2
+            ycenter = float(bbox_data.ymin) + h / 2
+            row = [
+                str(self.class_name_to_idx[bbox_data.label]),
+                str(round(xcenter / width, 6)),
+                str(round(ycenter / height, 6)),
+                str(round(w / width, 6)),
+                str(round(h / height, 6)),
+            ]
+            keypoints = bbox_data.keypoints if bbox_data.keypoints is not None else np.array([]).reshape(0, 2)
+            for x, y in keypoints:
+                row.extend([str(round(float(x) / width, 6)), str(round(float(y) / height, 6)), "2"])
+            txt_results.append(" ".join(row))
+        return txt_results
+
+    @DataConverter.assert_image_data
+    def get_image_data_from_annot(
+        self,
+        image_path: Union[str, Path],
+        annot: Union[Path, str, Dict, fsspec.core.OpenFile, List[str]],
+    ) -> ImageData:
+        if isinstance(annot, str) or isinstance(annot, Path):
+            with fsspec.open(annot, "r", encoding="utf8") as f:
+                annots = f.read()
+        elif isinstance(annot, fsspec.core.OpenFile):
+            with annot as f:
+                annots = f.read()
+        elif isinstance(annot, io.IOBase):
+            annots = annot.read()
+            if isinstance(annots, bytes):
+                annots = annots.decode()
+        elif isinstance(annot, List):
+            annots = "\n".join(annot)
+
+        width, height = get_image_size(image_path)
+        bboxes_data = []
+        for line in annots.strip().split("\n"):
+            if line.strip() == "":
+                continue
+            values = line.strip().split()
+            if len(values) < 5:
+                continue
+            label_idx = int(values[0])
+            xc, yc, w, h = map(float, values[1:5])
+            xmin = (xc - w / 2) * width
+            ymin = (yc - h / 2) * height
+            xmax = (xc + w / 2) * width
+            ymax = (yc + h / 2) * height
+            keypoints_values = values[5:]
+            keypoints = []
+            for i in range(0, len(keypoints_values), 3):
+                if i + 2 >= len(keypoints_values):
+                    break
+                xk = float(keypoints_values[i]) * width
+                yk = float(keypoints_values[i + 1]) * height
+                keypoints.append([xk, yk])
+            bboxes_data.append(
+                BboxData(
+                    xmin=xmin,
+                    ymin=ymin,
+                    xmax=xmax,
+                    ymax=ymax,
+                    label=self.idx_to_class_name[label_idx],
+                    keypoints=np.array(keypoints).reshape(-1, 2),
                 )
             )
 

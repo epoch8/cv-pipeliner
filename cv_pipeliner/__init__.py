@@ -6,7 +6,7 @@ from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.data_converters.json import JSONDataConverter
 from cv_pipeliner.data_converters.supervisely import SuperviselyDataConverter
-from cv_pipeliner.data_converters.yolo import YOLODataConverter, YOLOMasksDataConverter
+from cv_pipeliner.data_converters.yolo import YOLODataConverter, YOLOMasksDataConverter, YOLOPoseDataConverter
 from cv_pipeliner.inference_models.classification.tensorflow import (
     TensorFlow_ClassificationModelSpec,
     TensorFlow_ClassificationModelSpec_TFServing,
