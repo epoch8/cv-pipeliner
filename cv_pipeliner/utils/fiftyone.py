@@ -83,13 +83,29 @@ class FifyOneSession:
         additional_info = {key: bbox_data.additional_info.get(key, None) for key in additional_info_keys}
         return self.fiftyone.Detection(label=bbox_data.label, bounding_box=bounding_box, **additional_info)
 
-    def convert_bbox_data_keypoints_to_fo_keypoint(self, bbox_data: BboxData) -> "fiftyone.Keypoint":
+    def convert_bbox_data_keypoints_to_fo_keypoint(
+        self, bbox_data: BboxData, keypoint_label_names: Optional[List[str]] = None
+    ) -> Optional[List["fiftyone.Keypoint"]]:
         if len(bbox_data.keypoints) > 0:
-            return self.fiftyone.Keypoint(
+            if keypoint_label_names is not None:
+                if len(keypoint_label_names) == len(bbox_data.keypoints):
+                    # Emit one FO keypoint per point so semantic labels are visible in FiftyOne.
+                    return [
+                        self.fiftyone.Keypoint(
+                            label=keypoint_label,
+                            points=[tuple(pair)],
+                            source_coords=bbox_data.coords,  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
+                        )
+                        for pair, keypoint_label in zip(bbox_data.keypoints_n, keypoint_label_names)
+                    ]
+                logger.warning(
+                    "keypoint_label_names length mismatch for bbox keypoints; falling back to grouped keypoint label."
+                )
+            return [self.fiftyone.Keypoint(
                 label=bbox_data.label,
                 points=[tuple(pair) for pair in bbox_data.keypoints_n],
                 source_coords=bbox_data.coords,  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
-            )
+            )]
         else:
             return None
 
@@ -110,20 +126,28 @@ class FifyOneSession:
         )
 
     def convert_image_data_to_fo_keypoints(
-        self, image_data: ImageData, include_additional_bboxes_data: bool = False
+        self,
+        image_data: ImageData,
+        include_additional_bboxes_data: bool = False,
+        keypoint_label_names: Optional[List[str]] = None,
     ) -> "fiftyone.Detections":
         if include_additional_bboxes_data:
             image_data = flatten_additional_bboxes_data_in_image_data(image_data)
         image_data.get_image_size()  # Save to meta
-        keypoints = (
+        keypoints: List["fiftyone.Keypoint"] = (
             [self.fiftyone.Keypoint(label=image_data.label, points=[tuple(pair) for pair in image_data.keypoints_n])]
             if len(image_data.keypoints) > 0
             else []
-        ) + [
-            fo_keypoints
-            for fo_keypoints in map(self.convert_bbox_data_keypoints_to_fo_keypoint, image_data.bboxes_data)
-            if fo_keypoints is not None
-        ]
+        )
+        for fo_keypoints in map(
+            lambda bbox_data: self.convert_bbox_data_keypoints_to_fo_keypoint(
+                bbox_data, keypoint_label_names=keypoint_label_names
+            ),
+            image_data.bboxes_data,
+        ):
+            if fo_keypoints is None:
+                continue
+            keypoints.extend(fo_keypoints)
 
         return self.fiftyone.Keypoints(keypoints=keypoints)
 
@@ -285,6 +309,7 @@ class FifyOneSession:
         fo_detections_label: Optional[str] = None,  # берется bboxes_data с их label
         fo_classification_label: Optional[str] = None,  # берется image_data.label
         fo_keypoints_label: Optional[str] = None,  # берется image_data.kepoints + bbox_data.keypoints
+        keypoint_label_names: Optional[List[str]] = None,  # keypoint names for bbox keypoints
         include_additional_bboxes_data: bool = False,
         mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
         additional_info_keys_in_bboxes_data: List[str] = [],
@@ -303,7 +328,7 @@ class FifyOneSession:
             sample[fo_classification_label] = self.fiftyone.Classification(label=image_data.label)
         if fo_keypoints_label is not None:
             sample[fo_keypoints_label] = self.convert_image_data_to_fo_keypoints(
-                image_data, include_additional_bboxes_data
+                image_data, include_additional_bboxes_data, keypoint_label_names=keypoint_label_names
             )
         for key in additional_info_keys_in_image_data:
             sample[key] = image_data.additional_info.get(key, None)

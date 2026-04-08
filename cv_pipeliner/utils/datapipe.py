@@ -230,6 +230,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         fo_detections_label: Optional[str] = None,
         fo_classification_label: Optional[str] = None,
         fo_keypoints_label: Optional[str] = None,
+        keypoint_label_names: Optional[List[str]] = None,
         primary_schema: DataSchema = None,
         images_table_store: Optional[TableStoreFiledir] = None,
         mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
@@ -245,6 +246,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         self.fo_detections_label = fo_detections_label
         self.fo_classification_label = fo_classification_label
         self.fo_keypoints_label = fo_keypoints_label
+        self.keypoint_label_names = keypoint_label_names
         self.fo_session = fo_session
         self.images_table_store = images_table_store
         self.mapping_filepath = mapping_filepath
@@ -402,6 +404,7 @@ class FiftyOneImagesDataTableStore(TableStore):
                 fo_detections_label=self.fo_detections_label,
                 fo_classification_label=self.fo_classification_label,
                 fo_keypoints_label=self.fo_keypoints_label,
+                keypoint_label_names=self.keypoint_label_names,
                 mapping_filepath=self.mapping_filepath,
                 additional_info_keys_in_bboxes_data=self.additional_info_keys_in_fo_detections,
                 additional_info_keys_in_image_data=self.additional_info_keys_in_sample,
@@ -427,6 +430,7 @@ class FiftyOneImagesDataTableStore(TableStore):
                 fo_detections_label=self.fo_detections_label,
                 fo_classification_label=self.fo_classification_label,
                 fo_keypoints_label=self.fo_keypoints_label,
+                keypoint_label_names=self.keypoint_label_names,
                 mapping_filepath=self.mapping_filepath,
                 additional_info_keys_in_bboxes_data=self.additional_info_keys_in_fo_detections,
                 additional_info_keys_in_image_data=self.additional_info_keys_in_sample,
