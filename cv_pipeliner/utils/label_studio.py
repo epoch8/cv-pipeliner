@@ -229,9 +229,18 @@ def convert_image_data_to_annotation(
             if keypoints_from_name is not None:
                 if len(bbox_data.keypoints) == 0:
                     continue
+                filtered_labels = None
+                if isinstance(getattr(bbox_data, "additional_info", None), dict):
+                    filtered_labels = bbox_data.additional_info.get("keypoints_labels_filtered")
+                if filtered_labels is not None:
+                    filtered_labels = list(filtered_labels)
                 for kp_idx, keypoint in enumerate(bbox_data.keypoints):
-                    if keypoints_labels is not None:
-                        assert len(keypoints_labels) == len(bbox_data.keypoints)
+                    keypoint_label = None
+                    if filtered_labels is not None:
+                        if kp_idx < len(filtered_labels):
+                            keypoint_label = filtered_labels[kp_idx]
+                    elif keypoints_labels is not None and kp_idx < len(keypoints_labels):
+                        keypoint_label = keypoints_labels[kp_idx]
                     x, y = keypoint[0], keypoint[1]
                     annotations.append(
                         {
@@ -243,7 +252,7 @@ def convert_image_data_to_annotation(
                                 "x": x * 100 / im_width,
                                 "y": y * 100 / im_height,
                                 "width": keypoints_width,
-                                "keypointlabels": ([keypoints_labels[kp_idx]] if keypoints_labels is not None else []),
+                                "keypointlabels": ([keypoint_label] if keypoint_label is not None else []),
                             },
                             "from_name": keypoints_from_name,
                             "to_name": to_name,
@@ -484,7 +493,8 @@ def process_annotations(
 def sort_items_by_labels(
     items: List[Union[Tuple[float, float], Tuple[float, float]]], labels: List[str], label_to_position: Dict[str, int]
 ) -> np.ndarray:
-    item_labels_positions = list(map(label_to_position.get, labels))
+    default_pos = len(label_to_position)
+    item_labels_positions = [label_to_position.get(label, default_pos) for label in labels]
     item_sorted_idxs = np.argsort(item_labels_positions)
     return np.array(items)[item_sorted_idxs]
 
@@ -526,6 +536,10 @@ def _attach_related_items_to_bboxes(
             continue
         related_items = _sort_items_if_labels_provided(related_items, related_labels, ordered_labels)
         setattr(bboxes_data[bbox_idx], bbox_attr_name, np.array(related_items) if to_numpy else related_items)
+        if isinstance(getattr(bboxes_data[bbox_idx], "additional_info", None), dict):
+            bboxes_data[bbox_idx].additional_info[f"{bbox_attr_name}_labels"] = [
+                label for label in _sort_items_if_labels_provided(related_labels, related_labels, ordered_labels)
+            ]
 
 
 def _get_unlinked_items(

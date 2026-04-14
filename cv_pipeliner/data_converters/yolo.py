@@ -186,8 +186,14 @@ class YOLOPoseDataConverter(DataConverter):
                 str(round(h / height, 6)),
             ]
             keypoints = bbox_data.keypoints if bbox_data.keypoints is not None else np.array([]).reshape(0, 2)
-            for x, y in keypoints:
-                row.extend([str(round(float(x) / width, 6)), str(round(float(y) / height, 6)), "2"])
+            keypoints_visibility = []
+            if isinstance(getattr(bbox_data, "additional_info", None), dict):
+                keypoints_visibility = bbox_data.additional_info.get("keypoints_visibility", []) or []
+            if len(keypoints_visibility) != len(keypoints):
+                keypoints_visibility = [2] * len(keypoints)
+            for kp_idx, (x, y) in enumerate(keypoints):
+                v = int(keypoints_visibility[kp_idx]) if kp_idx < len(keypoints_visibility) else 2
+                row.extend([str(round(float(x) / width, 6)), str(round(float(y) / height, 6)), str(v)])
             txt_results.append(" ".join(row))
         return txt_results
 
@@ -226,12 +232,15 @@ class YOLOPoseDataConverter(DataConverter):
             ymax = (yc + h / 2) * height
             keypoints_values = values[5:]
             keypoints = []
+            keypoints_visibility = []
             for i in range(0, len(keypoints_values), 3):
                 if i + 2 >= len(keypoints_values):
                     break
                 xk = float(keypoints_values[i]) * width
                 yk = float(keypoints_values[i + 1]) * height
+                vk = int(float(keypoints_values[i + 2]))
                 keypoints.append([xk, yk])
+                keypoints_visibility.append(vk)
             bboxes_data.append(
                 BboxData(
                     xmin=xmin,
@@ -240,6 +249,7 @@ class YOLOPoseDataConverter(DataConverter):
                     ymax=ymax,
                     label=self.idx_to_class_name[label_idx],
                     keypoints=np.array(keypoints).reshape(-1, 2),
+                    additional_info={"keypoints_visibility": keypoints_visibility},
                 )
             )
 
