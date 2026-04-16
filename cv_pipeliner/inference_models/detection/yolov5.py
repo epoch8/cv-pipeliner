@@ -149,6 +149,7 @@ class YOLOv5_DetectionModel(DetectionModel):
             self._raw_predict_images = self._raw_predict_images_tflite
         else:
             raise ValueError(f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}")
+        self.latest_n_pred_keypoint_scores = None
 
     def _load_yolov5_tflite(self, model_spec: Union[YOLOv5_TFLite_ModelSpec, YOLOv5_TFLiteWithNMS_ModelSpec]):
         import tensorflow as tf
@@ -369,6 +370,10 @@ class YOLOv5_DetectionModel(DetectionModel):
         ]
         n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k = [
             [res[i] for res in results] for i in range(5)
+        ]
+        self.latest_n_pred_keypoint_scores = [
+            [[None] * len(pred_keypoints) for pred_keypoints in image_pred_keypoints]
+            for image_pred_keypoints in n_pred_keypoints
         ]
         n_pred_masks = [[[] for _ in pred_bboxes] for pred_bboxes in n_pred_bboxes]
         return (

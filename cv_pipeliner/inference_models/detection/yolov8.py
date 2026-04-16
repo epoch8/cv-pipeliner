@@ -69,6 +69,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             self._raw_predict_images = self._raw_predict_images_torch
         else:
             raise ValueError(f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}")
+        self.latest_n_pred_keypoint_scores = None
 
     def _load_yolov8_model(self, model_spec: YOLOv8_ModelSpec):
         """YOLOv8 model initialization
@@ -98,7 +99,7 @@ class YOLOv8_DetectionModel(DetectionModel):
 
     def _raw_predict_images_torch(
         self, input: DetectionInput, score_threshold: float
-    ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
+    ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
         """Private method to run pytorch model inference and return raw results
 
         Args:
@@ -117,13 +118,19 @@ class YOLOv8_DetectionModel(DetectionModel):
             conf=score_threshold,
             # retina_masks=True,
         )
-        raw_boxes, raw_keypoints, raw_masks, raw_scores, raw_labels = [], [], [], [], []
+        raw_boxes, raw_keypoints, raw_keypoint_scores, raw_masks, raw_scores, raw_labels = [], [], [], [], [], []
         for prediction in predictions:
             raw_boxes.append(prediction.boxes.xyxy.data.cpu().numpy())
             if prediction.keypoints is not None:
-                raw_keypoints.append(prediction.keypoints.xy.data.cpu().numpy())
+                keypoints = prediction.keypoints.xy.data.cpu().numpy()
+                raw_keypoints.append(keypoints)
+                if prediction.keypoints.conf is not None:
+                    raw_keypoint_scores.append(prediction.keypoints.conf.data.cpu().numpy())
+                else:
+                    raw_keypoint_scores.append(np.array([]).reshape(len(raw_boxes[-1]), 0))
             else:
                 raw_keypoints.append(np.array([]).reshape(len(raw_boxes[-1]), 0, 2))
+                raw_keypoint_scores.append(np.array([]).reshape(len(raw_boxes[-1]), 0))
             if prediction.masks is not None:
                 all_polygons = prediction.masks.xy
                 raw_masks.append([[polygon] for polygon in all_polygons])
@@ -132,7 +139,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             raw_labels.append(prediction.boxes.cls.data.cpu().numpy())
             raw_scores.append(prediction.boxes.conf.data.cpu().numpy())
 
-        return raw_boxes, raw_keypoints, raw_masks, raw_scores, raw_labels
+        return raw_boxes, raw_keypoints, raw_keypoint_scores, raw_masks, raw_scores, raw_labels
 
     def predict(
         self,
@@ -167,6 +174,7 @@ class YOLOv8_DetectionModel(DetectionModel):
             (
                 size_raw_bboxes,
                 size_raw_keypoints,
+                size_raw_keypoint_scores,
                 size_raw_masks,
                 size_raw_scores,
                 size_raw_classes,
@@ -175,12 +183,13 @@ class YOLOv8_DetectionModel(DetectionModel):
                 idx_to_results[idx] = (
                     size_raw_bboxes[i],
                     size_raw_keypoints[i],
+                    size_raw_keypoint_scores[i],
                     size_raw_masks[i],
                     size_raw_scores[i],
                     size_raw_classes[i],
                 )
         results = [idx_to_results[idx] for idx in range(len(input))]
-        raw_bboxes, raw_keypoints, raw_masks, raw_scores, raw_classes = zip(*results)
+        raw_bboxes, raw_keypoints, raw_keypoint_scores, raw_masks, raw_scores, raw_classes = zip(*results)
 
         if self.class_names is not None:
             if classification_top_n > 1:
@@ -199,6 +208,25 @@ class YOLOv8_DetectionModel(DetectionModel):
 
         n_pred_bboxes = [image_boxes.tolist() for image_boxes in raw_bboxes]
         n_pred_keypoints = [np.array(k_keypoints).round().astype(np.int32).tolist() for k_keypoints in raw_keypoints]
+        n_pred_keypoint_scores = []
+        for image_keypoints, image_keypoint_scores in zip(n_pred_keypoints, raw_keypoint_scores):
+            image_pred_keypoint_scores = []
+            for pred_keypoints, pred_keypoint_scores in zip(image_keypoints, image_keypoint_scores):
+                keypoints_count = len(pred_keypoints)
+                if keypoints_count == 0:
+                    image_pred_keypoint_scores.append([])
+                    continue
+                if pred_keypoint_scores.shape[0] == keypoints_count:
+                    image_pred_keypoint_scores.append(
+                        [
+                            float(score) if np.isfinite(score) else None
+                            for score in pred_keypoint_scores.tolist()
+                        ]
+                    )
+                else:
+                    image_pred_keypoint_scores.append([None] * keypoints_count)
+            n_pred_keypoint_scores.append(image_pred_keypoint_scores)
+        self.latest_n_pred_keypoint_scores = n_pred_keypoint_scores
         n_pred_masks = [
             [
                 [np.array(polygon).round().astype(np.int32).tolist() for polygon in k_polygons]

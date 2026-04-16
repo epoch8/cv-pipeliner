@@ -20,18 +20,26 @@ class DetectionInferencer(Inferencer):
         n_k_pred_keypoints: List[List[List[Tuple[int, int]]]],
         n_k_pred_masks: List[List[List[List[Tuple[int, int]]]]],
         n_pred_scores: List[List[float]],
+        n_k_pred_keypoint_scores: Union[List[List[List[float]]], None],
         open_images_in_images_data: bool,
         open_cropped_images_in_bboxes_data: bool,
     ) -> List[ImageData]:
         pred_images_data = []
-        for image_data, pred_bboxes, k_pred_keypoints, k_pred_masks, pred_scores in zip(
-            images_data, n_pred_bboxes, n_k_pred_keypoints, n_k_pred_masks, n_pred_scores
+        n_k_pred_keypoint_scores = (
+            n_k_pred_keypoint_scores if n_k_pred_keypoint_scores is not None else [[] for _ in images_data]
+        )
+        for image_data, pred_bboxes, k_pred_keypoints, k_pred_masks, pred_scores, k_pred_keypoint_scores in zip(
+            images_data, n_pred_bboxes, n_k_pred_keypoints, n_k_pred_masks, n_pred_scores, n_k_pred_keypoint_scores
         ):
             bboxes_data = []
-            for pred_bbox, pred_keypoints, pred_mask, pred_detection_score in zip(
-                pred_bboxes, k_pred_keypoints, k_pred_masks, pred_scores
+            k_pred_keypoint_scores = list(k_pred_keypoint_scores)
+            if len(k_pred_keypoint_scores) < len(pred_bboxes):
+                k_pred_keypoint_scores.extend([None] * (len(pred_bboxes) - len(k_pred_keypoint_scores)))
+            for pred_bbox, pred_keypoints, pred_mask, pred_detection_score, pred_keypoint_scores in zip(
+                pred_bboxes, k_pred_keypoints, k_pred_masks, pred_scores, k_pred_keypoint_scores
             ):
                 xmin, ymin, xmax, ymax = pred_bbox
+                normalized_keypoint_scores = self._normalize_keypoint_scores(pred_keypoints, pred_keypoint_scores)
                 bboxes_data.append(
                     BboxData(
                         image_path=image_data.image_path,
@@ -42,6 +50,7 @@ class DetectionInferencer(Inferencer):
                         keypoints=pred_keypoints,
                         mask=pred_mask,
                         detection_score=pred_detection_score,
+                        additional_info={"prediction__keypoint_scores": normalized_keypoint_scores},
                     )
                 )
             if open_cropped_images_in_bboxes_data:
@@ -64,6 +73,23 @@ class DetectionInferencer(Inferencer):
 
         return pred_images_data
 
+    @staticmethod
+    def _normalize_keypoint_scores(
+        pred_keypoints: List[Tuple[int, int]], pred_keypoint_scores: Union[List[float], None]
+    ) -> List[float]:
+        keypoints_count = len(pred_keypoints)
+        if keypoints_count == 0:
+            return []
+        if pred_keypoint_scores is None:
+            return [None] * keypoints_count
+        normalized_keypoint_scores = list(pred_keypoint_scores)[:keypoints_count]
+        normalized_keypoint_scores = [
+            score if isinstance(score, (int, float)) and score == score else None for score in normalized_keypoint_scores
+        ]
+        if len(normalized_keypoint_scores) < keypoints_count:
+            normalized_keypoint_scores.extend([None] * (keypoints_count - len(normalized_keypoint_scores)))
+        return normalized_keypoint_scores
+
     def predict(
         self,
         images_data_gen: Union[List[ImageData], BatchGeneratorImageData],
@@ -84,12 +110,14 @@ class DetectionInferencer(Inferencer):
                 n_pred_bboxes, n_k_pred_keypoints, n_k_pred_masks, n_pred_scores, _, _ = self.model.predict(
                     input=input, score_threshold=score_threshold
                 )
+                n_k_pred_keypoint_scores = getattr(self.model, "latest_n_pred_keypoint_scores", None)
                 pred_images_data_batch = self._postprocess_predictions(
                     images_data=images_data,
                     n_pred_bboxes=n_pred_bboxes,
                     n_k_pred_keypoints=n_k_pred_keypoints,
                     n_k_pred_masks=n_k_pred_masks,
                     n_pred_scores=n_pred_scores,
+                    n_k_pred_keypoint_scores=n_k_pred_keypoint_scores,
                     open_images_in_images_data=open_images_in_images_data,
                     open_cropped_images_in_bboxes_data=open_cropped_images_in_bboxes_data,
                 )

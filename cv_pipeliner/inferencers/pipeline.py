@@ -22,10 +22,14 @@ class PipelineInferencer(Inferencer):
         n_pred_detection_scores: List[List[float]],
         n_pred_labels_top_n: List[List[List[str]]],
         n_pred_classification_scores_top_n: List[List[List[float]]],
+        n_k_pred_keypoint_scores: Union[List[List[List[float]]], None],
         open_images_in_images_data: bool,
         open_cropped_images_in_bboxes_data: bool,
     ) -> List[ImageData]:
         pred_images_data = []
+        n_k_pred_keypoint_scores = (
+            n_k_pred_keypoint_scores if n_k_pred_keypoint_scores is not None else [[] for _ in images_data]
+        )
         for (
             image_data,
             pred_bboxes,
@@ -34,6 +38,7 @@ class PipelineInferencer(Inferencer):
             pred_detection_scores,
             pred_labels_top_n,
             pred_classification_scores_top_n,
+            k_pred_keypoint_scores,
         ) in zip(
             images_data,
             n_pred_bboxes,
@@ -42,8 +47,12 @@ class PipelineInferencer(Inferencer):
             n_pred_detection_scores,
             n_pred_labels_top_n,
             n_pred_classification_scores_top_n,
+            n_k_pred_keypoint_scores,
         ):
             bboxes_data = []
+            k_pred_keypoint_scores = list(k_pred_keypoint_scores)
+            if len(k_pred_keypoint_scores) < len(pred_bboxes):
+                k_pred_keypoint_scores.extend([None] * (len(pred_bboxes) - len(k_pred_keypoint_scores)))
             for (
                 pred_bbox,
                 pred_keypoints,
@@ -51,6 +60,7 @@ class PipelineInferencer(Inferencer):
                 pred_detection_score,
                 pred_label_top_n,
                 pred_classification_score_top_n,
+                pred_keypoint_scores,
             ) in zip(
                 pred_bboxes,
                 k_pred_keypoints,
@@ -58,8 +68,10 @@ class PipelineInferencer(Inferencer):
                 pred_detection_scores,
                 pred_labels_top_n,
                 pred_classification_scores_top_n,
+                k_pred_keypoint_scores,
             ):
                 xmin, ymin, xmax, ymax = pred_bbox
+                normalized_keypoint_scores = self._normalize_keypoint_scores(pred_keypoints, pred_keypoint_scores)
                 bboxes_data.append(
                     BboxData(
                         image_path=image_data.image_path,
@@ -75,6 +87,7 @@ class PipelineInferencer(Inferencer):
                         top_n=len(pred_label_top_n),
                         labels_top_n=pred_label_top_n,
                         classification_scores_top_n=pred_classification_score_top_n,
+                        additional_info={"prediction__keypoint_scores": normalized_keypoint_scores},
                     )
                 )
             if open_cropped_images_in_bboxes_data:
@@ -95,6 +108,23 @@ class PipelineInferencer(Inferencer):
                 )
             )
         return pred_images_data
+
+    @staticmethod
+    def _normalize_keypoint_scores(
+        pred_keypoints: List[Tuple[int, int]], pred_keypoint_scores: Union[List[float], None]
+    ) -> List[float]:
+        keypoints_count = len(pred_keypoints)
+        if keypoints_count == 0:
+            return []
+        if pred_keypoint_scores is None:
+            return [None] * keypoints_count
+        normalized_keypoint_scores = list(pred_keypoint_scores)[:keypoints_count]
+        normalized_keypoint_scores = [
+            score if isinstance(score, (int, float)) and score == score else None for score in normalized_keypoint_scores
+        ]
+        if len(normalized_keypoint_scores) < keypoints_count:
+            normalized_keypoint_scores.extend([None] * (keypoints_count - len(normalized_keypoint_scores)))
+        return normalized_keypoint_scores
 
     def predict(
         self,
@@ -134,6 +164,7 @@ class PipelineInferencer(Inferencer):
                     classification_kwargs=classification_kwargs,
                     disable_tqdm_classification=disable_tqdm_classification,
                 )
+                n_k_pred_keypoint_scores = getattr(self.model.detection_model, "latest_n_pred_keypoint_scores", None)
                 pred_images_data_batch = self._postprocess_predictions(
                     images_data=images_data,
                     n_pred_bboxes=n_pred_bboxes,
@@ -142,6 +173,7 @@ class PipelineInferencer(Inferencer):
                     n_pred_detection_scores=n_pred_detection_scores,
                     n_pred_labels_top_n=n_pred_labels_top_n,
                     n_pred_classification_scores_top_n=n_pred_classification_scores_top_n,
+                    n_k_pred_keypoint_scores=n_k_pred_keypoint_scores,
                     open_images_in_images_data=open_images_in_images_data,
                     open_cropped_images_in_bboxes_data=open_cropped_images_in_bboxes_data,
                 )
