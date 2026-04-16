@@ -81,12 +81,18 @@ class FifyOneSession:
         xminn, yminn, xmaxn, ymaxn = bbox_data.coords_n
         bounding_box = [xminn, yminn, xmaxn - xminn, ymaxn - yminn]
         additional_info = {key: bbox_data.additional_info.get(key, None) for key in additional_info_keys}
-        return self.fiftyone.Detection(label=bbox_data.label, bounding_box=bounding_box, **additional_info)
+        return self.fiftyone.Detection(
+            label=bbox_data.label,
+            bounding_box=bounding_box,
+            confidence=bbox_data.detection_score,
+            **additional_info
+        )
 
     def convert_bbox_data_keypoints_to_fo_keypoint(
         self, bbox_data: BboxData, keypoint_label_names: Optional[List[str]] = None
     ) -> Optional[List["fiftyone.Keypoint"]]:
         visibility = bbox_data.additional_info.get("keypoints_visibility", [])
+        confidences = bbox_data.additional_info.get("prediction__keypoint_scores", [])
         if len(bbox_data.keypoints) > 0:
             if keypoint_label_names is not None:
                 if len(keypoint_label_names) == len(bbox_data.keypoints):
@@ -99,6 +105,7 @@ class FifyOneSession:
                         keypoints.append(self.fiftyone.Keypoint(
                             label=keypoint_label,
                             points=[tuple(pair)],
+                            confidence=confidences[i] if len(confidences) == len(bbox_data.keypoints) else None,
                             source_coords=bbox_data.coords,  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
                         ))
                     return keypoints
