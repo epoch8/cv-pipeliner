@@ -86,18 +86,22 @@ class FifyOneSession:
     def convert_bbox_data_keypoints_to_fo_keypoint(
         self, bbox_data: BboxData, keypoint_label_names: Optional[List[str]] = None
     ) -> Optional[List["fiftyone.Keypoint"]]:
+        visibility = bbox_data.additional_info.get("keypoints_visibility", [])
         if len(bbox_data.keypoints) > 0:
             if keypoint_label_names is not None:
                 if len(keypoint_label_names) == len(bbox_data.keypoints):
-                    # Emit one FO keypoint per point so semantic labels are visible in FiftyOne.
-                    return [
-                        self.fiftyone.Keypoint(
+                    keypoints = []
+                    for i, (pair, keypoint_label) in enumerate(zip(bbox_data.keypoints_n, keypoint_label_names)):
+                        # don't add keypoints with visibility 0
+                        if len(visibility) == len(bbox_data.keypoints) and visibility[i] == 0:
+                            continue
+                        # Emit one FO keypoint per point so semantic labels are visible in FiftyOne.
+                        keypoints.append(self.fiftyone.Keypoint(
                             label=keypoint_label,
                             points=[tuple(pair)],
                             source_coords=bbox_data.coords,  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
-                        )
-                        for pair, keypoint_label in zip(bbox_data.keypoints_n, keypoint_label_names)
-                    ]
+                        ))
+                    return keypoints
                 logger.warning(
                     "keypoint_label_names length mismatch for bbox keypoints; falling back to grouped keypoint label."
                 )
