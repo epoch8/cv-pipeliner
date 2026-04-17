@@ -107,7 +107,7 @@ class FifyOneSession:
                             points=[tuple(pair)],
                             confidence=[confidences[i]] if len(confidences) == len(bbox_data.keypoints) else None,
                             source_coords=bbox_data.coords,  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
-                            visibility=[visibility[i]] if len(visibility) == len(bbox_data.keypoints) else None,
+                            visibility=[bool(visibility[i])] if len(visibility) == len(bbox_data.keypoints) else None,
                         ))
                     return keypoints
                 logger.warning(
