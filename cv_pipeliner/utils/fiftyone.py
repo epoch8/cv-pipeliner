@@ -102,12 +102,13 @@ class FifyOneSession:
                         # if len(visibility) == len(bbox_data.keypoints) and visibility[i] == 0:
                         #     continue
                         # Emit one FO keypoint per point so semantic labels are visible in FiftyOne.
+                        tag = "visible" if len(visibility) != len(bbox_data.keypoints) or visibility[i] == 2 else "invisible"
                         keypoints.append(self.fiftyone.Keypoint(
                             label=keypoint_label,
                             points=[tuple(pair)],
                             confidence=[confidences[i]] if len(confidences) == len(bbox_data.keypoints) else None,
                             source_coords=bbox_data.coords,  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
-                            visibility=[bool(visibility[i])] if len(visibility) == len(bbox_data.keypoints) else None,
+                            tags=[tag]
                         ))
                     return keypoints
                 logger.warning(
