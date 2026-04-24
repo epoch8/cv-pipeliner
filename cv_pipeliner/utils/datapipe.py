@@ -239,6 +239,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         additional_info_keys_in_fo_detections: List[str] = [],
         additional_info_keys_in_sample: List[str] = [],
         create_dataset_if_empty: bool = True,
+        delete_dataset_if_exists: bool = False,
         image_data_cls: Type[ImageData] = ImageData,
         bbox_data_cls: Type[BboxData] = BboxData,
     ):
@@ -272,6 +273,7 @@ class FiftyOneImagesDataTableStore(TableStore):
         self.attrnames_no_filepath = [attrname for attrname in self.attrnames if attrname != "filepath"]
         self.fo_dataset = None
         self.create_dataset_if_empty = create_dataset_if_empty
+        self.delete_dataset_if_exists = delete_dataset_if_exists
         # self.semaphore = Semaphore(value=1)
 
     def get_primary_schema(self) -> DataSchema:
@@ -295,7 +297,12 @@ class FiftyOneImagesDataTableStore(TableStore):
         try:
             datasets = self.fo_session.fiftyone.list_datasets()
             if self.dataset in datasets:
-                self.fo_dataset = self.fo_session.fiftyone.load_dataset(self.dataset)
+                if self.delete_dataset_if_exists:
+                    self.fo_session.fiftyone.delete_dataset(self.dataset)
+                    self.fo_dataset = self.fo_session.fiftyone.Dataset(self.dataset)
+                    self.fo_dataset.persistent = True
+                else:
+                    self.fo_dataset = self.fo_session.fiftyone.load_dataset(self.dataset)
             else:
                 if self.create_dataset_if_empty:
                     self.fo_dataset = self.fo_session.fiftyone.Dataset(self.dataset)
