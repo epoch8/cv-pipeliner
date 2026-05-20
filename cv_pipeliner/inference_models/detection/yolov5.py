@@ -1,5 +1,7 @@
 import json
 import tempfile
+import sys
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple, Type, Union
 
@@ -77,6 +79,42 @@ class YOLOv5_TFLiteWithNMS_ModelSpec(DetectionModelSpec):
 
 
 class YOLOv5_DetectionModel(DetectionModel):
+    @contextmanager
+    def _yolov5_hub_import_context(self):
+        import torch
+
+        prefixes, hub_dir, sys_path = ("models", "utils"), Path(torch.hub.get_dir()) / "ultralytics_yolov5_v7.0", list(sys.path)
+        saved_modules = {name: module for name, module in sys.modules.items() if name.partition(".")[0] in prefixes}
+        try:
+            [sys.modules.pop(name, None) for name in saved_modules]
+            if hub_dir.exists():
+                sys.path[:] = [str(hub_dir)] + [p for p in sys.path if Path(p or ".").resolve() != hub_dir.resolve() and not any((Path(p or ".") / prefix).exists() for prefix in prefixes)]
+            yield
+        finally:
+            [sys.modules.pop(name, None) for name in list(sys.modules) if name.partition(".")[0] in prefixes]
+            sys.modules.update(saved_modules)
+            sys.path[:] = sys_path
+
+    def _get_safe_globals_for_yolov5_checkpoint_load(self):
+        from torch.nn.modules.activation import SiLU
+        from torch.nn.modules.batchnorm import BatchNorm2d
+        from torch.nn.modules.container import ModuleList, Sequential
+        from torch.nn.modules.conv import Conv2d
+        from torch.nn.modules.pooling import MaxPool2d
+        from torch.nn.modules.upsampling import Upsample
+
+        try:
+            from models.common import C3, SPPF, Bottleneck, Concat, Conv
+            from models.yolo import (
+                ClassificationModel, Detect, DetectionModel, Model, SegmentationModel
+            )
+        except ImportError:
+            return []
+
+        return [(Model, "models.yolo.Model"), DetectionModel, SegmentationModel, ClassificationModel] + [
+            Sequential, Conv, Conv2d, BatchNorm2d, SiLU, C3, Bottleneck, SPPF, MaxPool2d, Upsample, Concat, Detect, ModuleList, type(Path())
+        ]
+
     def _load_yolov5_model(self, model_spec: YOLOv5_ModelSpec):
         import torch
 
@@ -88,13 +126,19 @@ class YOLOv5_DetectionModel(DetectionModel):
         with fsspec.open(model_spec.model_path, "rb") as src:
             temp_file.write(src.read())
         model_path_tmp = Path(temp_file.name)
-        self.model = torch.hub.load(
-            "ultralytics/yolov5:v7.0",
-            "custom",
-            path=str(model_path_tmp),
-            force_reload=model_spec.force_reload,
-            skip_validation=model_spec.skip_validation,
-        )
+        with self._yolov5_hub_import_context():
+            safe_globals = self._get_safe_globals_for_yolov5_checkpoint_load()
+            safe_globals_context = (
+                torch.serialization.safe_globals(safe_globals) if len(safe_globals) > 0 else nullcontext()
+            )
+            with safe_globals_context:
+                self.model = torch.hub.load(
+                    "ultralytics/yolov5:v7.0",
+                    "custom",
+                    path=str(model_path_tmp),
+                    force_reload=model_spec.force_reload,
+                    skip_validation=model_spec.skip_validation,
+                )
         if model_spec.device is not None:
             self.model = self.model.to(model_spec.device)
         temp_file.close()
@@ -205,7 +249,7 @@ class YOLOv5_DetectionModel(DetectionModel):
 
     def _post_process_raw_predictions_yolov5(
         self, raw_preds: np.ndarray, max_output_size: int
-    ) -> "CombinedNonMaxSuppression":
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         import tensorflow as tf
 
         bboxes = self._xywh2xyxy_tf(raw_preds[..., :4])
