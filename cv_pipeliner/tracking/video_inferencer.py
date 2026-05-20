@@ -37,8 +37,8 @@ class VideoInferencer:
         frame_height: int = 1152,
         batch_size: int = 16,
     ):
-        self.detection_inferencer = DetectionInferencer(pipeline_inferencer.model.detection_model)
-        self.classification_inferencer = ClassificationInferencer(pipeline_inferencer.model.classification_model)
+        self.detection_inferencer = pipeline_inferencer.detection_inferencer
+        self.classification_inferencer = pipeline_inferencer.classification_inferencer
         self.draw_base_labels_with_given_label_to_base_label_image = (
             draw_base_labels_with_given_label_to_base_label_image
         )

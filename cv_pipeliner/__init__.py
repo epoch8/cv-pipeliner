@@ -7,35 +7,35 @@ from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.data_converters.json import JSONDataConverter
 from cv_pipeliner.data_converters.supervisely import SuperviselyDataConverter
 from cv_pipeliner.data_converters.yolo import YOLODataConverter, YOLOMasksDataConverter
-from cv_pipeliner.inference_models.classification.tensorflow import (
+from cv_pipeliner.inferencers.classification.tensorflow import (
     TensorFlow_ClassificationModelSpec,
     TensorFlow_ClassificationModelSpec_TFServing,
 )
-from cv_pipeliner.inference_models.detection.detectron2 import Detectron2_ModelSpec
-from cv_pipeliner.inference_models.detection.object_detection_api import (
+from cv_pipeliner.inferencers.detection.detectron2 import Detectron2_ModelSpec
+from cv_pipeliner.inferencers.detection.object_detection_api import (
     ObjectDetectionAPI_KFServing,
     ObjectDetectionAPI_ModelSpec,
     ObjectDetectionAPI_pb_ModelSpec,
     ObjectDetectionAPI_TFLite_ModelSpec,
 )
-from cv_pipeliner.inference_models.detection.yolov5 import (
+from cv_pipeliner.inferencers.detection.yolov5 import (
     YOLOv5_ModelSpec,
     YOLOv5_TFLite_ModelSpec,
     YOLOv5_TFLiteWithNMS_ModelSpec,
 )
-from cv_pipeliner.inference_models.detection.yolov8 import YOLOv8_ModelSpec
-from cv_pipeliner.inference_models.embedder.pytorch import PyTorch_EmbedderModelSpec
-from cv_pipeliner.inference_models.embedder.tensorflow import (
+from cv_pipeliner.inferencers.detection.yolov8 import YOLOv8_ModelSpec
+from cv_pipeliner.inferencers.embedder.pytorch import PyTorch_EmbedderModelSpec
+from cv_pipeliner.inferencers.embedder.tensorflow import (
     TensorFlow_EmbedderModelSpec,
 )
-from cv_pipeliner.inference_models.keypoints_regressor.mmpose import (
+from cv_pipeliner.inferencers.keypoints_regressor.mmpose import (
     MMPose_KeypointsRegressorModelSpec_TFLite,
 )
-from cv_pipeliner.inference_models.keypoints_regressor.tensorflow import (
+from cv_pipeliner.inferencers.keypoints_regressor.tensorflow import (
     TensorFlow_KeypointsRegressorModelSpec,
     TensorFlow_KeypointsRegressorModelSpec_TFServing,
 )
-from cv_pipeliner.inference_models.pipeline import PipelineModel, PipelineModelSpec
+from cv_pipeliner.inferencers.pipeline import PipelineModelSpec
 from cv_pipeliner.inferencers.classification import ClassificationInferencer
 from cv_pipeliner.inferencers.detection import DetectionInferencer
 from cv_pipeliner.inferencers.keypoints_regressor import KeypointsRegressorInferencer
