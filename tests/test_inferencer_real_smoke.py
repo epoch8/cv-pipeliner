@@ -157,6 +157,7 @@ def test_real_yolov8_detection_smoke(model_artifact_cache):
 
 
 def test_real_yolov5_detection_smoke(model_artifact_cache):
+    pytest.importorskip("torch")
     from cv_pipeliner.inferencers.detection.yolov5 import YOLOv5_ModelSpec
 
     weight_path = model_artifact_cache / "yolov5n.pt"
