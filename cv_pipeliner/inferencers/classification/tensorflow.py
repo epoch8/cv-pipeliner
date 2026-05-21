@@ -2,7 +2,7 @@ import json
 import tempfile
 from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Protocol, Tuple, Type, Union, runtime_checkable
 
 import fsspec
 import numpy as np
@@ -20,10 +20,16 @@ from cv_pipeliner.utils.files import copy_files_from_directory_to_temp_directory
 from cv_pipeliner.utils.images import get_image_b64
 
 
+@runtime_checkable
+class KerasModel(Protocol):
+    def predict(self, x: np.ndarray, verbose: int = 0) -> np.ndarray:
+        pass
+
+
 class TensorFlow_ClassificationModelSpec(ClassificationModelSpec):
     input_size: Optional[Union[Tuple[Optional[int], Optional[int]], List[Optional[int]]]]
     class_names: Union[List[str], str, Path]
-    model_path: Union[str, Pathy]  # can be also tf.keras.Model
+    model_path: Union[str, Pathy, KerasModel]
     saved_model_type: Literal["tf.saved_model", "tf.keras", "tf.keras.Model", "tflite", "tflite_one_image_per_batch"]
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     device: Optional[str] = None  # https://www.tensorflow.org/guide/gpu#manual_device_placement
@@ -111,6 +117,7 @@ class TensorFlowClassificationRuntime(ClassificationRuntime):
         elif model_spec.saved_model_type == "tf.keras.Model":
             self.model = model_spec.model_path
             self.input_dtype = np.float32
+            self.tf_device = None
         else:
             raise ValueError(
                 "TensorFlowClassificationRuntime got unknown saved_model_type "

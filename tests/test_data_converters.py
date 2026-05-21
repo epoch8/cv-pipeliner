@@ -8,6 +8,7 @@ import pytest
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.core.data_converter import DataConverter
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
+from cv_pipeliner.data_converters.coco import COCODataConverter
 from cv_pipeliner.data_converters.json import JSONDataConverter
 from cv_pipeliner.data_converters.supervisely import SuperviselyDataConverter
 from cv_pipeliner.data_converters.yolo import YOLODataConverter, YOLOMasksDataConverter
@@ -177,3 +178,90 @@ def test_yolo_masks_converter_roundtrips_polygon(tmp_dir):
     assert len(restored.bboxes_data) == 1
     assert restored.bboxes_data[0].label == "object"
     assert restored.bboxes_data[0].coords == (1, 2, 6, 8)
+
+
+def test_coco_converter_reads_bboxes_and_segmentation(tmp_dir):
+    image_path = tmp_dir / "000000000009.jpg"
+    annot = {
+        "categories": [{"id": 51, "name": "bowl"}, {"id": 56, "name": "broccoli"}],
+        "annotations": [
+            {
+                "id": 1038967,
+                "image_id": 9,
+                "category_id": 51,
+                "bbox": [1.08, 187.69, 611.59, 285.84],
+                "segmentation": [[500.49, 473.53, 599.73, 419.6, 612.67, 375.37]],
+                "iscrowd": 0,
+            },
+            {
+                "id": 1058555,
+                "image_id": 9,
+                "category_id": 56,
+                "bbox": [249.6, 229.27, 316.24, 245.08],
+                "segmentation": [[249.6, 348.99, 267.67, 311.72, 291.39, 294.78]],
+                "iscrowd": 0,
+            },
+            {
+                "id": 999,
+                "image_id": 10,
+                "category_id": 51,
+                "bbox": [0, 0, 1, 1],
+                "segmentation": [[0, 0, 1, 0, 1, 1]],
+                "iscrowd": 0,
+            },
+            {
+                "id": 1000,
+                "image_id": 9,
+                "category_id": 51,
+                "bbox": [0, 0, 1, 1],
+                "segmentation": {"counts": [], "size": [1, 1]},
+                "iscrowd": 1,
+            },
+        ],
+    }
+
+    image_data = COCODataConverter().get_image_data_from_annot(image_path=image_path, annot=annot)
+
+    assert image_data.image_path == image_path
+    assert image_data.label == "bowl"
+    assert image_data.additional_info == {"coco_image_id": 9}
+    assert [bbox_data.label for bbox_data in image_data.bboxes_data] == ["bowl", "broccoli"]
+    assert [bbox_data.coords for bbox_data in image_data.bboxes_data] == [(1, 188, 613, 474), (250, 229, 566, 474)]
+    assert image_data.bboxes_data[0].mask[0].tolist() == [[500, 474], [600, 420], [613, 375]]
+    assert image_data.bboxes_data[0].additional_info == {"coco_annotation_id": 1038967}
+
+
+def test_coco_converter_reads_one_annotation_file_for_many_images(tmp_dir):
+    annot_path = tmp_dir / "instances_train2017.json"
+    annot = {
+        "categories": [{"id": 1, "name": "object"}],
+        "annotations": [
+            {
+                "id": 1,
+                "image_id": 9,
+                "category_id": 1,
+                "bbox": [0, 0, 2, 3],
+                "segmentation": [[0, 0, 2, 0, 2, 3]],
+                "iscrowd": 0,
+            },
+            {
+                "id": 2,
+                "image_id": 25,
+                "category_id": 1,
+                "bbox": [1, 1, 4, 5],
+                "segmentation": [[1, 1, 5, 1, 5, 6]],
+                "iscrowd": 0,
+            },
+        ],
+    }
+    annot_path.write_text(json.dumps(annot))
+
+    images_data_from_annots = COCODataConverter().get_images_data_from_annots(
+        image_paths=[tmp_dir / "000000000009.jpg", tmp_dir / "000000000025.jpg"],
+        annots=annot_path,
+        n_jobs=1,
+        disable_tqdm=True,
+    )
+
+    assert [len(image_data.bboxes_data) for image_data in images_data_from_annots] == [1, 1]
+    assert [image_data.bboxes_data[0].coords for image_data in images_data_from_annots] == [(0, 0, 2, 3), (1, 1, 5, 6)]

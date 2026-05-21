@@ -4,6 +4,7 @@ from cv_pipeliner.batch_generators.bbox_data import BatchGeneratorBboxData
 from cv_pipeliner.batch_generators.image_data import BatchGeneratorImageData
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.data_converters.brickit import BrickitDataConverter
+from cv_pipeliner.data_converters.coco import COCODataConverter
 from cv_pipeliner.data_converters.json import JSONDataConverter
 from cv_pipeliner.data_converters.supervisely import SuperviselyDataConverter
 from cv_pipeliner.data_converters.yolo import YOLODataConverter, YOLOMasksDataConverter

@@ -66,9 +66,17 @@ class YOLOv8Runtime(DetectionRuntime):
         # Loading model
         if isinstance(model_spec, YOLOv8_ModelSpec):
             self._load_yolov8_model(model_spec)
+            if self.class_names is None and hasattr(self.model, "names"):
+                self.class_names = self._get_class_names_from_model()
             self._raw_predict_images = self._raw_predict_images_torch
         else:
             raise ValueError(f"YOLOv8Runtime got unknown DetectionModelSpec: {type(model_spec)}")
+
+    def _get_class_names_from_model(self) -> np.ndarray:
+        model_names = self.model.names
+        if isinstance(model_names, dict):
+            return np.array([model_names[idx] for idx in sorted(model_names)])
+        return np.array(model_names)
 
     def _load_yolov8_model(self, model_spec: YOLOv8_ModelSpec):
         """YOLOv8 model initialization
@@ -82,12 +90,13 @@ class YOLOv8Runtime(DetectionRuntime):
         if model_spec.model_name is None and model_spec.model_path is None:
             raise ValueError("Please, specify model name or weights path for loading model")
 
+        from ultralytics import YOLO
+
         if model_spec.model_path is not None:
             temp_file = tempfile.NamedTemporaryFile(suffix=".pt")
             with fsspec.open(model_spec.model_path, "rb") as src:
                 temp_file.write(src.read())
             model_path_tmp = Path(temp_file.name)
-            from ultralytics import YOLO
 
             self.model = YOLO(model_path_tmp)
         else:
