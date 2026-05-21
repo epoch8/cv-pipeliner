@@ -23,6 +23,7 @@ Optional model backends are exposed as Poetry extras:
 ```bash
 poetry install --extras tensorflow
 poetry install --extras torch
+poetry install --extras fiftyone
 ```
 
 If you install the package with `pip` from a local checkout:
@@ -31,6 +32,7 @@ If you install the package with `pip` from a local checkout:
 pip install .
 pip install ".[tensorflow]"
 pip install ".[torch]"
+pip install ".[fiftyone]"
 ```
 
 Python `>=3.9,<3.14` is supported. Some optional ML backends currently support narrower Python ranges; check [`pyproject.toml`](pyproject.toml) before choosing an environment.
@@ -170,27 +172,32 @@ image_data = converter.get_image_data_from_annot(
 
 ### FiftyOne
 
-`FifyOneSession` converts `ImageData`, `BboxData`, and `ImageDataMatching` objects into FiftyOne samples, detections, keypoints, and error-analysis views. It also converts FiftyOne samples back into `ImageData`.
+Install the optional dependency before using this integration:
+
+```bash
+pip install "cv_pipeliner[fiftyone]"
+```
+
+`FiftyOneSession` converts `ImageData`, `BboxData`, and `ImageDataMatching` objects into FiftyOne samples, detections, keypoints, and error-analysis views. It also converts FiftyOne samples back into `ImageData`.
 
 ```python
-from cv_pipeliner import FifyOneSession
+from cv_pipeliner import FiftyOneSession
 
-fo_session = FifyOneSession(database_dir=".fiftyone")
+with FiftyOneSession(database_dir=".fiftyone") as fo_session:
+    sample = fo_session.convert_image_data_to_fo_sample(
+        image_data,
+        fo_detections_label="ground_truth",
+        fo_classification_label="image_label",
+        fo_keypoints_label="keypoints",
+        include_additional_bboxes_data=True,
+    )
 
-sample = fo_session.convert_image_data_to_fo_sample(
-    image_data,
-    fo_detections_label="ground_truth",
-    fo_classification_label="image_label",
-    fo_keypoints_label="keypoints",
-    include_additional_bboxes_data=True,
-)
-
-restored = fo_session.convert_sample_to_image_data(
-    sample,
-    fo_detections_label="ground_truth",
-    fo_classification_label="image_label",
-    fo_keypoints_label="keypoints",
-)
+    restored = fo_session.convert_sample_to_image_data(
+        sample,
+        fo_detections_label="ground_truth",
+        fo_classification_label="image_label",
+        fo_keypoints_label="keypoints",
+    )
 ```
 
 The integration can also represent matching results as FiftyOne detections, which is useful for browsing TP/FP/FN cases after detection or pipeline evaluation.

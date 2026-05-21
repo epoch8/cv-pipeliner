@@ -8,7 +8,7 @@
 - Added extensive unit, architecture, import-compatibility, real-model smoke, visualizer, converter, and notebook execution tests.
 - Updated CI to run on Python 3.9-3.12 and install all extras for the test suite.
 - Reworked documentation: expanded `README.md`, translated and updated `docs/getting_started.ipynb`, and added tested examples for `ImageData` transformations, inference, metrics, FiftyOne, and Label Studio integrations.
-- Removed deprecated modules and docs: old Object Detection API and Detectron2 inference code, `cv_pipeliner.utils.datapipe`, `utils.dataframes`, `utils.download`, `utils.jupyter_visualizer`, `utils.object_detection_api`, `docs/YOLOv8Example.ipynb`, and `docs/yolov8.py.md`.
+- Removed deprecated modules and docs: legacy TensorFlow detection and Detectron2 inference code, `cv_pipeliner.utils.datapipe`, `utils.dataframes`, `utils.download`, `utils.jupyter_visualizer`, `docs/YOLOv8Example.ipynb`, and `docs/yolov8.py.md`.
 
 # 0.21.2
 - Fix loading classification models in `.keras` format.

@@ -1,4 +1,5 @@
 import copy
+import importlib
 import logging
 import os
 import sys
@@ -17,8 +18,13 @@ from cv_pipeliner.utils.images_datas import flatten_additional_bboxes_data_in_im
 logger = logging.getLogger("cv_pipeliner.utils.fiftyone")
 
 
-class FifyOneSession:
-    _counter = 0
+class FiftyOneSession:
+    _active_sessions = 0
+    _env_var_by_param = {
+        "database_dir": "FIFTYONE_DATABASE_DIR",
+        "database_uri": "FIFTYONE_DATABASE_URI",
+        "database_name": "FIFTYONE_DATABASE_NAME",
+    }
 
     def __init__(
         self,
@@ -26,58 +32,78 @@ class FifyOneSession:
         database_uri: Optional[str] = None,
         database_name: Optional[str] = None,
     ):
-        assert (
-            FifyOneSession._counter == 0
-        ), "There is another instance of class FifyOneConverter. Delete it for using this class."
-        if "fiftyone" in sys.modules:
-            logger.warning(
-                "Fiftyone is already imported to some base. The FifyOneConverter will reimport fiftyone and it can change the base."
+        if FiftyOneSession._active_sessions > 0:
+            raise RuntimeError(
+                "There is another active FiftyOneSession. Close it before creating a new session."
             )
-            del sys.modules["fiftyone"]
         self.database_dir = database_dir
         self.database_uri = database_uri
         self.database_name = database_name
-        if self.database_dir is not None:
-            os.environ["FIFTYONE_DATABASE_DIR"] = str(self.database_dir)
-        if self.database_uri is not None:
-            os.environ["FIFTYONE_DATABASE_URI"] = str(self.database_uri)
-        if self.database_name is not None:
-            os.environ["FIFTYONE_DATABASE_NAME"] = str(self.database_name)
+        self._previous_env_values = {}
+        self._closed = False
+        self._fiftyone = None
+
+        if self._has_database_config() and "fiftyone" in sys.modules:
+            logger.warning(
+                "FiftyOne is already imported, so database settings may have already been initialized. "
+                "Create FiftyOneSession before importing fiftyone to guarantee custom database settings."
+            )
+
+        self._set_environment()
 
         try:
-            import fiftyone
-
-            self._fiftyone = fiftyone
+            self._fiftyone = importlib.import_module("fiftyone")
         except Exception as e:
-            logger.warning(f"Couldn't connect to fiftyone: {e=}")
-            self._fiftyone = None
+            logger.warning(f"Couldn't import fiftyone: {e=}")
 
-        FifyOneSession._counter += 1
+        FiftyOneSession._active_sessions += 1
+
+    def _has_database_config(self):
+        return any(getattr(self, param_name) is not None for param_name in self._env_var_by_param)
+
+    def _set_environment(self):
+        for param_name, env_var_name in self._env_var_by_param.items():
+            value = getattr(self, param_name)
+            if value is None:
+                continue
+            self._previous_env_values[env_var_name] = os.environ.get(env_var_name)
+            os.environ[env_var_name] = str(value)
+
+    def _restore_environment(self):
+        for env_var_name, previous_value in self._previous_env_values.items():
+            if previous_value is None:
+                os.environ.pop(env_var_name, None)
+            else:
+                os.environ[env_var_name] = previous_value
+
+    def close(self):
+        if getattr(self, "_closed", True):
+            return
+        self._restore_environment()
+        self._closed = True
+        FiftyOneSession._active_sessions -= 1
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
     @property
     def fiftyone(self):
         if self._fiftyone is None:
-            import fiftyone
-
-            self._fiftyone = fiftyone
+            self._fiftyone = importlib.import_module("fiftyone")
         return self._fiftyone
 
     def __del__(self):
-        if self.database_dir is not None:
-            os.environ.pop("FIFTYONE_DATABASE_DIR", None)
-        if self.database_uri is not None:
-            os.environ.pop("FIFTYONE_DATABASE_URI", None)
-        if self.database_name is not None:
-            os.environ.pop("FIFTYONE_DATABASE_NAME", None)
-        if "fiftyone" in sys.modules:
-            del sys.modules["fiftyone"]
-        FifyOneSession._counter -= 1
+        self.close()
 
     def convert_bbox_data_to_fo_detection(
         self,
         bbox_data: BboxData,
-        additional_info_keys: List[str] = [],
+        additional_info_keys: Optional[List[str]] = None,
     ) -> "fiftyone.Detection":
+        additional_info_keys = additional_info_keys or []
         xminn, yminn, xmaxn, ymaxn = bbox_data.coords_n
         bounding_box = [xminn, yminn, xmaxn - xminn, ymaxn - yminn]
         additional_info = {key: bbox_data.additional_info.get(key, None) for key in additional_info_keys}
@@ -97,8 +123,9 @@ class FifyOneSession:
         self,
         image_data: ImageData,
         include_additional_bboxes_data: bool = False,
-        additional_info_keys: List[str] = [],
+        additional_info_keys: Optional[List[str]] = None,
     ) -> "fiftyone.Detections":
+        additional_info_keys = additional_info_keys or []
         if include_additional_bboxes_data:
             image_data = flatten_additional_bboxes_data_in_image_data(image_data)
         image_data.get_image_size()  # Save to meta
@@ -253,9 +280,10 @@ class FifyOneSession:
         fo_detection: "fiftyone.Detection",
         width: int,
         height: int,
-        additional_info_keys_in_fo_detections: List[str] = [],
+        additional_info_keys_in_fo_detections: Optional[List[str]] = None,
         bbox_data_cls: Type[BboxData] = BboxData,
     ) -> BboxData:
+        additional_info_keys_in_fo_detections = additional_info_keys_in_fo_detections or []
         xminn, yminn, widthn, heightn = fo_detection.bounding_box
         xmaxn, ymaxn = xminn + widthn, yminn + heightn
         xmin, xmax = xminn * width, xmaxn * width
@@ -287,10 +315,13 @@ class FifyOneSession:
         fo_keypoints_label: Optional[str] = None,  # берется image_data.kepoints + bbox_data.keypoints
         include_additional_bboxes_data: bool = False,
         mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
-        additional_info_keys_in_bboxes_data: List[str] = [],
-        additional_info_keys_in_image_data: List[str] = [],
-        additional_info: Dict[str, Any] = {},
+        additional_info_keys_in_bboxes_data: Optional[List[str]] = None,
+        additional_info_keys_in_image_data: Optional[List[str]] = None,
+        additional_info: Optional[Dict[str, Any]] = None,
     ) -> "fiftyone.Detections":
+        additional_info_keys_in_bboxes_data = additional_info_keys_in_bboxes_data or []
+        additional_info_keys_in_image_data = additional_info_keys_in_image_data or []
+        additional_info = additional_info or {}
         filepath = mapping_filepath(str(image_data.image_path))
         sample = self.fiftyone.Sample(filepath=filepath)
         if fo_detections_label is not None:
@@ -318,11 +349,13 @@ class FifyOneSession:
         fo_classification_label: Optional[str] = None,
         fo_keypoints_label: Optional[str] = None,
         mapping_filepath: Callable[[str], str] = lambda filepath: filepath,
-        additional_info_keys_in_fo_detections: List[str] = [],
-        additional_info_keys_in_sample: List[str] = [],
+        additional_info_keys_in_fo_detections: Optional[List[str]] = None,
+        additional_info_keys_in_sample: Optional[List[str]] = None,
         image_data_cls: Type[ImageData] = ImageData,
         bbox_data_cls: Type[BboxData] = BboxData,
     ) -> ImageData:
+        additional_info_keys_in_fo_detections = additional_info_keys_in_fo_detections or []
+        additional_info_keys_in_sample = additional_info_keys_in_sample or []
         image_path = mapping_filepath(sample.filepath)
         image_data = image_data_cls(
             image_path=image_path,
@@ -357,3 +390,6 @@ class FifyOneSession:
             if sample.has_field(key):
                 image_data.additional_info[key] = sample[key]
         return image_data
+
+
+FifyOneSession = FiftyOneSession

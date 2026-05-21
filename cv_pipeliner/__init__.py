@@ -42,7 +42,7 @@ from cv_pipeliner.metrics.image_data_matching import (
     pairwise_intersection_over_union,
 )
 from cv_pipeliner.metrics.pipeline import get_df_pipeline_metrics
-from cv_pipeliner.utils.fiftyone import FifyOneSession
+from cv_pipeliner.utils.fiftyone import FiftyOneSession, FifyOneSession
 from cv_pipeliner.utils.images import (
     concat_images,
     draw_rectangle,

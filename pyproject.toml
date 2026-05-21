@@ -34,11 +34,13 @@ ultralytics = { version = "*", optional = true, python = ">=3.9,<3.13" }
 nbclient = { version = "*", optional = true }
 nbformat = { version = "*", optional = true }
 ipykernel = { version = "*", optional = true }
+fiftyone = { version = "*", optional = true }
 
 
 [tool.poetry.extras]
 tensorflow = ["tensorflow"]
 torch = ["torch", "torchvision", "ultralytics"]
+fiftyone = ["fiftyone"]
 
 
 [tool.poetry.group.dev.dependencies]
