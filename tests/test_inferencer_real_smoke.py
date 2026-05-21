@@ -1,4 +1,5 @@
 import shutil
+import urllib.request
 from pathlib import Path
 
 import numpy as np
@@ -37,6 +38,16 @@ def _save_saved_model(tf, model, path):
         export(path)
     else:
         model.save(path, save_format="tf")
+
+
+def _download_file(url: str, output_path: Path):
+    if output_path.exists():
+        return
+    try:
+        with urllib.request.urlopen(url, timeout=60) as response, output_path.open("wb") as out:
+            shutil.copyfileobj(response, out)
+    except Exception as exc:
+        pytest.skip(f"Could not download {url}: {exc}")
 
 
 def test_real_tensorflow_classification_smoke(tensorflow_module, model_artifact_cache):
@@ -143,6 +154,25 @@ def test_real_yolov8_detection_smoke(model_artifact_cache):
 
     assert len(result) == 1
     assert result[0].bboxes_data == []
+
+
+def test_real_yolov5_detection_smoke(model_artifact_cache):
+    from cv_pipeliner.inferencers.detection.yolov5 import YOLOv5_ModelSpec
+
+    weight_path = model_artifact_cache / "yolov5n.pt"
+    _download_file("https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5n.pt", weight_path)
+
+    spec = YOLOv5_ModelSpec(model_path=weight_path, device="cpu", skip_validation=True)
+    inferencer = spec.load_detection_inferencer()
+
+    result = inferencer.predict(
+        [ImageData(image=np.zeros((64, 64, 3), dtype=np.uint8))],
+        score_threshold=0.99,
+        disable_tqdm=True,
+    )
+
+    assert len(result) == 1
+    assert isinstance(result[0], ImageData)
 
 
 def test_real_pipeline_smoke_with_downloaded_detector_and_tiny_classifier(tensorflow_module, model_artifact_cache):

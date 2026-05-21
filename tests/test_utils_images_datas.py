@@ -2,7 +2,9 @@ import numpy as np
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.utils.images_datas import (
+    apply_perspective_transform_to_image_data,
     crop_image_data,
+    flatten_additional_bboxes_data_in_image_data,
     get_all_bboxes_data_in_image_data,
     get_image_data_filtered_by_labels,
     get_n_bboxes_data_filtered_by_labels,
@@ -11,6 +13,14 @@ from cv_pipeliner.utils.images_datas import (
     rotate_image_data,
     split_by_grid,
 )
+
+
+def _all_bboxes(bboxes_data):
+    result = []
+    for bbox_data in bboxes_data:
+        result.append(bbox_data)
+        result.extend(_all_bboxes(bbox_data.additional_bboxes_data))
+    return result
 
 
 def test_label_filtering_for_image_data_and_bbox_groups():
@@ -78,3 +88,77 @@ def test_split_by_grid_and_recursive_bbox_collection():
 
     assert [bbox.coords for bbox in grid] == [(0, 0, 4, 4), (0, 4, 4, 8), (4, 0, 8, 4), (4, 4, 8, 8)]
     assert [bbox.label for bbox in all_bboxes] == ["parent", "child"]
+
+
+def test_image_data_transforms_do_not_duplicate_source_image_across_bboxes():
+    source_image = np.zeros((64, 80, 3), dtype=np.uint8)
+    image_data = ImageData(
+        image=source_image,
+        keypoints=[(10, 10)],
+        bboxes_data=[
+            BboxData(
+                xmin=5,
+                ymin=5,
+                xmax=30,
+                ymax=30,
+                additional_bboxes_data=[
+                    BboxData(xmin=8, ymin=8, xmax=15, ymax=15),
+                    BboxData(xmin=16, ymin=16, xmax=22, ymax=22),
+                ],
+            )
+            for _ in range(20)
+        ],
+    )
+
+    resized = resize_image_data(image_data, size=(40, 32))
+    cropped = crop_image_data(image_data, xmin=0, ymin=0, xmax=40, ymax=32, allow_negative_and_large_coords=False, remove_bad_coords=False)
+    rotated = rotate_image_data(image_data, angle=90)
+    perspective = apply_perspective_transform_to_image_data(
+        image_data,
+        perspective_matrix=np.eye(3, dtype=np.float32),
+        result_width=80,
+        result_height=64,
+        allow_negative_and_large_coords=False,
+        remove_bad_coords=False,
+    )
+
+    for transformed in [resized, cropped, rotated, perspective]:
+        assert transformed.image is not source_image
+        transformed_bboxes = _all_bboxes(transformed.bboxes_data)
+        assert len(transformed_bboxes) == 60
+        assert {id(bbox_data.image) for bbox_data in transformed_bboxes} == {id(transformed.image)}
+        assert all(bbox_data.image is transformed.image for bbox_data in transformed_bboxes)
+
+    original_bboxes = _all_bboxes(image_data.bboxes_data)
+    assert {id(bbox_data.image) for bbox_data in original_bboxes} == {id(source_image)}
+    assert all(bbox_data.image is source_image for bbox_data in original_bboxes)
+
+
+def test_logical_helpers_deepcopy_structure_without_copying_image_arrays():
+    source_image = np.zeros((32, 32, 3), dtype=np.uint8)
+    image_data = ImageData(
+        image=source_image,
+        bboxes_data=[
+            BboxData(
+                xmin=0,
+                ymin=0,
+                xmax=10,
+                ymax=10,
+                label="keep",
+                detection_score=0.9,
+                additional_bboxes_data=[BboxData(xmin=1, ymin=1, xmax=5, ymax=5, label="child")],
+            ),
+            BboxData(xmin=20, ymin=20, xmax=30, ymax=30, label="drop", detection_score=0.1),
+        ],
+    )
+
+    filtered = get_image_data_filtered_by_labels(image_data, ["keep"])
+    nms = non_max_suppression_image_data(image_data, iou=0.5, score_threshold=0.5)
+    flattened = flatten_additional_bboxes_data_in_image_data(image_data)
+
+    for result in [filtered, nms, flattened]:
+        assert result is not image_data
+        result_bboxes = _all_bboxes(result.bboxes_data)
+        assert {id(bbox_data.image) for bbox_data in result_bboxes} == {id(result.image)}
+        assert result.image is source_image
+        assert all(bbox_data.image is source_image for bbox_data in result_bboxes)

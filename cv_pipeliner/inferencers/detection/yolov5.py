@@ -7,6 +7,7 @@ from typing import Callable, List, Optional, Tuple, Type, Union
 
 import fsspec
 import numpy as np
+from pydantic_core import core_schema
 
 from cv_pipeliner.inferencers.backends.preprocess import get_preprocess_input_from_script_file
 from cv_pipeliner.inferencers.detection.core import (
@@ -22,12 +23,26 @@ from cv_pipeliner.utils.images import (
 )
 
 
+class TorchNNModule:
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.no_info_plain_validator_function(cls.validate)
+
+    @classmethod
+    def validate(cls, value):
+        import torch
+
+        if not isinstance(value, torch.nn.Module):
+            raise TypeError("Expected torch.nn.Module")
+        return value
+
+
 class YOLOv5_ModelSpec(DetectionModelSpec):
     """
     note: model_path can be set as torch.hub.load('ultralytics/yolov5', 'yolov5s')
     """
 
-    model_path: Optional[Union[str, Path, "torch.nn.Module"]]  # noqa: F821
+    model_path: Optional[Union[str, Path, TorchNNModule]]
     class_names: Optional[Union[List[str], str, Path]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     device: str = None
@@ -192,7 +207,7 @@ class YOLOv5Runtime(DetectionRuntime):
                     ]
             self._raw_predict_images = self._raw_predict_images_tflite
         else:
-            raise ValueError(f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}")
+            raise ValueError(f"YOLOv5Runtime got unknown DetectionModelSpec: {type(model_spec)}")
 
     def _load_yolov5_tflite(self, model_spec: Union[YOLOv5_TFLite_ModelSpec, YOLOv5_TFLiteWithNMS_ModelSpec]):
         import tensorflow as tf

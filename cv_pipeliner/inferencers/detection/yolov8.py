@@ -68,7 +68,7 @@ class YOLOv8Runtime(DetectionRuntime):
             self._load_yolov8_model(model_spec)
             self._raw_predict_images = self._raw_predict_images_torch
         else:
-            raise ValueError(f"ObjectDetectionAPI_Model got unknown DetectionModelSpec: {type(model_spec)}")
+            raise ValueError(f"YOLOv8Runtime got unknown DetectionModelSpec: {type(model_spec)}")
 
     def _load_yolov8_model(self, model_spec: YOLOv8_ModelSpec):
         """YOLOv8 model initialization

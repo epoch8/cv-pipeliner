@@ -21,3 +21,4 @@ result*/
 tests/tmp/
 charts/
 poetry.lock
+*.pt

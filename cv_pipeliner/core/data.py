@@ -1,18 +1,12 @@
 import copy
 import io
 import json
-from importlib.metadata import version
 from pathlib import Path
 
 import cv2
-from packaging.version import Version
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-if Version(version("pydantic")) < Version("2.0.0"):
-    from pydantic import BaseModel, Field, root_validator, validator
-else:
-    from pydantic.v1 import BaseModel, Field, validator, root_validator
-
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, Union
 
 import fsspec
 import numpy as np
@@ -77,6 +71,13 @@ def get_meta_image_size(
 
 
 class BaseImageData(BaseModel):
+    _SOURCE_FIELDS: ClassVar[Tuple[str, ...]] = ("image_path", "image", "meta_width", "meta_height")
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,
+    )
+
     image_path: Optional[Union[str, Path, Pathy, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]] = None
     image: Optional[np.ndarray] = Field(default=None, repr=False, exclude=True)
     label: Optional[str] = None
@@ -101,30 +102,39 @@ class BaseImageData(BaseModel):
     meta_width: Optional[int] = None
     meta_height: Optional[int] = None
 
-    class Config:
-        arbitrary_types_allowed = True
-        validate_assignment = True
-        json_encoders = {
-            Pathy: get_image_path_as_str,
-            fsspec.core.OpenFile: get_image_path_as_str,
-            np.ndarray: lambda x: x.tolist(),
-        }
-        smart_union = True
-        copy_on_model_validation = "none"
+    def __deepcopy__(self, memo):
+        obj_id = id(self)
+        if obj_id in memo:
+            return memo[obj_id]
 
-    @validator("image_path", pre=True, allow_reuse=True)
+        copied_data = {}
+        for field_name in self.__class__.model_fields:
+            value = getattr(self, field_name)
+            if field_name in {"image", "cropped_image"} and isinstance(value, np.ndarray):
+                copied_data[field_name] = value
+            else:
+                copied_data[field_name] = copy.deepcopy(value, memo)
+
+        copied = self.__class__.model_construct(**copied_data)
+        memo[obj_id] = copied
+        return copied
+
+    @field_validator("image_path", mode="before")
+    @classmethod
     def parse_image_path(cls, image_path):
         if isinstance(image_path, Path) or (isinstance(image_path, str) and not is_base64(image_path)):
             image_path = Pathy.fluid(image_path)
         return image_path
 
-    @validator("keypoints", pre=True, allow_reuse=True)
+    @field_validator("keypoints", mode="before")
+    @classmethod
     def parse_keypoints(cls, keypoints):
         if keypoints is None:
             keypoints = []
         return np.array(keypoints).astype(int).reshape((-1, 2))
 
-    @validator("mask", pre=True, allow_reuse=True)
+    @field_validator("mask", mode="before")
+    @classmethod
     def parse_mask(cls, mask):
         if mask is None:
             return []
@@ -140,22 +150,25 @@ class BaseImageData(BaseModel):
                 return polygons
         return [np.array(points, dtype=np.int32).reshape((-1, 2)) for points in mask if len(points) > 0]
 
-    @validator("image", pre=True, allow_reuse=True)
-    def parse_image(cls, image, values):
-        if image is not None:
+    @field_validator("image", mode="before")
+    @classmethod
+    def parse_image(cls, image):
+        if image is not None and not isinstance(image, np.ndarray):
             image = np.array(image)
         return image
 
-    @root_validator(pre=False, allow_reuse=True)
-    def set_fields(cls, values: dict) -> dict:
-        if values["image"] is not None:
-            values["meta_width"], values["meta_height"] = get_meta_image_size(
-                image_path=values["image_path"],
-                image=values["image"],
-                meta_height=values["meta_width"],
-                meta_width=values["meta_width"],
+    @model_validator(mode="after")
+    def set_fields(self):
+        if self.image is not None:
+            meta_width, meta_height = get_meta_image_size(
+                image_path=self.image_path,
+                image=self.image,
+                meta_height=self.meta_height,
+                meta_width=self.meta_width,
             )
-        return values
+            object.__setattr__(self, "meta_width", meta_width)
+            object.__setattr__(self, "meta_height", meta_height)
+        return self
 
     def get_image_size(self, exif_transpose: bool = False) -> Tuple[int, int]:
         """
@@ -211,12 +224,37 @@ class BaseImageData(BaseModel):
 
     def json(self, include_image_path: bool = True, force_include_meta: bool = False, **kwargs) -> str:
         kwargs = kwargs.copy()
-        exclude = kwargs.pop("exclude", set())
+        exclude = set(kwargs.pop("exclude", set()))
         if force_include_meta:
             self.get_image_size()  # write meta inplace if empty
         if not include_image_path:
             exclude.add("image_path")
-        return super().json(exclude=exclude, exclude_none=kwargs.pop("exclude_none", True), **kwargs)
+        exclude_none = kwargs.pop("exclude_none", True)
+        indent = kwargs.pop("indent", None)
+        ensure_ascii = kwargs.pop("ensure_ascii", True)
+        data = self.model_dump(exclude=exclude, exclude_none=exclude_none, mode="python", **kwargs)
+        data = self._make_jsonable(data)
+        return json.dumps(data, indent=indent, ensure_ascii=ensure_ascii)
+
+    @classmethod
+    def _make_jsonable(cls, value: Any) -> Any:
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        if isinstance(value, (Pathy, fsspec.core.OpenFile)):
+            return get_image_path_as_str(value)
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, bytes):
+            return value.decode(errors="replace")
+        if isinstance(value, io.BytesIO):
+            return value.getvalue().decode(errors="replace")
+        if isinstance(value, PIL.Image.Image):
+            return get_image_name(value)
+        if isinstance(value, dict):
+            return {str(cls._make_jsonable(key)): cls._make_jsonable(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return [cls._make_jsonable(item) for item in value]
+        return value
 
     @classmethod
     def from_json(
@@ -246,6 +284,15 @@ class BaseImageData(BaseModel):
     def is_empty(self):
         return self.image_path is None and self.image is None
 
+    def _source_fields_for_propagation(self, changed_field: Optional[str] = None) -> Dict[str, Any]:
+        if changed_field == "image":
+            fields = ("image", "meta_width", "meta_height")
+        elif changed_field in self._SOURCE_FIELDS:
+            fields = (changed_field,)
+        else:
+            fields = self._SOURCE_FIELDS
+        return {field: getattr(self, field) for field in fields}
+
     def open_mask(
         self,
         exif_transpose: bool = False,
@@ -270,11 +317,29 @@ class BboxData(BaseImageData):
     cropped_image: Optional[np.ndarray] = Field(default=None, repr=False)
     additional_bboxes_data: List["BboxData"] = Field(default_factory=list)
 
-    @validator("xmin", "ymin", pre=True, allow_reuse=True)
+    @field_validator("xmin", "ymin", mode="before")
+    @classmethod
     def parse_xmin(cls, v):
         if v is not None:
             v = max(0, v)
         return v
+
+    @model_validator(mode="after")
+    def set_additional_bboxes_data_source_fields(self):
+        self._propagate_source_fields_to_additional_bboxes()
+        return self
+
+    def _apply_source_fields(self, source_fields: Dict[str, Any]) -> None:
+        for name, value in source_fields.items():
+            object.__setattr__(self, name, value)
+        self._propagate_source_fields_to_additional_bboxes(source_fields)
+
+    def _propagate_source_fields_to_additional_bboxes(self, source_fields: Optional[Dict[str, Any]] = None) -> None:
+        if not hasattr(self, "additional_bboxes_data"):
+            return
+        source_fields = source_fields or self._source_fields_for_propagation()
+        for additional_bbox_data in self.additional_bboxes_data:
+            additional_bbox_data._apply_source_fields(source_fields)
 
     @property
     def coords(self) -> Tuple[int, int, int, int]:
@@ -427,15 +492,9 @@ class BboxData(BaseImageData):
     def __setattr__(self, name: str, value: Any) -> None:
         super().__setattr__(name, value)
         if name in ["image_path", "image", "meta_width", "meta_height"]:
-
-            def change_images_in_bbox_data(bbox_data: BboxData):
-                bbox_data.__setattr__(name, value)
-                # for additional_bbox_data in bbox_data.additional_bboxes_data:
-                #     change_images_in_bbox_data(additional_bbox_data)
-
-            # if hasattr(self, "additional_bboxes_data"):
-            #     for additional_bbox_data in self.additional_bboxes_data:
-            #         change_images_in_bbox_data(additional_bbox_data)
+            self._propagate_source_fields_to_additional_bboxes(self._source_fields_for_propagation(name))
+        elif name == "additional_bboxes_data":
+            self._propagate_source_fields_to_additional_bboxes()
 
     def open_cropped_mask(
         self,
@@ -471,14 +530,24 @@ class BboxData(BaseImageData):
 class ImageData(BaseImageData):
     bboxes_data: List[BboxData] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def set_bboxes_data_source_fields(self):
+        self._propagate_source_fields_to_bboxes()
+        return self
+
+    def _propagate_source_fields_to_bboxes(self, source_fields: Optional[Dict[str, Any]] = None) -> None:
+        if not hasattr(self, "bboxes_data"):
+            return
+        source_fields = source_fields or self._source_fields_for_propagation()
+        for bbox_data in self.bboxes_data:
+            bbox_data._apply_source_fields(source_fields)
+
     def __setattr__(self, name: str, value: Any) -> None:
         super().__setattr__(name, value)
         if name in ["image_path", "image", "meta_width", "meta_height"]:
-            if hasattr(self, "bboxes_data"):
-                if name == "image" and value is not None:
-                    return
-                for bbox_data in self.bboxes_data:
-                    bbox_data.__setattr__(name, value)
+            self._propagate_source_fields_to_bboxes(self._source_fields_for_propagation(name))
+        elif name == "bboxes_data":
+            self._propagate_source_fields_to_bboxes()
 
     def find_bbox_data_by_coords(self, xmin: int, ymin: int, xmax: int, ymax: int) -> BboxData:
         bboxes_data_coords = [bbox_data.coords for bbox_data in self.bboxes_data]

@@ -1,20 +1,14 @@
 import abc
-from importlib.metadata import version
 from typing import Any, List, Optional, Type, Union
 
-from packaging.version import Version
-
-if Version(version("pydantic")) < Version("2.0.0"):
-    from pydantic import BaseModel as PydanticBaseModel
-else:
-    from pydantic.v1 import BaseModel as PydanticBaseModel
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import ConfigDict
 
 from cv_pipeliner.core.batch_generator import BatchGenerator
 
 
 class BaseModel(PydanticBaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class ModelSpec(BaseModel):

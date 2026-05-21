@@ -11,13 +11,6 @@ from cv_pipeliner.inferencers.classification.tensorflow import (
     TensorFlow_ClassificationModelSpec,
     TensorFlow_ClassificationModelSpec_TFServing,
 )
-from cv_pipeliner.inferencers.detection.detectron2 import Detectron2_ModelSpec
-from cv_pipeliner.inferencers.detection.object_detection_api import (
-    ObjectDetectionAPI_KFServing,
-    ObjectDetectionAPI_ModelSpec,
-    ObjectDetectionAPI_pb_ModelSpec,
-    ObjectDetectionAPI_TFLite_ModelSpec,
-)
 from cv_pipeliner.inferencers.detection.yolov5 import (
     YOLOv5_ModelSpec,
     YOLOv5_TFLite_ModelSpec,
