@@ -1,6 +1,18 @@
+# 0.22.0
+- **Breaking change**: the old `cv_pipeliner.inference_models` package is removed. Model specs and runtimes now live next to their task inferencers under `cv_pipeliner.inferencers.*`.
+- Added a shared inference architecture with `ModelSpec`, `Runtime`, `Inferencer`, task-specific core modules, backend helpers, batch utilities, typed result containers, and shared detection postprocessing.
+- Migrated data models to pydantic v2 and updated JSON serialization for `ImageData` and `BboxData`.
+- Improved `ImageData` / `BboxData` source-field propagation: `image_path`, `image`, `meta_width`, and `meta_height` are propagated to nested bboxes, including reassignment cases.
+- Added `COCODataConverter` and exported it from `cv_pipeliner.data_converters` and package-level imports.
+- Added optional dependency extras for TensorFlow and Torch/Ultralytics backends.
+- Added extensive unit, architecture, import-compatibility, real-model smoke, visualizer, converter, and notebook execution tests.
+- Updated CI to run on Python 3.9-3.12 and install all extras for the test suite.
+- Reworked documentation: expanded `README.md`, translated and updated `docs/getting_started.ipynb`, and added tested examples for `ImageData` transformations, inference, metrics, FiftyOne, and Label Studio integrations.
+- Removed deprecated modules and docs: old Object Detection API and Detectron2 inference code, `cv_pipeliner.utils.datapipe`, `utils.dataframes`, `utils.download`, `utils.jupyter_visualizer`, `utils.object_detection_api`, `docs/YOLOv8Example.ipynb`, and `docs/yolov8.py.md`.
+
 # 0.21.2
-- Fix loading classification model in case `.keras` format.
-- Fix CUDA OOM error in segmentation YOLOv8
+- Fix loading classification models in `.keras` format.
+- Fix CUDA OOM error in segmentation YOLOv8.
 
 # 0.21.1
 - Added `image_data_matching_class` in `get_df_pipeline_metrics` and `get_df_detection_metrics` for using custom `ImageDataMatching` class.
@@ -9,44 +21,44 @@
 - Git LFS files are now excluded from the repo.
 
 # 0.20.2
-- `split_image_data_by_grid` is refactored fully and now accepts `allow_large_coords`, `split_by_grid_minimum_size`, `minimum_crop_intersection_area` and `minimum_relative_size_of_inner_bboxes` arguments to control which bboxes will be included in crops when image is splitted by grid.
-- Fix `visualize_image_data` when BboxData doen't have source image, but ImageData has.
+- `split_image_data_by_grid` is fully refactored and now accepts `allow_large_coords`, `split_by_grid_minimum_size`, `minimum_crop_intersection_area` and `minimum_relative_size_of_inner_bboxes` arguments to control which bboxes are included in crops when an image is split by grid.
+- Fix `visualize_image_data` when `BboxData` doesn't have a source image, but `ImageData` does.
 
 # 0.20.1
 - Added new argument `ignore_classes` in `image_data.utils.non_max_suppression_image_data_using_tf`
 
 # 0.20.0
-- Python 3.12 support added
-- Added new function in `image_data.utils`: `combine_mask_polygons_to_one_polygon`, it's used when mask need to be presented as one large polygon (by using thin polygons between large polygons).
+- Python 3.12 support added.
+- Added new function in `image_data.utils`: `combine_mask_polygons_to_one_polygon`; it is used when a mask needs to be represented as one large polygon (by using thin polygons between large polygons).
 - Added segmentation YOLOv8 support.
-- Label Studio convert to ImageData and backwards now supports masks.
+- Label Studio conversion to `ImageData` and back now supports masks.
 - `get_df_detection_metrics` and `get_df_pipeline_metrics` now have `images_support` column!
-- `get_df_detection_recall_per_class` is removed, use `get_df_pipeline_metrics` instead
+- `get_df_detection_recall_per_class` is removed; use `get_df_pipeline_metrics` instead.
 
 # 0.19.1
-- Fixes with `fiftyone` usage in datapipe.
+- Fixes with `FiftyOne` usage in datapipe.
 
 # 0.19.0
-- Added new field in ImageData and BboxData: `mask`, used for segmentation tasks. It can be image_path, `np.ndarray` image or list of polygon points. Please look `docs/getting_started` for new examples.
+- Added new field in `ImageData` and `BboxData`: `mask`, used for segmentation tasks. It can be an image path, an `np.ndarray` image, or a list of polygon points. See `docs/getting_started` for new examples.
 - Argument `use_labels` in `visualize_image_data` is deprecated. Use `include_labels` instead.
 - `visualize_images_data_side_by_side` is deprecated and removed from `cv_pipeliner`. Use `concat_images` for two images_data instead.
 - `visualize_image_data`: added new arguments `include_mask`, `mask_alpha`, `label_to_color`, `default_color`, `xmin_offset`, `ymin_offset`, `xmax_offset`, `ymax_offset`:
-  * `include_mask` -- draws colorful masks on image if they exists
-  * `mask_alpha: float = 0.5` -- alpha to combine masks with original image
-  * `label_to_color: Dict[str, str]` -- color mapping for labels, if exists
-  * `default_color: str = 'lime'` -- color by default if label is not known
-  * `xmin_offset`, `ymin_offset`, `xmax_offset`, `ymax_offset` -- draw bboxes with offsets, can be integers (in pixels) or float (relative to bbox's sizes)
-- Added masks support for `crop_image_data`, `rotate_image_data`, `resize_image_data` and `apply_perspective_transform_to_image_data`
+  * `include_mask` -- draws colorful masks on image if they exist
+  * `mask_alpha: float = 0.5` -- alpha to combine masks with the original image
+  * `label_to_color: Dict[str, str]` -- color mapping for labels, if provided
+  * `default_color: str = 'lime'` -- default color if the label is unknown
+  * `xmin_offset`, `ymin_offset`, `xmax_offset`, `ymax_offset` -- draw bboxes with offsets; can be integers (in pixels) or floats (relative to bbox sizes)
+- Added mask support for `crop_image_data`, `rotate_image_data`, `resize_image_data` and `apply_perspective_transform_to_image_data`.
 - All `visualizers` are deprecated and removed from lib.
 
 # 0.18.1
-- Added `custom_objects` in model_spec `tf.keras` Tensorflow models.
-- Added `skip_validation` in model_spec Yolov5. 
-- Fix some pydantic bugs
+- Added `custom_objects` in model_spec `tf.keras` TensorFlow models.
+- Added `skip_validation` in model_spec Yolov5.
+- Fix some pydantic bugs.
 
 # 0.18.0
-- `COCODataConverter` had wrong name, they are fixed to names `YOLODataConverter` and `YOLOLabelsFile`. Sorry, everyone, it's better make corresponding migrations in your projects (for datapipe users: just do rename tables)
-- Added new argument `exif_transpose=False` to `ImageData.open_image()`. When `True`, the image is rotated accordindly to exif tag.
+- `COCODataConverter` had the wrong name; it is fixed to `YOLODataConverter` and `YOLOLabelsFile`. Sorry, everyone, it is better to make corresponding migrations in your projects (for datapipe users: just rename tables).
+- Added new argument `exif_transpose=False` to `ImageData.open_image()`. When `True`, the image is rotated according to the EXIF tag.
 
 # 0.17.5
 - Add `allow_reuse=True` to validators for some cases with ImageData
@@ -56,13 +68,13 @@
 
 
 # 0.17.3
-- Attempts to fix ipython requriements
+- Attempts to fix IPython requirements.
 - Fixed `image_data.open_image(inplace=True)` error.
 
 # 0.17.2
 - Removed deprecated `reporters` folder
 - Removed `ipython` from requirements
-- Added accounting for exif tags when converting annotations to a label studio
+- Added accounting for EXIF tags when converting annotations to Label Studio.
 
 # 0.17.1
 - Updated `pathy`'s requirements.
@@ -70,7 +82,7 @@
 # 0.17.0
 - Project is now buildable by poetry. `requirements.txt` and `setup.py` are removed.
 - Added `YOLOv8_ModelSpec`
-- Added pydantic2+ version support
+- Added pydantic 2+ version support.
 
 # 0.16.8
 - Fix `get_image_size` when filepath is bytes type
@@ -80,7 +92,7 @@
 
 # 0.16.5-0.16.6
 - (new) Added parallel open images in BatchGenerator for `ImageData` (default: 64 workers)
-- Removed annoying verbosed logs when inferencing by Tensorflow classifications models.
+- Removed noisy verbose logs when running inference with TensorFlow classification models.
 - Code is reformatted.
 
 # 0.16.4
@@ -96,22 +108,22 @@
 - Update requirements.txt to newer versions.
 
 # 0.15.4
-- Dirty hack to make it work when Fiftyone cannot start in FifyOneSession at first time (by @elephantum)
+- Dirty hack to make it work when FiftyOne cannot start in `FifyOneSession` the first time (by @elephantum)
 - When counting metrics with empty elements, np.average now returns np.nan
 
 # 0.15.3
 - Fix input_size typing for pydantic in TensorFlow_ClassificationModelSpec and TensorFlow_ClassificationModelSpec_TFServing
 
 # 0.15.2
-- ObjectDetection models new have device= arguments (for CPU inference)
-- Semaphores removed in FiftyOneImagesDataTableStore (for building prefect images)
+- Object Detection models now have device= arguments (for CPU inference)
+- Semaphores removed in `FiftyOneImagesDataTableStore` (for building Prefect images)
 
 # 0.15.1
 - Bugfixes
 
 # 0.15.0
 - All inference_models changed from `@dataclass` to `pydantic.BaseModel`
-- All inference_models have new field `id` used for storing models in-memory. Useble for datapipe's like inferences.
+- All inference_models have new field `id` used for storing models in memory. Useful for datapipe-like inference.
 
 # 0.14.0
 - Added new fields for `ImageData`:     `classification_score`, `top_n`, `labels_top_n`, `classification_scores_top_n` (similar to those fields in `BboxData`). They are used when `ImageData` is being submitted in `ClassificationInferencer` (thanks to @pixml27)
@@ -121,28 +133,28 @@
 - Added ModelSpec `MMPose_KeypointsRegressorModel` (thanks to @zakutnyaya)
 
 # 0.13.0
-- Added `meta_width` and `meta_height` for `ImageData` and `BboxData` to cache information about the height and length of source images in calculations. They also written and parsed in json() when image_data are opened once or when `force_include_meta=True` (new argument).
-- Transformations with image_data `rotate_image_data`, `resize_image_data`, `thumbnail_image_data`, `crop_image_data`, `apply_perspective_transform_to_image_data` and `split_image_by_grid` now works with image_datas without source images like `image_data.image_path` and `image_data.image`, but only when `meta_width` and `meta_height` are available. This can be used for recalculating the changed annotation of the image о the image itself does not change. 
-- `cv_pipeliner.utils.images_data.split_image_data_by_grid` is fixed and now saves additional bboxes_data, added required argument `remove_bad_coords: bool` for deleting bboxes that are not inside crops.
-- In `cv_pipeliner.utils.datapipe` added new table stores: `ImageDataTableStoreDB` for store `ImageData`  inside any DataBase (SQLite or Postgress) and `ConnectedImageDataTableStore` for combining images from `TableStoreFiledir` and their corresponding `ImageData` with image_paths
+- Added `meta_width` and `meta_height` for `ImageData` and `BboxData` to cache information about source image height and width in calculations. They are also written and parsed in json() when image_data are opened once or when `force_include_meta=True` (new argument).
+- Transformations with image_data `rotate_image_data`, `resize_image_data`, `thumbnail_image_data`, `crop_image_data`, `apply_perspective_transform_to_image_data` and `split_image_by_grid` now work with image_data without source images like `image_data.image_path` and `image_data.image`, but only when `meta_width` and `meta_height` are available. This can be used for recalculating changed annotations when the image itself does not change.
+- `cv_pipeliner.utils.images_data.split_image_data_by_grid` is fixed and now saves additional bboxes_data; added required argument `remove_bad_coords: bool` for deleting bboxes that are not inside crops.
+- In `cv_pipeliner.utils.datapipe` added new table stores: `ImageDataTableStoreDB` for storing `ImageData` inside any database (SQLite or Postgres) and `ConnectedImageDataTableStore` for combining images from `TableStoreFiledir` and their corresponding `ImageData` with image_paths.
 - Added property `keypoints_n` for `ImageData` and `BboxData`.
 - Added `convert_image_data_to_annotation` and `convert_annotation_to_image_data` in `cv_pipeliner.utils.label_studio` for annotations with one `RectangleLabels` and additional `KeyPointLabels` which takes into account the relationship between boxes and their corresponding keypoints.
 - Updated `FifyOneSession` in `cv_pipeliner.utils.fiftyone`, now it supports cloud running.
-- Added `FiftyOneImagesDataTableStore` in `cv_pipeliner.utils.datapipe` that converts `ImageData` to fiftyone database and vice versa.
-- `get_image_size()` in `cv_pipeliner.utils.imagesize` now takes into account Exif tags
+- Added `FiftyOneImagesDataTableStore` in `cv_pipeliner.utils.datapipe` that converts `ImageData` to a FiftyOne database and vice versa.
+- `get_image_size()` in `cv_pipeliner.utils.imagesize` now takes EXIF tags into account.
 - DataConverter's `get_images_data_from_annots` now runs in parallel as possible.
 - Added new functions `cv_pipeliner.utils.images.tf_resize_with_pad` and `rescale_bboxes_with_pad`.
-- Added new field `use_default_preprocces_and_postprocess_input` in `YOLOv5_TFLite_ModelSpec` for using standard YOLOv5's preprocessing and postprocessing functions from previous paragraph
+- Added new field `use_default_preprocess_and_postprocess_input` in `YOLOv5_TFLite_ModelSpec` for using standard YOLOv5 preprocessing and postprocessing functions from the previous paragraph.
 
 # 0.12.0
 - Fix `bbox_data.json()` when values are written as np.int64
 - Add `utils.datapipe.COCOLabelsFile` for datapipe
 - Add argument `score_threshold` in `utils.images_datas.non_max_suppression_image_data_using_tf`
-- Fixs in `parse_rectangle_labels_to_bbox_data` and `convert_image_data_to_rectangle_labels` in `utils.label_studio`
+- Fixes in `parse_rectangle_labels_to_bbox_data` and `convert_image_data_to_rectangle_labels` in `utils.label_studio`
 - Add new argument `thumbnail_size` in `cv_pipeliner.visualize_image_data`
 - `ImageData.from_json` and `BboxData.from_json` now have arguments `image_data_cls` and `bbox_data_cls` for parsing JSON of child's classes.
 - Add `threshold_score` in `utils.images_data.non_max_suppression_image_data_using_tf`
-- `thumbnail_image` and `thumbnail_image_data` accepts also `int`, meaning size of `(int, int)`
+- `thumbnail_image` and `thumbnail_image_data` also accept `int`, meaning size of `(int, int)`.
 - `YOLOv5_TFLite_ModelSpec` is now more stable
 - Added `bbox_data.area` for calculating bbox's area
 - The function `cv_pipeliner.utils.images_data.non_max_suppression_image_data` is refactored and works faster
@@ -150,13 +162,13 @@
 
 # 0.11.1
 - Add argument `warp_flags` in `cv_pipeliner.utils.images_data.rotate_image_data`
-- Add cliping when `cv_pipeliner.utils.images.denormalize_bboxes`
+- Add clipping when `cv_pipeliner.utils.images.denormalize_bboxes`
 
 # 0.11.0
-- Added new inference models: `KeypointsRegressorModel`, `YOLOv5_DetectionModel` and `Tensorflow_EmbedderModel`
+- Added new inference models: `KeypointsRegressorModel`, `YOLOv5_DetectionModel` and `TensorFlow_EmbedderModel`
 - Name of detectron2's models `Pytorch_DetectionModel` changed to `Detectron2_DetectionModel`
-- `thumbnail_image_data` now works when image size need to be increased while aspecting ratio.
-- `rotate_image_data` have 2 more arguments: `border_mode` and `border_value`
+- `thumbnail_image_data` now works when image size needs to be increased while preserving aspect ratio.
+- `rotate_image_data` has 2 more arguments: `border_mode` and `border_value`
 - Fix bug when `ImageData.from_json` doesn't give keypoints
 - (FIXME) Added module `cv_pipeliner.utils.export` to export main models (Object Detection API, YOLOv5) to fixed `saved_model` and `.tflite` for mobile developments.
 - Added better `__repr__` for `ImageData` and `BboxData` (removed `image` and `cropped_image` from them)
@@ -170,7 +182,7 @@
 - Added `utils.imagesize` (taken from https://github.com/shibukawa/imagesize_py), with support of fsspec file-like objects
 - Added DetectionModel for YOLOv5 in `inference_models.detection.yolov5`
 - Pipeline's model logging level changed from INFO to DEBUG.
-- Add `FiftyOneSession` for simplier using with FiftyOne (in `utils.fiftyone`)
+- Add `FiftyOneSession` for simpler use with FiftyOne (in `utils.fiftyone`)
 - Added function `utils.images_data.flatten_additional_bboxes_data_in_image_data`
 - `DetectionInferencer`, `ClassificationInferencer` and `PipelineInferencer` now can accept list of `ImageData` (of `BboxData` for `ClassificationInferencer`), with `batch_size_default=16` for Detection/Pipeline and `batch_size_default=32` for Classification
 - Add method `.load_detection_inferencer()` to class `DetectionModelSpec` that loads model and returns corresponding `cv_pipeliner.inferencers.DetectionInferencer`
@@ -205,12 +217,12 @@
 # 0.7.5
 
 - Add parallel inference for object detection (need joblib)
-- Classification Inferencer now accept ImageData generators
+- Classification Inferencer now accepts ImageData generators
 
 # 0.7.0+
 
 - Apps moved to `epoch8/cv-demostand`
-- Tensorflow is not required
+- TensorFlow is not required
 - Reporter for detection/pipeline works faster
 
 # 0.6.2 (2021-04-14)
@@ -224,7 +236,7 @@
 
 # 0.5.1 (2021-03-12)
 
-- Add presicion@K classification metrics
+- Add precision@K classification metrics
 - Fix `cv_pipeliner.complex_pipelines` module bug
 
 # 0.5.0 (2021-03-11)

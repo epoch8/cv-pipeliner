@@ -7,7 +7,6 @@ import pytest
 
 from cv_pipeliner.core.data import BboxData, ImageData
 from cv_pipeliner.core.data_converter import DataConverter
-from cv_pipeliner.data_converters.brickit import BrickitDataConverter
 from cv_pipeliner.data_converters.coco import COCODataConverter
 from cv_pipeliner.data_converters.json import JSONDataConverter
 from cv_pipeliner.data_converters.supervisely import SuperviselyDataConverter
@@ -69,7 +68,7 @@ class ConcreteDataConverter(DataConverter):
 
 @pytest.mark.parametrize(
     "data_convertor_cls",
-    [YOLODataConverter, BrickitDataConverter, JSONDataConverter, SuperviselyDataConverter],
+    [YOLODataConverter, JSONDataConverter, SuperviselyDataConverter],
 )
 def test_data_convertor(tmp_dir, data_convertor_cls):
     kwargs = {}
@@ -85,27 +84,18 @@ def test_data_convertor(tmp_dir, data_convertor_cls):
         annots = ["\n".join(annot) for annot in annots]
         extenstion = "txt"
 
-    # Разметка формата N изображений --> N файлов разметки
-    if data_convertor_cls != BrickitDataConverter:
-        for image_data, annot in zip(images_data, annots):
-            image_path = image_data.image_path
-            annot_path = tmp_dir / f"{image_data.image_path.name}.{extenstion}"
-            with fsspec.open(annot_path, "w") as out:
-                if data_convertor_cls == YOLODataConverter:
-                    out.write(annot)
-                else:
-                    json.dump(annot, out)
-            images_paths.append(image_path)
-            annots_paths.append(annot_path)
+    for image_data, annot in zip(images_data, annots):
+        image_path = image_data.image_path
+        annot_path = tmp_dir / f"{image_data.image_path.name}.{extenstion}"
+        with fsspec.open(annot_path, "w") as out:
+            if data_convertor_cls == YOLODataConverter:
+                out.write(annot)
+            else:
+                json.dump(annot, out)
+        images_paths.append(image_path)
+        annots_paths.append(annot_path)
 
-        images_data_from_annots = data_converter.get_images_data_from_annots(images_paths, annots_paths)
-
-    # Разметка формата N изображений --> 1 файл разметки
-    else:
-        annots_path = tmp_dir / f"{coco_imgs.name}-annotations.json"
-        with fsspec.open(annots_path, "w") as out:
-            json.dump(annots, out)
-        images_data_from_annots = data_converter.get_images_data_from_annots(coco_imgs, annots_path)
+    images_data_from_annots = data_converter.get_images_data_from_annots(images_paths, annots_paths)
 
     assert len(images_data) == len(images_data_from_annots)
     for image_data1, image_data2 in zip(images_data, images_data_from_annots):

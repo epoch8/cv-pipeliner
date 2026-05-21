@@ -41,7 +41,7 @@ Python `>=3.9,<3.14` is supported. Some optional ML backends currently support n
 
 - Data objects: `ImageData`, `BboxData`.
 - Batch generators: `BatchGeneratorImageData`, `BatchGeneratorBboxData`.
-- Annotation converters: `JSONDataConverter`, `COCODataConverter`, `YOLODataConverter`, `YOLOMasksDataConverter`, `SuperviselyDataConverter`, `BrickitDataConverter`.
+- Annotation converters: `JSONDataConverter`, `COCODataConverter`, `YOLODataConverter`, `YOLOMasksDataConverter`, `SuperviselyDataConverter`.
 - Model specs and inferencers: `YOLOv8_ModelSpec`, `YOLOv5_ModelSpec`, TensorFlow/PyTorch model specs, `DetectionInferencer`, `ClassificationInferencer`, `KeypointsRegressorInferencer`, `PipelineInferencer`, `PipelineModelSpec`.
 - Metrics: `get_df_detection_metrics`, `get_df_classification_metrics`, `get_df_pipeline_metrics`.
 - Visualization and image utilities: `visualize_image_data`, `visualize_image_data_matching_side_by_side`, resize/crop/rotate helpers, non-max suppression, and image concatenation helpers.
