@@ -55,18 +55,15 @@ def get_meta_image_size(
     """
     Returns (width, height) of image without opening it fully.
     """
-    if exif_transpose and image_path is not None:
+    if image is not None:
+        meta_height, meta_width = image.shape[0:2]
+    elif exif_transpose and image_path is not None:
         meta_width, meta_height = get_image_size(image_path, exif_transpose=exif_transpose)
     else:
         if meta_height is None or meta_width is None:
-            if image is not None:
-                meta_height, meta_width = image.shape[0:2]
-            else:
-                if image_path is None:
-                    raise ValueError("(get_meta_image_size) Fields image_path or image are None")
-                meta_width, meta_height = get_image_size(image_path, exif_transpose=exif_transpose)
-        if image is not None:
-            meta_height, meta_width = image.shape[0:2]
+            if image_path is None:
+                raise ValueError("(get_meta_image_size) Fields image_path or image are None")
+            meta_width, meta_height = get_image_size(image_path, exif_transpose=exif_transpose)
     return meta_width, meta_height
 
 

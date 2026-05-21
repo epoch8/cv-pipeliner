@@ -16,6 +16,18 @@ def test_visualize_image_data_without_boxes_returns_array_and_pil():
     assert isinstance(pil_result, Image.Image)
 
 
+def test_visualize_image_data_prefers_loaded_image_over_image_path():
+    image_data = ImageData(
+        image=np.zeros((20, 30, 3), dtype=np.uint8),
+        image_path="/path/that/should/not/be/read.png",
+        bboxes_data=[BboxData(xmin=1, ymin=1, xmax=10, ymax=10)],
+    )
+
+    result = visualize_image_data(image_data, exif_transpose=True)
+
+    assert result.shape == (20, 30, 3)
+
+
 def test_visualize_image_data_with_labels_scores_keypoints_and_masks():
     image_data = ImageData(
         image=np.zeros((20, 30, 3), dtype=np.uint8),

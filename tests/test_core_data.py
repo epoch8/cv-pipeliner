@@ -37,6 +37,18 @@ def test_image_data_open_image_from_path_and_json_roundtrip(tmp_dir):
     assert restored.bboxes_data[0].coords == (1, 1, 3, 3)
 
 
+def test_image_data_size_prefers_loaded_image_over_image_path_when_exif_transpose():
+    image_data = ImageData(
+        image=np.zeros((4, 5, 3), dtype=np.uint8),
+        image_path="/path/that/should/not/be/read.png",
+    )
+
+    opened = image_data.open_image(exif_transpose=True)
+
+    assert opened.shape == (4, 5, 3)
+    assert image_data.get_image_size(exif_transpose=True) == (5, 4)
+
+
 def test_image_data_mask_array_is_converted_to_polygons_and_opened():
     mask = np.zeros((5, 6), dtype=np.uint8)
     mask[1:4, 2:5] = 255

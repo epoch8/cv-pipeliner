@@ -178,7 +178,7 @@ def rotate_image_data(
         rotated_image = np.rot90(image, factor) if image is not None else None
         rotated_image_data.keypoints = rotate_keypoints90(image_data.keypoints, factor, width, height)
         if isinstance(rotated_image_data.mask, list):
-            rotated_image_data.keypoints = [
+            rotated_image_data.mask = [
                 rotate_keypoints90(polygon, factor, width, height) for polygon in rotated_image_data.mask
             ]
         rotated_image_data.bboxes_data = [
@@ -210,10 +210,10 @@ def rotate_image_data(
             else None
         )
         rotated_image_data = copy.deepcopy(image_data)
-        rotated_image_data.keypoints = rotate_keypoints(image_data.keypoints, rotation_mat, new_height, new_width)
+        rotated_image_data.keypoints = rotate_keypoints(image_data.keypoints, rotation_mat, new_width, new_height)
         if isinstance(rotated_image_data.mask, list):
-            rotated_image_data.keypoints = [
-                rotate_keypoints(polygon, rotation_mat, new_height, new_width) for polygon in rotated_image_data.mask
+            rotated_image_data.mask = [
+                rotate_keypoints(polygon, rotation_mat, new_width, new_height) for polygon in rotated_image_data.mask
             ]
         keypoints = []
         for x, y in rotated_image_data.keypoints:
@@ -226,7 +226,7 @@ def rotate_image_data(
                 polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
                 polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
         rotated_image_data.bboxes_data = [
-            _rotate_bbox_data(bbox_data, rotation_mat, new_height, new_width)
+            _rotate_bbox_data(bbox_data, rotation_mat, new_width, new_height)
             for bbox_data in rotated_image_data.bboxes_data
         ]
 
@@ -293,6 +293,8 @@ def resize_image_data(
             polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
     image_data.keypoints = np.array(keypoints).reshape(-1, 2)
     image_data.image_path = None
+    image_data.meta_width = new_width
+    image_data.meta_height = new_height
     image_data.image = image
 
     return image_data
@@ -338,6 +340,15 @@ def crop_image_data(
     image = image[ymin:ymax, xmin:xmax] if image is not None else None
     new_width, new_height = max(0, min(width - 1, xmax - xmin)), max(0, min(height - 1, ymax - ymin))
 
+    def clip_mask_polygons(mask: List[np.ndarray]) -> List[np.ndarray]:
+        clipped_mask = []
+        for polygon in mask:
+            polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
+            polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
+            if len(np.unique(polygon, axis=0)) >= 3:
+                clipped_mask.append(polygon)
+        return clipped_mask
+
     def resize_coords(bbox_data: BboxData):
         bbox_data.xmin = bbox_data.xmin - xmin
         bbox_data.ymin = bbox_data.ymin - ymin
@@ -349,22 +360,23 @@ def crop_image_data(
             for polygon in bbox_data.mask:
                 polygon[:, 0] -= xmin
                 polygon[:, 1] -= ymin
+        if remove_bad_coords:
+            bbox_data.keypoints = bbox_data.keypoints[
+                (
+                    (bbox_data.keypoints[:, 0] >= 0)
+                    & (bbox_data.keypoints[:, 1] >= 0)
+                    & (bbox_data.keypoints[:, 0] < new_width)
+                    & (bbox_data.keypoints[:, 1] < new_height)
+                )
+            ]
         bbox_data.cropped_image = None
         if not allow_negative_and_large_coords:
             bbox_data.xmin = max(0, min(bbox_data.xmin, new_width - 1))
             bbox_data.ymin = max(0, min(bbox_data.ymin, new_height - 1))
             bbox_data.xmax = max(0, min(bbox_data.xmax, new_width - 1))
             bbox_data.ymax = max(0, min(bbox_data.ymax, new_height - 1))
-            keypoints = []
-            for x, y in bbox_data.keypoints:
-                x = max(0, min(x, new_width - 1))
-                y = max(0, min(y, new_height - 1))
-                keypoints.append([x, y])
-            bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
             if isinstance(bbox_data.mask, list):
-                for polygon in bbox_data.mask:
-                    polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
-                    polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
+                bbox_data.mask = clip_mask_polygons(bbox_data.mask)
         for additional_bbox_data in bbox_data.additional_bboxes_data:
             resize_coords(additional_bbox_data)
 
@@ -373,37 +385,23 @@ def crop_image_data(
 
     keypoints = []
     for x, y in image_data.keypoints:
-        x = max(0, min(x - xmin, new_width - 1))
-        y = max(0, min(y - ymin, new_height - 1))
+        x = x - xmin
+        y = y - ymin
+        if remove_bad_coords and not (0 <= x < new_width and 0 <= y < new_height):
+            continue
+        if not allow_negative_and_large_coords:
+            x = max(0, min(x, new_width - 1))
+            y = max(0, min(y, new_height - 1))
         keypoints.append([x, y])
     image_data.keypoints = np.array(keypoints).reshape(-1, 2)
     if isinstance(image_data.mask, list):
         for polygon in image_data.mask:
-            polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
-            polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
+            polygon[:, 0] -= xmin
+            polygon[:, 1] -= ymin
+        if not allow_negative_and_large_coords:
+            image_data.mask = clip_mask_polygons(image_data.mask)
 
     def if_bbox_data_inside_crop(bbox_data: BboxData):
-        bbox_data.keypoints = bbox_data.keypoints[
-            (
-                (bbox_data.keypoints[:, 0] >= 0)
-                & (bbox_data.keypoints[:, 1] >= 0)
-                & (bbox_data.keypoints[:, 0] < new_height)
-                & (bbox_data.keypoints[:, 1] < new_width)
-            )
-        ]
-        if isinstance(bbox_data.mask, list):
-            bbox_data.mask = [
-                polygon[
-                    (
-                        (polygon[:, 0] >= 0)
-                        & (polygon[:, 1] >= 0)
-                        & (polygon[:, 0] < new_height)
-                        & (polygon[:, 1] < new_width)
-                    )
-                ]
-                for polygon in bbox_data.mask
-            ]
-            bbox_data.mask = [polygon for polygon in bbox_data.mask if len(polygon) > 0]
         bbox_data.additional_bboxes_data = [
             additional_bbox_data
             for additional_bbox_data in bbox_data.additional_bboxes_data
@@ -426,25 +424,13 @@ def crop_image_data(
             (
                 (image_data.keypoints[:, 0] >= 0)
                 & (image_data.keypoints[:, 1] >= 0)
-                & (image_data.keypoints[:, 0] < new_height)
-                & (image_data.keypoints[:, 1] < new_width)
+                & (image_data.keypoints[:, 0] < new_width)
+                & (image_data.keypoints[:, 1] < new_height)
             )
         ]
-        if isinstance(image_data.mask, list):
-            image_data.mask = [
-                polygon[
-                    (
-                        (polygon[:, 0] >= 0)
-                        & (polygon[:, 1] >= 0)
-                        & (polygon[:, 0] < new_height)
-                        & (polygon[:, 1] < new_width)
-                    )
-                ]
-                for polygon in image_data.mask
-            ]
-            image_data.mask = [polygon for polygon in image_data.mask if len(polygon) > 0]
-
     image_data.image_path = None
+    image_data.meta_width = new_width
+    image_data.meta_height = new_height
     image_data.image = image
 
     return image_data
@@ -468,7 +454,7 @@ def apply_perspective_transform_to_points(
     )
     if not allow_negative_and_large_coords:
         transformed_points_without_bad_coords = []
-        for x, y in points:
+        for x, y in transformed_points:
             x = max(0, min(x, result_width - 1))
             y = max(0, min(y, result_height - 1))
             transformed_points_without_bad_coords.append([x, y])
@@ -531,7 +517,7 @@ def _apply_perspective_transform_to_bbox_data(
     transformed_bbox_data.keypoints = apply_perspective_transform_to_points(
         transformed_bbox_data.keypoints,
         perspective_matrix,
-        result_height,
+        result_width,
         result_height,
         allow_negative_and_large_coords,
         remove_bad_coords,
@@ -541,7 +527,7 @@ def _apply_perspective_transform_to_bbox_data(
             apply_perspective_transform_to_points(
                 polygon,
                 perspective_matrix,
-                result_height,
+                result_width,
                 result_height,
                 allow_negative_and_large_coords,
                 remove_bad_coords,
@@ -553,7 +539,7 @@ def _apply_perspective_transform_to_bbox_data(
         _apply_perspective_transform_to_bbox_data(
             additional_bbox_data,
             perspective_matrix,
-            result_height,
+            result_width,
             result_height,
             allow_negative_and_large_coords,
             remove_bad_coords,
@@ -614,7 +600,7 @@ def apply_perspective_transform_to_image_data(
             apply_perspective_transform_to_points(
                 polygon,
                 perspective_matrix,
-                result_height,
+                result_width,
                 result_height,
                 allow_negative_and_large_coords,
                 remove_bad_coords,
@@ -635,6 +621,8 @@ def apply_perspective_transform_to_image_data(
     ]
     image_data.bboxes_data = [bbox_data for bbox_data in transformed_bboxes_data if bbox_data is not None]
     image_data.image_path = None
+    image_data.meta_width = result_width
+    image_data.meta_height = result_height
     image_data.image = image
 
     return image_data
@@ -668,7 +656,7 @@ def non_max_suppression_image_data(
         h = np.maximum(0, yy2 - yy1 + 1)
         # compute the ratio of overlap
         overlap = (w * h) / areas[temp_indices]
-        if np.any(overlap) > iou:
+        if np.any(overlap > iou):
             indices = indices[indices != i]
 
     image_data.bboxes_data = [image_data.bboxes_data[i] for i in indices]
@@ -745,13 +733,13 @@ def split_by_grid(
     width, height = size
     bboxes_data = [
         BboxData(
-            xmin=x_offset + i * x_window_size,
-            ymin=y_offset + j * y_window_size,
-            xmax=min(width, x_offset + (i + 1) * x_window_size),
-            ymax=min(height, y_offset + (j + 1) * y_window_size),
+            xmin=x_offset + col_idx * x_window_size,
+            ymin=y_offset + row_idx * y_window_size,
+            xmax=min(width, x_offset + (col_idx + 1) * x_window_size),
+            ymax=min(height, y_offset + (row_idx + 1) * y_window_size),
         )
-        for i in range(n_rows)
-        for j in range(n_cols)
+        for row_idx in range(n_rows)
+        for col_idx in range(n_cols)
     ]
     bboxes_data = [
         bbox_data
@@ -850,7 +838,7 @@ def split_image_data_by_grid(
             (
                 (bbox_data.keypoints[:, 0] >= crop_bbox_data.xmin)
                 & (bbox_data.keypoints[:, 1] >= crop_bbox_data.ymin)
-                & (bbox_data.keypoints[:, 0] <= crop_bbox_data.ymax)
+                & (bbox_data.keypoints[:, 0] <= crop_bbox_data.xmax)
                 & (bbox_data.keypoints[:, 1] <= crop_bbox_data.ymax)
             )
         ]
@@ -876,7 +864,7 @@ def split_image_data_by_grid(
                 (
                     (image_data.keypoints[:, 0] >= crop_bbox_data.xmin)
                     & (image_data.keypoints[:, 1] >= crop_bbox_data.ymin)
-                    & (image_data.keypoints[:, 0] <= crop_bbox_data.ymax)
+                    & (image_data.keypoints[:, 0] <= crop_bbox_data.xmax)
                     & (image_data.keypoints[:, 1] <= crop_bbox_data.ymax)
                 )
             ]
@@ -997,13 +985,6 @@ def concat_images_data(
         image_data_b_new_xmax = max_wb
         image_data_b_new_ymax = ha + between_edge_width + hb
 
-    keypoints_a = image_data_a.keypoints
-    keypoints_b = image_data_a.keypoints
-    keypoints_a[:, 0] += image_data_a_new_xmin
-    keypoints_a[:, 1] += image_data_a_new_ymin
-    keypoints_b[:, 0] += image_data_b_new_xmin
-    keypoints_b[:, 1] += image_data_b_new_ymin
-
     def _get_new_coords_for_bbox_data(bbox_data: BboxData, xmin: int, ymin: int):
         bbox_data.keypoints[:, 0] += xmin
         bbox_data.keypoints[:, 1] += ymin
@@ -1019,6 +1000,13 @@ def concat_images_data(
 
     for bbox_data in image_data_a.bboxes_data:
         _get_new_coords_for_bbox_data(bbox_data, image_data_a_new_xmin, image_data_a_new_ymin)
+
+    keypoints_a = copy.deepcopy(image_data_a.keypoints)
+    keypoints_b = copy.deepcopy(image_data_b.keypoints)
+    keypoints_a[:, 0] += image_data_a_new_xmin
+    keypoints_a[:, 1] += image_data_a_new_ymin
+    keypoints_b[:, 0] += image_data_b_new_xmin
+    keypoints_b[:, 1] += image_data_b_new_ymin
 
     if "concat_images_data__image_data" not in [bbox_data.label for bbox_data in image_data_a.bboxes_data]:
         bbox_data_a_into = [
