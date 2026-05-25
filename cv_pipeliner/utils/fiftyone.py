@@ -20,6 +20,8 @@ logger = logging.getLogger("cv_pipeliner.utils.fiftyone")
 
 class FiftyOneSession:
     _active_sessions = 0
+    _active_config = None
+    _active_previous_env_values = {}
     _env_var_by_param = {
         "database_dir": "FIFTYONE_DATABASE_DIR",
         "database_uri": "FIFTYONE_DATABASE_URI",
@@ -32,14 +34,15 @@ class FiftyOneSession:
         database_uri: Optional[str] = None,
         database_name: Optional[str] = None,
     ):
-        if FiftyOneSession._active_sessions > 0:
-            raise RuntimeError(
-                "There is another active FiftyOneSession. Close it before creating a new session."
-            )
         self.database_dir = database_dir
         self.database_uri = database_uri
         self.database_name = database_name
-        self._previous_env_values = {}
+        self._config = self._get_config()
+        if FiftyOneSession._active_sessions > 0 and self._config != FiftyOneSession._active_config:
+            raise RuntimeError(
+                "There is another active FiftyOneSession with different database settings. "
+                "Close it before creating a session with another database config."
+            )
         self._closed = False
         self._fiftyone = None
 
@@ -49,7 +52,9 @@ class FiftyOneSession:
                 "Create FiftyOneSession before importing fiftyone to guarantee custom database settings."
             )
 
-        self._set_environment()
+        if FiftyOneSession._active_sessions == 0:
+            FiftyOneSession._active_config = self._config
+            FiftyOneSession._active_previous_env_values = self._set_environment()
 
         try:
             self._fiftyone = importlib.import_module("fiftyone")
@@ -58,30 +63,38 @@ class FiftyOneSession:
 
         FiftyOneSession._active_sessions += 1
 
+    def _get_config(self):
+        return tuple(str(getattr(self, param_name)) if getattr(self, param_name) is not None else None for param_name in self._env_var_by_param)
+
     def _has_database_config(self):
         return any(getattr(self, param_name) is not None for param_name in self._env_var_by_param)
 
     def _set_environment(self):
+        previous_env_values = {}
         for param_name, env_var_name in self._env_var_by_param.items():
             value = getattr(self, param_name)
             if value is None:
                 continue
-            self._previous_env_values[env_var_name] = os.environ.get(env_var_name)
+            previous_env_values[env_var_name] = os.environ.get(env_var_name)
             os.environ[env_var_name] = str(value)
+        return previous_env_values
 
     def _restore_environment(self):
-        for env_var_name, previous_value in self._previous_env_values.items():
+        for env_var_name, previous_value in FiftyOneSession._active_previous_env_values.items():
             if previous_value is None:
                 os.environ.pop(env_var_name, None)
             else:
                 os.environ[env_var_name] = previous_value
+        FiftyOneSession._active_previous_env_values = {}
+        FiftyOneSession._active_config = None
 
     def close(self):
         if getattr(self, "_closed", True):
             return
-        self._restore_environment()
         self._closed = True
-        FiftyOneSession._active_sessions -= 1
+        FiftyOneSession._active_sessions = max(FiftyOneSession._active_sessions - 1, 0)
+        if FiftyOneSession._active_sessions == 0:
+            self._restore_environment()
 
     def __enter__(self):
         return self

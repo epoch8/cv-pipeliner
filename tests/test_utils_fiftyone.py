@@ -8,6 +8,8 @@ from cv_pipeliner.utils.fiftyone import FiftyOneSession, FifyOneSession
 
 def _mock_fiftyone_import(monkeypatch):
     monkeypatch.setattr(FiftyOneSession, "_active_sessions", 0)
+    monkeypatch.setattr(FiftyOneSession, "_active_config", None)
+    monkeypatch.setattr(FiftyOneSession, "_active_previous_env_values", {})
     monkeypatch.setattr(fiftyone_utils.importlib, "import_module", lambda name: object())
 
 
@@ -39,12 +41,24 @@ def test_fiftyone_session_close_is_idempotent(monkeypatch):
     assert "FIFTYONE_DATABASE_NAME" not in os.environ
 
 
-def test_fiftyone_session_rejects_two_active_sessions(monkeypatch):
+def test_fiftyone_session_allows_same_database_config(monkeypatch):
     _mock_fiftyone_import(monkeypatch)
     session = FiftyOneSession()
+    other_session = FiftyOneSession()
+
+    try:
+        assert FiftyOneSession._active_sessions == 2
+    finally:
+        other_session.close()
+        session.close()
+
+
+def test_fiftyone_session_rejects_different_active_database_config(monkeypatch):
+    _mock_fiftyone_import(monkeypatch)
+    session = FiftyOneSession(database_name="one")
 
     try:
         with pytest.raises(RuntimeError):
-            FiftyOneSession()
+            FiftyOneSession(database_name="two")
     finally:
         session.close()
