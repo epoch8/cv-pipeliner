@@ -9,7 +9,7 @@ authors = [
 [tool.poetry.dependencies]
 python = ">=3.9, <3.14"
 opencv-python = ">=4.5.1.48"
-numpy = ">=1.21.0, <2.0"
+numpy = ">=1.21.0, <3.0"
 fsspec = ">=2021.4.0"
 pydantic = ">=2.0.0"
 imutils = ">=0.5.4"
