@@ -260,7 +260,7 @@ from cv_pipeliner import ImageData, YOLOv8_ModelSpec
 
 images_data = [ImageData(image_path="images/example.jpg")]
 
-model_spec = YOLOv8_ModelSpec(model_name="yolov8n.pt")
+model_spec = YOLOv8_ModelSpec(model_path="yolov8n.pt")
 detection_inferencer = model_spec.load_detection_inferencer()
 
 pred_images_data = detection_inferencer.predict(
@@ -271,7 +271,7 @@ pred_images_data = detection_inferencer.predict(
 )
 ```
 
-`YOLOv8_ModelSpec` can load either a standard Ultralytics model name or a local/cloud `model_path` supported by `fsspec`.
+`YOLOv8_ModelSpec` accepts an Ultralytics hub name (e.g. `yolov8n.pt`), a local weights file, or a remote `model_path` supported by `fsspec`.
 
 ### Classification
 

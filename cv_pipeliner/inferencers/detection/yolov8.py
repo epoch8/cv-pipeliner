@@ -16,7 +16,6 @@ from cv_pipeliner.inferencers.detection.core import (
 
 
 class YOLOv8_ModelSpec(DetectionModelSpec):
-    model_name: Optional[str] = None
     model_path: Optional[Union[str, Path]] = None  # noqa: F821
     class_names: Optional[Union[List[str], str, Path]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
@@ -85,22 +84,26 @@ class YOLOv8Runtime(DetectionRuntime):
             model_spec (YOLOv8_ModelSpec): YOLOv8 Model specification
 
         Raises:
-            ValueError: If model_name and model_path is not specified
+            ValueError: If model_path is not specified
         """
-        if model_spec.model_name is None and model_spec.model_path is None:
-            raise ValueError("Please, specify model name or weights path for loading model")
+        if model_spec.model_path is None:
+            raise ValueError("Please, specify model_path for loading model")
 
         from ultralytics import YOLO
 
-        if model_spec.model_path is not None:
-            temp_file = tempfile.NamedTemporaryFile(suffix=".pt")
-            with fsspec.open(model_spec.model_path, "rb") as src:
-                temp_file.write(src.read())
-            model_path_tmp = Path(temp_file.name)
+        model_path = Path(model_spec.model_path) if not isinstance(model_spec.model_path, Path) else model_spec.model_path
+        model_path_str = str(model_spec.model_path)
 
-            self.model = YOLO(model_path_tmp)
+        if model_path.exists():
+            self.model = YOLO(model_path)
+        elif "://" in model_path_str:
+            temp_file = tempfile.NamedTemporaryFile(suffix=".pt")
+            with fsspec.open(model_path_str, "rb") as src:
+                temp_file.write(src.read())
+            self.model = YOLO(Path(temp_file.name))
         else:
-            self.model = YOLO(model_spec.model_name)
+            # Ultralytics hub name (e.g. yolov8n.pt) or other non-local identifier
+            self.model = YOLO(model_path_str)
 
         if model_spec.device is not None:
             self.model = self.model.to(model_spec.device)

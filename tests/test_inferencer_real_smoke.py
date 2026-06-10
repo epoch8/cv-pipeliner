@@ -156,6 +156,26 @@ def test_real_yolov8_detection_smoke(model_artifact_cache):
     assert result[0].bboxes_data == []
 
 
+def test_real_yolov8_detection_smoke_with_hub_model_path():
+    pytest.importorskip("ultralytics")
+    from cv_pipeliner.inferencers.detection.yolov8 import YOLOv8_ModelSpec
+
+    spec = YOLOv8_ModelSpec(model_path="yolov8n.pt", device="cpu")
+    try:
+        inferencer = spec.load_detection_inferencer()
+    except Exception as exc:
+        pytest.skip(f"Could not download/load yolov8n.pt via model_path: {exc}")
+
+    result = inferencer.predict(
+        [ImageData(image=np.zeros((64, 64, 3), dtype=np.uint8))],
+        score_threshold=0.99,
+        disable_tqdm=True,
+    )
+
+    assert len(result) == 1
+    assert isinstance(result[0], ImageData)
+
+
 def test_real_yolov5_detection_smoke(model_artifact_cache):
     pytest.importorskip("torch")
     from cv_pipeliner.inferencers.detection.yolov5 import YOLOv5_ModelSpec
