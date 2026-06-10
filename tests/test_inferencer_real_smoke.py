@@ -176,6 +176,37 @@ def test_real_yolov8_detection_smoke_with_hub_model_path():
     assert isinstance(result[0], ImageData)
 
 
+def test_real_yolov8_pose_keypoints_smoke(model_artifact_cache):
+    ultralytics = pytest.importorskip("ultralytics")
+    from cv_pipeliner.inferencers.detection.yolov8 import YOLOv8_ModelSpec
+
+    weight_path = model_artifact_cache / "yolo11n-pose.pt"
+    if not weight_path.exists():
+        try:
+            downloaded_model = ultralytics.YOLO("yolo11n-pose.pt")
+        except Exception as exc:
+            pytest.skip(f"Could not download/load yolo11n-pose.pt: {exc}")
+        source = Path(downloaded_model.ckpt_path)
+        if not source.exists():
+            pytest.skip("Ultralytics did not expose a cached yolo11n-pose.pt artifact")
+        shutil.copy2(source, weight_path)
+
+    image_path = model_artifact_cache / "pose_test.jpg"
+    _download_file("http://images.cocodataset.org/train2017/000000007325.jpg", image_path)
+
+    spec = YOLOv8_ModelSpec(model_path=weight_path, device="cpu")
+    inferencer = spec.load_detection_inferencer()
+    result = inferencer.predict(
+        [ImageData(image_path=str(image_path))],
+        score_threshold=0.01,
+        disable_tqdm=True,
+    )
+
+    assert len(result) == 1
+    assert len(result[0].bboxes_data) > 0
+    assert len(result[0].bboxes_data[0].keypoints) > 0
+
+
 def test_real_yolov5_detection_smoke(model_artifact_cache):
     pytest.importorskip("torch")
     from cv_pipeliner.inferencers.detection.yolov5 import YOLOv5_ModelSpec
