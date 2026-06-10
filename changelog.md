@@ -9,6 +9,8 @@
 - Updated CI to run on Python 3.9-3.12 and install all extras for the test suite.
 - Reworked documentation: expanded `README.md`, translated and updated `docs/getting_started.ipynb`, and added tested examples for `ImageData` transformations, inference, metrics, FiftyOne, and Label Studio integrations.
 - Removed deprecated modules and docs: legacy TensorFlow detection and Detectron2 inference code, `cv_pipeliner.utils.datapipe`, `utils.dataframes`, `utils.download`, `utils.jupyter_visualizer`, `docs/YOLOv8Example.ipynb`, and `docs/yolov8.py.md`.
+- Fix `convert_annotation_to_image_data`: keypoints and masks linked to bboxes via Label Studio `relation` annotations are now attached to the corresponding `BboxData` objects (previously they were parsed but dropped, leaving `BboxData.keypoints` empty).
+- Fix Label Studio keypoint export: per-keypoint labels are taken from `BboxData.additional_info['keypoints_labels']` (populated on import from `value.keypointlabels`), with fallback to the `keypoints_labels` argument; exported keypoints also include `parentID` per Label Studio docs.
 
 # 0.21.2
 - Fix loading classification models in `.keras` format.
