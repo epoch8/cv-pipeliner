@@ -182,6 +182,28 @@ def parse_keypoint_label_to_keypoint(keypoint_label: Dict) -> list:
     return [x, y], label
 
 
+def _get_per_keypoint_label(
+    bbox_data: BboxData,
+    kp_idx: int,
+    keypoints_labels: Optional[List[str]],
+) -> Optional[str]:
+    """Resolve a keypoint label for Label Studio export.
+
+    Label Studio stores one label per keypoint in ``value.keypointlabels`` (see export docs).
+    After import we keep them in ``BboxData.additional_info['keypoints_labels']``.
+    Fall back to the ordered ``keypoints_labels`` argument (e.g. pose skeleton config).
+    """
+    if isinstance(getattr(bbox_data, "additional_info", None), dict):
+        stored_labels = bbox_data.additional_info.get("keypoints_labels")
+        if stored_labels is None:
+            stored_labels = bbox_data.additional_info.get("keypoints_labels_filtered")
+        if stored_labels is not None and kp_idx < len(stored_labels):
+            return stored_labels[kp_idx]
+    if keypoints_labels is not None and kp_idx < len(keypoints_labels):
+        return keypoints_labels[kp_idx]
+    return None
+
+
 def convert_image_data_to_annotation(
     image_data: ImageData,
     to_name: str,
@@ -229,13 +251,13 @@ def convert_image_data_to_annotation(
             if keypoints_from_name is not None:
                 if len(bbox_data.keypoints) == 0:
                     continue
+                bbox_id = f"bbox{bbox_idx}"
                 for kp_idx, keypoint in enumerate(bbox_data.keypoints):
-                    if keypoints_labels is not None:
-                        assert len(keypoints_labels) == len(bbox_data.keypoints)
+                    keypoint_label = _get_per_keypoint_label(bbox_data, kp_idx, keypoints_labels)
                     x, y = keypoint[0], keypoint[1]
                     annotations.append(
                         {
-                            "id": f"bbox{bbox_idx}_kp{kp_idx}",
+                            "id": f"{bbox_id}_kp{kp_idx}",
                             "original_width": im_width,
                             "original_height": im_height,
                             "image_rotation": 0,
@@ -243,11 +265,12 @@ def convert_image_data_to_annotation(
                                 "x": x * 100 / im_width,
                                 "y": y * 100 / im_height,
                                 "width": keypoints_width,
-                                "keypointlabels": ([keypoints_labels[kp_idx]] if keypoints_labels is not None else []),
+                                "keypointlabels": ([keypoint_label] if keypoint_label is not None else []),
                             },
                             "from_name": keypoints_from_name,
                             "to_name": to_name,
                             "type": "keypointlabels",
+                            "parentID": bbox_id,
                         }
                     )
                     annotations.append(
@@ -407,17 +430,24 @@ def process_annotations(
     keypoints_from_name: Optional[str],
     mask_from_name: Optional[str],
 ) -> Tuple[
-    List[Dict[str, Any]],
+    List[BboxData],
     List[Tuple[float, float]],
-    List[Tuple[float, float]],
+    List[List[List[int]]],
     List[str],
     List[str],
     Optional[str],
+    Dict[str, int],
+    Dict[str, int],
+    Dict[str, int],
+    Dict[str, List[str]],
+    Dict[str, List[str]],
+    set,
+    set,
 ]:
-    bboxes_data: List[Dict[str, Any]] = []
+    bboxes_data: List[BboxData] = []
     id_to_bbox_data_idx: Dict[str, int] = {}
     keypoints: List[Tuple[float, float]] = []
-    masks: List[Tuple[float, float]] = []
+    masks: List[List[List[int]]] = []
     items_keypoints_labels: List[str] = []
     items_mask_labels: List[str] = []
     id_to_keypoint_idx: Dict[str, int] = {}
@@ -437,16 +467,20 @@ def process_annotations(
                 image_data_label = parsed_result
             elif parsed_result[0] == "bbox":
                 bboxes_data.append(parsed_result[1])
-                id_to_bbox_data_idx[parsed_result[2]] = len(bboxes_data) - 1
+                if parsed_result[2] is not None:
+                    id_to_bbox_data_idx[parsed_result[2]] = len(bboxes_data) - 1
             elif parsed_result[0] == "keypoint":
                 keypoints.append(parsed_result[1])
                 items_keypoints_labels.append(parsed_result[2])
-                id_to_keypoint_idx[parsed_result[3]] = len(keypoints) - 1
+                if parsed_result[3] is not None:
+                    id_to_keypoint_idx[parsed_result[3]] = len(keypoints) - 1
             elif parsed_result[0] == "mask":
                 masks.append(parsed_result[1])
                 items_mask_labels.append(parsed_result[2])
-                id_to_mask_idx[parsed_result[3]] = len(masks) - 1
+                if parsed_result[3] is not None:
+                    id_to_mask_idx[parsed_result[3]] = len(masks) - 1
 
+    for result in annotation["result"]:
         if result["type"] == "relation":
             handle_relations(
                 result,
@@ -465,15 +499,82 @@ def process_annotations(
         items_keypoints_labels,
         items_mask_labels,
         image_data_label,
+        id_to_bbox_data_idx,
+        id_to_keypoint_idx,
+        id_to_mask_idx,
+        bbox_id_to_keypoints_idxs_relation,
+        bbox_id_to_masks_idxs_relation,
+        keypoints_idxs_that_have_relation,
+        masks_idxs_that_have_relation,
     )
 
 
 def sort_items_by_labels(
     items: List[Union[Tuple[float, float], Tuple[float, float]]], labels: List[str], label_to_position: Dict[str, int]
 ) -> np.ndarray:
-    item_labels_positions = list(map(label_to_position.get, labels))
+    default_pos = len(label_to_position)
+    item_labels_positions = [label_to_position.get(label, default_pos) for label in labels]
     item_sorted_idxs = np.argsort(item_labels_positions)
     return np.array(items)[item_sorted_idxs]
+
+
+def _sort_items_if_labels_provided(
+    items: List[Any], item_labels: List[Optional[str]], ordered_labels: Optional[List[str]]
+) -> List[Any]:
+    if ordered_labels is None or len(items) == 0:
+        return items
+    label_to_position = {label: idx for idx, label in enumerate(ordered_labels)}
+    normalized_labels = [label if label is not None else "" for label in item_labels]
+    return sort_items_by_labels(items, normalized_labels, label_to_position).tolist()
+
+
+def _attach_related_items_to_bboxes(
+    bboxes_data: List[BboxData],
+    id_to_bbox_data_idx: Dict[str, int],
+    bbox_to_item_ids: Dict[str, List[str]],
+    id_to_item_idx: Dict[str, int],
+    items: List[Any],
+    item_labels: List[Optional[str]],
+    ordered_labels: Optional[List[str]],
+    bbox_attr_name: str,
+    to_numpy: bool,
+) -> None:
+    for bbox_id, item_ids in bbox_to_item_ids.items():
+        bbox_idx = id_to_bbox_data_idx.get(bbox_id)
+        if bbox_idx is None:
+            continue
+        related_items: List[Any] = []
+        related_labels: List[Optional[str]] = []
+        for item_id in item_ids:
+            item_idx = id_to_item_idx.get(item_id)
+            if item_idx is None:
+                continue
+            related_items.append(items[item_idx])
+            related_labels.append(item_labels[item_idx])
+        if len(related_items) == 0:
+            continue
+        related_items = _sort_items_if_labels_provided(related_items, related_labels, ordered_labels)
+        setattr(bboxes_data[bbox_idx], bbox_attr_name, np.array(related_items) if to_numpy else related_items)
+        if isinstance(getattr(bboxes_data[bbox_idx], "additional_info", None), dict):
+            bboxes_data[bbox_idx].additional_info[f"{bbox_attr_name}_labels"] = [
+                label for label in _sort_items_if_labels_provided(related_labels, related_labels, ordered_labels)
+            ]
+
+
+def _get_unlinked_items(
+    id_to_item_idx: Dict[str, int],
+    item_ids_that_have_relation: set,
+    items: List[Any],
+    item_labels: List[Optional[str]],
+) -> Tuple[List[Any], List[Optional[str]]]:
+    unlinked_items = []
+    unlinked_labels = []
+    for item_id, item_idx in id_to_item_idx.items():
+        if item_id in item_ids_that_have_relation:
+            continue
+        unlinked_items.append(items[item_idx])
+        unlinked_labels.append(item_labels[item_idx])
+    return unlinked_items, unlinked_labels
 
 
 def convert_annotation_to_image_data(
@@ -493,13 +594,56 @@ def convert_annotation_to_image_data(
         items_keypoints_labels,
         items_mask_labels,
         image_data_label,
+        id_to_bbox_data_idx,
+        id_to_keypoint_idx,
+        id_to_mask_idx,
+        bbox_id_to_keypoints_idxs_relation,
+        bbox_id_to_masks_idxs_relation,
+        keypoints_idxs_that_have_relation,
+        masks_idxs_that_have_relation,
     ) = process_annotations(annotation, bboxes_from_name, label_from_name, keypoints_from_name, mask_from_name)
 
-    if keypoints_labels is not None:
+    _attach_related_items_to_bboxes(
+        bboxes_data=bboxes_data,
+        id_to_bbox_data_idx=id_to_bbox_data_idx,
+        bbox_to_item_ids=bbox_id_to_keypoints_idxs_relation,
+        id_to_item_idx=id_to_keypoint_idx,
+        items=keypoints,
+        item_labels=items_keypoints_labels,
+        ordered_labels=keypoints_labels,
+        bbox_attr_name="keypoints",
+        to_numpy=True,
+    )
+    _attach_related_items_to_bboxes(
+        bboxes_data=bboxes_data,
+        id_to_bbox_data_idx=id_to_bbox_data_idx,
+        bbox_to_item_ids=bbox_id_to_masks_idxs_relation,
+        id_to_item_idx=id_to_mask_idx,
+        items=masks,
+        item_labels=items_mask_labels,
+        ordered_labels=mask_labels,
+        bbox_attr_name="mask",
+        to_numpy=False,
+    )
+
+    keypoints, items_keypoints_labels = _get_unlinked_items(
+        id_to_item_idx=id_to_keypoint_idx,
+        item_ids_that_have_relation=keypoints_idxs_that_have_relation,
+        items=keypoints,
+        item_labels=items_keypoints_labels,
+    )
+    masks, items_mask_labels = _get_unlinked_items(
+        id_to_item_idx=id_to_mask_idx,
+        item_ids_that_have_relation=masks_idxs_that_have_relation,
+        items=masks,
+        item_labels=items_mask_labels,
+    )
+
+    if keypoints_labels is not None and len(keypoints) > 0:
         label_to_position = {label: idx for idx, label in enumerate(keypoints_labels)}
         keypoints = sort_items_by_labels(keypoints, items_keypoints_labels, label_to_position)
 
-    if mask_labels is not None:
+    if mask_labels is not None and len(masks) > 0:
         label_to_position = {label: idx for idx, label in enumerate(mask_labels)}
         masks = sort_items_by_labels(masks, items_mask_labels, label_to_position)
 

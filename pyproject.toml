@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cv_pipeliner"
-version = "0.21.1"
+version = "0.22.0"
 description = ""
 authors = [
     "bobokvsky <alexander.kozlovsky.m@gmail.com>",
@@ -9,9 +9,9 @@ authors = [
 [tool.poetry.dependencies]
 python = ">=3.9, <3.14"
 opencv-python = ">=4.5.1.48"
-numpy = ">=1.21.0, <2.0"
+numpy = ">=1.21.0, <3.0"
 fsspec = ">=2021.4.0"
-pydantic = ">=1.9.2"
+pydantic = ">=2.0.0"
 imutils = ">=0.5.4"
 imageio = ">=2.17.0"
 joblib = ">=1.0.1"
@@ -27,6 +27,20 @@ scikit_learn = ">=0.24.2"
 lxml = ">=4.6.3"
 dataframe-image = ">=0.1.1"
 scikit-image = ">=0.18.3"
+tensorflow = { version = "*", optional = true, python = ">=3.9,<3.13" }
+torch = { version = "*", optional = true, python = ">=3.9,<3.13" }
+torchvision = { version = "*", optional = true, python = ">=3.9,<3.13" }
+ultralytics = { version = "*", optional = true, python = ">=3.9,<3.13" }
+nbclient = { version = "*", optional = true }
+nbformat = { version = "*", optional = true }
+ipykernel = { version = "*", optional = true }
+fiftyone = { version = "*", optional = true }
+
+
+[tool.poetry.extras]
+tensorflow = ["tensorflow"]
+torch = ["torch", "torchvision", "ultralytics"]
+fiftyone = ["fiftyone"]
 
 
 [tool.poetry.group.dev.dependencies]
