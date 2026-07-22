@@ -361,14 +361,12 @@ def crop_image_data(
                 polygon[:, 0] -= xmin
                 polygon[:, 1] -= ymin
         if remove_bad_coords:
-            bbox_data.keypoints = bbox_data.keypoints[
-                (
-                    (bbox_data.keypoints[:, 0] >= 0)
-                    & (bbox_data.keypoints[:, 1] >= 0)
-                    & (bbox_data.keypoints[:, 0] < new_width)
-                    & (bbox_data.keypoints[:, 1] < new_height)
-                )
-            ]
+            bbox_data.filter_keypoints(
+                (bbox_data.keypoints[:, 0] >= 0)
+                & (bbox_data.keypoints[:, 1] >= 0)
+                & (bbox_data.keypoints[:, 0] < new_width)
+                & (bbox_data.keypoints[:, 1] < new_height)
+            )
         bbox_data.cropped_image = None
         if not allow_negative_and_large_coords:
             bbox_data.xmin = max(0, min(bbox_data.xmin, new_width - 1))
@@ -420,14 +418,12 @@ def crop_image_data(
         image_data.bboxes_data = [
             bbox_data for bbox_data in image_data.bboxes_data if if_bbox_data_inside_crop(bbox_data)
         ]
-        image_data.keypoints = image_data.keypoints[
-            (
-                (image_data.keypoints[:, 0] >= 0)
-                & (image_data.keypoints[:, 1] >= 0)
-                & (image_data.keypoints[:, 0] < new_width)
-                & (image_data.keypoints[:, 1] < new_height)
-            )
-        ]
+        image_data.filter_keypoints(
+            (image_data.keypoints[:, 0] >= 0)
+            & (image_data.keypoints[:, 1] >= 0)
+            & (image_data.keypoints[:, 0] < new_width)
+            & (image_data.keypoints[:, 1] < new_height)
+        )
     image_data.image_path = None
     image_data.meta_width = new_width
     image_data.meta_height = new_height
@@ -834,14 +830,12 @@ def split_image_data_by_grid(
         bbox_data.xmax = new_xmax
         bbox_data.ymin = new_ymin
         bbox_data.ymax = new_ymax
-        bbox_data.keypoints = bbox_data.keypoints[
-            (
-                (bbox_data.keypoints[:, 0] >= crop_bbox_data.xmin)
-                & (bbox_data.keypoints[:, 1] >= crop_bbox_data.ymin)
-                & (bbox_data.keypoints[:, 0] <= crop_bbox_data.xmax)
-                & (bbox_data.keypoints[:, 1] <= crop_bbox_data.ymax)
-            )
-        ]
+        bbox_data.filter_keypoints(
+            (bbox_data.keypoints[:, 0] >= crop_bbox_data.xmin)
+            & (bbox_data.keypoints[:, 1] >= crop_bbox_data.ymin)
+            & (bbox_data.keypoints[:, 0] <= crop_bbox_data.xmax)
+            & (bbox_data.keypoints[:, 1] <= crop_bbox_data.ymax)
+        )
         additional_bboxes_data = [
             apply_fix_bbox(crop_bbox_data, additional_bbox_data)
             for additional_bbox_data in bbox_data.additional_bboxes_data
@@ -860,20 +854,34 @@ def split_image_data_by_grid(
                 if crop_intersection_area(crop_bbox_data, bbox_data) >= minimum_crop_intersection_area
             ]
             additional_bboxes_data = [bbox_data for bbox_data in additional_bboxes_data if bbox_data is not None]
-            keypoints = copy.deepcopy(image_data.keypoints)[
-                (
-                    (image_data.keypoints[:, 0] >= crop_bbox_data.xmin)
-                    & (image_data.keypoints[:, 1] >= crop_bbox_data.ymin)
-                    & (image_data.keypoints[:, 0] <= crop_bbox_data.xmax)
-                    & (image_data.keypoints[:, 1] <= crop_bbox_data.ymax)
-                )
-            ]
+            keypoints_mask = (
+                (image_data.keypoints[:, 0] >= crop_bbox_data.xmin)
+                & (image_data.keypoints[:, 1] >= crop_bbox_data.ymin)
+                & (image_data.keypoints[:, 0] <= crop_bbox_data.xmax)
+                & (image_data.keypoints[:, 1] <= crop_bbox_data.ymax)
+            )
+            keypoints = copy.deepcopy(image_data.keypoints)[keypoints_mask]
+            keypoints_visibility = (
+                np.asarray(image_data.keypoints_visibility)[keypoints_mask].astype(int).tolist()
+                if image_data.keypoints_visibility is not None
+                and len(image_data.keypoints_visibility) == len(keypoints_mask)
+                else None
+            )
+            keypoints_scores = (
+                np.asarray(image_data.keypoints_scores, dtype=float)[keypoints_mask].astype(float).tolist()
+                if image_data.keypoints_scores is not None and len(image_data.keypoints_scores) == len(keypoints_mask)
+                else None
+            )
         else:
             additional_bboxes_data = copy.deepcopy(image_data.bboxes_data)
             keypoints = copy.deepcopy(image_data.keypoints)
+            keypoints_visibility = copy.deepcopy(image_data.keypoints_visibility)
+            keypoints_scores = copy.deepcopy(image_data.keypoints_scores)
 
         crop_bbox_data.additional_bboxes_data = additional_bboxes_data
         crop_bbox_data.keypoints = keypoints
+        crop_bbox_data.keypoints_visibility = keypoints_visibility
+        crop_bbox_data.keypoints_scores = keypoints_scores
 
     image_data.bboxes_data = crops_bboxes_data
     image_data.image_path = image_data.image_path  # apply to bboxes_data
@@ -1052,12 +1060,23 @@ def concat_images_data(
         bbox_data for bbox_data in image_data_b.bboxes_data if "concat_images_data__image_data" == bbox_data.label
     ] + bbox_data_b_into
 
+    def _concat_optional_lists(a, b):
+        if a is None and b is None:
+            return None
+        if a is None or b is None:
+            return None
+        return list(a) + list(b)
+
     image_data = ImageData(
         image_path=None,
         image=image,
         bboxes_data=image_data_a.bboxes_data + image_data_b.bboxes_data,
         label=None,
         keypoints=np.concatenate([keypoints_a, keypoints_b], axis=0),
+        keypoints_visibility=_concat_optional_lists(
+            image_data_a.keypoints_visibility, image_data_b.keypoints_visibility
+        ),
+        keypoints_scores=_concat_optional_lists(image_data_a.keypoints_scores, image_data_b.keypoints_scores),
         additional_info={**image_data_a.additional_info, **image_data_b.additional_info},
     )
 

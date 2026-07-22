@@ -236,3 +236,38 @@ def test_meta_reassignment_without_image_propagates_to_many_bboxes():
 
     assert all(bbox_data.image is None for bbox_data in all_bboxes)
     assert all((bbox_data.meta_width, bbox_data.meta_height) == (100, 200) for bbox_data in all_bboxes)
+
+
+def test_keypoints_visibility_and_scores_roundtrip_and_filter():
+    from cv_pipeliner.core.data import KeypointVisibility
+
+    bbox_data = BboxData(
+        image=np.zeros((10, 20, 3), dtype=np.uint8),
+        xmin=0,
+        ymin=0,
+        xmax=10,
+        ymax=10,
+        keypoints=[(1, 1), (5, 5), (15, 5)],
+        keypoints_visibility=[0, 1, 2],
+        keypoints_scores=[0.1, 0.2, 0.3],
+    )
+    assert bbox_data.keypoints_visibility == [
+        KeypointVisibility.NOT_LABELED,
+        KeypointVisibility.LABELED_NOT_VISIBLE,
+        KeypointVisibility.LABELED_AND_VISIBLE,
+    ]
+    restored = BboxData.from_json(json.loads(bbox_data.json()))
+    assert restored.keypoints_visibility == [
+        KeypointVisibility.NOT_LABELED,
+        KeypointVisibility.LABELED_NOT_VISIBLE,
+        KeypointVisibility.LABELED_AND_VISIBLE,
+    ]
+    assert restored.keypoints_scores == pytest.approx([0.1, 0.2, 0.3])
+
+    bbox_data.filter_keypoints(np.array([True, False, True]))
+    assert bbox_data.keypoints.tolist() == [[1, 1], [15, 5]]
+    assert bbox_data.keypoints_visibility == [
+        KeypointVisibility.NOT_LABELED,
+        KeypointVisibility.LABELED_AND_VISIBLE,
+    ]
+    assert bbox_data.keypoints_scores == pytest.approx([0.1, 0.3])

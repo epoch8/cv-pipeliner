@@ -1,5 +1,5 @@
 import abc
-from typing import Callable, List, Tuple, Type, Union
+from typing import Callable, List, Type, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -11,26 +11,8 @@ from cv_pipeliner.inferencers.batch_utils import call_progress_callback, ensure_
 from cv_pipeliner.inferencers.postprocess import build_detection_images_data
 from cv_pipeliner.inferencers.results import DetectionResult
 
-Bbox = Tuple[int, int, int, int]
-Score = float
-Class = str
-
-Bboxes = List[Bbox]
-DetectionScores = List[Score]
-ClassificationScores = List[Score]
-Classes = List[Class]
-Keypoints = List[List[Tuple[int, int]]]
-Mask = List[List[List[Tuple[int, int]]]]
-
 DetectionInput = List[np.ndarray]
-DetectionOutput = Tuple[
-    List[Bboxes],
-    List[Keypoints],
-    List[Mask],
-    List[DetectionScores],
-    List[Classes],
-    List[ClassificationScores],
-]
+DetectionOutput = DetectionResult
 
 
 class DetectionModelSpec(ModelSpec):
@@ -53,7 +35,7 @@ class DetectionRuntime(Runtime):
     @abc.abstractmethod
     def predict(
         self, input: DetectionInput, score_threshold: float, classification_top_n: int = None
-    ) -> DetectionOutput:
+    ) -> DetectionResult:
         pass
 
 
@@ -65,21 +47,13 @@ class DetectionInferencer(Inferencer):
     def _postprocess_predictions(
         self,
         images_data: List[ImageData],
-        n_pred_bboxes: List[List[Tuple[int, int, int, int]]],
-        n_k_pred_keypoints: List[List[List[Tuple[int, int]]]],
-        n_k_pred_masks: List[List[List[List[Tuple[int, int]]]]],
-        n_pred_scores: List[List[float]],
+        detection_result: DetectionResult,
         open_images_in_images_data: bool,
         open_cropped_images_in_bboxes_data: bool,
     ) -> List[ImageData]:
         return build_detection_images_data(
             images_data=images_data,
-            detection_result=DetectionResult(
-                bboxes=n_pred_bboxes,
-                keypoints=n_k_pred_keypoints,
-                masks=n_k_pred_masks,
-                detection_scores=n_pred_scores,
-            ),
+            detection_result=detection_result,
             open_images_in_images_data=open_images_in_images_data,
             open_cropped_images_in_bboxes_data=open_cropped_images_in_bboxes_data,
         )
@@ -100,15 +74,10 @@ class DetectionInferencer(Inferencer):
         with tqdm(total=len(images_data_gen.data), disable=disable_tqdm) as pbar:
             for images_data in images_data_gen:
                 input = [image_data.image for image_data in images_data]
-                n_pred_bboxes, n_k_pred_keypoints, n_k_pred_masks, n_pred_scores, _, _ = self.model.predict(
-                    input=input, score_threshold=score_threshold
-                )
+                detection_result = self.model.predict(input=input, score_threshold=score_threshold)
                 pred_images_data_batch = self._postprocess_predictions(
                     images_data=images_data,
-                    n_pred_bboxes=n_pred_bboxes,
-                    n_k_pred_keypoints=n_k_pred_keypoints,
-                    n_k_pred_masks=n_k_pred_masks,
-                    n_pred_scores=n_pred_scores,
+                    detection_result=detection_result,
                     open_images_in_images_data=open_images_in_images_data,
                     open_cropped_images_in_bboxes_data=open_cropped_images_in_bboxes_data,
                 )
@@ -118,4 +87,3 @@ class DetectionInferencer(Inferencer):
                 call_progress_callback(progress_callback, progress)
 
         return pred_images_data
-

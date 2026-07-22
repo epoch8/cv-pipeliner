@@ -6,7 +6,7 @@ import imutils
 import numpy as np
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
-from cv_pipeliner.core.data import BboxData, ImageData
+from cv_pipeliner.core.data import BboxData, ImageData, KeypointVisibility
 from cv_pipeliner.utils.images import rotate_point
 from cv_pipeliner.utils.images_datas import (
     flatten_additional_bboxes_data_in_image_data,
@@ -146,6 +146,75 @@ STANDARD_COLORS_RGB = ["Red", "Green", "Blue", "Yellow"]
 STANDARD_COLORS_RGB = STANDARD_COLORS_RGB + [x for x in STANDARD_COLORS if x not in STANDARD_COLORS_RGB]
 
 
+def _normalize_keypoints_visibility(
+    keypoints_visibility: Optional[List[Union[int, KeypointVisibility]]],
+    n_keypoints: int,
+) -> List[Optional[KeypointVisibility]]:
+    if keypoints_visibility is None:
+        return [None] * n_keypoints
+    if len(keypoints_visibility) != n_keypoints:
+        raise ValueError(
+            f"Len keypoints_visibility={len(keypoints_visibility)} not equal to len keypoints={n_keypoints}"
+        )
+    return [None if value is None else KeypointVisibility(int(value)) for value in keypoints_visibility]
+
+
+def _normalize_keypoints_scores(
+    keypoints_scores: Optional[List[Optional[float]]],
+    n_keypoints: int,
+) -> List[Optional[float]]:
+    if keypoints_scores is None:
+        return [None] * n_keypoints
+    if len(keypoints_scores) != n_keypoints:
+        raise ValueError(f"Len keypoints_scores={len(keypoints_scores)} not equal to len keypoints={n_keypoints}")
+    return [None if score is None else float(score) for score in keypoints_scores]
+
+
+def draw_keypoints_on_image(
+    draw: ImageDraw.ImageDraw,
+    keypoints: np.ndarray,
+    *,
+    keypoints_radius: int = 5,
+    keypoints_visibility: Optional[List[Union[int, KeypointVisibility]]] = None,
+    keypoints_scores: Optional[List[Optional[float]]] = None,
+    include_keypoint_scores: bool = False,
+    fontsize: int = 12,
+) -> None:
+    """Draw keypoints with optional COCO visibility and confidence scores.
+
+    Visibility:
+    - ``None`` / missing: draw filled (legacy behavior)
+    - ``NOT_LABELED`` (0): skip
+    - ``LABELED_NOT_VISIBLE`` (1): outline only
+    - ``LABELED_AND_VISIBLE`` (2): filled
+    """
+    keypoints = np.asarray(keypoints).reshape(-1, 2)
+    visibility = _normalize_keypoints_visibility(keypoints_visibility, len(keypoints))
+    scores = _normalize_keypoints_scores(keypoints_scores, len(keypoints))
+
+    try:
+        font = ImageFont.truetype("arial.ttf", max(8, fontsize // 2))
+    except IOError:
+        font = ImageFont.load_default()
+
+    for idx, ((x, y), visibility_flag, score) in enumerate(zip(keypoints, visibility, scores)):
+        if visibility_flag is KeypointVisibility.NOT_LABELED:
+            continue
+        color = STANDARD_COLORS_RGB[idx % len(STANDARD_COLORS_RGB)]
+        bbox = [(x - keypoints_radius, y - keypoints_radius), (x + keypoints_radius, y + keypoints_radius)]
+        if visibility_flag is KeypointVisibility.LABELED_NOT_VISIBLE:
+            draw.arc(bbox, start=0, end=360, fill=color, width=max(1, keypoints_radius // 2))
+        else:
+            draw.pieslice(bbox, start=0, end=360, fill=color)
+        if include_keypoint_scores and score is not None:
+            draw.text(
+                (x + keypoints_radius + 1, y - keypoints_radius),
+                f"{round(100 * score)}%",
+                fill=color,
+                font=font,
+            )
+
+
 def draw_mask_on_image(image: np.ndarray, mask: np.ndarray, color: Tuple[int, int, int], alpha: float) -> np.ndarray:
     if len(mask.shape) == 2:
         mask = np.array(Image.fromarray(mask).convert("RGB"))
@@ -176,6 +245,9 @@ def draw_bounding_box_on_image(
     use_normalized_coordinates=True,
     keypoints_radius: int = 5,
     fontsize: int = 24,
+    keypoints_visibility: Optional[List[Union[int, KeypointVisibility]]] = None,
+    keypoints_scores: Optional[List[Optional[float]]] = None,
+    include_keypoint_scores: bool = False,
 ):
     """Adds a bounding box to an image.
 
@@ -238,14 +310,15 @@ def draw_bounding_box_on_image(
         draw.text((left + margin, text_bottom - text_height - margin), display_str, fill="black", font=font)
         text_bottom -= text_height - 2 * margin
 
-    keypoints = np.array(keypoints).reshape(len(keypoints), 2)
-    for idx, (x, y) in enumerate(keypoints):
-        draw.pieslice(
-            [(x - keypoints_radius, y - keypoints_radius), (x + keypoints_radius, y + keypoints_radius)],
-            start=0,
-            end=360,
-            fill=STANDARD_COLORS_RGB[idx % len(STANDARD_COLORS_RGB)],
-        )
+    draw_keypoints_on_image(
+        draw,
+        keypoints,
+        keypoints_radius=keypoints_radius,
+        keypoints_visibility=keypoints_visibility,
+        keypoints_scores=keypoints_scores,
+        include_keypoint_scores=include_keypoint_scores,
+        fontsize=fontsize,
+    )
 
 
 # Taken from object_detection.utils.visualization_utils
@@ -265,6 +338,9 @@ def visualize_boxes_and_labels_on_image_array(
     fontsize: int = 24,
     thickness: int = 4,
     label_to_color: Optional[Dict[str, str]] = None,
+    k_keypoints_visibility: Optional[List[Optional[List[Union[int, KeypointVisibility]]]]] = None,
+    k_keypoints_scores: Optional[List[Optional[List[Optional[float]]]]] = None,
+    include_keypoint_scores: bool = False,
 ):
     """Overlay labeled boxes on an image with formatted scores and label names.
 
@@ -326,9 +402,16 @@ def visualize_boxes_and_labels_on_image_array(
             else:
                 bbox_to_color[bbox] = groundtruth_box_visualization_color
 
+    if k_keypoints_visibility is None:
+        k_keypoints_visibility = [None] * len(k_keypoints)
+    if k_keypoints_scores is None:
+        k_keypoints_scores = [None] * len(k_keypoints)
+
     # Draw all boxes onto image.
     image_pil = Image.fromarray(np.uint8(image)).convert("RGB")
-    for bbox, angle, keypoints in zip(bboxes, angles, k_keypoints):
+    for bbox, angle, keypoints, keypoints_visibility, keypoints_scores in zip(
+        bboxes, angles, k_keypoints, k_keypoints_visibility, k_keypoints_scores
+    ):
         bbox = tuple(bbox.tolist())
         xmin, ymin, xmax, ymax = bbox
         draw_bounding_box_on_image(
@@ -345,6 +428,9 @@ def visualize_boxes_and_labels_on_image_array(
             use_normalized_coordinates=use_normalized_coordinates,
             keypoints_radius=keypoints_radius,
             fontsize=fontsize,
+            keypoints_visibility=keypoints_visibility,
+            keypoints_scores=keypoints_scores,
+            include_keypoint_scores=include_keypoint_scores,
         )
     image = np.array(image_pil)
     return image
@@ -411,6 +497,7 @@ def visualize_image_data(
     include_additional_bboxes_data: bool = False,
     additional_bboxes_data_depth: Optional[int] = None,
     include_keypoints: bool = False,
+    include_keypoint_scores: bool = False,
     include_mask: bool = False,
     mask_alpha: float = 0.5,
     label_to_color: Optional[Dict[str, str]] = None,
@@ -445,6 +532,8 @@ def visualize_image_data(
     if known_labels is None:
         known_labels = list(set(labels))
     k_keypoints = [bbox_data.keypoints for bbox_data in bboxes_data]
+    k_keypoints_visibility = [bbox_data.keypoints_visibility for bbox_data in bboxes_data]
+    k_keypoints_scores = [bbox_data.keypoints_scores for bbox_data in bboxes_data]
     bboxes = np.array(
         [
             bbox_data.coords_with_offset(xmin_offset, ymin_offset, xmax_offset, ymax_offset, source_image=image)
@@ -468,6 +557,9 @@ def visualize_image_data(
         angles=angles,
         scores=scores,
         k_keypoints=k_keypoints,
+        k_keypoints_visibility=k_keypoints_visibility,
+        k_keypoints_scores=k_keypoints_scores,
+        include_keypoint_scores=include_keypoint_scores,
         labels=labels,
         use_normalized_coordinates=False,
         skip_scores=skip_scores,
@@ -482,13 +574,15 @@ def visualize_image_data(
     if include_keypoints and len(image_data.keypoints) > 0:
         image_pil = Image.fromarray(image)
         draw = ImageDraw.Draw(image_pil)
-        for idx, (x, y) in enumerate(image_data.keypoints):
-            draw.pieslice(
-                [(x - keypoints_radius, y - keypoints_radius), (x + keypoints_radius, y + keypoints_radius)],
-                start=0,
-                end=360,
-                fill=STANDARD_COLORS_RGB[idx % len(STANDARD_COLORS_RGB)],
-            )
+        draw_keypoints_on_image(
+            draw,
+            image_data.keypoints,
+            keypoints_radius=keypoints_radius,
+            keypoints_visibility=image_data.keypoints_visibility,
+            keypoints_scores=image_data.keypoints_scores,
+            include_keypoint_scores=include_keypoint_scores,
+            fontsize=fontsize,
+        )
         image = np.array(image_pil)
 
     if include_mask:

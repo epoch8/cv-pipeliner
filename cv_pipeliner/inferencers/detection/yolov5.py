@@ -14,8 +14,8 @@ from cv_pipeliner.inferencers.detection.core import (
     DetectionInput,
     DetectionRuntime,
     DetectionModelSpec,
-    DetectionOutput,
 )
+from cv_pipeliner.inferencers.results import DetectionResult, PostprocessedDetectionImage, RawDetectionPredictions
 from cv_pipeliner.utils.images import (
     denormalize_bboxes,
     rescale_bboxes_with_pad,
@@ -241,20 +241,23 @@ class YOLOv5Runtime(DetectionRuntime):
             self.output_detail = self.model.get_output_details()[0]["index"]
         temp_file.close()
 
-    def _raw_predict_images_torch(
-        self, input: DetectionInput, score_threshold: float
-    ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
+    def _raw_predict_images_torch(self, input: DetectionInput, score_threshold: float) -> RawDetectionPredictions:
         self.model.conf = score_threshold
         results = self.model(input)
         results_pd = results.pandas()
 
-        n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = [], [], [], []
+        bboxes, keypoints, scores, class_ids = [], [], [], []
         for result_pd in results_pd.xyxyn:
-            n_raw_bboxes.append(np.array(result_pd[["xmin", "ymin", "xmax", "ymax"]]))
-            n_raw_keypoints.append(np.array([]).reshape(len(result_pd), 0, 2))
-            n_raw_scores.append(np.array(result_pd["confidence"]))
-            n_raw_classes.append(np.array(result_pd["class"]))
-        return n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes
+            bboxes.append(np.array(result_pd[["xmin", "ymin", "xmax", "ymax"]]))
+            keypoints.append(np.array([]).reshape(len(result_pd), 0, 2))
+            scores.append(np.array(result_pd["confidence"]))
+            class_ids.append(np.array(result_pd["class"]))
+        return RawDetectionPredictions(
+            bboxes=bboxes,
+            keypoints=keypoints,
+            detection_scores=scores,
+            class_ids=class_ids,
+        )
 
     def _xywh2xyxy_tf(self, xywh: np.ndarray):
         import tensorflow as tf
@@ -301,8 +304,8 @@ class YOLOv5Runtime(DetectionRuntime):
         self,
         input: DetectionInput,
         score_threshold: float,
-    ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
-        n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = [], [], [], []
+    ) -> RawDetectionPredictions:
+        bboxes, keypoints, scores, class_ids = [], [], [], []
         for image in input:
             height, width, _ = image.shape
             image = np.array(image[None, ...], dtype=self.input_dtype)
@@ -319,12 +322,17 @@ class YOLOv5Runtime(DetectionRuntime):
                 raw_bboxes, raw_scores, raw_classes = self._post_process_raw_predictions_yolov5(
                     raw_preds, max_output_size=2000
                 )
-            n_raw_bboxes.append(raw_bboxes)
-            n_raw_keypoints.append(np.array([]).reshape(len(raw_bboxes), 0, 2))
-            n_raw_scores.append(raw_scores)
-            n_raw_classes.append(raw_classes)
+            bboxes.append(raw_bboxes)
+            keypoints.append(np.array([]).reshape(len(raw_bboxes), 0, 2))
+            scores.append(raw_scores)
+            class_ids.append(raw_classes)
 
-        return n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes
+        return RawDetectionPredictions(
+            bboxes=bboxes,
+            keypoints=keypoints,
+            detection_scores=scores,
+            class_ids=class_ids,
+        )
 
     def _postprocess_prediction(
         self,
@@ -338,9 +346,7 @@ class YOLOv5Runtime(DetectionRuntime):
         target_width: int,
         target_height: int,
         classification_top_n: int,
-    ) -> Tuple[
-        List[Tuple[int, int, int, int]], List[List[Tuple[int, int]]], List[float], List[List[str]], List[List[float]]
-    ]:
+    ) -> PostprocessedDetectionImage:
         if isinstance(self.model_spec, (YOLOv5_TFLite_ModelSpec, YOLOv5_TFLiteWithNMS_ModelSpec)) and (
             self.model_spec.use_default_preprocces_and_postprocess_input
         ):
@@ -390,19 +396,25 @@ class YOLOv5Runtime(DetectionRuntime):
         else:
             class_names_top_n = np.array([[None for _ in range(classification_top_n)] for _ in classes])
             classes_scores_top_n = np.array([[score for _ in range(classification_top_n)] for score in classes_scores])
-        return bboxes, keypoints, scores, class_names_top_n, classes_scores_top_n
+        return PostprocessedDetectionImage(
+            bboxes=bboxes,
+            keypoints=keypoints,
+            detection_scores=scores,
+            labels_top_n=class_names_top_n,
+            classification_scores_top_n=classes_scores_top_n,
+        )
 
-    def predict(self, input: DetectionInput, score_threshold: float, classification_top_n: int = 1) -> DetectionOutput:
+    def predict(self, input: DetectionInput, score_threshold: float, classification_top_n: int = 1) -> DetectionResult:
         target_heights_widths = [image.shape[:2] for image in input]
         input = self.preprocess_input(input)
         current_heights_widths = [image.shape[:2] for image in input]
-        n_raw_bboxes, n_raw_keypoints, n_raw_scores, n_raw_classes = self._raw_predict_images(input, score_threshold)
+        raw = self._raw_predict_images(input, score_threshold)
         results = [
             self._postprocess_prediction(
-                raw_bboxes=raw_bboxes,
-                raw_keypoints=raw_keypoints,
-                raw_scores=raw_scores,
-                raw_classes=raw_classes,
+                raw_bboxes=raw_image.bboxes,
+                raw_keypoints=raw_image.keypoints,
+                raw_scores=raw_image.detection_scores,
+                raw_classes=raw_image.class_ids,
                 score_threshold=score_threshold,
                 current_height=current_height,
                 current_width=current_width,
@@ -413,30 +425,21 @@ class YOLOv5Runtime(DetectionRuntime):
             for (
                 (target_height, target_width),
                 (current_height, current_width),
-                raw_bboxes,
-                raw_keypoints,
-                raw_scores,
-                raw_classes,
+                raw_image,
             ) in zip(
                 target_heights_widths,
                 current_heights_widths,
-                n_raw_bboxes,
-                n_raw_keypoints,
-                n_raw_scores,
-                n_raw_classes,
+                raw,
             )
         ]
-        n_pred_bboxes, n_pred_keypoints, n_pred_scores, n_pred_class_names_top_k, n_pred_scores_top_k = [
-            [res[i] for res in results] for i in range(5)
-        ]
-        n_pred_masks = [[[] for _ in pred_bboxes] for pred_bboxes in n_pred_bboxes]
-        return (
-            n_pred_bboxes,
-            n_pred_keypoints,
-            n_pred_masks,
-            n_pred_scores,
-            n_pred_class_names_top_k,
-            n_pred_scores_top_k,
+        return DetectionResult(
+            bboxes=[result.bboxes for result in results],
+            keypoints=[result.keypoints for result in results],
+            masks=[[[] for _ in result.bboxes] for result in results],
+            detection_scores=[result.detection_scores for result in results],
+            labels_top_n=[result.labels_top_n for result in results],
+            classification_scores_top_n=[result.classification_scores_top_n for result in results],
+            keypoints_scores=None,
         )
 
     def preprocess_input(self, input: DetectionInput):

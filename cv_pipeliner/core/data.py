@@ -1,6 +1,7 @@
 import copy
 import io
 import json
+from enum import IntEnum
 from pathlib import Path
 
 import cv2
@@ -15,6 +16,20 @@ from pathy import Pathy
 
 from cv_pipeliner.utils.images import is_base64, open_image
 from cv_pipeliner.utils.imagesize import get_image_size
+
+
+class KeypointVisibility(IntEnum):
+    """COCO keypoint visibility flag (https://cocodataset.org/#format-data).
+
+    Each keypoint has a 0-indexed location (x, y) and a visibility flag v:
+    - v=0: not labeled (in which case x=y=0)
+    - v=1: labeled but not visible
+    - v=2: labeled and visible
+    """
+
+    NOT_LABELED = 0
+    LABELED_NOT_VISIBLE = 1
+    LABELED_AND_VISIBLE = 2
 
 
 def get_image_name(image_path) -> str:
@@ -79,6 +94,8 @@ class BaseImageData(BaseModel):
     image: Optional[np.ndarray] = Field(default=None, repr=False, exclude=True)
     label: Optional[str] = None
     keypoints: np.ndarray = Field(default_factory=lambda: np.array([]).astype(int).reshape((-1, 2)))
+    keypoints_visibility: Optional[List[KeypointVisibility]] = Field(default=None)
+    keypoints_scores: Optional[List[float]] = Field(default=None)
     mask: Union[
         Union[str, Path, Pathy, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image],  # path to mask image
         np.ndarray,  # mask image
@@ -129,6 +146,35 @@ class BaseImageData(BaseModel):
         if keypoints is None:
             keypoints = []
         return np.array(keypoints).astype(int).reshape((-1, 2))
+
+    @field_validator("keypoints_visibility", mode="before")
+    @classmethod
+    def parse_keypoints_visibility(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, np.ndarray):
+            value = value.tolist()
+        return [KeypointVisibility(int(v)) for v in value]
+
+    @field_validator("keypoints_scores", mode="before")
+    @classmethod
+    def parse_keypoints_scores(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, np.ndarray):
+            value = value.tolist()
+        return [float(v) for v in value]
+
+    def filter_keypoints(self, mask: np.ndarray) -> None:
+        """Filter keypoints and keep visibility/scores aligned with the same mask."""
+        mask = np.asarray(mask)
+        if self.keypoints_visibility is not None and len(self.keypoints_visibility) == len(mask):
+            self.keypoints_visibility = [
+                KeypointVisibility(int(v)) for v in np.asarray(self.keypoints_visibility)[mask].tolist()
+            ]
+        if self.keypoints_scores is not None and len(self.keypoints_scores) == len(mask):
+            self.keypoints_scores = [float(v) for v in np.asarray(self.keypoints_scores, dtype=float)[mask].tolist()]
+        self.keypoints = self.keypoints[mask]
 
     @field_validator("mask", mode="before")
     @classmethod
@@ -357,7 +403,7 @@ class BboxData(BaseImageData):
         ymin_offset: Union[int, float] = 0,
         xmax_offset: Union[int, float] = 0,
         ymax_offset: Union[int, float] = 0,
-        source_image: np.ndarray = None,
+        source_image: Optional[np.ndarray] = None,
     ) -> Tuple[int, int, int, int]:
         if source_image is not None:
             height, width = source_image.shape[0], source_image.shape[1]
@@ -389,7 +435,7 @@ class BboxData(BaseImageData):
     def open_cropped_image(
         self,
         inplace: bool = False,
-        source_image: np.ndarray = None,
+        source_image: Optional[np.ndarray] = None,
         xmin_offset: Union[int, float] = 0,
         ymin_offset: Union[int, float] = 0,
         xmax_offset: Union[int, float] = 0,
@@ -462,6 +508,8 @@ class BboxData(BaseImageData):
                     bboxes_data=additional_bboxes_data,
                     label=self.label,
                     keypoints=keypoints,
+                    keypoints_visibility=self.keypoints_visibility,
+                    keypoints_scores=self.keypoints_scores,
                     mask=mask,
                     additional_info=self.additional_info,
                 )
@@ -500,7 +548,7 @@ class BboxData(BaseImageData):
         xmax_offset: Union[int, float] = 0,
         ymax_offset: Union[int, float] = 0,
         exif_transpose: bool = False,
-        source_image: np.ndarray = None,
+        source_image: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         xmin, ymin, xmax, ymax = self.coords_with_offset(
             xmin_offset, ymin_offset, xmax_offset, ymax_offset, source_image
