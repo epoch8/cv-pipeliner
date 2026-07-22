@@ -178,18 +178,26 @@ def draw_keypoints_on_image(
     keypoints_visibility: Optional[List[Union[int, KeypointVisibility]]] = None,
     keypoints_scores: Optional[List[Optional[float]]] = None,
     include_keypoint_scores: bool = False,
+    include_keypoints_visibility: bool = True,
     fontsize: int = 12,
 ) -> None:
     """Draw keypoints with optional COCO visibility and confidence scores.
 
-    Visibility:
+    When ``include_keypoints_visibility`` is True (default):
     - ``None`` / missing: draw filled (legacy behavior)
     - ``NOT_LABELED`` (0): skip
     - ``LABELED_NOT_VISIBLE`` (1): outline only
     - ``LABELED_AND_VISIBLE`` (2): filled
+
+    When ``include_keypoints_visibility`` is False, every keypoint is drawn
+    filled as-is (visibility flags are ignored).
     """
     keypoints = np.asarray(keypoints).reshape(-1, 2)
-    visibility = _normalize_keypoints_visibility(keypoints_visibility, len(keypoints))
+    visibility = (
+        _normalize_keypoints_visibility(keypoints_visibility, len(keypoints))
+        if include_keypoints_visibility
+        else [None] * len(keypoints)
+    )
     scores = _normalize_keypoints_scores(keypoints_scores, len(keypoints))
 
     try:
@@ -248,6 +256,7 @@ def draw_bounding_box_on_image(
     keypoints_visibility: Optional[List[Union[int, KeypointVisibility]]] = None,
     keypoints_scores: Optional[List[Optional[float]]] = None,
     include_keypoint_scores: bool = False,
+    include_keypoints_visibility: bool = True,
 ):
     """Adds a bounding box to an image.
 
@@ -317,6 +326,7 @@ def draw_bounding_box_on_image(
         keypoints_visibility=keypoints_visibility,
         keypoints_scores=keypoints_scores,
         include_keypoint_scores=include_keypoint_scores,
+        include_keypoints_visibility=include_keypoints_visibility,
         fontsize=fontsize,
     )
 
@@ -341,6 +351,7 @@ def visualize_boxes_and_labels_on_image_array(
     k_keypoints_visibility: Optional[List[Optional[List[Union[int, KeypointVisibility]]]]] = None,
     k_keypoints_scores: Optional[List[Optional[List[Optional[float]]]]] = None,
     include_keypoint_scores: bool = False,
+    include_keypoints_visibility: bool = True,
 ):
     """Overlay labeled boxes on an image with formatted scores and label names.
 
@@ -431,6 +442,7 @@ def visualize_boxes_and_labels_on_image_array(
             keypoints_visibility=keypoints_visibility,
             keypoints_scores=keypoints_scores,
             include_keypoint_scores=include_keypoint_scores,
+            include_keypoints_visibility=include_keypoints_visibility,
         )
     image = np.array(image_pil)
     return image
@@ -498,6 +510,7 @@ def visualize_image_data(
     additional_bboxes_data_depth: Optional[int] = None,
     include_keypoints: bool = False,
     include_keypoint_scores: bool = False,
+    include_keypoints_visibility: bool = True,
     include_mask: bool = False,
     mask_alpha: float = 0.5,
     label_to_color: Optional[Dict[str, str]] = None,
@@ -560,6 +573,7 @@ def visualize_image_data(
         k_keypoints_visibility=k_keypoints_visibility,
         k_keypoints_scores=k_keypoints_scores,
         include_keypoint_scores=include_keypoint_scores,
+        include_keypoints_visibility=include_keypoints_visibility,
         labels=labels,
         use_normalized_coordinates=False,
         skip_scores=skip_scores,
@@ -581,6 +595,7 @@ def visualize_image_data(
             keypoints_visibility=image_data.keypoints_visibility,
             keypoints_scores=image_data.keypoints_scores,
             include_keypoint_scores=include_keypoint_scores,
+            include_keypoints_visibility=include_keypoints_visibility,
             fontsize=fontsize,
         )
         image = np.array(image_pil)

@@ -116,6 +116,17 @@ def test_visualize_image_data_respects_keypoints_visibility_and_scores():
     assert blank[5, 5].sum() == 0
     assert without_scores[5, 5].sum() == 0
 
+    without_visibility = visualize_image_data(
+        image_data,
+        include_keypoints=True,
+        include_keypoints_visibility=False,
+        thickness=1,
+        fontsize=8,
+        keypoints_radius=2,
+    )
+    # With visibility ignored, NOT_LABELED point at (5,5) is drawn
+    assert without_visibility[5, 5].sum() > 0
+
 
 def test_visualize_image_data_includes_additional_bboxes_and_filters_labels():
     image_data = ImageData(
