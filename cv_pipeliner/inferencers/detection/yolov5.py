@@ -147,13 +147,19 @@ class YOLOv5Runtime(DetectionRuntime):
                 torch.serialization.safe_globals(safe_globals) if len(safe_globals) > 0 else nullcontext()
             )
             with safe_globals_context:
-                self.model = torch.hub.load(
-                    "ultralytics/yolov5:v7.0",
-                    "custom",
+                hub_kwargs = dict(
+                    repo_or_dir="ultralytics/yolov5:v7.0",
+                    model="custom",
                     path=str(model_path_tmp),
                     force_reload=model_spec.force_reload,
                     skip_validation=model_spec.skip_validation,
                 )
+                try:
+                    # Avoid interactive "Do you trust this repository?" prompt (fails under pytest).
+                    self.model = torch.hub.load(**hub_kwargs, trust_repo=True)
+                except TypeError:
+                    # Older torch without trust_repo=
+                    self.model = torch.hub.load(**hub_kwargs)
         if model_spec.device is not None:
             self.model = self.model.to(model_spec.device)
         temp_file.close()
