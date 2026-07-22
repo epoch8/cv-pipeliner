@@ -4,6 +4,7 @@
 - Keypoint filters/crops keep visibility and scores aligned via `BaseImageData.filter_keypoints`.
 - Detection runtimes now return `DetectionResult` (not positional tuples); raw backend batches use `RawDetectionPredictions` / `RawDetectionImage`.
 - `visualize_image_data` respects COCO `keypoints_visibility` by default (`include_keypoints_visibility=True`; skip unlabeled, outline occluded, fill visible). Set `False` to draw all keypoints as-is. Can draw `keypoints_scores` via `include_keypoint_scores=True`.
+- Raised supported Python range to `>=3.9,<3.15` (including `torch` / `tensorflow` extras markers). CI now tests 3.9–3.14 with torch/tensorflow extras.
 
 # 0.22.0
 - **Breaking change**: the old `cv_pipeliner.inference_models` package is removed. Model specs and runtimes now live next to their task inferencers under `cv_pipeliner.inferencers.*`.

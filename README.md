@@ -43,7 +43,7 @@ pip install ".[torch]"
 pip install ".[fiftyone]"
 ```
 
-Python `>=3.9,<3.14` is supported. Some optional ML backends currently support narrower Python ranges; check [`pyproject.toml`](pyproject.toml) before choosing an environment.
+Python `>=3.9,<3.15` is supported. Optional ML backends (`torch`, `tensorflow`) use the same upper bound; check [`pyproject.toml`](pyproject.toml) if a backend wheel is missing for your version.
 
 ## What Is Included
 
