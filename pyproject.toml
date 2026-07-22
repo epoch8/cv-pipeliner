@@ -34,6 +34,9 @@ torch = [
     "torch",
     "torchvision",
     "ultralytics",
+    "setuptools>=65,<82",  # yolov5 hub needs pkg_resources (removed in setuptools 82+)
+    "ipython",  # yolov5 torch.hub imports IPython
+    "seaborn",  # yolov5 torch.hub utils.plots
 ]
 fiftyone = ["fiftyone"]
 notebooks = ["nbclient", "nbformat", "ipykernel"]
@@ -80,6 +83,9 @@ tensorflow = { version = "*", optional = true }
 torch = { version = "*", optional = true }
 torchvision = { version = "*", optional = true }
 ultralytics = { version = "*", optional = true }
+setuptools = { version = ">=65,<82", optional = true }
+ipython = { version = "*", optional = true }
+seaborn = { version = "*", optional = true }
 nbclient = { version = "*", optional = true }
 nbformat = { version = "*", optional = true }
 ipykernel = { version = "*", optional = true }
@@ -88,7 +94,7 @@ fiftyone = { version = "*", optional = true }
 
 [tool.poetry.extras]
 tensorflow = ["tensorflow"]
-torch = ["torch", "torchvision", "ultralytics"]
+torch = ["torch", "torchvision", "ultralytics", "setuptools", "ipython", "seaborn"]
 fiftyone = ["fiftyone"]
 notebooks = ["nbclient", "nbformat", "ipykernel"]
 
