@@ -11,14 +11,7 @@ For a longer runnable walkthrough, see [`docs/getting_started.ipynb`](docs/getti
 
 ## Installation
 
-From this repository:
-
-```bash
-cd cv-pipeliner
-poetry install
-```
-
-Or with `uv`:
+From this repository with `uv` (recommended):
 
 ```bash
 cd cv-pipeliner
@@ -26,12 +19,12 @@ uv sync --group dev
 uv run pytest
 ```
 
-Optional model backends are exposed as Poetry extras:
+Optional model backends:
 
 ```bash
-poetry install --extras tensorflow
-poetry install --extras torch
-poetry install --extras fiftyone
+uv sync --group dev --extra tensorflow
+uv sync --group dev --extra torch
+uv sync --group dev --extra fiftyone
 ```
 
 If you install the package with `pip` from a local checkout:
@@ -43,7 +36,7 @@ pip install ".[torch]"
 pip install ".[fiftyone]"
 ```
 
-Python `>=3.9,<3.15` is supported. Optional ML backends (`torch`, `tensorflow`) use the same upper bound; check [`pyproject.toml`](pyproject.toml) if a backend wheel is missing for your version.
+Python `>=3.9,<3.14` is supported. Check [`pyproject.toml`](pyproject.toml) for optional extras (`torch`, `tensorflow`, `fiftyone`).
 
 ## What Is Included
 
@@ -383,21 +376,20 @@ Visualization helpers return NumPy arrays that can be saved with OpenCV/PIL, dis
 Install development dependencies:
 
 ```bash
-poetry install
+uv sync --group dev
 ```
 
 Run tests:
 
 ```bash
-poetry run pytest
+uv run pytest
 ```
 
 Run the executable documentation notebook test when optional notebook and model dependencies are installed:
 
 ```bash
-poetry install --extras tensorflow --extras torch
-poetry run pip install nbclient nbformat ipykernel
-poetry run pytest tests/test_docs_notebooks.py
+uv sync --group dev --extra tensorflow --extra torch --extra notebooks
+uv run pytest tests/test_docs_notebooks.py
 ```
 
 The notebook test executes [`docs/getting_started.ipynb`](docs/getting_started.ipynb), so it may download model weights on first use and can take longer than the unit test suite.
