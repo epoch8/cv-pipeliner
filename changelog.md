@@ -6,7 +6,8 @@
 - `visualize_image_data` respects COCO `keypoints_visibility` by default (`include_keypoints_visibility=True`; skip unlabeled, outline occluded, fill visible). Set `False` to draw all keypoints as-is. Can draw `keypoints_scores` via `include_keypoint_scores=True`.
 - Raised supported Python range to `>=3.9,<3.14` (including `torch` / `tensorflow` extras). CI now uses `uv` and tests 3.9–3.13 with torch/tensorflow/notebooks extras; uninstalls `triton` on runners to avoid CPU import segfaults.
 - YOLOv5 hub load uses `trust_repo=True` so CI/non-interactive runs do not hang on the torch.hub trust prompt.
-- `torch` extra now includes YOLOv5 hub helpers: `setuptools>=65,<82` (`pkg_resources`), `ipython`, and `seaborn`.
+- YOLOv5 hub load works on cold torch.hub cache under PyTorch 2.6+ (`weights_only` default) by temporarily allowing full checkpoint unpickle for the trusted Ultralytics path.
+- `torch` extra now includes YOLOv5 hub helpers: `setuptools>=65,<82` (`pkg_resources`), `ipython`, `seaborn`, and `gitpython`.
 
 # 0.22.0
 - **Breaking change**: the old `cv_pipeliner.inference_models` package is removed. Model specs and runtimes now live next to their task inferencers under `cv_pipeliner.inferencers.*`.

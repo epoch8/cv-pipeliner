@@ -1,7 +1,7 @@
 import json
 import tempfile
 import sys
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple, Type, Union
 
@@ -110,6 +110,29 @@ class YOLOv5Runtime(DetectionRuntime):
             sys.modules.update(saved_modules)
             sys.path[:] = sys_path
 
+    @contextmanager
+    def _torch_load_allow_full_checkpoint(self):
+        """YOLOv5 v7 hub calls torch.load without weights_only=False.
+
+        PyTorch 2.6+ defaults weights_only=True, which breaks loading yolov5
+        checkpoints that pickle models.yolo.Model. Prefer safe_globals when the
+        hub checkout is already on disk; otherwise temporarily force
+        weights_only=False for this trusted Ultralytics checkpoint path.
+        """
+        import torch
+
+        original_load = torch.load
+
+        def _load(*args, **kwargs):
+            kwargs.setdefault("weights_only", False)
+            return original_load(*args, **kwargs)
+
+        torch.load = _load
+        try:
+            yield
+        finally:
+            torch.load = original_load
+
     def _get_safe_globals_for_yolov5_checkpoint_load(self):
         from torch.nn.modules.activation import SiLU
         from torch.nn.modules.batchnorm import BatchNorm2d
@@ -143,10 +166,12 @@ class YOLOv5Runtime(DetectionRuntime):
         model_path_tmp = Path(temp_file.name)
         with self._yolov5_hub_import_context():
             safe_globals = self._get_safe_globals_for_yolov5_checkpoint_load()
-            safe_globals_context = (
-                torch.serialization.safe_globals(safe_globals) if len(safe_globals) > 0 else nullcontext()
-            )
-            with safe_globals_context:
+            if len(safe_globals) > 0 and hasattr(torch.serialization, "safe_globals"):
+                load_context = torch.serialization.safe_globals(safe_globals)
+            else:
+                # Cold torch.hub cache: models.yolo is not importable yet.
+                load_context = self._torch_load_allow_full_checkpoint()
+            with load_context:
                 hub_kwargs = dict(
                     repo_or_dir="ultralytics/yolov5:v7.0",
                     model="custom",
