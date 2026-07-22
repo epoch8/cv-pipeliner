@@ -1,12 +1,13 @@
 from importlib import import_module
 
-__version__ = "0.22.0"
+__version__ = "0.22.1"
 
 _LAZY_IMPORTS = {
     "BatchGeneratorBboxData": "cv_pipeliner.batch_generators.bbox_data",
     "BatchGeneratorImageData": "cv_pipeliner.batch_generators.image_data",
     "BboxData": "cv_pipeliner.core.data",
     "ImageData": "cv_pipeliner.core.data",
+    "KeypointVisibility": "cv_pipeliner.core.data",
     "COCODataConverter": "cv_pipeliner.data_converters.coco",
     "JSONDataConverter": "cv_pipeliner.data_converters.json",
     "SuperviselyDataConverter": "cv_pipeliner.data_converters.supervisely",

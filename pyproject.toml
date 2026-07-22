@@ -1,6 +1,54 @@
+[project]
+name = "cv_pipeliner"
+version = "0.22.1"
+description = ""
+authors = [
+    { name = "bobokvsky", email = "alexander.kozlovsky.m@gmail.com" },
+]
+requires-python = ">=3.9,<3.14"
+dependencies = [
+    "opencv-python>=4.5.1.48",
+    "numpy>=1.21.0,<3.0",
+    "fsspec>=2021.4.0",
+    "pydantic>=2.0.0",
+    "imutils>=0.5.4",
+    "imageio>=2.17.0",
+    "joblib>=1.0.1",
+    "pathy>=0.11.0",
+    "tqdm>=4.60.0",
+    "filterpy>=1.4.5",
+    "matplotlib>=3.4.1",
+    "requests>=2.24.0",
+    "scipy>=1.6.2",
+    "pandas>=1.2.4",
+    "Pillow>=8.0.0",
+    "scikit_learn>=0.24.2",
+    "lxml>=4.6.3",
+    "dataframe-image>=0.1.1",
+    "scikit-image>=0.18.3",
+]
+
+[project.optional-dependencies]
+tensorflow = ["tensorflow; python_version < '3.13'"]
+torch = [
+    "torch; python_version < '3.13'",
+    "torchvision; python_version < '3.13'",
+    "ultralytics; python_version < '3.13'",
+]
+fiftyone = ["fiftyone"]
+notebooks = ["nbclient", "nbformat", "ipykernel"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "flake8",
+    "isort",
+    "black",
+]
+
 [tool.poetry]
 name = "cv_pipeliner"
-version = "0.22.0"
+version = "0.22.1"
 description = ""
 authors = [
     "bobokvsky <alexander.kozlovsky.m@gmail.com>",
@@ -52,6 +100,9 @@ black = "*"
 
 [tool.isort]
 profile = "black"
+
+[tool.uv]
+package = true
 
 [build-system]
 requires = ["poetry-core"]

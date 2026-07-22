@@ -63,6 +63,71 @@ def test_visualize_image_data_with_labels_scores_keypoints_and_masks():
     assert result.sum() > 0
 
 
+def test_visualize_image_data_respects_keypoints_visibility_and_scores():
+    from cv_pipeliner.core.data import KeypointVisibility
+
+    blank = np.zeros((40, 40, 3), dtype=np.uint8)
+    image_data = ImageData(
+        image=blank.copy(),
+        keypoints=[(5, 5), (20, 20), (35, 35)],
+        keypoints_visibility=[
+            KeypointVisibility.NOT_LABELED,
+            KeypointVisibility.LABELED_NOT_VISIBLE,
+            KeypointVisibility.LABELED_AND_VISIBLE,
+        ],
+        keypoints_scores=[0.1, 0.5, 0.9],
+        bboxes_data=[
+            BboxData(
+                image=blank.copy(),
+                xmin=1,
+                ymin=1,
+                xmax=30,
+                ymax=30,
+                label="person",
+                keypoints=[(8, 8), (15, 15), (25, 25)],
+                keypoints_visibility=[0, 1, 2],
+                keypoints_scores=[0.2, 0.6, 0.95],
+            )
+        ],
+    )
+
+    without_scores = visualize_image_data(
+        image_data,
+        include_keypoints=True,
+        include_keypoint_scores=False,
+        thickness=1,
+        fontsize=8,
+        keypoints_radius=2,
+    )
+    with_scores = visualize_image_data(
+        image_data,
+        include_keypoints=True,
+        include_keypoint_scores=True,
+        thickness=1,
+        fontsize=8,
+        keypoints_radius=2,
+    )
+
+    assert without_scores.shape == (40, 40, 3)
+    assert with_scores.shape == (40, 40, 3)
+    assert without_scores.sum() > 0
+    assert with_scores.sum() > without_scores.sum()
+    # NOT_LABELED image-level keypoint at (5,5) should stay blank neighborhood
+    assert blank[5, 5].sum() == 0
+    assert without_scores[5, 5].sum() == 0
+
+    without_visibility = visualize_image_data(
+        image_data,
+        include_keypoints=True,
+        include_keypoints_visibility=False,
+        thickness=1,
+        fontsize=8,
+        keypoints_radius=2,
+    )
+    # With visibility ignored, NOT_LABELED point at (5,5) is drawn
+    assert without_visibility[5, 5].sum() > 0
+
+
 def test_visualize_image_data_includes_additional_bboxes_and_filters_labels():
     image_data = ImageData(
         image=np.zeros((20, 30, 3), dtype=np.uint8),

@@ -48,6 +48,8 @@ class DataConverter(abc.ABC):
             bboxes_data=new_bboxes_data,
             additional_info=image_data.additional_info,
             keypoints=image_data.keypoints,
+            keypoints_visibility=image_data.keypoints_visibility,
+            keypoints_scores=image_data.keypoints_scores,
             label=image_data.label,
         )
 

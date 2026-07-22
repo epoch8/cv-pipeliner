@@ -101,13 +101,11 @@ class PipelineInferencer(Inferencer):
     ) -> List[ImageData]:
         input = [image_data.image for image_data in images_data]
         logger.debug("Running detection...")
-        detection_result = DetectionResult.from_tuple(
-            self.detection_model.predict(
-                input,
-                score_threshold=detection_score_threshold,
-                classification_top_n=classification_top_n,
-                **detection_kwargs,
-            )
+        detection_result = self.detection_model.predict(
+            input,
+            score_threshold=detection_score_threshold,
+            classification_top_n=classification_top_n,
+            **detection_kwargs,
         )
         logger.debug(f"Detection: found {np.sum([len(pred_bboxes) for pred_bboxes in detection_result.bboxes])} bboxes!")
 

@@ -18,6 +18,14 @@ cd cv-pipeliner
 poetry install
 ```
 
+Or with `uv`:
+
+```bash
+cd cv-pipeliner
+uv sync --group dev
+uv run pytest
+```
+
 Optional model backends are exposed as Poetry extras:
 
 ```bash

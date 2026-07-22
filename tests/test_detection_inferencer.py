@@ -3,6 +3,7 @@ import numpy as np
 from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.inferencers.detection import DetectionInferencer
 from cv_pipeliner.inferencers.detection.core import DetectionRuntime, DetectionModelSpec
+from cv_pipeliner.inferencers.results import DetectionResult
 
 
 class FakeDetectionModelSpec(DetectionModelSpec):
@@ -35,7 +36,14 @@ class FakeDetectionRuntime(DetectionRuntime):
                 detection_scores.append([0.9])
                 labels_top_n.append([["detected"]])
                 classification_scores_top_n.append([[0.9]])
-        return bboxes, keypoints, masks, detection_scores, labels_top_n, classification_scores_top_n
+        return DetectionResult(
+            bboxes=bboxes,
+            keypoints=keypoints,
+            masks=masks,
+            detection_scores=detection_scores,
+            labels_top_n=labels_top_n,
+            classification_scores_top_n=classification_scores_top_n,
+        )
 
     def preprocess_input(self, input):
         return input

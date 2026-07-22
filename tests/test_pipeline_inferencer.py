@@ -4,6 +4,7 @@ from cv_pipeliner.core.data import ImageData
 from cv_pipeliner.inferencers.classification.core import ClassificationRuntime, ClassificationModelSpec
 from cv_pipeliner.inferencers.detection.core import DetectionRuntime, DetectionModelSpec
 from cv_pipeliner.inferencers.pipeline import PipelineModelSpec
+from cv_pipeliner.inferencers.results import DetectionResult
 
 
 class FakeDetectionModelSpec(DetectionModelSpec):
@@ -19,13 +20,13 @@ class FakeDetectionRuntime(DetectionRuntime):
         super().__init__(model_spec)
 
     def predict(self, input, score_threshold: float, classification_top_n: int = None):
-        return (
-            [[(1, 1, 5, 5)] for _ in input],
-            [[[(-1, -1)]] for _ in input],
-            [[[[(1, 1), (5, 1), (5, 5)]]] for _ in input],
-            [[0.7] for _ in input],
-            [[["detector-class"]] for _ in input],
-            [[[0.7]] for _ in input],
+        return DetectionResult(
+            bboxes=[[(1, 1, 5, 5)] for _ in input],
+            keypoints=[[[-1, -1]] for _ in input],
+            masks=[[[[(1, 1), (5, 1), (5, 5)]]] for _ in input],
+            detection_scores=[[0.7] for _ in input],
+            labels_top_n=[[["detector-class"]] for _ in input],
+            classification_scores_top_n=[[[0.7]] for _ in input],
         )
 
     def preprocess_input(self, input):

@@ -1,7 +1,7 @@
 import json
 import tempfile
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple, Type, Union
+from typing import Callable, Dict, List, Optional, Tuple, Type, Union
 
 import fsspec
 import numpy as np
@@ -11,8 +11,8 @@ from cv_pipeliner.inferencers.detection.core import (
     DetectionInput,
     DetectionRuntime,
     DetectionModelSpec,
-    DetectionOutput,
 )
+from cv_pipeliner.inferencers.results import DetectionResult, RawDetectionPredictions
 
 
 class YOLOv8_ModelSpec(DetectionModelSpec):
@@ -108,19 +108,7 @@ class YOLOv8Runtime(DetectionRuntime):
         if model_spec.device is not None:
             self.model = self.model.to(model_spec.device)
 
-    def _raw_predict_images_torch(
-        self, input: DetectionInput, score_threshold: float
-    ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[str]]:
-        """Private method to run pytorch model inference and return raw results
-
-        Args:
-            input (DetectionInput): list of images
-            score_threshold (float): model confidence threshold
-
-        Returns:
-            Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[str]]: _description_
-        """
-
+    def _raw_predict_images_torch(self, input: DetectionInput, score_threshold: float) -> RawDetectionPredictions:
         predictions = self.model.predict(
             input,
             verbose=False,
@@ -128,105 +116,93 @@ class YOLOv8Runtime(DetectionRuntime):
             conf=score_threshold,
             # retina_masks=True,
         )
-        raw_boxes, raw_keypoints, raw_masks, raw_scores, raw_labels = [], [], [], [], []
+        bboxes, keypoints, keypoints_scores, masks, scores, class_ids = [], [], [], [], [], []
         for prediction in predictions:
-            raw_boxes.append(prediction.boxes.xyxy.data.cpu().numpy())
+            bboxes.append(prediction.boxes.xyxy.data.cpu().numpy())
             if prediction.keypoints is not None:
-                raw_keypoints.append(prediction.keypoints.xy.data.cpu().numpy())
+                keypoints.append(prediction.keypoints.xy.data.cpu().numpy())
+                if getattr(prediction.keypoints, "conf", None) is not None:
+                    keypoints_scores.append(prediction.keypoints.conf.data.cpu().numpy())
+                else:
+                    keypoints_scores.append(None)
             else:
-                raw_keypoints.append(np.array([]).reshape(len(raw_boxes[-1]), 0, 2))
+                keypoints.append(np.array([]).reshape(len(bboxes[-1]), 0, 2))
+                keypoints_scores.append(None)
             if prediction.masks is not None:
                 all_polygons = prediction.masks.xy
-                raw_masks.append([[polygon] for polygon in all_polygons])
+                masks.append([[polygon] for polygon in all_polygons])
             else:
-                raw_masks.append([[[]] for _ in range(len(raw_boxes[-1]))])
-            raw_labels.append(prediction.boxes.cls.data.cpu().numpy())
-            raw_scores.append(prediction.boxes.conf.data.cpu().numpy())
+                masks.append([[[]] for _ in range(len(bboxes[-1]))])
+            class_ids.append(prediction.boxes.cls.data.cpu().numpy())
+            scores.append(prediction.boxes.conf.data.cpu().numpy())
 
-        return raw_boxes, raw_keypoints, raw_masks, raw_scores, raw_labels
+        return RawDetectionPredictions(
+            bboxes=bboxes,
+            keypoints=keypoints,
+            detection_scores=scores,
+            class_ids=class_ids,
+            masks=masks,
+            keypoints_scores=keypoints_scores,
+        )
 
     def predict(
         self,
         input: DetectionInput,
         score_threshold: float,
         classification_top_n: int = 1,
-    ) -> DetectionOutput:
-        """Method to run model inference
-
-        Args:
-            input (DetectionInput): list of images
-            score_threshold (float): model confidence threshold
-            classification_top_n (int, optional): .... Defaults to None.
-
-        Returns:
-            DetectionOutput: List of boxes, keypoints, scores, classes
-        """
+    ) -> DetectionResult:
         input = self._preprocess_input(input)
-        # Try to rebatch to batches of one size due to https://github.com/ultralytics/ultralytics/issues/15430
-        size_to_images = {}
-        size_to_idxs = {}
+        # Rebatch by image size due to https://github.com/ultralytics/ultralytics/issues/15430
+        size_to_images: Dict[Tuple[int, ...], List[np.ndarray]] = {}
+        size_to_idxs: Dict[Tuple[int, ...], List[int]] = {}
         for idx, image in enumerate(input):
             size = tuple(image.shape[0:3])
-            if size not in size_to_images:
-                size_to_images[size] = []
-                size_to_idxs[size] = []
-            size_to_images[size].append(image)
-            size_to_idxs[size].append(idx)
+            size_to_images.setdefault(size, []).append(image)
+            size_to_idxs.setdefault(size, []).append(idx)
 
-        idx_to_results = {}
+        idx_to_raw = {}
         for size, images in size_to_images.items():
-            (
-                size_raw_bboxes,
-                size_raw_keypoints,
-                size_raw_masks,
-                size_raw_scores,
-                size_raw_classes,
-            ) = self._raw_predict_images(images, score_threshold)
+            raw_batch = self._raw_predict_images(images, score_threshold)
             for i, idx in enumerate(size_to_idxs[size]):
-                idx_to_results[idx] = (
-                    size_raw_bboxes[i],
-                    size_raw_keypoints[i],
-                    size_raw_masks[i],
-                    size_raw_scores[i],
-                    size_raw_classes[i],
-                )
-        results = [idx_to_results[idx] for idx in range(len(input))]
-        raw_bboxes, raw_keypoints, raw_masks, raw_scores, raw_classes = zip(*results)
+                idx_to_raw[idx] = raw_batch[i]
+        raw = RawDetectionPredictions.from_images([idx_to_raw[idx] for idx in range(len(input))])
 
         if self.class_names is not None:
             if classification_top_n > 1:
                 raise NotImplementedError("Not impelemented for classification_top_n > 1")
-            class_names_top_n = [
+            labels_top_n = [
                 [
-                    [class_name for i in range(classification_top_n)]
+                    [class_name for _ in range(classification_top_n)]
                     for class_name in self.class_names[classes.astype(np.int32)]
                 ]
-                for classes in raw_classes
+                for classes in raw.class_ids
             ]
-            classes_scores_top_n = [[[score] for score in scores] for scores in raw_scores]
+            classification_scores_top_n = [[[score] for score in scores] for scores in raw.detection_scores]
         else:
-            class_names_top_n = [[None for _ in range(classification_top_n)] for _ in raw_classes]
-            classes_scores_top_n = [[score for _ in range(classification_top_n)] for score in raw_scores]
+            labels_top_n = [[None for _ in range(classification_top_n)] for _ in raw.class_ids]
+            classification_scores_top_n = [[score for _ in range(classification_top_n)] for score in raw.detection_scores]
 
-        n_pred_bboxes = [image_boxes.tolist() for image_boxes in raw_bboxes]
-        n_pred_keypoints = [np.array(k_keypoints).round().astype(np.int32).tolist() for k_keypoints in raw_keypoints]
-        n_pred_masks = [
-            [
-                [np.array(polygon).round().astype(np.int32).tolist() for polygon in k_polygons]
-                for k_polygons in n_k_polygons
-            ]
-            for n_k_polygons in raw_masks
-        ]
-        n_pred_scores = [image_scores.tolist() for image_scores in raw_scores]
-        n_pred_class_names_top_k = class_names_top_n
-        n_pred_scores_top_k = classes_scores_top_n
-        return (
-            n_pred_bboxes,
-            n_pred_keypoints,
-            n_pred_masks,
-            n_pred_scores,
-            n_pred_class_names_top_k,
-            n_pred_scores_top_k,
+        keypoints_scores: List[List[Optional[List[float]]]] = []
+        for image_keypoints, image_scores in zip(raw.keypoints, raw.keypoints_scores or [None] * len(raw)):
+            if image_scores is None:
+                keypoints_scores.append([None for _ in range(len(image_keypoints))])
+            else:
+                keypoints_scores.append(np.asarray(image_scores).astype(float).tolist())
+
+        return DetectionResult(
+            bboxes=[image_boxes.tolist() for image_boxes in raw.bboxes],
+            keypoints=[np.array(image_keypoints).round().astype(np.int32).tolist() for image_keypoints in raw.keypoints],
+            masks=[
+                [
+                    [np.array(polygon).round().astype(np.int32).tolist() for polygon in polygons]
+                    for polygons in image_masks
+                ]
+                for image_masks in (raw.masks or [])
+            ],
+            detection_scores=[image_scores.tolist() for image_scores in raw.detection_scores],
+            labels_top_n=labels_top_n,
+            classification_scores_top_n=classification_scores_top_n,
+            keypoints_scores=keypoints_scores,
         )
 
     def preprocess_input(self, input: DetectionInput) -> DetectionInput:

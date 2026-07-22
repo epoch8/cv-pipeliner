@@ -22,3 +22,4 @@ tests/tmp/
 charts/
 poetry.lock
 *.pt
+uv.lock
