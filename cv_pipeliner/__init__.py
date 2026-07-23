@@ -31,6 +31,7 @@ _LAZY_IMPORTS = {
     "PipelineInferencer": "cv_pipeliner.inferencers.pipeline",
     "get_df_classification_metrics": "cv_pipeliner.metrics.classification",
     "get_df_detection_metrics": "cv_pipeliner.metrics.detection",
+    "get_df_keypoints_metrics": "cv_pipeliner.metrics.keypoints",
     "BboxDataMatching": "cv_pipeliner.metrics.image_data_matching",
     "ImageDataMatching": "cv_pipeliner.metrics.image_data_matching",
     "intersection_over_union": "cv_pipeliner.metrics.image_data_matching",
