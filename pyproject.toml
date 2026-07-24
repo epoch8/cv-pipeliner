@@ -1,6 +1,6 @@
 [project]
 name = "cv_pipeliner"
-version = "0.22.1"
+version = "0.22.2"
 description = ""
 authors = [
     { name = "bobokvsky", email = "alexander.kozlovsky.m@gmail.com" },
@@ -53,7 +53,7 @@ dev = [
 
 [tool.poetry]
 name = "cv_pipeliner"
-version = "0.22.1"
+version = "0.22.2"
 description = ""
 authors = [
     "bobokvsky <alexander.kozlovsky.m@gmail.com>",

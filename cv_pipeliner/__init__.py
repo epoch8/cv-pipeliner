@@ -1,6 +1,6 @@
 from importlib import import_module
 
-__version__ = "0.22.1"
+__version__ = "0.22.2"
 
 _LAZY_IMPORTS = {
     "BatchGeneratorBboxData": "cv_pipeliner.batch_generators.bbox_data",
