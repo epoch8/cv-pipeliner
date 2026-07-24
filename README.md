@@ -46,7 +46,7 @@ Python `>=3.9,<3.14` is supported. Check [`pyproject.toml`](pyproject.toml) for 
 - Batch generators: `BatchGeneratorImageData`, `BatchGeneratorBboxData`.
 - Annotation converters: `JSONDataConverter`, `COCODataConverter`, `YOLODataConverter`, `YOLOMasksDataConverter`, `SuperviselyDataConverter`.
 - Model specs and inferencers: `YOLOv8_ModelSpec`, `YOLOv5_ModelSpec`, TensorFlow/PyTorch model specs, `DetectionInferencer`, `ClassificationInferencer`, `KeypointsRegressorInferencer`, `PipelineInferencer`, `PipelineModelSpec`.
-- Metrics: `get_df_detection_metrics`, `get_df_classification_metrics`, `get_df_pipeline_metrics`.
+- Metrics: `get_df_detection_metrics`, `get_df_keypoints_metrics`, `get_df_classification_metrics`, `get_df_pipeline_metrics`.
 - Visualization and image utilities: `visualize_image_data`, `visualize_image_data_matching_side_by_side`, resize/crop/rotate helpers, non-max suppression, and image concatenation helpers.
 
 ## Core Data Model
@@ -326,6 +326,7 @@ Metrics functions return pandas DataFrames.
 from cv_pipeliner import (
     get_df_classification_metrics,
     get_df_detection_metrics,
+    get_df_keypoints_metrics,
     get_df_pipeline_metrics,
 )
 
@@ -333,6 +334,11 @@ df_detection = get_df_detection_metrics(
     true_images_data=true_images_data,
     pred_images_data=pred_images_data,
     minimum_iou=0.5,
+)
+
+df_keypoints = get_df_keypoints_metrics(
+    true_images_data=true_images_data,
+    pred_images_data=pred_images_data,
 )
 
 df_pipeline = get_df_pipeline_metrics(
@@ -349,6 +355,8 @@ df_classification = get_df_classification_metrics(
 ```
 
 Detection metrics include precision, recall, F1, IoU mean, and optional COCO metrics when the TensorFlow Object Detection API is installed and raw predictions are provided.
+
+Keypoints metrics (`pose_P`, `pose_R`, `pose_mAP50`, `pose_mAP50_95`) use YOLO-style OKS evaluation via ultralytics (`pip install 'cv_pipeliner[torch]'`).
 
 ## Visualization
 
