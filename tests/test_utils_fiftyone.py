@@ -19,7 +19,6 @@ def _mock_fiftyone_import(monkeypatch):
 
 def _mock_fiftyone_module(monkeypatch):
     fo = MagicMock()
-    fo.KeypointSkeleton = MagicMock(side_effect=lambda **kwargs: SimpleNamespace(**kwargs))
     fo.Keypoint = MagicMock(side_effect=lambda **kwargs: SimpleNamespace(**kwargs))
     fo.Keypoints = MagicMock(side_effect=lambda **kwargs: SimpleNamespace(**kwargs))
     monkeypatch.setattr(FiftyOneSession, "_active_sessions", 0)
@@ -76,37 +75,6 @@ def test_fiftyone_session_rejects_different_active_database_config(monkeypatch):
     try:
         with pytest.raises(RuntimeError):
             FiftyOneSession(database_name="two")
-    finally:
-        session.close()
-
-
-def test_fiftyone_session_builds_default_skeleton(monkeypatch):
-    fo = _mock_fiftyone_module(monkeypatch)
-    names = ["nose", "left_eye", "right_eye"]
-    edges = [[0, 1], [0, 2]]
-
-    session = FiftyOneSession(keypoints_names=names, keypoints_edges=edges)
-    try:
-        assert session.default_skeleton.labels == names
-        assert session.default_skeleton.edges == edges
-        fo.KeypointSkeleton.assert_called_once_with(labels=names, edges=edges)
-
-        dataset = MagicMock()
-        session.apply_default_skeleton(dataset)
-        assert dataset.default_skeleton is session.default_skeleton
-        dataset.save.assert_called_once()
-    finally:
-        session.close()
-
-
-def test_fiftyone_session_no_skeleton_without_names_or_edges(monkeypatch):
-    _mock_fiftyone_module(monkeypatch)
-    session = FiftyOneSession()
-    try:
-        assert session.default_skeleton is None
-        dataset = MagicMock()
-        session.apply_default_skeleton(dataset)
-        dataset.save.assert_not_called()
     finally:
         session.close()
 

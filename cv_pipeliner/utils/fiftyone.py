@@ -33,14 +33,10 @@ class FiftyOneSession:
         database_dir: Optional[Union[str, Path]] = None,
         database_uri: Optional[str] = None,
         database_name: Optional[str] = None,
-        keypoints_names: Optional[List[str]] = None,
-        keypoints_edges: Optional[List[List[int]]] = None,
     ):
         self.database_dir = database_dir
         self.database_uri = database_uri
         self.database_name = database_name
-        self.keypoints_names = keypoints_names
-        self.keypoints_edges = keypoints_edges
         self._config = self._get_config()
         if FiftyOneSession._active_sessions > 0 and self._config != FiftyOneSession._active_config:
             raise RuntimeError(
@@ -49,7 +45,6 @@ class FiftyOneSession:
             )
         self._closed = False
         self._fiftyone = None
-        self._default_skeleton = None
 
         if self._has_database_config() and "fiftyone" in sys.modules:
             logger.warning(
@@ -65,12 +60,6 @@ class FiftyOneSession:
             self._fiftyone = importlib.import_module("fiftyone")
         except Exception as e:
             logger.warning(f"Couldn't import fiftyone: {e=}")
-
-        if keypoints_names is not None or keypoints_edges is not None:
-            self._default_skeleton = self.fiftyone.KeypointSkeleton(
-                labels=keypoints_names,
-                edges=keypoints_edges,
-            )
 
         FiftyOneSession._active_sessions += 1
 
@@ -118,16 +107,6 @@ class FiftyOneSession:
         if self._fiftyone is None:
             self._fiftyone = importlib.import_module("fiftyone")
         return self._fiftyone
-
-    @property
-    def default_skeleton(self):
-        return self._default_skeleton
-
-    def apply_default_skeleton(self, dataset) -> None:
-        if self._default_skeleton is None:
-            return
-        dataset.default_skeleton = self._default_skeleton
-        dataset.save()
 
     def __del__(self):
         self.close()

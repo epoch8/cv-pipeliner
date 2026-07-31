@@ -184,14 +184,7 @@ pip install "cv_pipeliner[fiftyone]"
 ```python
 from cv_pipeliner import FiftyOneSession
 
-with FiftyOneSession(
-    database_dir=".fiftyone",
-    keypoints_names=["nose", "left_eye", "right_eye"],
-    keypoints_edges=[[0, 1], [0, 2]],
-) as fo_session:
-    dataset = fo_session.fiftyone.Dataset("example")
-    fo_session.apply_default_skeleton(dataset)
-
+with FiftyOneSession(database_dir=".fiftyone") as fo_session:
     sample = fo_session.convert_image_data_to_fo_sample(
         image_data,
         fo_detections_label="ground_truth",
@@ -208,7 +201,7 @@ with FiftyOneSession(
     )
 ```
 
-Optional `keypoints_names` / `keypoints_edges` build a FiftyOne `KeypointSkeleton` on the session; call `apply_default_skeleton(dataset)` to set `dataset.default_skeleton`. Per-point scores from `BboxData.keypoints_scores` / `ImageData.keypoints_scores` are written as `Keypoint.confidences`.
+Per-point scores from `BboxData.keypoints_scores` / `ImageData.keypoints_scores` are written as FiftyOne `Keypoint.confidences`.
 
 The integration can also represent matching results as FiftyOne detections, which is useful for browsing TP/FP/FN cases after detection or pipeline evaluation.
 
