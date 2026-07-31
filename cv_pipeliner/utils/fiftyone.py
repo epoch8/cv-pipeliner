@@ -33,10 +33,14 @@ class FiftyOneSession:
         database_dir: Optional[Union[str, Path]] = None,
         database_uri: Optional[str] = None,
         database_name: Optional[str] = None,
+        keypoints_names: Optional[List[str]] = None,
+        keypoints_edges: Optional[List[List[int]]] = None,
     ):
         self.database_dir = database_dir
         self.database_uri = database_uri
         self.database_name = database_name
+        self.keypoints_names = keypoints_names
+        self.keypoints_edges = keypoints_edges
         self._config = self._get_config()
         if FiftyOneSession._active_sessions > 0 and self._config != FiftyOneSession._active_config:
             raise RuntimeError(
@@ -45,6 +49,7 @@ class FiftyOneSession:
             )
         self._closed = False
         self._fiftyone = None
+        self._default_skeleton = None
 
         if self._has_database_config() and "fiftyone" in sys.modules:
             logger.warning(
@@ -60,6 +65,12 @@ class FiftyOneSession:
             self._fiftyone = importlib.import_module("fiftyone")
         except Exception as e:
             logger.warning(f"Couldn't import fiftyone: {e=}")
+
+        if keypoints_names is not None or keypoints_edges is not None:
+            self._default_skeleton = self.fiftyone.KeypointSkeleton(
+                labels=keypoints_names,
+                edges=keypoints_edges,
+            )
 
         FiftyOneSession._active_sessions += 1
 
@@ -108,6 +119,16 @@ class FiftyOneSession:
             self._fiftyone = importlib.import_module("fiftyone")
         return self._fiftyone
 
+    @property
+    def default_skeleton(self):
+        return self._default_skeleton
+
+    def apply_default_skeleton(self, dataset) -> None:
+        if self._default_skeleton is None:
+            return
+        dataset.default_skeleton = self._default_skeleton
+        dataset.save()
+
     def __del__(self):
         self.close()
 
@@ -124,11 +145,14 @@ class FiftyOneSession:
 
     def convert_bbox_data_keypoints_to_fo_keypoint(self, bbox_data: BboxData) -> "fiftyone.Keypoint":
         if len(bbox_data.keypoints) > 0:
-            return self.fiftyone.Keypoint(
+            kwargs = dict(
                 label=bbox_data.label,
                 points=[tuple(pair) for pair in bbox_data.keypoints_n],
                 source_coords=bbox_data.coords,  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
             )
+            if bbox_data.keypoints_scores is not None:
+                kwargs["confidences"] = list(bbox_data.keypoints_scores)
+            return self.fiftyone.Keypoint(**kwargs)
         else:
             return None
 
@@ -155,11 +179,17 @@ class FiftyOneSession:
         if include_additional_bboxes_data:
             image_data = flatten_additional_bboxes_data_in_image_data(image_data)
         image_data.get_image_size()  # Save to meta
-        keypoints = (
-            [self.fiftyone.Keypoint(label=image_data.label, points=[tuple(pair) for pair in image_data.keypoints_n])]
-            if len(image_data.keypoints) > 0
-            else []
-        ) + [
+        if len(image_data.keypoints) > 0:
+            image_keypoint_kwargs = dict(
+                label=image_data.label,
+                points=[tuple(pair) for pair in image_data.keypoints_n],
+            )
+            if image_data.keypoints_scores is not None:
+                image_keypoint_kwargs["confidences"] = list(image_data.keypoints_scores)
+            image_keypoints = [self.fiftyone.Keypoint(**image_keypoint_kwargs)]
+        else:
+            image_keypoints = []
+        keypoints = image_keypoints + [
             fo_keypoints
             for fo_keypoints in map(self.convert_bbox_data_keypoints_to_fo_keypoint, image_data.bboxes_data)
             if fo_keypoints is not None
@@ -388,13 +418,23 @@ class FiftyOneSession:
         if fo_keypoints_label is not None and (
             sample.has_field(fo_keypoints_label) and sample[fo_keypoints_label] is not None
         ):
+            width, height = image_data.get_image_size()
             coords_to_idx = {bbox_data.coords: idx for idx, bbox_data in enumerate(image_data.bboxes_data)}
             for fo_keypoint in sample[fo_keypoints_label].keypoints:
                 keypoints = self.convert_fo_keypoint_to_numpy_keypoints(fo_keypoint, width, height)
+                confidences = getattr(fo_keypoint, "confidences", None)
+                if confidences is None and "confidences" in fo_keypoint:
+                    confidences = fo_keypoint["confidences"]
+                keypoints_scores = list(confidences) if confidences is not None else None
                 if "source_coords" in fo_keypoint:  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
-                    image_data.bboxes_data[coords_to_idx[tuple(fo_keypoint.source_coords)]].keypoints = keypoints
+                    bbox_data = image_data.bboxes_data[coords_to_idx[tuple(fo_keypoint.source_coords)]]
+                    bbox_data.keypoints = keypoints
+                    bbox_data.keypoints_scores = keypoints_scores
                 else:
                     image_data.keypoints = np.append(image_data.keypoints, keypoints)
+                    if keypoints_scores is not None:
+                        existing_scores = image_data.keypoints_scores or []
+                        image_data.keypoints_scores = list(existing_scores) + keypoints_scores
         if fo_classification_label is not None and (
             sample.has_field(fo_classification_label) and sample[fo_classification_label] is not None
         ):
