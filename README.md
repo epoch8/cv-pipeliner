@@ -201,7 +201,7 @@ with FiftyOneSession(database_dir=".fiftyone") as fo_session:
     )
 ```
 
-Per-point scores from `BboxData.keypoints_scores` / `ImageData.keypoints_scores` are written as FiftyOne `Keypoint.confidences`.
+Per-point scores from `BboxData.keypoints_scores` / `ImageData.keypoints_scores` are written as FiftyOne `Keypoint.confidence` (a list).
 
 The integration can also represent matching results as FiftyOne detections, which is useful for browsing TP/FP/FN cases after detection or pipeline evaluation.
 

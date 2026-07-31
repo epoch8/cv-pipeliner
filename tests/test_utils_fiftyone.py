@@ -79,7 +79,7 @@ def test_fiftyone_session_rejects_different_active_database_config(monkeypatch):
         session.close()
 
 
-def test_convert_bbox_data_keypoints_includes_confidences(monkeypatch):
+def test_convert_bbox_data_keypoints_includes_confidence(monkeypatch):
     _mock_fiftyone_module(monkeypatch)
     session = FiftyOneSession()
     try:
@@ -95,14 +95,14 @@ def test_convert_bbox_data_keypoints_includes_confidences(monkeypatch):
             keypoints_scores=[0.9, 0.8],
         )
         fo_keypoint = session.convert_bbox_data_keypoints_to_fo_keypoint(bbox_data)
-        assert fo_keypoint.confidences == [0.9, 0.8]
+        assert fo_keypoint.confidence == [0.9, 0.8]
         assert fo_keypoint.label == "person"
         assert fo_keypoint.source_coords == (0, 0, 100, 100)
     finally:
         session.close()
 
 
-def test_convert_image_data_keypoints_includes_image_confidences(monkeypatch):
+def test_convert_image_data_keypoints_includes_image_confidence(monkeypatch):
     _mock_fiftyone_module(monkeypatch)
     session = FiftyOneSession()
     try:
@@ -116,7 +116,7 @@ def test_convert_image_data_keypoints_includes_image_confidences(monkeypatch):
         )
         fo_keypoints = session.convert_image_data_to_fo_keypoints(image_data)
         assert len(fo_keypoints.keypoints) == 1
-        assert fo_keypoints.keypoints[0].confidences == [0.5, 0.6]
+        assert fo_keypoints.keypoints[0].confidence == [0.5, 0.6]
     finally:
         session.close()
 
@@ -128,13 +128,13 @@ def test_convert_sample_to_image_data_restores_keypoints_scores(monkeypatch):
 
         class _ContainsKeypoint(SimpleNamespace):
             def __contains__(self, key):
-                return key in {"source_coords", "confidences"}
+                return key in {"source_coords", "confidence"}
 
         fo_detection = SimpleNamespace(bounding_box=[0.0, 0.0, 0.5, 0.5], label="person")
         fo_detection.__getitem__ = lambda key: None
         fo_keypoint = _ContainsKeypoint(
             points=[(0.1, 0.2), (0.3, 0.4)],
-            confidences=[0.91, 0.82],
+            confidence=[0.91, 0.82],
             source_coords=(0, 0, 50, 50),
         )
         fields = {

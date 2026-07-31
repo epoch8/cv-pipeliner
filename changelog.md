@@ -1,6 +1,6 @@
 # 0.22.2
 - Added `get_df_keypoints_metrics` (YOLO-style pose OKS metrics: `pose_P`, `pose_R`, `pose_mAP50`, `pose_mAP50_95`) via ultralytics primitives; requires `cv_pipeliner[torch]`.
-- `FiftyOneSession` passes `keypoints_scores` as FiftyOne `Keypoint.confidences` (round-trip on sample restore).
+- `FiftyOneSession` passes `keypoints_scores` as FiftyOne `Keypoint.confidence` (per-point list; round-trip on sample restore).
 
 # 0.22.1
 - Added `keypoints_visibility` (`KeypointVisibility` COCO IntEnum) and `keypoints_scores` fields to `BaseImageData` (`ImageData` / `BboxData`).

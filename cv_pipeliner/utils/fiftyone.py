@@ -130,7 +130,7 @@ class FiftyOneSession:
                 source_coords=bbox_data.coords,  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
             )
             if bbox_data.keypoints_scores is not None:
-                kwargs["confidences"] = list(bbox_data.keypoints_scores)
+                kwargs["confidence"] = list(bbox_data.keypoints_scores)
             return self.fiftyone.Keypoint(**kwargs)
         else:
             return None
@@ -164,7 +164,7 @@ class FiftyOneSession:
                 points=[tuple(pair) for pair in image_data.keypoints_n],
             )
             if image_data.keypoints_scores is not None:
-                image_keypoint_kwargs["confidences"] = list(image_data.keypoints_scores)
+                image_keypoint_kwargs["confidence"] = list(image_data.keypoints_scores)
             image_keypoints = [self.fiftyone.Keypoint(**image_keypoint_kwargs)]
         else:
             image_keypoints = []
@@ -401,10 +401,10 @@ class FiftyOneSession:
             coords_to_idx = {bbox_data.coords: idx for idx, bbox_data in enumerate(image_data.bboxes_data)}
             for fo_keypoint in sample[fo_keypoints_label].keypoints:
                 keypoints = self.convert_fo_keypoint_to_numpy_keypoints(fo_keypoint, width, height)
-                confidences = getattr(fo_keypoint, "confidences", None)
-                if confidences is None and "confidences" in fo_keypoint:
-                    confidences = fo_keypoint["confidences"]
-                keypoints_scores = list(confidences) if confidences is not None else None
+                confidence = getattr(fo_keypoint, "confidence", None)
+                if confidence is None and "confidence" in fo_keypoint:
+                    confidence = fo_keypoint["confidence"]
+                keypoints_scores = list(confidence) if confidence is not None else None
                 if "source_coords" in fo_keypoint:  # FIXME: https://github.com/voxel51/fiftyone/issues/1610
                     bbox_data = image_data.bboxes_data[coords_to_idx[tuple(fo_keypoint.source_coords)]]
                     bbox_data.keypoints = keypoints
