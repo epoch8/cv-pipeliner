@@ -33,11 +33,23 @@ def build_detection_images_data(
             if detection_result.keypoints_scores is not None
             else [None] * len(pred_bboxes)
         )
+        pred_keypoints_labels = (
+            detection_result.keypoints_labels[image_idx]
+            if detection_result.keypoints_labels is not None
+            else [None] * len(pred_bboxes)
+        )
         image_labels_top_n = labels_top_n[image_idx] if labels_top_n is not None else None
         image_scores_top_n = classification_scores_top_n[image_idx] if classification_scores_top_n is not None else None
 
-        for bbox_idx, (pred_bbox, keypoints, mask, detection_score, keypoints_scores) in enumerate(
-            zip(pred_bboxes, pred_keypoints, pred_masks, pred_detection_scores, pred_keypoints_scores)
+        for bbox_idx, (pred_bbox, keypoints, mask, detection_score, keypoints_scores, keypoints_labels) in enumerate(
+            zip(
+                pred_bboxes,
+                pred_keypoints,
+                pred_masks,
+                pred_detection_scores,
+                pred_keypoints_scores,
+                pred_keypoints_labels,
+            )
         ):
             xmin, ymin, xmax, ymax = pred_bbox
             kwargs: Dict[str, Any] = {}
@@ -52,6 +64,8 @@ def build_detection_images_data(
                 )
             if keypoints_scores is not None:
                 kwargs["keypoints_scores"] = keypoints_scores
+            if keypoints_labels is not None:
+                kwargs["keypoints_labels"] = keypoints_labels
             bboxes_data.append(
                 BboxData(
                     image_path=image_data.image_path,
@@ -80,6 +94,7 @@ def build_detection_images_data(
                 keypoints=image_data.keypoints,
                 keypoints_visibility=image_data.keypoints_visibility,
                 keypoints_scores=image_data.keypoints_scores,
+                keypoints_labels=image_data.keypoints_labels,
                 mask=image_data.mask,
                 additional_info=image_data.additional_info,
                 meta_width=image_data.meta_width,

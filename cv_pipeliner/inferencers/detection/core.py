@@ -1,5 +1,5 @@
 import abc
-from typing import Callable, List, Type, Union
+from typing import Callable, List, Optional, Type, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -17,6 +17,7 @@ DetectionOutput = DetectionResult
 
 class DetectionModelSpec(ModelSpec):
     class_names: List[str] = None
+    keypoints_class_names: Optional[List[str]] = None
 
     @property
     @abc.abstractmethod

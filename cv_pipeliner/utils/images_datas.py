@@ -872,16 +872,23 @@ def split_image_data_by_grid(
                 if image_data.keypoints_scores is not None and len(image_data.keypoints_scores) == len(keypoints_mask)
                 else None
             )
+            keypoints_labels = (
+                np.asarray(image_data.keypoints_labels, dtype=object)[keypoints_mask].tolist()
+                if image_data.keypoints_labels is not None and len(image_data.keypoints_labels) == len(keypoints_mask)
+                else None
+            )
         else:
             additional_bboxes_data = copy.deepcopy(image_data.bboxes_data)
             keypoints = copy.deepcopy(image_data.keypoints)
             keypoints_visibility = copy.deepcopy(image_data.keypoints_visibility)
             keypoints_scores = copy.deepcopy(image_data.keypoints_scores)
+            keypoints_labels = copy.deepcopy(image_data.keypoints_labels)
 
         crop_bbox_data.additional_bboxes_data = additional_bboxes_data
         crop_bbox_data.keypoints = keypoints
         crop_bbox_data.keypoints_visibility = keypoints_visibility
         crop_bbox_data.keypoints_scores = keypoints_scores
+        crop_bbox_data.keypoints_labels = keypoints_labels
 
     image_data.bboxes_data = crops_bboxes_data
     image_data.image_path = image_data.image_path  # apply to bboxes_data
@@ -1077,6 +1084,7 @@ def concat_images_data(
             image_data_a.keypoints_visibility, image_data_b.keypoints_visibility
         ),
         keypoints_scores=_concat_optional_lists(image_data_a.keypoints_scores, image_data_b.keypoints_scores),
+        keypoints_labels=_concat_optional_lists(image_data_a.keypoints_labels, image_data_b.keypoints_labels),
         additional_info={**image_data_a.additional_info, **image_data_b.additional_info},
     )
 

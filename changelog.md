@@ -1,6 +1,15 @@
+# 0.22.3
+- `FiftyOneSession` passes `keypoints_scores` as FiftyOne `Keypoint.confidence` (per-point list; round-trip on sample restore).
+- Added `keypoints_labels` (`Optional[List[str]]`) to `BaseImageData` (`ImageData` / `BboxData`); kept aligned by `filter_keypoints` / crops / concat.
+- Label Studio import/export uses `keypoints_labels` (no longer stored in `additional_info`).
+- `visualize_image_data` can draw labels via `include_keypoints_labels=True`.
+- Keypoint colors respect `label_to_color` (by `keypoints_labels`, else parent bbox/image color).
+- Keypoint captions use bbox-style readability: colored background + black text, nearby free slots around the point (not far stacks), always-on L/Z leader polylines in the keypoint color (routes prefer not crossing other caption/bbox text, including detours around blockers like the bbox label). Shared ``occupied_rects`` stays text-only so keypoint circles do not poison leader routing.
+- Added `keypoints_fontsize` for keypoint caption size (`None` → `max(8, fontsize // 2)`, same as before).
+- `YOLOv8_ModelSpec` / `KeypointsRegressorModelSpec` accept optional `keypoints_class_names`; when set, inference fills `keypoints_labels` (when `None`, `keypoints_labels` stays `None`).
+
 # 0.22.2
 - Added `get_df_keypoints_metrics` (YOLO-style pose OKS metrics: `pose_P`, `pose_R`, `pose_mAP50`, `pose_mAP50_95`) via ultralytics primitives; requires `cv_pipeliner[torch]`.
-- `FiftyOneSession` passes `keypoints_scores` as FiftyOne `Keypoint.confidence` (per-point list; round-trip on sample restore).
 
 # 0.22.1
 - Added `keypoints_visibility` (`KeypointVisibility` COCO IntEnum) and `keypoints_scores` fields to `BaseImageData` (`ImageData` / `BboxData`).

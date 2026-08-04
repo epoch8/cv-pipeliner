@@ -50,6 +50,7 @@ class DataConverter(abc.ABC):
             keypoints=image_data.keypoints,
             keypoints_visibility=image_data.keypoints_visibility,
             keypoints_scores=image_data.keypoints_scores,
+            keypoints_labels=image_data.keypoints_labels,
             label=image_data.label,
         )
 

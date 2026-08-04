@@ -89,6 +89,7 @@ class DetectionResult:
     labels_top_n: Optional[List[List[List[Label]]]] = None
     classification_scores_top_n: Optional[List[List[List[Score]]]] = None
     keypoints_scores: Optional[List[List[Optional[KeypointsScores]]]] = None
+    keypoints_labels: Optional[List[List[Optional[List[str]]]]] = None
 
     @classmethod
     def from_tuple(cls, output: tuple) -> DetectionResult:
@@ -100,6 +101,7 @@ class DetectionResult:
         labels_top_n = output[4] if len(output) > 4 else None
         classification_scores_top_n = output[5] if len(output) > 5 else None
         keypoints_scores = output[6] if len(output) > 6 else None
+        keypoints_labels = output[7] if len(output) > 7 else None
         return cls(
             bboxes=bboxes,
             keypoints=keypoints,
@@ -108,6 +110,7 @@ class DetectionResult:
             labels_top_n=labels_top_n,
             classification_scores_top_n=classification_scores_top_n,
             keypoints_scores=keypoints_scores,
+            keypoints_labels=keypoints_labels,
         )
 
     def as_tuple(self) -> tuple:
@@ -119,6 +122,7 @@ class DetectionResult:
             self.labels_top_n,
             self.classification_scores_top_n,
             self.keypoints_scores,
+            self.keypoints_labels,
         )
 
 

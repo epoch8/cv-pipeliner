@@ -276,6 +276,16 @@ pred_images_data = detection_inferencer.predict(
 
 `YOLOv8_ModelSpec` accepts an Ultralytics hub name (e.g. `yolov8n.pt`), a local weights file, or a remote `model_path` supported by `fsspec`.
 
+For pose models, optionally pass `keypoints_class_names` (per-point names) alongside `class_names` (bbox classes). When set, predictions fill `BboxData.keypoints_labels` (length must match the number of keypoints). When `None` (default), `keypoints_labels` stays `None`.
+
+```python
+model_spec = YOLOv8_ModelSpec(
+    model_path="yolov8n-pose.pt",
+    class_names=["person"],
+    keypoints_class_names=["nose", "left_eye", "right_eye"],  # optional
+)
+```
+
 ### Classification
 
 Classification inferencers can classify whole images or object crops. For crop classification, pass nested lists of `BboxData` or a `BatchGeneratorBboxData`.

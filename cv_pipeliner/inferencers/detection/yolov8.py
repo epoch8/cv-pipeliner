@@ -1,7 +1,7 @@
 import json
 import tempfile
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import fsspec
 import numpy as np
@@ -18,6 +18,7 @@ from cv_pipeliner.inferencers.results import DetectionResult, RawDetectionPredic
 class YOLOv8_ModelSpec(DetectionModelSpec):
     model_path: Optional[Union[str, Path]] = None  # noqa: F821
     class_names: Optional[Union[List[str], str, Path]] = None
+    keypoints_class_names: Optional[Union[List[str], str, Path]] = None
     preprocess_input: Union[Callable[[List[np.ndarray]], np.ndarray], str, Path, None] = None
     device: str = None
     force_reload: bool = False
@@ -27,6 +28,19 @@ class YOLOv8_ModelSpec(DetectionModelSpec):
         from cv_pipeliner.inferencers.detection.yolov8 import YOLOv8Runtime
 
         return YOLOv8Runtime
+
+
+def _load_names_list(names: Optional[Union[List[str], str, Path]]) -> Optional[np.ndarray]:
+    if names is None:
+        return None
+    if isinstance(names, str) or isinstance(names, Path):
+        with fsspec.open(names, "r", encoding="utf-8") as out:
+            loaded = np.array(json.load(out))
+    else:
+        loaded = np.array(names)
+    if len(loaded) == 0:
+        return None
+    return loaded
 
 
 class YOLOv8Runtime(DetectionRuntime):
@@ -42,14 +56,8 @@ class YOLOv8Runtime(DetectionRuntime):
         super().__init__(model_spec)
 
         # Loading classes names and save as attribute
-        if model_spec.class_names is not None:
-            if isinstance(model_spec.class_names, str) or isinstance(model_spec.class_names, Path):
-                with fsspec.open(model_spec.class_names, "r", encoding="utf-8") as out:
-                    self.class_names = np.array(json.load(out))
-            else:
-                self.class_names = np.array(model_spec.class_names)
-        else:
-            self.class_names = None
+        self.class_names = _load_names_list(model_spec.class_names)
+        self.keypoints_class_names = _load_names_list(model_spec.keypoints_class_names)
 
         # Loading preprocessing function
         if isinstance(model_spec.preprocess_input, str) or isinstance(model_spec.preprocess_input, Path):
@@ -76,6 +84,30 @@ class YOLOv8Runtime(DetectionRuntime):
         if isinstance(model_names, dict):
             return np.array([model_names[idx] for idx in sorted(model_names)])
         return np.array(model_names)
+
+    def _build_keypoints_labels(
+        self, keypoints_batch: List[Any]
+    ) -> Optional[List[List[Optional[List[str]]]]]:
+        # Optional: without keypoints_class_names, leave BboxData.keypoints_labels as None.
+        if self.keypoints_class_names is None:
+            return None
+        names = [str(name) for name in self.keypoints_class_names.tolist()]
+        n_names = len(names)
+        result: List[List[Optional[List[str]]]] = []
+        for image_keypoints in keypoints_batch:
+            image_labels: List[Optional[List[str]]] = []
+            for keypoints in image_keypoints:
+                n_keypoints = len(keypoints)
+                if n_keypoints == 0:
+                    image_labels.append(None)
+                elif n_keypoints != n_names:
+                    raise ValueError(
+                        f"keypoints_class_names length ({n_names}) != keypoints length ({n_keypoints})"
+                    )
+                else:
+                    image_labels.append(list(names))
+            result.append(image_labels)
+        return result
 
     def _load_yolov8_model(self, model_spec: YOLOv8_ModelSpec):
         """YOLOv8 model initialization
@@ -189,6 +221,8 @@ class YOLOv8Runtime(DetectionRuntime):
             else:
                 keypoints_scores.append(np.asarray(image_scores).astype(float).tolist())
 
+        keypoints_labels = self._build_keypoints_labels(raw.keypoints)
+
         return DetectionResult(
             bboxes=[image_boxes.tolist() for image_boxes in raw.bboxes],
             keypoints=[np.array(image_keypoints).round().astype(np.int32).tolist() for image_keypoints in raw.keypoints],
@@ -203,6 +237,7 @@ class YOLOv8Runtime(DetectionRuntime):
             labels_top_n=labels_top_n,
             classification_scores_top_n=classification_scores_top_n,
             keypoints_scores=keypoints_scores,
+            keypoints_labels=keypoints_labels,
         )
 
     def preprocess_input(self, input: DetectionInput) -> DetectionInput:
