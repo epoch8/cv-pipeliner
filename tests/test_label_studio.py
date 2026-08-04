@@ -74,7 +74,8 @@ def test_convert_annotation_to_image_data_attaches_keypoints_to_bbox():
     assert np.array_equal(bbox.keypoints[0], [96, 120])
     assert np.array_equal(bbox.keypoints[1], [102, 115])
     assert np.array_equal(bbox.keypoints[2], [90, 115])
-    assert bbox.additional_info["keypoints_labels"] == ["nose", "left_eye", "right_eye"]
+    assert bbox.keypoints_labels == ["nose", "left_eye", "right_eye"]
+    assert "keypoints_labels" not in bbox.additional_info
 
 
 def test_convert_annotation_to_image_data_round_trip_keypoints():
@@ -118,7 +119,7 @@ def test_convert_annotation_to_image_data_round_trip_keypoints():
     assert all(item.get("parentID") == "bbox0" for item in kp_annotations)
 
 
-def test_export_uses_stored_keypoint_labels_over_skeleton_argument():
+def test_export_uses_keypoints_labels_over_skeleton_argument():
     image_data = convert_annotation_to_image_data(
         annotation=_make_bbox_keypoints_annotation(),
         bboxes_from_name="bbox",
@@ -128,6 +129,36 @@ def test_export_uses_stored_keypoint_labels_over_skeleton_argument():
     )
     image_data.meta_width = 640
     image_data.meta_height = 480
+    exported = convert_image_data_to_annotation(
+        image_data,
+        to_name="image",
+        bboxes_from_name="bbox",
+        keypoints_from_name="kp",
+        keypoints_labels=["wrong", "labels", "here"],
+    )
+    kp_annotations = [item for item in exported if item.get("type") == "keypointlabels"]
+    assert [item["value"]["keypointlabels"][0] for item in kp_annotations] == ["nose", "left_eye", "right_eye"]
+
+
+def test_export_uses_keypoints_labels_field_directly():
+    image_data = ImageData(
+        image_path="test.jpg",
+        meta_width=640,
+        meta_height=480,
+        bboxes_data=[
+            BboxData(
+                xmin=64,
+                ymin=96,
+                xmax=256,
+                ymax=288,
+                label="person",
+                keypoints=np.array([[96, 120], [102, 115], [90, 115]]),
+                keypoints_labels=["nose", "left_eye", "right_eye"],
+                meta_width=640,
+                meta_height=480,
+            )
+        ],
+    )
     exported = convert_image_data_to_annotation(
         image_data,
         to_name="image",

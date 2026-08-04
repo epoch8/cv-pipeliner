@@ -189,16 +189,11 @@ def _get_per_keypoint_label(
 ) -> Optional[str]:
     """Resolve a keypoint label for Label Studio export.
 
-    Label Studio stores one label per keypoint in ``value.keypointlabels`` (see export docs).
-    After import we keep them in ``BboxData.additional_info['keypoints_labels']``.
-    Fall back to the ordered ``keypoints_labels`` argument (e.g. pose skeleton config).
+    Prefer ``BboxData.keypoints_labels``; fall back to the ordered
+    ``keypoints_labels`` argument (e.g. pose skeleton config).
     """
-    if isinstance(getattr(bbox_data, "additional_info", None), dict):
-        stored_labels = bbox_data.additional_info.get("keypoints_labels")
-        if stored_labels is None:
-            stored_labels = bbox_data.additional_info.get("keypoints_labels_filtered")
-        if stored_labels is not None and kp_idx < len(stored_labels):
-            return stored_labels[kp_idx]
+    if bbox_data.keypoints_labels is not None and kp_idx < len(bbox_data.keypoints_labels):
+        return bbox_data.keypoints_labels[kp_idx]
     if keypoints_labels is not None and kp_idx < len(keypoints_labels):
         return keypoints_labels[kp_idx]
     return None
@@ -311,11 +306,16 @@ def convert_image_data_to_annotation(
                 )
 
     if len(image_data.keypoints) > 0 and keypoints_from_name is not None:
-        if keypoints_labels is not None:
+        effective_keypoints_labels = (
+            image_data.keypoints_labels if image_data.keypoints_labels is not None else keypoints_labels
+        )
+        if effective_keypoints_labels is not None:
             assert len(image_data.keypoints) == len(
-                keypoints_labels
-            ), f"KeypointsLabels mismatch: {image_data.keypoints=}, {keypoints_labels=}"
-        for kp_idx, (keypoint, keypointlabel) in enumerate(zip(image_data.keypoints, keypoints_labels)):
+                effective_keypoints_labels
+            ), f"KeypointsLabels mismatch: {image_data.keypoints=}, {effective_keypoints_labels=}"
+        else:
+            effective_keypoints_labels = [None] * len(image_data.keypoints)
+        for kp_idx, (keypoint, keypointlabel) in enumerate(zip(image_data.keypoints, effective_keypoints_labels)):
             x, y = keypoint[0], keypoint[1]
             annotations.append(
                 {
@@ -327,7 +327,7 @@ def convert_image_data_to_annotation(
                         "x": x * 100 / im_width,
                         "y": y * 100 / im_height,
                         "width": keypoints_width,
-                        "keypointlabels": [keypointlabel],
+                        "keypointlabels": ([keypointlabel] if keypointlabel is not None else []),
                     },
                     "from_name": keypoints_from_name,
                     "to_name": to_name,
@@ -554,11 +554,14 @@ def _attach_related_items_to_bboxes(
         if len(related_items) == 0:
             continue
         related_items = _sort_items_if_labels_provided(related_items, related_labels, ordered_labels)
-        setattr(bboxes_data[bbox_idx], bbox_attr_name, np.array(related_items) if to_numpy else related_items)
-        if isinstance(getattr(bboxes_data[bbox_idx], "additional_info", None), dict):
-            bboxes_data[bbox_idx].additional_info[f"{bbox_attr_name}_labels"] = [
-                label for label in _sort_items_if_labels_provided(related_labels, related_labels, ordered_labels)
-            ]
+        sorted_labels = list(_sort_items_if_labels_provided(related_labels, related_labels, ordered_labels))
+        bbox_data = bboxes_data[bbox_idx]
+        if bbox_attr_name == "keypoints":
+            bbox_data.keypoints = np.array(related_items) if to_numpy else related_items
+            bbox_data.keypoints_labels = sorted_labels
+        elif bbox_attr_name == "mask":
+            bbox_data.mask = np.array(related_items) if to_numpy else related_items
+            bbox_data.additional_info["mask_labels"] = sorted_labels
 
 
 def _get_unlinked_items(
@@ -641,12 +644,22 @@ def convert_annotation_to_image_data(
 
     if keypoints_labels is not None and len(keypoints) > 0:
         label_to_position = {label: idx for idx, label in enumerate(keypoints_labels)}
-        keypoints = sort_items_by_labels(keypoints, items_keypoints_labels, label_to_position)
+        item_labels_positions = [label_to_position.get(label, len(label_to_position)) for label in items_keypoints_labels]
+        sorted_idxs = np.argsort(item_labels_positions)
+        keypoints = np.array(keypoints)[sorted_idxs]
+        items_keypoints_labels = [items_keypoints_labels[i] for i in sorted_idxs]
+    elif len(keypoints) > 0:
+        keypoints = np.array(keypoints)
 
     if mask_labels is not None and len(masks) > 0:
         label_to_position = {label: idx for idx, label in enumerate(mask_labels)}
         masks = sort_items_by_labels(masks, items_mask_labels, label_to_position)
 
     return ImageData(
-        image_path=image_path, bboxes_data=bboxes_data, label=image_data_label, keypoints=keypoints, mask=masks
+        image_path=image_path,
+        bboxes_data=bboxes_data,
+        label=image_data_label,
+        keypoints=keypoints,
+        keypoints_labels=list(items_keypoints_labels) if len(items_keypoints_labels) > 0 else None,
+        mask=masks,
     )

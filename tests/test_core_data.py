@@ -250,6 +250,7 @@ def test_keypoints_visibility_and_scores_roundtrip_and_filter():
         keypoints=[(1, 1), (5, 5), (15, 5)],
         keypoints_visibility=[0, 1, 2],
         keypoints_scores=[0.1, 0.2, 0.3],
+        keypoints_labels=["a", "b", "c"],
     )
     assert bbox_data.keypoints_visibility == [
         KeypointVisibility.NOT_LABELED,
@@ -263,6 +264,7 @@ def test_keypoints_visibility_and_scores_roundtrip_and_filter():
         KeypointVisibility.LABELED_AND_VISIBLE,
     ]
     assert restored.keypoints_scores == pytest.approx([0.1, 0.2, 0.3])
+    assert restored.keypoints_labels == ["a", "b", "c"]
 
     bbox_data.filter_keypoints(np.array([True, False, True]))
     assert bbox_data.keypoints.tolist() == [[1, 1], [15, 5]]
@@ -271,3 +273,4 @@ def test_keypoints_visibility_and_scores_roundtrip_and_filter():
         KeypointVisibility.LABELED_AND_VISIBLE,
     ]
     assert bbox_data.keypoints_scores == pytest.approx([0.1, 0.3])
+    assert bbox_data.keypoints_labels == ["a", "c"]

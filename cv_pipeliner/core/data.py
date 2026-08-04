@@ -96,6 +96,7 @@ class BaseImageData(BaseModel):
     keypoints: np.ndarray = Field(default_factory=lambda: np.array([]).astype(int).reshape((-1, 2)))
     keypoints_visibility: Optional[List[KeypointVisibility]] = Field(default=None)
     keypoints_scores: Optional[List[float]] = Field(default=None)
+    keypoints_labels: Optional[List[str]] = Field(default=None)
     mask: Union[
         Union[str, Path, Pathy, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image],  # path to mask image
         np.ndarray,  # mask image
@@ -165,8 +166,17 @@ class BaseImageData(BaseModel):
             value = value.tolist()
         return [float(v) for v in value]
 
+    @field_validator("keypoints_labels", mode="before")
+    @classmethod
+    def parse_keypoints_labels(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, np.ndarray):
+            value = value.tolist()
+        return [None if v is None else str(v) for v in value]
+
     def filter_keypoints(self, mask: np.ndarray) -> None:
-        """Filter keypoints and keep visibility/scores aligned with the same mask."""
+        """Filter keypoints and keep visibility/scores/labels aligned with the same mask."""
         mask = np.asarray(mask)
         if self.keypoints_visibility is not None and len(self.keypoints_visibility) == len(mask):
             self.keypoints_visibility = [
@@ -174,6 +184,10 @@ class BaseImageData(BaseModel):
             ]
         if self.keypoints_scores is not None and len(self.keypoints_scores) == len(mask):
             self.keypoints_scores = [float(v) for v in np.asarray(self.keypoints_scores, dtype=float)[mask].tolist()]
+        if self.keypoints_labels is not None and len(self.keypoints_labels) == len(mask):
+            self.keypoints_labels = [
+                None if v is None else str(v) for v in np.asarray(self.keypoints_labels, dtype=object)[mask].tolist()
+            ]
         self.keypoints = self.keypoints[mask]
 
     @field_validator("mask", mode="before")
@@ -510,6 +524,7 @@ class BboxData(BaseImageData):
                     keypoints=keypoints,
                     keypoints_visibility=self.keypoints_visibility,
                     keypoints_scores=self.keypoints_scores,
+                    keypoints_labels=self.keypoints_labels,
                     mask=mask,
                     additional_info=self.additional_info,
                 )

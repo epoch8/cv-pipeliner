@@ -59,14 +59,17 @@ def test_detection_result_fields():
         labels_top_n=[[["class"]]],
         classification_scores_top_n=[[[0.7]]],
         keypoints_scores=[[[0.5]]],
+        keypoints_labels=[[["nose"]]],
     )
 
     assert result.bboxes == [[(1, 2, 3, 4)]]
     assert result.keypoints_scores == [[[0.5]]]
+    assert result.keypoints_labels == [[["nose"]]]
     # legacy tuple helpers still work
     restored = DetectionResult.from_tuple(result.as_tuple())
     assert restored.bboxes == result.bboxes
     assert restored.keypoints_scores == result.keypoints_scores
+    assert restored.keypoints_labels == result.keypoints_labels
 
 
 def test_other_result_dataclasses():

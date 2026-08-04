@@ -1,5 +1,5 @@
 import abc
-from typing import Callable, List, Tuple, Type, Union
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -22,6 +22,8 @@ KeypointsRegressorOutput = List[Keypoints]
 
 
 class KeypointsRegressorModelSpec(ModelSpec):
+    keypoints_class_names: Optional[List[str]] = None
+
     @property
     @abc.abstractmethod
     def runtime_cls(self) -> Type["KeypointsRegressorRuntime"]:
@@ -46,6 +48,21 @@ class KeypointsRegressorInferencer(Inferencer):
         assert isinstance(runtime, KeypointsRegressorRuntime)
         super().__init__(runtime)
 
+    def _resolve_keypoints_labels(self, keypoints) -> Optional[List[str]]:
+        spec = self.runtime.spec
+        assert isinstance(spec, KeypointsRegressorModelSpec)
+        names = spec.keypoints_class_names
+        if names is None or len(names) == 0:
+            return None
+        n_keypoints = len(keypoints)
+        if n_keypoints == 0:
+            return None
+        if n_keypoints != len(names):
+            raise ValueError(
+                f"keypoints_class_names length ({len(names)}) != keypoints length ({n_keypoints})"
+            )
+        return list(names)
+
     def _postprocess_images_data(
         self,
         images_data: List[ImageData],
@@ -63,6 +80,7 @@ class KeypointsRegressorInferencer(Inferencer):
                     bboxes_data=image_data.bboxes_data,
                     label=image_data.label,
                     keypoints=pred_keypoints,
+                    keypoints_labels=self._resolve_keypoints_labels(pred_keypoints),
                     additional_info=image_data.additional_info,
                     meta_width=image_data.meta_width,
                     meta_height=image_data.meta_height,
@@ -118,6 +136,7 @@ class KeypointsRegressorInferencer(Inferencer):
                     detection_score=bbox_data.detection_score,
                     label=bbox_data.label,
                     keypoints=pred_keypoints,
+                    keypoints_labels=self._resolve_keypoints_labels(pred_keypoints),
                     classification_score=bbox_data.classification_score,
                     top_n=bbox_data.top_n,
                     labels_top_n=bbox_data.labels_top_n,
