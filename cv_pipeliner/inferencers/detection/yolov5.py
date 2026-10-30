@@ -422,7 +422,7 @@ class YOLOv5Runtime(DetectionRuntime):
                 ]
             )
             classes_scores_top_n = np.array(
-                [[[score for _ in range(classification_top_n)]] for score in classes_scores]
+                [[score for _ in range(classification_top_n)] for score in classes_scores]
             )
         else:
             class_names_top_n = np.array([[None for _ in range(classification_top_n)] for _ in classes])
