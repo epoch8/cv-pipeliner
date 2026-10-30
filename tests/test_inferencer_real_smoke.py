@@ -227,6 +227,33 @@ def test_real_yolov5_detection_smoke(model_artifact_cache):
     assert isinstance(result[0], ImageData)
 
 
+def test_real_yolov5_detection_with_class_names_gives_float_classification_scores(model_artifact_cache):
+    """With class_names, each bbox gets a label and a float classification score equal to its detection score
+    (YOLOv5 has no separate classifier). A low threshold on a noisy image guarantees bboxes, so the per-bbox
+    postprocess path is actually exercised (a nested score array used to fail BboxData validation)."""
+    pytest.importorskip("torch")
+    from cv_pipeliner.inferencers.detection.yolov5 import YOLOv5_ModelSpec
+
+    weight_path = model_artifact_cache / "yolov5n.pt"
+    _download_file("https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5n.pt", weight_path)
+
+    class_names = [f"class_{i}" for i in range(80)]
+    spec = YOLOv5_ModelSpec(model_path=weight_path, class_names=class_names, device="cpu", skip_validation=True)
+    inferencer = spec.load_detection_inferencer()
+
+    image = np.random.default_rng(0).integers(0, 256, size=(320, 320, 3), dtype=np.uint8)
+    result = inferencer.predict([ImageData(image=image)], score_threshold=0.001, disable_tqdm=True)
+
+    bboxes_data = result[0].bboxes_data
+    assert len(bboxes_data) > 0
+    for bbox_data in bboxes_data:
+        assert bbox_data.label in class_names
+        assert bbox_data.labels_top_n == [bbox_data.label]
+        assert isinstance(bbox_data.classification_score, float)
+        assert bbox_data.classification_score == pytest.approx(bbox_data.detection_score)
+        assert bbox_data.classification_scores_top_n == pytest.approx([bbox_data.detection_score])
+
+
 def test_real_pipeline_smoke_with_downloaded_detector_and_tiny_classifier(tensorflow_module, model_artifact_cache):
     ultralytics = pytest.importorskip("ultralytics")
     from cv_pipeliner.inferencers.classification.tensorflow import TensorFlow_ClassificationModelSpec

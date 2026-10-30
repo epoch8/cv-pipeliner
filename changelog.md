@@ -1,3 +1,6 @@
+# 0.22.4
+- Fix YOLOv5 postprocess with `class_names`: `classification_scores_top_n` per bbox is now `[score] * top_n` (was nested one level too deep since 0.16.9), so `BboxData.classification_score` is a float again instead of failing pydantic v2 validation with a 1-element array. Affected only YOLOv5 models with `class_names` set, on images with at least one detected bbox.
+
 # 0.22.3
 - `FiftyOneSession` passes `keypoints_scores` as FiftyOne `Keypoint.confidence` (per-point list; round-trip on sample restore).
 - Added `keypoints_labels` (`Optional[List[str]]`) to `BaseImageData` (`ImageData` / `BboxData`); kept aligned by `filter_keypoints` / crops / concat.
