@@ -128,6 +128,13 @@ class RFDETRRuntime(DetectionRuntime):
                 "or `pip install rfdetr`."
             ) from exc
 
+        def _optional_ctor(name: str):
+            # rfdetr.__getattr__ raises ImportError for plus-only symbols (RFDETRXLarge, …)
+            # when rfdetr[plus] is not installed — getattr(..., None) does not catch that.
+            if name not in rfdetr.__dict__:
+                return None
+            return rfdetr.__dict__[name]
+
         if self._task == "segment":
             variant_to_ctor = {
                 "nano": rfdetr.RFDETRSegNano,
@@ -144,8 +151,8 @@ class RFDETRRuntime(DetectionRuntime):
                 "small": rfdetr.RFDETRSmall,
                 "medium": rfdetr.RFDETRMedium,
                 "large": rfdetr.RFDETRLarge,
-                "xlarge": getattr(rfdetr, "RFDETRXLarge", None),
-                "2xlarge": getattr(rfdetr, "RFDETR2XLarge", None),
+                "xlarge": _optional_ctor("RFDETRXLarge"),
+                "2xlarge": _optional_ctor("RFDETR2XLarge"),
             }
             variant_to_ctor = {k: v for k, v in variant_to_ctor.items() if v is not None}
             allowed = tuple(variant_to_ctor)
@@ -157,7 +164,13 @@ class RFDETRRuntime(DetectionRuntime):
             )
 
         weights_path = self._materialize_weights(model_spec.model_path)
-        model = variant_to_ctor[self._variant](pretrain_weights=str(weights_path))
+        ctor_kwargs: dict = {"pretrain_weights": str(weights_path)}
+        if self.class_names is not None and len(self.class_names) > 0:
+            # Match the fine-tuned head size; RF-DETR pretrained defaults to 90 COCO classes.
+            ctor_kwargs["num_classes"] = int(len(self.class_names))
+        if self._input_size[0] == self._input_size[1]:
+            ctor_kwargs["resolution"] = int(self._input_size[0])
+        model = variant_to_ctor[self._variant](**ctor_kwargs)
         if model_spec.optimize_for_inference:
             try:
                 model.optimize_for_inference(compile=True, batch_size=1)
@@ -188,6 +201,22 @@ class RFDETRRuntime(DetectionRuntime):
         if isinstance(names, dict):
             return np.array([names[idx] for idx in sorted(names)])
         return np.array(list(names))
+
+    def _label_for_class_id(self, cid: int) -> str:
+        """Map RF-DETR class_id to a label.
+
+        Datapipe GT→COCO uses 1-based category ids, and fine-tuned RF-DETR typically
+        emits those. Prefer 1-based mapping; fall back to 0-based for contiguous heads.
+        """
+        assert self.class_names is not None
+        names = self.class_names
+        i = int(cid)
+        n = len(names)
+        if 1 <= i <= n:
+            return str(names[i - 1])
+        if 0 <= i < n:
+            return str(names[i])
+        return str(i)
 
     def _predict_one(self, image: np.ndarray, score_threshold: float) -> Tuple[
         List[List[int]],
@@ -263,7 +292,7 @@ class RFDETRRuntime(DetectionRuntime):
             if classification_top_n > 1:
                 raise NotImplementedError("Not implemented for classification_top_n > 1")
             labels_top_n = [
-                [[str(self.class_names[int(cid)])] for cid in image_ids] for image_ids in class_ids
+                [[self._label_for_class_id(cid)] for cid in image_ids] for image_ids in class_ids
             ]
             classification_scores_top_n = [[[score] for score in scores] for scores in detection_scores]
         else:

@@ -93,6 +93,36 @@ def test_rfdetr_runtime_predict_detect_without_weights():
     assert result.masks[0] == [[[]]]
 
 
+def test_rfdetr_label_for_class_id_accepts_zero_and_one_based():
+    runtime = _runtime_without_load("detect", with_mask=False)
+    runtime.class_names = np.array(["a", "b", "c"])
+    # Prefer 1-based COCO ids; 0 is the 0-based fallback for contiguous heads.
+    assert runtime._label_for_class_id(0) == "a"
+    assert runtime._label_for_class_id(1) == "a"
+    assert runtime._label_for_class_id(2) == "b"
+    assert runtime._label_for_class_id(3) == "c"
+    assert runtime._label_for_class_id(99) == "99"
+
+
+def test_rfdetr_runtime_predict_maps_one_based_class_ids():
+    runtime = _runtime_without_load("detect", with_mask=False)
+    runtime.class_names = np.array(["cat", "dog"])
+
+    class _OneBasedModel:
+        def predict(self, image, threshold: float = 0.0):
+            del image, threshold
+            return _FakeDetections(n=1)
+
+    # Force class_id=2 (1-based "dog" when names has length 2).
+    det = _FakeDetections(n=1)
+    det.class_id = np.array([2], dtype=int)
+    runtime.model = SimpleNamespace(predict=lambda image, threshold=0.0: det)
+
+    image = np.zeros((10, 10, 3), dtype=np.uint8)
+    result = runtime.predict([image], score_threshold=0.1)
+    assert result.labels_top_n[0] == [["dog"]]
+
+
 def test_rfdetr_runtime_predict_segment_fills_polygons():
     runtime = _runtime_without_load("segment", with_mask=True)
     image = np.zeros((10, 10, 3), dtype=np.uint8)
@@ -108,6 +138,54 @@ def test_rfdetr_load_requires_model_path():
     runtime._variant = "medium"
     with pytest.raises(ValueError, match="model_path"):
         runtime._load_model(RFDETR_ModelSpec(model_path=None, task="detect", variant="medium"))
+
+
+def test_rfdetr_load_skips_plus_only_variants_without_raising(monkeypatch, tmp_path):
+    """Building the ctor map must not getattr plus-only symbols (ImportError)."""
+    import sys
+    import types
+
+    constructed: List[dict] = []
+
+    class _Ctor:
+        def __init__(self, **kwargs):
+            constructed.append(kwargs)
+
+    class _FakeRfdetr(types.ModuleType):
+        def __init__(self):
+            super().__init__("rfdetr")
+            self.RFDETRNano = _Ctor
+            self.RFDETRSmall = _Ctor
+            self.RFDETRMedium = _Ctor
+            self.RFDETRLarge = _Ctor
+
+        def __getattr__(self, name: str):
+            # Mimic rfdetr[plus]-gated lazy exports.
+            raise ImportError(f"plus-only: {name}")
+
+    monkeypatch.setitem(sys.modules, "rfdetr", _FakeRfdetr())
+    weights = tmp_path / "w.pth"
+    weights.write_bytes(b"x")
+
+    runtime = RFDETRRuntime.__new__(RFDETRRuntime)
+    runtime._task = "detect"
+    runtime._variant = "nano"
+    runtime.class_names = np.array(["a"])
+    runtime._input_size = (384, 384)
+
+    runtime._load_model(
+        RFDETR_ModelSpec(
+            model_path=str(weights),
+            class_names=["a"],
+            input_size=384,
+            variant="nano",
+            task="detect",
+        )
+    )
+    assert len(constructed) == 1
+    assert constructed[0]["pretrain_weights"] == str(weights)
+    assert constructed[0]["num_classes"] == 1
+    assert constructed[0]["resolution"] == 384
 
 
 def test_rfdetr_import_compatibility():
