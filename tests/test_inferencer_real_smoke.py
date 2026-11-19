@@ -1,3 +1,4 @@
+import os
 import shutil
 import urllib.request
 from pathlib import Path
@@ -296,3 +297,34 @@ def test_real_pipeline_smoke_with_downloaded_detector_and_tiny_classifier(tensor
     assert classifier_path.exists()
     assert len(result) == 1
     assert isinstance(result[0], ImageData)
+
+
+def test_real_rfdetr_detection_smoke_skipped_without_weights(tmp_path):
+    """Smoke path for RF-DETR: skip unless rfdetr + a local checkpoint are available."""
+    pytest.importorskip("rfdetr")
+    from cv_pipeliner.inferencers.detection.rfdetr import RFDETR_ModelSpec
+
+    weight_path = Path(os.environ.get("RFDETR_SMOKE_WEIGHTS", ""))
+    if not weight_path.is_file():
+        pytest.skip("Set RFDETR_SMOKE_WEIGHTS to a local .pth checkpoint to run RF-DETR real smoke")
+
+    spec = RFDETR_ModelSpec(
+        model_path=weight_path,
+        class_names=["object"],
+        input_size=32,
+        variant="medium",
+        task="detect",
+        device="cpu",
+    )
+    try:
+        inferencer = spec.load_detection_inferencer()
+    except Exception as exc:
+        pytest.skip(f"Could not load RF-DETR checkpoint: {exc}")
+
+    result = inferencer.predict(
+        [ImageData(image=np.zeros((64, 64, 3), dtype=np.uint8))],
+        score_threshold=0.99,
+        disable_tqdm=True,
+    )
+    assert len(result) == 1
+

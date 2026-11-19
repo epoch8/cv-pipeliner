@@ -1,3 +1,6 @@
+# 0.22.5
+- Added RF-DETR detection/segmentation inferencer: `RFDETR_ModelSpec` / `RFDETRRuntime` under `cv_pipeliner.inferencers.detection.rfdetr` (lazy export `RFDETR_ModelSpec`). Segmentation fills `DetectionResult.masks` polygons; detection leaves masks empty. Optional extra: `cv_pipeliner[rfdetr]`.
+
 # 0.22.4
 - Fix YOLOv5 postprocess with `class_names`: `classification_scores_top_n` per bbox is now `[score] * top_n` (was nested one level too deep since 0.16.9), so `BboxData.classification_score` is a float again instead of failing pydantic v2 validation with a 1-element array. Affected only YOLOv5 models with `class_names` set, on images with at least one detected bbox.
 

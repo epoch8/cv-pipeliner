@@ -1,6 +1,6 @@
 [project]
 name = "cv_pipeliner"
-version = "0.22.4"
+version = "0.22.5"
 description = ""
 authors = [
     { name = "bobokvsky", email = "alexander.kozlovsky.m@gmail.com" },
@@ -39,6 +39,11 @@ torch = [
     "seaborn",  # yolov5 torch.hub utils.plots
     "gitpython",  # yolov5 hub check_requirements; avoids AutoUpdate pip on CI
 ]
+rfdetr = [
+    "torch",
+    "torchvision",
+    "rfdetr",
+]
 fiftyone = ["fiftyone"]
 notebooks = ["nbclient", "nbformat", "ipykernel"]
 
@@ -53,7 +58,7 @@ dev = [
 
 [tool.poetry]
 name = "cv_pipeliner"
-version = "0.22.4"
+version = "0.22.5"
 description = ""
 authors = [
     "bobokvsky <alexander.kozlovsky.m@gmail.com>",
@@ -92,11 +97,13 @@ nbclient = { version = "*", optional = true }
 nbformat = { version = "*", optional = true }
 ipykernel = { version = "*", optional = true }
 fiftyone = { version = "*", optional = true }
+rfdetr = { version = "*", optional = true }
 
 
 [tool.poetry.extras]
 tensorflow = ["tensorflow"]
 torch = ["torch", "torchvision", "ultralytics", "setuptools", "ipython", "seaborn", "gitpython"]
+rfdetr = ["torch", "torchvision", "rfdetr"]
 fiftyone = ["fiftyone"]
 notebooks = ["nbclient", "nbformat", "ipykernel"]
 
