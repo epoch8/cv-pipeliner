@@ -1,4 +1,5 @@
 # 0.23.0
+- Raised supported Python range to `>=3.11,<3.15`. CI tests 3.11–3.14. The `tensorflow` extra is skipped on Python 3.14 (no wheels yet).
 - Added RF-DETR detection/segmentation inferencer: `RFDETR_ModelSpec` / `RFDETRRuntime` under `cv_pipeliner.inferencers.detection.rfdetr` (lazy export `RFDETR_ModelSpec`). Segmentation fills `DetectionResult.masks` polygons; detection leaves masks empty. Optional extra: `cv_pipeliner[rfdetr]`.
 - RF-DETR inference works without `rfdetr[plus]`: avoid getattr on plus-only exports, pass `num_classes` / `resolution` when loading weights, and map COCO-style 1-based class ids.
 - Extended `COCODataConverter` for RF-DETR / Roboflow export (1-based category ids, `class_names`).
