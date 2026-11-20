@@ -1,6 +1,6 @@
 from importlib import import_module
 
-__version__ = "0.22.4"
+__version__ = "0.22.5"
 
 _LAZY_IMPORTS = {
     "BatchGeneratorBboxData": "cv_pipeliner.batch_generators.bbox_data",
@@ -19,6 +19,7 @@ _LAZY_IMPORTS = {
     "YOLOv5_TFLite_ModelSpec": "cv_pipeliner.inferencers.detection.yolov5",
     "YOLOv5_TFLiteWithNMS_ModelSpec": "cv_pipeliner.inferencers.detection.yolov5",
     "YOLOv8_ModelSpec": "cv_pipeliner.inferencers.detection.yolov8",
+    "RFDETR_ModelSpec": "cv_pipeliner.inferencers.detection.rfdetr",
     "PyTorch_EmbedderModelSpec": "cv_pipeliner.inferencers.embedder.pytorch",
     "TensorFlow_EmbedderModelSpec": "cv_pipeliner.inferencers.embedder.tensorflow",
     "MMPose_KeypointsRegressorModelSpec_TFLite": "cv_pipeliner.inferencers.keypoints_regressor.mmpose",

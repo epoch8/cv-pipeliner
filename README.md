@@ -36,7 +36,7 @@ pip install ".[torch]"
 pip install ".[fiftyone]"
 ```
 
-Python `>=3.9,<3.14` is supported. Check [`pyproject.toml`](pyproject.toml) for optional extras (`torch`, `tensorflow`, `fiftyone`).
+Python `>=3.11,<3.15` is supported. Check [`pyproject.toml`](pyproject.toml) for optional extras (`torch`, `tensorflow`, `fiftyone`).
 
 ## What Is Included
 
