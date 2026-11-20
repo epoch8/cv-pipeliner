@@ -1,6 +1,6 @@
 [project]
 name = "cv_pipeliner"
-version = "0.22.5"
+version = "0.23.0"
 description = ""
 authors = [
     { name = "bobokvsky", email = "alexander.kozlovsky.m@gmail.com" },
@@ -38,6 +38,7 @@ torch = [
     "ipython",  # yolov5 torch.hub imports IPython
     "seaborn",  # yolov5 torch.hub utils.plots
     "gitpython",  # yolov5 hub check_requirements; avoids AutoUpdate pip on CI
+    "PyYAML",  # yolov5 hub utils.dataloaders imports yaml
 ]
 rfdetr = [
     "torch",
@@ -58,7 +59,7 @@ dev = [
 
 [tool.poetry]
 name = "cv_pipeliner"
-version = "0.22.5"
+version = "0.23.0"
 description = ""
 authors = [
     "bobokvsky <alexander.kozlovsky.m@gmail.com>",
@@ -93,6 +94,7 @@ setuptools = { version = ">=65,<82", optional = true }
 ipython = { version = "*", optional = true }
 seaborn = { version = "*", optional = true }
 gitpython = { version = "*", optional = true }
+PyYAML = { version = "*", optional = true }
 nbclient = { version = "*", optional = true }
 nbformat = { version = "*", optional = true }
 ipykernel = { version = "*", optional = true }
@@ -102,7 +104,7 @@ rfdetr = { version = "*", optional = true }
 
 [tool.poetry.extras]
 tensorflow = ["tensorflow"]
-torch = ["torch", "torchvision", "ultralytics", "setuptools", "ipython", "seaborn", "gitpython"]
+torch = ["torch", "torchvision", "ultralytics", "setuptools", "ipython", "seaborn", "gitpython", "PyYAML"]
 rfdetr = ["torch", "torchvision", "rfdetr"]
 fiftyone = ["fiftyone"]
 notebooks = ["nbclient", "nbformat", "ipykernel"]

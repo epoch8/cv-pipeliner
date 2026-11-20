@@ -1,5 +1,8 @@
-# 0.22.5
+# 0.23.0
 - Added RF-DETR detection/segmentation inferencer: `RFDETR_ModelSpec` / `RFDETRRuntime` under `cv_pipeliner.inferencers.detection.rfdetr` (lazy export `RFDETR_ModelSpec`). Segmentation fills `DetectionResult.masks` polygons; detection leaves masks empty. Optional extra: `cv_pipeliner[rfdetr]`.
+- RF-DETR inference works without `rfdetr[plus]`: avoid getattr on plus-only exports, pass `num_classes` / `resolution` when loading weights, and map COCO-style 1-based class ids.
+- Extended `COCODataConverter` for RF-DETR / Roboflow export (1-based category ids, `class_names`).
+- `torch` extra now includes `PyYAML` so YOLOv5 `torch.hub` load does not fail with `ModuleNotFoundError: No module named 'yaml'`.
 
 # 0.22.4
 - Fix YOLOv5 postprocess with `class_names`: `classification_scores_top_n` per bbox is now `[score] * top_n` (was nested one level too deep since 0.16.9), so `BboxData.classification_score` is a float again instead of failing pydantic v2 validation with a 1-element array. Affected only YOLOv5 models with `class_names` set, on images with at least one detected bbox.
