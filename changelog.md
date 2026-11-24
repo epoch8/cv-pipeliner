@@ -1,3 +1,6 @@
+# 0.23.1
+- RF-DETR runtime: resolve datapipe `bridge_model.json` passports to the real `.pth`, and load fine-tuned checkpoints with `trust_checkpoint=True` (torch 2.6 / rfdetr 1.12 `weights_only` safe-load).
+
 # 0.23.0
 - Raised supported Python range to `>=3.11,<3.15`. CI tests 3.11–3.14. The `tensorflow` extra is skipped on Python 3.14 (no wheels yet).
 - Added RF-DETR detection/segmentation inferencer: `RFDETR_ModelSpec` / `RFDETRRuntime` under `cv_pipeliner.inferencers.detection.rfdetr` (lazy export `RFDETR_ModelSpec`). Segmentation fills `DetectionResult.masks` polygons; detection leaves masks empty. Optional extra: `cv_pipeliner[rfdetr]`.

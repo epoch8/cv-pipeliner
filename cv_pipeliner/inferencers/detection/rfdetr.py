@@ -164,7 +164,9 @@ class RFDETRRuntime(DetectionRuntime):
             )
 
         weights_path = self._materialize_weights(model_spec.model_path)
-        ctor_kwargs: dict = {"pretrain_weights": str(weights_path)}
+        # Fine-tuned ACI/datapipe checkpoints often contain custom pickle objects;
+        # rfdetr 1.12+ defaults to weights_only=True and requires an explicit trust flag.
+        ctor_kwargs: dict = {"pretrain_weights": str(weights_path), "trust_checkpoint": True}
         if self.class_names is not None and len(self.class_names) > 0:
             # Match the fine-tuned head size; RF-DETR pretrained defaults to 90 COCO classes.
             ctor_kwargs["num_classes"] = int(len(self.class_names))
@@ -179,9 +181,34 @@ class RFDETRRuntime(DetectionRuntime):
         return model
 
     @staticmethod
-    def _materialize_weights(model_path: Union[str, Path]) -> Path:
-        path = Path(model_path) if not isinstance(model_path, Path) else model_path
+    def _resolve_weights_uri(model_path: Union[str, Path]) -> str:
+        """Map datapipe ``bridge_model.json`` passports to the real ``.pth`` URI.
+
+        ACI stores ``model_path`` as ``…/bridge_model.json`` (passport with
+        ``checkpoint`` + ``sha256``). RF-DETR must load the sibling weights file,
+        not the JSON itself.
+        """
         path_str = str(model_path)
+        clean = path_str.split("?")[0]
+        if Path(clean).name != "bridge_model.json":
+            return path_str
+        with fsspec.open(path_str, "rb") as src:
+            raw = src.read()
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"RF-DETR bridge_model.json is not valid JSON: {model_path!r}") from exc
+        if isinstance(data, dict):
+            checkpoint = data.get("checkpoint")
+            if isinstance(checkpoint, str) and checkpoint.strip():
+                return checkpoint.strip()
+        parent = clean.rsplit("/", 1)[0]
+        return f"{parent}/model.pth"
+
+    @staticmethod
+    def _materialize_weights(model_path: Union[str, Path]) -> Path:
+        path_str = RFDETRRuntime._resolve_weights_uri(model_path)
+        path = Path(path_str)
         if path.exists():
             return path
         if "://" in path_str:
