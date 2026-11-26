@@ -242,19 +242,10 @@ class RFDETRRuntime(DetectionRuntime):
             return {int(i): str(name) for i, name in enumerate(self.class_names)}
 
     def _label_for_class_id(self, cid: int) -> str:
-        """Map RF-DETR class_id to a label.
-
-        Fine-tuned RF-DETR emits **0-based** indices into ``class_names`` (see rfdetr
-        ``predict`` docs / ``class_id_to_name``). Fall back to 1-based only when
-        ``cid == n`` (valid as last 1-based id, invalid as 0-based).
-        """
+        """Map RF-DETR class_id to a label (0-based into ``class_names`` / model map)."""
         i = int(cid)
         if i in self._class_id_to_name:
             return self._class_id_to_name[i]
-        assert self.class_names is not None
-        n = len(self.class_names)
-        if i == n:
-            return str(self.class_names[n - 1])
         return str(i)
 
     def _predict_one(self, image: np.ndarray, score_threshold: float) -> Tuple[

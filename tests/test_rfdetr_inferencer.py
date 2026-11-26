@@ -98,12 +98,9 @@ def test_rfdetr_label_for_class_id_prefers_zero_based():
     runtime = _runtime_without_load("detect", with_mask=False)
     runtime.class_names = np.array(["a", "b", "c"])
     runtime._class_id_to_name = {0: "a", 1: "b", 2: "c"}
-    # Fine-tuned RF-DETR emits 0-based indices into class_names.
     assert runtime._label_for_class_id(0) == "a"
     assert runtime._label_for_class_id(1) == "b"
     assert runtime._label_for_class_id(2) == "c"
-    # cid == n is the only 1-based fallback (last class).
-    assert runtime._label_for_class_id(3) == "c"
     assert runtime._label_for_class_id(99) == "99"
 
 
