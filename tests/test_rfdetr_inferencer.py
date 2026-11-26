@@ -80,6 +80,7 @@ def _runtime_without_load(task: str, with_mask: bool = False) -> RFDETRRuntime:
     runtime._input_size = (32, 32)
     runtime._preprocess_input = lambda images: list(images)
     runtime.model = _FakeModel(with_mask=with_mask)
+    runtime._predictor = None
     return runtime
 
 
@@ -113,10 +114,65 @@ def test_rfdetr_runtime_predict_maps_zero_based_class_ids():
     det = _FakeDetections(n=1)
     det.class_id = np.array([1], dtype=int)
     runtime.model = SimpleNamespace(predict=lambda image, threshold=0.0: det)
+    runtime._predictor = None
 
     image = np.zeros((10, 10, 3), dtype=np.uint8)
     result = runtime.predict([image], score_threshold=0.1)
     assert result.labels_top_n[0] == [["dog"]]
+
+
+def test_rfdetr_runtime_prefers_predictor_from_inference():
+    runtime = _runtime_without_load("detect", with_mask=False)
+    calls: List[str] = []
+
+    def model_predict(image, threshold: float = 0.0):
+        calls.append("model")
+        return _FakeDetections(n=1, h=image.shape[0], w=image.shape[1])
+
+    def predictor_predict(image, threshold: float = 0.0):
+        calls.append("predictor")
+        return _FakeDetections(n=1, h=image.shape[0], w=image.shape[1])
+
+    runtime.model = SimpleNamespace(predict=model_predict)
+    runtime._predictor = SimpleNamespace(predict=predictor_predict)
+    image = np.zeros((10, 10, 3), dtype=np.uint8)
+    runtime.predict([image], score_threshold=0.1)
+    assert calls == ["predictor"]
+
+
+def test_rfdetr_build_predictor_uses_model_inference(monkeypatch):
+    built: List[dict] = []
+
+    class _Predictor:
+        pass
+
+    class _Model:
+        def inference(self, compile: bool = True, batch_size: int = 1, **kwargs):
+            built.append({"compile": compile, "batch_size": batch_size, **kwargs})
+            return _Predictor()
+
+    runtime = RFDETRRuntime.__new__(RFDETRRuntime)
+    monkeypatch.setattr(RFDETRRuntime, "_should_compile", staticmethod(lambda spec: False))
+    predictor = runtime._build_predictor(
+        _Model(),
+        RFDETR_ModelSpec(
+            model_path="/tmp/fake.pth",
+            optimize_for_inference=True,
+            inference_compile=False,
+            inference_batch_size=2,
+        ),
+    )
+    assert isinstance(predictor, _Predictor)
+    assert built == [{"compile": False, "batch_size": 2}]
+
+
+def test_rfdetr_build_predictor_skipped_when_disabled():
+    runtime = RFDETRRuntime.__new__(RFDETRRuntime)
+    predictor = runtime._build_predictor(
+        SimpleNamespace(inference=lambda **kwargs: object()),
+        RFDETR_ModelSpec(model_path="/tmp/fake.pth", optimize_for_inference=False),
+    )
+    assert predictor is None
 
 
 def test_rfdetr_label_for_class_id_uses_model_mapping_when_present():

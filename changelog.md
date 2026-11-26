@@ -1,6 +1,7 @@
 # 0.23.1
 - RF-DETR runtime: resolve datapipe `bridge_model.json` passports to the real `.pth`, and load fine-tuned checkpoints with `trust_checkpoint=True` (torch 2.6 / rfdetr 1.12 `weights_only` safe-load).
 - RF-DETR label mapping uses 0-based `class_id` (fine-tune / `prediction_labels`); dropped the incorrect 1-based inference fallback.
+- RF-DETR uses rfdetr 1.12 `model.inference()` → `predictor.predict()` by default (`optimize_for_inference=True`); dropped the removed `optimize_for_inference()` call that silently no-oped and left the latency warning.
 
 # 0.23.0
 - Raised supported Python range to `>=3.11,<3.15`. CI tests 3.11–3.14. The `tensorflow` extra is skipped on Python 3.14 (no wheels yet).

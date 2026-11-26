@@ -34,7 +34,12 @@ class RFDETR_ModelSpec(DetectionModelSpec):
     task: TaskName = "detect"
     preprocess_input: Union[Callable[[List[np.ndarray]], List[np.ndarray]], str, Path, None] = None
     device: Optional[str] = None
-    optimize_for_inference: bool = False
+    # rfdetr>=1.12: use model.inference() → predictor.predict() (faster; silences the
+    # "not optimized for inference" warning). Set False to call model.predict() directly.
+    optimize_for_inference: bool = True
+    # None → compile on CUDA, eager elsewhere. Ignored when optimize_for_inference is False.
+    inference_compile: Optional[bool] = None
+    inference_batch_size: int = 1
 
     @property
     def runtime_cls(self) -> Type["RFDETRRuntime"]:
@@ -103,6 +108,7 @@ class RFDETRRuntime(DetectionRuntime):
             self._preprocess_input = model_spec.preprocess_input
 
         self.model: Any = self._load_model(model_spec)
+        self._predictor: Any = self._build_predictor(self.model, model_spec)
         if self.class_names is None:
             self.class_names = self._class_names_from_model()
         self._class_id_to_name: Dict[int, str] = self._resolve_class_id_to_name()
@@ -173,13 +179,43 @@ class RFDETRRuntime(DetectionRuntime):
             ctor_kwargs["num_classes"] = int(len(self.class_names))
         if self._input_size[0] == self._input_size[1]:
             ctor_kwargs["resolution"] = int(self._input_size[0])
-        model = variant_to_ctor[self._variant](**ctor_kwargs)
-        if model_spec.optimize_for_inference:
-            try:
-                model.optimize_for_inference(compile=True, batch_size=1)
-            except Exception:
-                pass
-        return model
+        return variant_to_ctor[self._variant](**ctor_kwargs)
+
+    @staticmethod
+    def _should_compile(model_spec: RFDETR_ModelSpec) -> bool:
+        if model_spec.inference_compile is not None:
+            return bool(model_spec.inference_compile)
+        device = (model_spec.device or "").lower().strip()
+        if device.startswith("cpu"):
+            return False
+        if device.startswith("cuda") or device.startswith("mps"):
+            return True
+        try:
+            import torch
+
+            return bool(torch.cuda.is_available())
+        except Exception:
+            return False
+
+    def _build_predictor(self, model: Any, model_spec: RFDETR_ModelSpec) -> Any:
+        """rfdetr 1.12+: ``model.inference()`` returns an optimized predictor snapshot."""
+        if not model_spec.optimize_for_inference:
+            return None
+        inference = getattr(model, "inference", None)
+        if not callable(inference):
+            return None
+        batch_size = max(1, int(model_spec.inference_batch_size or 1))
+        try:
+            return inference(
+                compile=self._should_compile(model_spec),
+                batch_size=batch_size,
+            )
+        except Exception:
+            # Keep serving on model.predict() if compile/export fails on this host.
+            return None
+
+    def _predict_runner(self) -> Any:
+        return self._predictor if self._predictor is not None else self.model
 
     @staticmethod
     def _resolve_weights_uri(model_path: Union[str, Path]) -> str:
@@ -254,7 +290,7 @@ class RFDETRRuntime(DetectionRuntime):
         List[int],
         List[List[List[Tuple[int, int]]]],
     ]:
-        detections = self.model.predict(image, threshold=float(score_threshold))
+        detections = self._predict_runner().predict(image, threshold=float(score_threshold))
         boxes = getattr(detections, "xyxy", None)
         scores = getattr(detections, "confidence", None)
         class_ids = getattr(detections, "class_id", None)
