@@ -74,7 +74,7 @@ def _runtime_without_load(task: str, with_mask: bool = False) -> RFDETRRuntime:
         variant="medium",
     )
     runtime.class_names = np.array(["damage"])
-    runtime._class_id_to_name = None
+    runtime._class_id_to_name = {0: "damage"}
     runtime._task = task
     runtime._variant = "medium"
     runtime._input_size = (32, 32)
@@ -97,6 +97,7 @@ def test_rfdetr_runtime_predict_detect_without_weights():
 def test_rfdetr_label_for_class_id_prefers_zero_based():
     runtime = _runtime_without_load("detect", with_mask=False)
     runtime.class_names = np.array(["a", "b", "c"])
+    runtime._class_id_to_name = {0: "a", 1: "b", 2: "c"}
     # Fine-tuned RF-DETR emits 0-based indices into class_names.
     assert runtime._label_for_class_id(0) == "a"
     assert runtime._label_for_class_id(1) == "b"
@@ -109,6 +110,7 @@ def test_rfdetr_label_for_class_id_prefers_zero_based():
 def test_rfdetr_runtime_predict_maps_zero_based_class_ids():
     runtime = _runtime_without_load("detect", with_mask=False)
     runtime.class_names = np.array(["cat", "dog"])
+    runtime._class_id_to_name = {0: "cat", 1: "dog"}
 
     # Force class_id=1 (0-based "dog").
     det = _FakeDetections(n=1)

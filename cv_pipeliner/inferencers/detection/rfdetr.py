@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
-from typing import Callable, List, Literal, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Type, Union
 
 import fsspec
 import numpy as np
@@ -89,7 +89,7 @@ class RFDETRRuntime(DetectionRuntime):
         if not isinstance(model_spec, RFDETR_ModelSpec):
             raise ValueError(f"RFDETRRuntime got unknown DetectionModelSpec: {type(model_spec)}")
 
-        self.class_names = _load_names_list(model_spec.class_names)
+        self.class_names: Optional[np.ndarray] = _load_names_list(model_spec.class_names)
         self._task: TaskName = model_spec.task
         self._variant = _normalize_variant(model_spec.variant)
         self._input_size = self._resolve_input_size(model_spec.input_size)
@@ -102,10 +102,10 @@ class RFDETRRuntime(DetectionRuntime):
         else:
             self._preprocess_input = model_spec.preprocess_input
 
-        self.model = self._load_model(model_spec)
+        self.model: Any = self._load_model(model_spec)
         if self.class_names is None:
             self.class_names = self._class_names_from_model()
-        self._class_id_to_name = self._resolve_class_id_to_name()
+        self._class_id_to_name: Dict[int, str] = self._resolve_class_id_to_name()
 
     @staticmethod
     def _resolve_input_size(input_size: Optional[Union[int, Tuple[int, int]]]) -> Tuple[int, int]:
@@ -223,43 +223,38 @@ class RFDETRRuntime(DetectionRuntime):
         raise FileNotFoundError(f"RF-DETR model_path not found: {model_path!r}")
 
     def _class_names_from_model(self) -> Optional[np.ndarray]:
-        names = getattr(self.model, "class_names", None)
+        names = self.model.class_names
         if names is None:
             return None
         if isinstance(names, dict):
             return np.array([names[idx] for idx in sorted(names)])
         return np.array(list(names))
 
-    def _resolve_class_id_to_name(self) -> Optional[dict]:
-        """Use rfdetr's live prediction layout when available (0-based for fine-tunes)."""
-        model = getattr(self, "model", None)
-        if model is None:
-            return None
+    def _resolve_class_id_to_name(self) -> Dict[int, str]:
+        """Build class_id → name map (0-based for fine-tunes; rfdetr layout when available)."""
+        if self.class_names is None:
+            return {}
         try:
             from rfdetr.utilities.class_names import prediction_labels
 
-            return dict(prediction_labels(model).class_id_to_name)
+            return {int(cid): str(name) for cid, name in prediction_labels(self.model).class_id_to_name.items()}
         except Exception:
-            return None
+            return {int(i): str(name) for i, name in enumerate(self.class_names)}
 
     def _label_for_class_id(self, cid: int) -> str:
         """Map RF-DETR class_id to a label.
 
         Fine-tuned RF-DETR emits **0-based** indices into ``class_names`` (see rfdetr
-        ``predict`` docs / ``class_id_to_name``). Prefer that. Fall back to 1-based only
-        when ``cid == n`` (valid as last 1-based id, invalid as 0-based).
+        ``predict`` docs / ``class_id_to_name``). Fall back to 1-based only when
+        ``cid == n`` (valid as last 1-based id, invalid as 0-based).
         """
-        assert self.class_names is not None
         i = int(cid)
-        mapping = getattr(self, "_class_id_to_name", None)
-        if mapping and i in mapping:
-            return str(mapping[i])
-        names = self.class_names
-        n = len(names)
-        if 0 <= i < n:
-            return str(names[i])
+        if i in self._class_id_to_name:
+            return self._class_id_to_name[i]
+        assert self.class_names is not None
+        n = len(self.class_names)
         if i == n:
-            return str(names[n - 1])
+            return str(self.class_names[n - 1])
         return str(i)
 
     def _predict_one(self, image: np.ndarray, score_threshold: float) -> Tuple[
