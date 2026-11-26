@@ -93,16 +93,16 @@ class BaseImageData(BaseModel):
     image_path: Optional[Union[str, Path, Pathy, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image]] = None
     image: Optional[np.ndarray] = Field(default=None, repr=False, exclude=True)
     label: Optional[str] = None
-    keypoints: np.ndarray = Field(default_factory=lambda: np.array([]).astype(int).reshape((-1, 2)))
+    keypoints: np.ndarray = Field(default_factory=lambda: np.array([]).astype(float).reshape((-1, 2)))
     keypoints_visibility: Optional[List[KeypointVisibility]] = Field(default=None)
     keypoints_scores: Optional[List[float]] = Field(default=None)
     keypoints_labels: Optional[List[str]] = Field(default=None)
     mask: Union[
         Union[str, Path, Pathy, fsspec.core.OpenFile, bytes, io.BytesIO, PIL.Image.Image],  # path to mask image
         np.ndarray,  # mask image
-        List[List[int]],  # [[x1, y1, x2, y2, ...], [x1, y1, x2, y2, ...], ...]
-        List[List[Tuple[int, int]]],  # [[(x1, y1), (x2, y2), ...], [(x1, y1), (x2, y2), ...], ...]
-        List[np.ndarray],  # [[x1, y1, x2, y2, ...], [x1, y1, x2, y2, ...], ...]
+        List[List[Union[int, float]]],  # [[x1, y1, x2, y2, ...], ...]
+        List[List[Tuple[Union[int, float], Union[int, float]]]],  # [[(x1, y1), ...], ...]
+        List[np.ndarray],  # polygon arrays (float64; cast to int32 only when rasterizing)
     ] = Field(default_factory=lambda: [], repr=False)
     detection_score: Optional[float] = Field(default=None)
     classification_score: Optional[float] = Field(default=None)
@@ -146,7 +146,8 @@ class BaseImageData(BaseModel):
     def parse_keypoints(cls, keypoints):
         if keypoints is None:
             keypoints = []
-        return np.array(keypoints).astype(int).reshape((-1, 2))
+        # Keep float coordinates so JSON <-> BboxData round-trips do not truncate subpixels.
+        return np.array(keypoints, dtype=float).reshape((-1, 2))
 
     @field_validator("keypoints_visibility", mode="before")
     @classmethod
@@ -190,6 +191,17 @@ class BaseImageData(BaseModel):
             ]
         self.keypoints = self.keypoints[mask]
 
+    @staticmethod
+    def _polygons_for_cv2(polygons: List[np.ndarray]) -> List[np.ndarray]:
+        """Rasterize with int32 contours (OpenCV); empty polygons are skipped for drawing only."""
+        out: List[np.ndarray] = []
+        for points in polygons:
+            arr = np.asarray(points, dtype=float).reshape((-1, 2))
+            if len(arr) == 0:
+                continue
+            out.append(np.round(arr).astype(np.int32))
+        return out
+
     @field_validator("mask", mode="before")
     @classmethod
     def parse_mask(cls, mask):
@@ -203,9 +215,10 @@ class BaseImageData(BaseModel):
                 mask = cv2.copyMakeBorder(mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=0)
                 polygons = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE, offset=(-1, -1))
                 polygons = polygons[0] if len(polygons) == 2 else polygons[1]
-                polygons = [np.array(polygon, dtype=np.int32) for polygon in polygons]
-                return polygons
-        return [np.array(points, dtype=np.int32).reshape((-1, 2)) for points in mask if len(points) > 0]
+                # Store as float64 so later JSON export matches non-raster sources.
+                return [np.asarray(polygon, dtype=float).reshape((-1, 2)) for polygon in polygons]
+        # Preserve empty polygons (len==0) for lossless list round-trips; skip only when drawing.
+        return [np.asarray(points, dtype=float).reshape((-1, 2)) for points in mask]
 
     @field_validator("image", mode="before")
     @classmethod
@@ -362,7 +375,7 @@ class BaseImageData(BaseModel):
         else:
             width, height = self.get_image_size(exif_transpose=exif_transpose)
             mask = np.zeros((height, width), dtype=np.uint8)
-            mask = cv2.fillPoly(mask, self.mask, 255)
+            mask = cv2.fillPoly(mask, self._polygons_for_cv2(self.mask), 255)
             return mask
 
 
@@ -583,7 +596,7 @@ class BboxData(BaseImageData):
                 polygon[:, 0] = np.clip(polygon[:, 0] - xmin, 0, width - 1)
                 polygon[:, 1] = np.clip(polygon[:, 1] - ymin, 0, height - 1)
             mask = np.zeros((height, width), dtype=np.uint8)
-            mask = cv2.fillPoly(mask, polygons, 255)
+            mask = cv2.fillPoly(mask, self._polygons_for_cv2(polygons), 255)
             return mask
 
 

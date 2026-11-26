@@ -1,13 +1,10 @@
 import numpy as np
 
-from cv_pipeliner.inferencers.base import Runtime
 from cv_pipeliner.inferencers.classification.core import ClassificationRuntime, ClassificationModelSpec
 from cv_pipeliner.inferencers.results import ClassificationResult, DetectionResult, EmbeddingResult, KeypointsResult
 
 
 class FakeClassificationModelSpec(ClassificationModelSpec):
-    id: str = None
-
     @property
     def runtime_cls(self):
         return FakeClassificationRuntime
@@ -29,17 +26,13 @@ class FakeClassificationRuntime(ClassificationRuntime):
         return ["label"]
 
 
-def test_model_spec_cache_by_id():
-    spec = FakeClassificationModelSpec(id="cached-test-model")
+def test_model_spec_load_runtime_is_stateless():
+    """load_runtime always constructs a new runtime; caching is the caller's job."""
+    spec = FakeClassificationModelSpec()
     first_runtime = spec.load_runtime()
     second_runtime = spec.load_runtime()
-
-    try:
-        assert first_runtime is second_runtime
-    finally:
-        Runtime._loaded_runtimes = [
-            runtime for runtime in Runtime._loaded_runtimes if runtime.spec.id != "cached-test-model"
-        ]
+    assert first_runtime is not second_runtime
+    assert "id" not in type(spec).model_fields
 
 
 def test_classification_result_tuple_roundtrip():

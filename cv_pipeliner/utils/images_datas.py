@@ -257,41 +257,40 @@ def resize_image_data(
         bbox_data.ymin = max(0, min(int(bbox_data.ymin * (new_height / old_height)), new_height - 1))
         bbox_data.xmax = max(0, min(int(bbox_data.xmax * (new_width / old_width)), new_width - 1))
         bbox_data.ymax = max(0, min(int(bbox_data.ymax * (new_height / old_height)), new_height - 1))
-        bbox_data.keypoints[:, 0] = (bbox_data.keypoints[:, 0] * (new_width / old_width)).astype(int)
-        bbox_data.keypoints[:, 1] = (bbox_data.keypoints[:, 1] * (new_height / old_height)).astype(int)
+        bbox_data.keypoints[:, 0] = bbox_data.keypoints[:, 0] * (new_width / old_width)
+        bbox_data.keypoints[:, 1] = bbox_data.keypoints[:, 1] * (new_height / old_height)
         if isinstance(bbox_data.mask, list):
             for polygon in bbox_data.mask:
-                polygon[:, 0] = (polygon[:, 0] * (new_width / old_width)).astype(int)
-                polygon[:, 1] = (polygon[:, 1] * (new_height / old_height)).astype(int)
+                polygon[:, 0] = polygon[:, 0] * (new_width / old_width)
+                polygon[:, 1] = polygon[:, 1] * (new_height / old_height)
                 polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
                 polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
-        bbox_data.keypoints = bbox_data.keypoints.astype(int)
         bbox_data.cropped_image = None
         keypoints = []
         for x, y in bbox_data.keypoints:
-            x = max(0, min(x, new_width - 1))
-            y = max(0, min(y, new_height - 1))
+            x = max(0.0, min(float(x), new_width - 1))
+            y = max(0.0, min(float(y), new_height - 1))
             keypoints.append([x, y])
-        bbox_data.keypoints = np.array(keypoints).reshape(-1, 2)
+        bbox_data.keypoints = np.asarray(keypoints, dtype=float).reshape(-1, 2)
         for additional_bbox_data in bbox_data.additional_bboxes_data:
             resize_coords(additional_bbox_data)
 
     for bbox_data in image_data.bboxes_data:
         resize_coords(bbox_data)
-    image_data.keypoints[:, 0] = (image_data.keypoints[:, 0] * (new_width / old_width)).astype(int)
-    image_data.keypoints[:, 1] = (image_data.keypoints[:, 1] * (new_height / old_height)).astype(int)
+    image_data.keypoints[:, 0] = image_data.keypoints[:, 0] * (new_width / old_width)
+    image_data.keypoints[:, 1] = image_data.keypoints[:, 1] * (new_height / old_height)
     keypoints = []
     for x, y in image_data.keypoints:
-        x = max(0, min(x, new_width - 1))
-        y = max(0, min(y, new_height - 1))
+        x = max(0.0, min(float(x), new_width - 1))
+        y = max(0.0, min(float(y), new_height - 1))
         keypoints.append([x, y])
     if isinstance(image_data.mask, list):
         for polygon in image_data.mask:
-            polygon[:, 0] = (polygon[:, 0] * (new_width / old_width)).astype(int)
-            polygon[:, 1] = (polygon[:, 1] * (new_height / old_height)).astype(int)
+            polygon[:, 0] = polygon[:, 0] * (new_width / old_width)
+            polygon[:, 1] = polygon[:, 1] * (new_height / old_height)
             polygon[:, 0] = np.clip(polygon[:, 0], 0, new_width - 1)
             polygon[:, 1] = np.clip(polygon[:, 1], 0, new_height - 1)
-    image_data.keypoints = np.array(keypoints).reshape(-1, 2)
+    image_data.keypoints = np.asarray(keypoints, dtype=float).reshape(-1, 2)
     image_data.image_path = None
     image_data.meta_width = new_width
     image_data.meta_height = new_height

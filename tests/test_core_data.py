@@ -238,6 +238,27 @@ def test_meta_reassignment_without_image_propagates_to_many_bboxes():
     assert all((bbox_data.meta_width, bbox_data.meta_height) == (100, 200) for bbox_data in all_bboxes)
 
 
+def test_keypoints_and_mask_keep_float_coords_and_empty_polygons():
+    bbox_data = BboxData(
+        image=np.zeros((10, 20, 3), dtype=np.uint8),
+        xmin=0.5,
+        ymin=1.5,
+        xmax=8.25,
+        ymax=9.75,
+        keypoints=[[1.5, 2.5], [3.25, 4.75]],
+        mask=[[], [[1.5, 2.5], [3.5, 4.5], [5.25, 6.75]]],
+    )
+    assert bbox_data.keypoints.dtype == float
+    np.testing.assert_allclose(bbox_data.keypoints, [[1.5, 2.5], [3.25, 4.75]])
+    assert len(bbox_data.mask) == 2
+    assert bbox_data.mask[0].shape == (0, 2)
+    np.testing.assert_allclose(bbox_data.mask[1], [[1.5, 2.5], [3.5, 4.5], [5.25, 6.75]])
+    # Rasterization still works (empty polygon skipped for drawing).
+    opened = bbox_data.open_mask()
+    assert opened.shape == (10, 20)
+    assert opened.dtype == np.uint8
+
+
 def test_keypoints_visibility_and_scores_roundtrip_and_filter():
     from cv_pipeliner.core.data import KeypointVisibility
 
