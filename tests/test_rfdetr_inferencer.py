@@ -74,6 +74,7 @@ def _runtime_without_load(task: str, with_mask: bool = False) -> RFDETRRuntime:
         variant="medium",
     )
     runtime.class_names = np.array(["damage"])
+    runtime._class_id_to_name = None
     runtime._task = task
     runtime._variant = "medium"
     runtime._input_size = (32, 32)
@@ -93,34 +94,40 @@ def test_rfdetr_runtime_predict_detect_without_weights():
     assert result.masks[0] == [[[]]]
 
 
-def test_rfdetr_label_for_class_id_accepts_zero_and_one_based():
+def test_rfdetr_label_for_class_id_prefers_zero_based():
     runtime = _runtime_without_load("detect", with_mask=False)
     runtime.class_names = np.array(["a", "b", "c"])
-    # Prefer 1-based COCO ids; 0 is the 0-based fallback for contiguous heads.
+    # Fine-tuned RF-DETR emits 0-based indices into class_names.
     assert runtime._label_for_class_id(0) == "a"
-    assert runtime._label_for_class_id(1) == "a"
-    assert runtime._label_for_class_id(2) == "b"
+    assert runtime._label_for_class_id(1) == "b"
+    assert runtime._label_for_class_id(2) == "c"
+    # cid == n is the only 1-based fallback (last class).
     assert runtime._label_for_class_id(3) == "c"
     assert runtime._label_for_class_id(99) == "99"
 
 
-def test_rfdetr_runtime_predict_maps_one_based_class_ids():
+def test_rfdetr_runtime_predict_maps_zero_based_class_ids():
     runtime = _runtime_without_load("detect", with_mask=False)
     runtime.class_names = np.array(["cat", "dog"])
 
-    class _OneBasedModel:
-        def predict(self, image, threshold: float = 0.0):
-            del image, threshold
-            return _FakeDetections(n=1)
-
-    # Force class_id=2 (1-based "dog" when names has length 2).
+    # Force class_id=1 (0-based "dog").
     det = _FakeDetections(n=1)
-    det.class_id = np.array([2], dtype=int)
+    det.class_id = np.array([1], dtype=int)
     runtime.model = SimpleNamespace(predict=lambda image, threshold=0.0: det)
 
     image = np.zeros((10, 10, 3), dtype=np.uint8)
     result = runtime.predict([image], score_threshold=0.1)
     assert result.labels_top_n[0] == [["dog"]]
+
+
+def test_rfdetr_label_for_class_id_uses_model_mapping_when_present():
+    runtime = _runtime_without_load("detect", with_mask=False)
+    runtime.class_names = np.array(["a", "b", "c"])
+    # Sparse / non-contiguous layout from rfdetr.prediction_labels.
+    runtime._class_id_to_name = {1: "a", 2: "b", 3: "c"}
+    assert runtime._label_for_class_id(1) == "a"
+    assert runtime._label_for_class_id(2) == "b"
+    assert runtime._label_for_class_id(3) == "c"
 
 
 def test_rfdetr_runtime_predict_segment_fills_polygons():

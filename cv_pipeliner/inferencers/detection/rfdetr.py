@@ -105,6 +105,7 @@ class RFDETRRuntime(DetectionRuntime):
         self.model = self._load_model(model_spec)
         if self.class_names is None:
             self.class_names = self._class_names_from_model()
+        self._class_id_to_name = self._resolve_class_id_to_name()
 
     @staticmethod
     def _resolve_input_size(input_size: Optional[Union[int, Tuple[int, int]]]) -> Tuple[int, int]:
@@ -229,20 +230,36 @@ class RFDETRRuntime(DetectionRuntime):
             return np.array([names[idx] for idx in sorted(names)])
         return np.array(list(names))
 
+    def _resolve_class_id_to_name(self) -> Optional[dict]:
+        """Use rfdetr's live prediction layout when available (0-based for fine-tunes)."""
+        model = getattr(self, "model", None)
+        if model is None:
+            return None
+        try:
+            from rfdetr.utilities.class_names import prediction_labels
+
+            return dict(prediction_labels(model).class_id_to_name)
+        except Exception:
+            return None
+
     def _label_for_class_id(self, cid: int) -> str:
         """Map RF-DETR class_id to a label.
 
-        Datapipe GT→COCO uses 1-based category ids, and fine-tuned RF-DETR typically
-        emits those. Prefer 1-based mapping; fall back to 0-based for contiguous heads.
+        Fine-tuned RF-DETR emits **0-based** indices into ``class_names`` (see rfdetr
+        ``predict`` docs / ``class_id_to_name``). Prefer that. Fall back to 1-based only
+        when ``cid == n`` (valid as last 1-based id, invalid as 0-based).
         """
         assert self.class_names is not None
-        names = self.class_names
         i = int(cid)
+        mapping = getattr(self, "_class_id_to_name", None)
+        if mapping and i in mapping:
+            return str(mapping[i])
+        names = self.class_names
         n = len(names)
-        if 1 <= i <= n:
-            return str(names[i - 1])
         if 0 <= i < n:
             return str(names[i])
+        if i == n:
+            return str(names[n - 1])
         return str(i)
 
     def _predict_one(self, image: np.ndarray, score_threshold: float) -> Tuple[
