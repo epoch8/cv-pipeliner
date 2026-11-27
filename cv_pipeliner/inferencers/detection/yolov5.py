@@ -164,27 +164,23 @@ class YOLOv5Runtime(DetectionRuntime):
         with fsspec.open(model_spec.model_path, "rb") as src:
             temp_file.write(src.read())
         model_path_tmp = Path(temp_file.name)
-        with self._yolov5_hub_import_context():
-            safe_globals = self._get_safe_globals_for_yolov5_checkpoint_load()
-            if len(safe_globals) > 0 and hasattr(torch.serialization, "safe_globals"):
-                load_context = torch.serialization.safe_globals(safe_globals)
-            else:
-                # Cold torch.hub cache: models.yolo is not importable yet.
-                load_context = self._torch_load_allow_full_checkpoint()
-            with load_context:
-                hub_kwargs = dict(
-                    repo_or_dir="ultralytics/yolov5:v7.0",
-                    model="custom",
-                    path=str(model_path_tmp),
-                    force_reload=model_spec.force_reload,
-                    skip_validation=model_spec.skip_validation,
-                )
-                try:
-                    # Avoid interactive "Do you trust this repository?" prompt (fails under pytest).
-                    self.model = torch.hub.load(**hub_kwargs, trust_repo=True)
-                except TypeError:
-                    # Older torch without trust_repo=
-                    self.model = torch.hub.load(**hub_kwargs)
+        # Always force weights_only=False for this trusted path: PyTorch 2.6+ defaults
+        # to True, and safe_globals alone still miss numpy pickle globals
+        # (e.g. numpy.core.multiarray._reconstruct) used by historical .pt files.
+        with self._yolov5_hub_import_context(), self._torch_load_allow_full_checkpoint():
+            hub_kwargs = dict(
+                repo_or_dir="ultralytics/yolov5:v7.0",
+                model="custom",
+                path=str(model_path_tmp),
+                force_reload=model_spec.force_reload,
+                skip_validation=model_spec.skip_validation,
+            )
+            try:
+                # Avoid interactive "Do you trust this repository?" prompt (fails under pytest).
+                self.model = torch.hub.load(**hub_kwargs, trust_repo=True)
+            except TypeError:
+                # Older torch without trust_repo=
+                self.model = torch.hub.load(**hub_kwargs)
         if model_spec.device is not None:
             self.model = self.model.to(model_spec.device)
         temp_file.close()
