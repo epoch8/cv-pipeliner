@@ -42,19 +42,7 @@ class DataConverter(abc.ABC):
 
             new_bboxes_data.append(bbox_data)
 
-        image_data = ImageData(
-            image_path=image_data.image_path,
-            image=image_data.image,
-            bboxes_data=new_bboxes_data,
-            additional_info=image_data.additional_info,
-            keypoints=image_data.keypoints,
-            keypoints_visibility=image_data.keypoints_visibility,
-            keypoints_scores=image_data.keypoints_scores,
-            keypoints_labels=image_data.keypoints_labels,
-            label=image_data.label,
-        )
-
-        return image_data
+        return image_data.model_copy(update={"bboxes_data": new_bboxes_data})
 
     def assert_image_data(fn):
         def wrapped(data_converter: "DataConverter", *args, **kwargs) -> ImageData:
